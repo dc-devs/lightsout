@@ -7967,8 +7967,8 @@ var brainstormAttachmentFileNames = [brainstormNotesFileName, "brainstorm-decisi
 var brainstormAttachmentManifestName = "brainstorm-attachments.json";
 
 // src/brainstorm/publish/publishBrainstorm.ts
-import { readFile as readFile33 } from "node:fs/promises";
-import { join as join75 } from "node:path";
+import { readFile as readFile25 } from "node:fs/promises";
+import { join as join45 } from "node:path";
 
 // src/common/attachmentManifest/attachmentTitle.ts
 var attachmentTitle = ({ prefix, name }) => prefix === void 0 ? name : `${prefix}--${name}`;
@@ -7990,33 +7990,6 @@ var serializeAttachmentManifest = ({ files }) => Buffer.from(
 `,
   "utf8"
 );
-
-// src/common/utils/messageOf.ts
-var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
-
-// src/plan/common/constants/PlanRunStatus.ts
-var PlanRunStatus = {
-  Complete: "complete",
-  Failed: "failed",
-  /** Hit the harness rate-limit wall — resumable, not an error. */
-  PausedRateLimit: "paused-rate-limit",
-  /** Draft only: the plan's claims did not survive verification. */
-  FactsError: "facts-error",
-  /** Draft only: the plan is structurally unsound and needs repair. */
-  StructuralIssues: "structural-issues"
-};
-
-// src/plan/common/constants/planAttachmentManifestName.ts
-var planAttachmentManifestName = "plan-attachments.json";
-
-// src/plan/common/memory/gradeMemoryPath.ts
-import { join as join5 } from "node:path";
-
-// src/plan/common/constants/gradeMemoryFileName.ts
-var gradeMemoryFileName = "grade-memory.json";
-
-// src/plan/planWorkspaceDir.ts
-import { join as join4 } from "node:path";
 
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -8702,8 +8675,8 @@ function getEnumValues(entries) {
   const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
   return values;
 }
-function joinValues(array2, separator = "|") {
-  return array2.map((val) => stringifyPrimitive(val)).join(separator);
+function joinValues(array2, separator2 = "|") {
+  return array2.map((val) => stringifyPrimitive(val)).join(separator2);
 }
 function jsonStringifyReplacer(_, value) {
   if (typeof value === "bigint")
@@ -22906,8 +22879,8 @@ var ConfigImplement = external_exports.object({
   }).strict().optional()
 }).strict();
 
-// src/contracts/ticket/TicketMode.ts
-var TicketMode = {
+// src/contracts/workOrder/WorkOrderMode.ts
+var WorkOrderMode = {
   SinglePlan: "single-plan",
   MultiplePlan: "multiple-plan"
 };
@@ -22916,8 +22889,8 @@ var TicketMode = {
 var ConfigPlan = external_exports.object({
   /** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
   contract: external_exports.boolean().optional(),
-  /** The mode a ticket's own record is created with: `single-plan`, where plan 001 alone supplies the implementation, or `multiple-plan`, where the ticket's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a ticket that already has one. */
-  "default-ticket-mode": external_exports.enum(TicketMode).optional(),
+  /** The mode a work order's own record is created with: `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a work order that already has one. */
+  "default-work-order-mode": external_exports.enum(WorkOrderMode).optional(),
   /** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
   worktree: external_exports.boolean().optional(),
   /** The counts above which a plan file is heavy. Each key optional; see `defaultWeightThresholds`. */
@@ -24482,12 +24455,12 @@ var QueueBoardTicket = external_exports.object({
   /** The queue worker value that builds the ticket. */
   worker: external_exports.string().optional(),
   /**
-   * Set only for an auto-plan ticket: the folder under the plans directory the
-   * worker's session writes in, which is named for the ticket's branch.
+   * Set only for an auto-plan ticket: the work order's label, which is the
+   * folder under the work-orders directory the worker's session writes in.
    *
-   * For a ticket with a record of its own that is the ticket folder, and the plan
-   * the session is writing is the one inside it still being planned; for a ticket
-   * with no record it is the plan folder itself, as it always was.
+   * The label rather than the branch, because a plan address is built from the
+   * label and a branch carrying a prefix would not parse as one. The plan the
+   * session is writing is the one inside that folder still being planned.
    */
   planName: external_exports.string().optional(),
   branch: external_exports.string().optional(),
@@ -24938,7 +24911,7 @@ var ShipBlockReason = {
    * Checked twice — once before anything is pushed, and again immediately before
    * the merge — so a plan added while the checks were running still stops it.
    */
-  TicketNotAuthorized: "ticket-not-authorized"
+  WorkOrderNotAuthorized: "ticket-not-authorized"
 };
 
 // src/contracts/ship/ShippingStepId.ts
@@ -25013,129 +24986,6 @@ var ShipResult = external_exports.object({
   /** Named checks that finished red or never finished — filled for 'checks-failed' and 'checks-timed-out'. */
   failingChecks: external_exports.array(external_exports.string()).default([])
 });
-
-// src/contracts/ticket/PlanId.ts
-var planIdShape = /^(?!000-)\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var maxSlugLength = 40;
-var PlanId = external_exports.string().regex(
-  planIdShape,
-  "a plan id is three digits from 001 to 999, a hyphen, and lowercase letter-and-digit words joined by single hyphens \u2014 for example '001-search-basics'"
-).refine((id) => {
-  const slugStart = 4;
-  return id.length - slugStart <= maxSlugLength;
-}, `a plan id's slug is at most ${maxSlugLength} characters`);
-
-// src/contracts/ticket/PlanProgress.ts
-var PlanProgress = {
-  Planning: "planning",
-  Ready: "ready",
-  Implementing: "implementing",
-  Implemented: "implemented",
-  Failed: "failed"
-};
-
-// src/contracts/ticket/TicketEventKind.ts
-var TicketEventKind = {
-  PlanAdded: "plan-added",
-  PlanAdopted: "plan-adopted",
-  PlanRetitled: "plan-retitled",
-  PlanExcluded: "plan-excluded",
-  ModeChanged: "mode-changed",
-  ShipRequested: "ship-requested",
-  ShipRequestWithdrawn: "ship-request-withdrawn",
-  Shipped: "shipped"
-};
-
-// src/contracts/ticket/TicketPlan.ts
-var sha256Digest = external_exports.string().regex(/^[0-9a-f]{64}$/, "a hash is written as 64 lowercase hex characters");
-var TicketPlan = external_exports.object({
-  id: PlanId,
-  /** The plan's mutable display title. Changing it never changes the plan's identity, its folder or a pending ship request. */
-  title: external_exports.string().min(1),
-  progress: external_exports.enum(PlanProgress),
-  /** ISO timestamp of the moment the plan was added. */
-  createdAt: external_exports.string(),
-  /** The implementation run recorded against this plan — the latest one, replaced when the plan is implemented again after a repair. */
-  implementation: external_exports.object({
-    runId: external_exports.string(),
-    startedAt: external_exports.string(),
-    /** The ticket branch's HEAD when the run started. */
-    startCommit: external_exports.string(),
-    finishedAt: external_exports.string().optional(),
-    /** The plan's durable files as the passed run left them, so a later change to them is detectable. */
-    snapshot: external_exports.array(external_exports.object({ name: external_exports.string(), sha256: sha256Digest }).strict()).optional()
-  }).strict().optional(),
-  /** The SHA-256 of the plan's attachment marker as this plan was last published, which is what makes a divergent published copy detectable. */
-  publishedMarker: sha256Digest.optional(),
-  /** The recorded decision that takes this plan out of the ticket's implementation order and its shipping requirements. Final, and never a progress value. */
-  exclusion: external_exports.object({
-    at: external_exports.string(),
-    reason: external_exports.string().min(1),
-    /** Whether the human declared this plan's implementation removed from the branch. */
-    implementationRemoved: external_exports.boolean(),
-    /** The commit the repository's own gates passed on when the removal was verified. */
-    verifiedCommit: external_exports.string().optional()
-  }).strict().optional()
-}).strict();
-
-// src/common/planAddress/planNumberOf.ts
-var planNumberOf = ({ id }) => Number.parseInt(id.slice(0, 3), 10);
-
-// src/contracts/ticket/TicketRecord.ts
-var TicketRecordShape = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  /** The ticket this record belongs to, as the tracker names it — `LO-140`. */
-  ticketRef: external_exports.string().min(1),
-  /** The one branch every plan of this ticket implements on, which is also the ticket folder's name. */
-  branch: external_exports.string().min(1),
-  mode: external_exports.enum(TicketMode),
-  /** Every plan the ticket has ever held, excluded ones included, in ascending number order. */
-  plans: external_exports.array(TicketPlan),
-  /** The human's explicit request to ship, bound to the exact plans it was approved for. */
-  shipRequest: external_exports.object({ planIds: external_exports.array(PlanId).min(1), requestedAt: external_exports.string() }).strict().optional(),
-  /** What actually shipped. A record carrying it is history: nothing changes it again. */
-  shipped: external_exports.object({ at: external_exports.string(), planIds: external_exports.array(PlanId), mergeCommit: external_exports.string() }).strict().optional(),
-  history: external_exports.array(external_exports.object({ at: external_exports.string(), kind: external_exports.enum(TicketEventKind), detail: external_exports.string() }).strict())
-}).strict();
-var checkPlanOrder = ({ record: record3, ctx }) => {
-  const numbers = record3.plans.map((plan) => planNumberOf({ id: plan.id }));
-  for (const [index, number4] of numbers.entries()) {
-    const previous = numbers[index - 1];
-    if (previous !== void 0 && !(previous < number4)) {
-      ctx.addIssue({
-        code: "custom",
-        message: `plan ${record3.plans[index]?.id} does not come after plan ${record3.plans[index - 1]?.id} \u2014 a ticket's plans are held in ascending number order and no number is ever reused`
-      });
-    }
-  }
-};
-var checkShipRequest = ({ record: record3, ctx }) => {
-  const held = new Set(record3.plans.map((plan) => plan.id));
-  const named = /* @__PURE__ */ new Set();
-  for (const planId of record3.shipRequest?.planIds ?? []) {
-    if (!held.has(planId)) {
-      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId}, which this ticket does not hold` });
-    }
-    if (named.has(planId)) {
-      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId} more than once` });
-    }
-    named.add(planId);
-  }
-};
-var TicketRecord = TicketRecordShape.superRefine((record3, ctx) => {
-  checkPlanOrder({ record: record3, ctx });
-  checkShipRequest({ record: record3, ctx });
-});
-
-// src/contracts/ticket/TicketSyncState.ts
-var sha256Digest2 = external_exports.string().regex(/^[a-f0-9]{64}$/, "a hash is written as 64 lowercase hex characters");
-var TicketSyncState = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  /** SHA-256 of the `serializeTicketRecord` bytes last published or restored. Absent before the first sync. */
-  recordSha256: sha256Digest2.optional(),
-  /** Per plan id, the SHA-256 of the plan's commit marker as this machine last published or restored it. */
-  planMarkers: external_exports.record(PlanId, sha256Digest2)
-}).strict();
 
 // src/contracts/views/AgentInvocation.ts
 var AgentInvocation = AgentUsage.extend({
@@ -25590,10 +25440,141 @@ var SupervisorVerdict = external_exports.object({
   guidance: external_exports.string().optional()
 });
 
+// src/contracts/work/WorkOrderName.ts
+var WorkOrderName = external_exports.object({
+  /** Three or four lowercase letter-and-digit words joined by single hyphens. */
+  words: external_exports.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+){2,3}$/u, "a work order name is three or four lowercase words joined by single hyphens")
+});
+
 // src/contracts/work/WritersReport.ts
 var WritersReport = external_exports.object({
   reports: external_exports.array(WorkReport)
 });
+
+// src/contracts/workOrder/PlanId.ts
+var planIdShape = /^(?!000-)\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var maxSlugLength = 40;
+var PlanId = external_exports.string().regex(
+  planIdShape,
+  "a plan id is three digits from 001 to 999, a hyphen, and lowercase letter-and-digit words joined by single hyphens \u2014 for example '001-search-basics'"
+).refine((id) => {
+  const slugStart = 4;
+  return id.length - slugStart <= maxSlugLength;
+}, `a plan id's slug is at most ${maxSlugLength} characters`);
+
+// src/contracts/workOrder/PlanProgress.ts
+var PlanProgress = {
+  Planning: "planning",
+  Ready: "ready",
+  Implementing: "implementing",
+  Implemented: "implemented",
+  Failed: "failed"
+};
+
+// src/contracts/workOrder/WorkOrderEventKind.ts
+var WorkOrderEventKind = {
+  PlanAdded: "plan-added",
+  PlanAdopted: "plan-adopted",
+  PlanRetitled: "plan-retitled",
+  PlanExcluded: "plan-excluded",
+  ModeChanged: "mode-changed",
+  ShipRequested: "ship-requested",
+  ShipRequestWithdrawn: "ship-request-withdrawn",
+  Shipped: "shipped"
+};
+
+// src/contracts/workOrder/WorkOrderPlan.ts
+var sha256Digest = external_exports.string().regex(/^[0-9a-f]{64}$/, "a hash is written as 64 lowercase hex characters");
+var WorkOrderPlan = external_exports.object({
+  id: PlanId,
+  /** The plan's mutable display title. Changing it never changes the plan's identity, its folder or a pending ship request. */
+  title: external_exports.string().min(1),
+  progress: external_exports.enum(PlanProgress),
+  /** ISO timestamp of the moment the plan was added. */
+  createdAt: external_exports.string(),
+  /** The implementation run recorded against this plan — the latest one, replaced when the plan is implemented again after a repair. */
+  implementation: external_exports.object({
+    runId: external_exports.string(),
+    startedAt: external_exports.string(),
+    /** The work order's branch's HEAD when the run started. */
+    startCommit: external_exports.string(),
+    finishedAt: external_exports.string().optional(),
+    /** The plan's durable files as the passed run left them, so a later change to them is detectable. */
+    snapshot: external_exports.array(external_exports.object({ name: external_exports.string(), sha256: sha256Digest }).strict()).optional()
+  }).strict().optional(),
+  /** The SHA-256 of the plan's attachment marker as this plan was last published, which is what makes a divergent published copy detectable. */
+  publishedMarker: sha256Digest.optional(),
+  /** The recorded decision that takes this plan out of the ticket's implementation order and its shipping requirements. Final, and never a progress value. */
+  exclusion: external_exports.object({
+    at: external_exports.string(),
+    reason: external_exports.string().min(1),
+    /** Whether the human declared this plan's implementation removed from the branch. */
+    implementationRemoved: external_exports.boolean(),
+    /** The commit the repository's own gates passed on when the removal was verified. */
+    verifiedCommit: external_exports.string().optional()
+  }).strict().optional()
+}).strict();
+
+// src/common/planAddress/planNumberOf.ts
+var planNumberOf = ({ id }) => Number.parseInt(id.slice(0, 3), 10);
+
+// src/contracts/workOrder/WorkOrderState.ts
+var WorkOrderStateShape = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  /** The folder's label under the work-orders directory. Written once at creation and never again. */
+  name: external_exports.string().min(1),
+  /** The git branch this work order's plans implement on. Never derived from `name`, and never used as a folder path. */
+  branch: external_exports.string().min(1),
+  /** The ticket this work belongs to, as the tracker names it. Absent for a work order named from words alone. */
+  ticketRef: external_exports.string().min(1).optional(),
+  mode: external_exports.enum(WorkOrderMode),
+  /** Every plan the work order has ever held, excluded ones included, in ascending number order. */
+  plans: external_exports.array(WorkOrderPlan),
+  /** The human's explicit request to ship, bound to the exact plans it was approved for. */
+  shipRequest: external_exports.object({ planIds: external_exports.array(PlanId).min(1), requestedAt: external_exports.string() }).strict().optional(),
+  /** What actually shipped. A state file carrying it is history: nothing changes it again. */
+  shipped: external_exports.object({ at: external_exports.string(), planIds: external_exports.array(PlanId), mergeCommit: external_exports.string() }).strict().optional(),
+  history: external_exports.array(external_exports.object({ at: external_exports.string(), kind: external_exports.enum(WorkOrderEventKind), detail: external_exports.string() }).strict())
+}).strict();
+var checkPlanOrder = ({ record: record3, ctx }) => {
+  const numbers = record3.plans.map((plan) => planNumberOf({ id: plan.id }));
+  for (const [index, number4] of numbers.entries()) {
+    const previous = numbers[index - 1];
+    if (previous !== void 0 && !(previous < number4)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `plan ${record3.plans[index]?.id} does not come after plan ${record3.plans[index - 1]?.id} \u2014 a ticket's plans are held in ascending number order and no number is ever reused`
+      });
+    }
+  }
+};
+var checkShipRequest = ({ record: record3, ctx }) => {
+  const held = new Set(record3.plans.map((plan) => plan.id));
+  const named = /* @__PURE__ */ new Set();
+  for (const planId of record3.shipRequest?.planIds ?? []) {
+    if (!held.has(planId)) {
+      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId}, which this work order does not hold` });
+    }
+    if (named.has(planId)) {
+      ctx.addIssue({ code: "custom", message: `the ship request names plan ${planId} more than once` });
+    }
+    named.add(planId);
+  }
+};
+var WorkOrderState = WorkOrderStateShape.superRefine((record3, ctx) => {
+  checkPlanOrder({ record: record3, ctx });
+  checkShipRequest({ record: record3, ctx });
+});
+
+// src/contracts/workOrder/WorkOrderSyncState.ts
+var sha256Digest2 = external_exports.string().regex(/^[a-f0-9]{64}$/, "a hash is written as 64 lowercase hex characters");
+var WorkOrderSyncState = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  /** SHA-256 of the `serializeWorkOrderState` bytes last published or restored. Absent before the first sync. */
+  recordSha256: sha256Digest2.optional(),
+  /** Per plan id, the SHA-256 of the plan's commit marker as this machine last published or restored it. */
+  planMarkers: external_exports.record(PlanId, sha256Digest2)
+}).strict();
 
 // src/contracts/worktree/WorktreeOwner.ts
 var WorktreeOwner = {
@@ -25617,15 +25598,45 @@ var WorktreeRecord = external_exports.object({
 
 // src/common/planAddress/parsePlanAddress.ts
 var parsePlanAddress = ({ name }) => {
-  const [ticketBranch, planId, ...beyond] = name.split("/");
-  const addressed = beyond.length === 0 && ticketBranch !== void 0 && planId !== void 0 && ticketBranch !== "" && ticketBranch !== "." && ticketBranch !== ".." && PlanId.safeParse(planId).success;
-  return addressed ? { ticketBranch, planId } : void 0;
+  const [workOrderName, planId, ...beyond] = name.split("/");
+  const addressed = beyond.length === 0 && workOrderName !== void 0 && planId !== void 0 && workOrderName !== "" && workOrderName !== "." && workOrderName !== ".." && PlanId.safeParse(planId).success;
+  return addressed ? { workOrderName, planId } : void 0;
 };
 
-// src/common/workspace/ticketFolderDir.ts
+// src/common/planAddress/workOrderNameOf.ts
+var workOrderNameOf = ({ name }) => parsePlanAddress({ name })?.workOrderName ?? name;
+
+// src/common/utils/messageOf.ts
+var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
+
+// src/plan/common/constants/PlanRunStatus.ts
+var PlanRunStatus = {
+  Complete: "complete",
+  Failed: "failed",
+  /** Hit the harness rate-limit wall — resumable, not an error. */
+  PausedRateLimit: "paused-rate-limit",
+  /** Draft only: the plan's claims did not survive verification. */
+  FactsError: "facts-error",
+  /** Draft only: the plan is structurally unsound and needs repair. */
+  StructuralIssues: "structural-issues"
+};
+
+// src/plan/common/constants/planAttachmentManifestName.ts
+var planAttachmentManifestName = "plan-attachments.json";
+
+// src/plan/common/memory/gradeMemoryPath.ts
+import { join as join5 } from "node:path";
+
+// src/plan/common/constants/gradeMemoryFileName.ts
+var gradeMemoryFileName = "grade-memory.json";
+
+// src/plan/planWorkspaceDir.ts
+import { join as join4 } from "node:path";
+
+// src/common/workspace/workOrderFolderDir.ts
 import { join as join3 } from "node:path";
 
-// src/common/workspace/ticketsDir.ts
+// src/common/workspace/workOrdersDir.ts
 import { join as join2 } from "node:path";
 
 // src/common/workspace/resolveSharedStateDir.ts
@@ -25811,17 +25822,17 @@ var resolveSharedStateDir = async ({ cwd }) => {
   return join(root, ".lightsout");
 };
 
-// src/common/workspace/ticketsDir.ts
-var ticketsDir = async ({ cwd }) => join2(await resolveSharedStateDir({ cwd }), "tickets");
+// src/common/workspace/workOrdersDir.ts
+var workOrdersDir = async ({ cwd }) => join2(await resolveSharedStateDir({ cwd }), "work-orders");
 
-// src/common/workspace/ticketFolderDir.ts
-var ticketFolderDir = async ({ cwd, ticketBranch }) => join3(await ticketsDir({ cwd }), ticketBranch);
+// src/common/workspace/workOrderFolderDir.ts
+var workOrderFolderDir = async ({ cwd, name }) => join3(await workOrdersDir({ cwd }), name);
 
 // src/plan/planWorkspaceDir.ts
 var planWorkspaceDir = async ({ cwd, name }) => {
   const address = parsePlanAddress({ name });
-  const ticketBranch = address?.ticketBranch ?? name;
-  const plansFolder = join4(await ticketFolderDir({ cwd, ticketBranch }), "plans");
+  const workOrderName = address?.workOrderName ?? name;
+  const plansFolder = join4(await workOrderFolderDir({ cwd, name: workOrderName }), "plans");
   return address === void 0 ? plansFolder : join4(plansFolder, address.planId);
 };
 
@@ -25838,11 +25849,11 @@ var pathExists = ({ path }) => stat(path).then(
 // src/plan/common/paths/resolveRecordedPlanPath.ts
 import { join as join6, resolve } from "node:path";
 var resolveRecordedPlanPath = async ({ cwd, path }) => {
-  const [stateDir, ticketsFolder, ...tail] = path.split(/[/\\]/);
-  if (stateDir !== ".lightsout" || ticketsFolder !== "tickets" || tail.length === 0) {
+  const [stateDir, workOrdersFolder, ...tail] = path.split(/[/\\]/);
+  if (stateDir !== ".lightsout" || workOrdersFolder !== "work-orders" || tail.length === 0) {
     return resolve(cwd, path);
   }
-  return join6(await ticketsDir({ cwd }), ...tail);
+  return join6(await workOrdersDir({ cwd }), ...tail);
 };
 
 // src/plan/common/utils/findingLocations.ts
@@ -26021,8 +26032,8 @@ var generatedPlanRegions = {
 // src/plan/common/rewriting/replaceSectionSpan.ts
 var replaceSectionSpan = ({ lines, start, end, sectionLines }) => {
   const tail = lines.slice(end);
-  const separator = tail.length > 0 || lines.at(-1) === "" ? [""] : [];
-  return [...lines.slice(0, start - 1), ...sectionLines, ...separator, ...tail];
+  const separator2 = tail.length > 0 || lines.at(-1) === "" ? [""] : [];
+  return [...lines.slice(0, start - 1), ...sectionLines, ...separator2, ...tail];
 };
 
 // src/plan/common/rewriting/writePlanFileIfChanged.ts
@@ -27958,7 +27969,7 @@ Plan exactly this plan and no other:
 
 That is its address, and \`${planWorkspacePath({ name: planAddress })}\` is the folder in this worktree it names. Pass the address as \`--name\` to every \`plan\` and \`brainstorm\` subcommand, and leave the plan's files in exactly that folder.
 
-The engine has already added this plan to the ticket's record, so never run \`ticket add-plan\` or any other \`ticket\` subcommand.`
+The engine has already added this plan to the ticket's record, so never run \`work-order add-plan\` or any other \`work-order\` subcommand.`
   ];
   if (answeredQuestion) {
     sections.push(
@@ -28347,6 +28358,26 @@ ${errorContext}`
   sections.push("Remember: your entire final message must be exactly one JSON report object \u2014 nothing else.");
   return {
     systemPrompt: roleSections.join("\n\n---\n\n"),
+    prompt: sections.join("\n\n")
+  };
+};
+
+// src/agents/prompts/workOrderName.md
+var workOrderName_default = '# Role: Work Order Namer\n\nYou turn one tracker ticket\'s title into the three or four words that name the\nwork. Those words become a folder label and a git branch, so they are read far\nmore often than the title ever is.\n\n## Inputs\n\nYour task message contains one ticket reference and that ticket\'s title. That\nis the whole of your input: you are given no repository, no plan and no tools,\nand there is nothing to investigate.\n\n## Decide\n\n- Say what the work DOES, in three or four words \u2014 `give-the-name-one`,\n  `rank-the-search-results`.\n- Lowercase letters and digits only, joined by single hyphens. No spaces, no\n  punctuation, no capitals.\n- Do not restate the ticket reference: it is already carried beside your words.\n- Drop filler the title only needs to be a sentence \u2014 articles, "we should",\n  "make it so that".\n- Prefer the title\'s own vocabulary over a synonym of your own, so the label is\n  recognisable to whoever filed the ticket.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"words": "three-or-four-words"\n}\n```\n';
+
+// src/agents/buildWorkOrderNameInvocation.ts
+var buildWorkOrderNameInvocation = ({ ticketRef, title }) => {
+  const sections = [
+    `# Ticket
+
+${ticketRef}`,
+    `# Title
+
+${title}`,
+    "Remember: your entire final message must be exactly one JSON object carrying the words \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: workOrderName_default,
     prompt: sections.join("\n\n")
   };
 };
@@ -31398,23 +31429,23 @@ var gradeHistoryPath = async ({ cwd, name }) => join31(await planWorkspaceDir({ 
 import { relative as relative3, sep } from "node:path";
 
 // src/common/planAddress/formatPlanAddress.ts
-var formatPlanAddress = ({ ticketBranch, planId }) => `${ticketBranch}/${planId}`;
+var formatPlanAddress = ({ workOrderName, planId }) => `${workOrderName}/${planId}`;
 
 // src/plan/planNameFromPath.ts
 var planNameFromPath = async ({ cwd, planPath }) => {
-  const fromTicketsDir = relative3(await ticketsDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
-  const [ticketBranch, folder, planId] = fromTicketsDir.split(sep);
-  if (ticketBranch === void 0 || ticketBranch === "" || ticketBranch === ".." || folder !== "plans") {
+  const fromTicketsDir = relative3(await workOrdersDir({ cwd }), await resolveRecordedPlanPath({ cwd, path: planPath }));
+  const [workOrderName, folder, planId] = fromTicketsDir.split(sep);
+  if (workOrderName === void 0 || workOrderName === "" || workOrderName === ".." || folder !== "plans") {
     return void 0;
   }
-  const address = planId === void 0 ? void 0 : formatPlanAddress({ ticketBranch, planId });
-  return address !== void 0 && parsePlanAddress({ name: address }) !== void 0 ? address : ticketBranch;
+  const address = planId === void 0 ? void 0 : formatPlanAddress({ workOrderName, planId });
+  return address !== void 0 && parsePlanAddress({ name: address }) !== void 0 ? address : workOrderName;
 };
 
 // src/plan/planWorkspacePath.ts
 var planWorkspacePath = ({ name }) => {
   const address = parsePlanAddress({ name });
-  const plansFolder = `.lightsout/tickets/${address?.ticketBranch ?? name}/plans`;
+  const plansFolder = `.lightsout/work-orders/${address?.workOrderName ?? name}/plans`;
   return address === void 0 ? plansFolder : `${plansFolder}/${address.planId}`;
 };
 
@@ -33655,10 +33686,10 @@ var require_printer = /* @__PURE__ */ __commonJSMin((exports) => {
   }
   function join161(maybeArray) {
     var _maybeArray$filter$jo;
-    var separator = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "";
+    var separator2 = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : "";
     return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function(x) {
       return x;
-    }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : "";
+    }).join(separator2)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : "";
   }
   function block(array2) {
     return wrap("{\n", indent(join161(array2, "\n")), "\n}");
@@ -131037,8 +131068,5684 @@ var reportStaleAttachments = async ({ settings, ticketRef, published, onProgress
   return stale;
 };
 
-// src/common/planAddress/ticketFolderOf.ts
-var ticketFolderOf = ({ name }) => parsePlanAddress({ name })?.ticketBranch ?? name;
+// src/common/workspace/readWorkOrderRecordFile.ts
+import { readFile as readFile20 } from "node:fs/promises";
+import { join as join35 } from "node:path";
+
+// src/common/constants/workOrderStateFileName.ts
+var workOrderStateFileName = "state.json";
+
+// src/common/workspace/readWorkOrderRecordFile.ts
+var readWorkOrderRecordFile = async ({ workOrderFolder }) => {
+  const text = await readFile20(join35(workOrderFolder, workOrderStateFileName), "utf8").catch(() => void 0);
+  if (text === void 0) {
+    return void 0;
+  }
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return void 0;
+  }
+  const parsed = WorkOrderState.safeParse(value);
+  return parsed.success ? parsed.data : void 0;
+};
+
+// src/plan/readPlanWorkOrderRef.ts
+var readPlanWorkOrderRef = async ({ cwd, name }) => {
+  const record3 = await readWorkOrderRecordFile({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderNameOf({ name }) }) });
+  return record3?.ticketRef;
+};
+
+// src/plan/publish/publishPlan.ts
+var publishPlan = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
+  const durable = await durablePlanFiles({ cwd, name });
+  if (durable.error !== void 0) {
+    return { published: [], stale: [], error: durable.error };
+  }
+  const ticketRef = await readPlanWorkOrderRef({ cwd, name });
+  if (ticketRef === void 0) {
+    return {
+      published: [],
+      stale: [],
+      error: `plan '${name}' cannot be published: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`
+    };
+  }
+  const prepared = await prepareAttachments({ files: durable.files, titlePrefix });
+  if ("error" in prepared) {
+    return { ticketRef, published: [], stale: [], error: prepared.error };
+  }
+  const settings = resolveTrackerSettings({ config: config2, env });
+  if ("error" in settings) {
+    return { ticketRef, published: [], stale: [], error: settings.error };
+  }
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
+  if ("error" in tickets) {
+    return { ticketRef, published: [], stale: [], error: tickets.error };
+  }
+  const ticket = tickets.at(0);
+  if (ticket === void 0) {
+    return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
+  }
+  const { published, error: error51 } = await attachDurableFiles({
+    settings,
+    ticketId: ticket.id,
+    ticketRef,
+    attachments: prepared.attachments,
+    onProgress,
+    titlePrefix
+  });
+  if (error51 !== void 0) {
+    return { ticketRef, published, stale: [], error: error51 };
+  }
+  const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress, titlePrefix });
+  const marker = prepared.attachments.at(-1);
+  return titlePrefix === void 0 || marker === void 0 ? { ticketRef, published, stale } : { ticketRef, published, stale, markerSha256: sha256({ content: marker.content }) };
+};
+
+// src/common/attachmentManifest/parseAttachmentManifest.ts
+var parseAttachmentManifest = ({ text, markerName, isAllowedName }) => {
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    return { error: `${markerName} is not valid JSON: ${messageOf({ error: error51 })}` };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { error: `${markerName} must contain an object` };
+  }
+  const candidate = value;
+  if (candidate.schemaVersion !== 1) {
+    return { error: `${markerName} has unsupported schemaVersion ${JSON.stringify(candidate.schemaVersion)} \u2014 expected 1` };
+  }
+  if (!Array.isArray(candidate.files) || candidate.files.length === 0) {
+    return { error: `${markerName} must list at least one durable plan file` };
+  }
+  const files = [];
+  for (const entry of candidate.files) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return { error: `${markerName} contains a file entry that is not an object` };
+    }
+    const file2 = entry;
+    if (typeof file2.name !== "string" || !isAllowedName({ name: file2.name })) {
+      return { error: `${markerName} contains a non-durable or unsafe file name: ${JSON.stringify(file2.name)}` };
+    }
+    if (typeof file2.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(file2.sha256)) {
+      return { error: `${markerName} contains an invalid SHA-256 for ${file2.name}` };
+    }
+    if (files.some(({ name }) => name === file2.name)) {
+      return { error: `${markerName} lists ${file2.name} more than once` };
+    }
+    files.push({ name: file2.name, sha256: file2.sha256 });
+  }
+  return { manifest: { schemaVersion: 1, files } };
+};
+
+// src/plan/restore/common/utils/writeRestoredGeneration.ts
+import { mkdir as mkdir3, mkdtemp as mkdtemp3, rename as rename2, rm as rm4, writeFile as writeFile6 } from "node:fs/promises";
+import { dirname as dirname3, join as join36 } from "node:path";
+var writeRestoredGeneration = async ({ dir, files }) => {
+  let temporaryDir;
+  try {
+    const parent = dirname3(dir);
+    await mkdir3(parent, { recursive: true });
+    temporaryDir = await mkdtemp3(join36(parent, ".restore-"));
+    for (const { title, text } of files) {
+      await writeFile6(join36(temporaryDir, title), text, "utf8");
+    }
+    await rename2(temporaryDir, dir);
+    return void 0;
+  } catch (error51) {
+    if (temporaryDir !== void 0) {
+      await rm4(temporaryDir, { recursive: true, force: true }).catch(() => void 0);
+    }
+    return { error: `the restored plan could not be written: ${messageOf({ error: error51 })}` };
+  }
+};
+
+// src/plan/restore/restorePlanWorkspace.ts
+var readAttachment = async ({ settings, attachment }) => {
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
+};
+var selectGeneration = ({
+  manifest,
+  durableAttachments,
+  markerName
+}) => {
+  const files = [];
+  for (const listed of manifest.files) {
+    const matches = durableAttachments.filter(({ title }) => title === listed.name);
+    const attachment = matches.length === 1 ? matches[0] : void 0;
+    if (attachment === void 0) {
+      return {
+        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
+      };
+    }
+    files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
+  }
+  return { files };
+};
+var selectManifestAttachment = ({
+  attachments,
+  planOnlyAttachments,
+  markerName
+}) => {
+  const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
+  const manifest = manifests.length === 1 ? manifests[0] : void 0;
+  if (manifest !== void 0) {
+    return { manifest };
+  }
+  if (manifests.length > 1) {
+    return { error: `the ticket carries more than one ${markerName} attachment, so no single committed plan generation can be selected` };
+  }
+  return planOnlyAttachments.length === 0 ? { manifest: void 0 } : { error: `the ticket carries durable plan attachments but no ${markerName} commit marker \u2014 publish the plan again before implementing it` };
+};
+var readAndVerifyGeneration = async ({ settings, files, markerName }) => {
+  const reads = await Promise.all(
+    files.map(async (file2) => ({
+      file: file2,
+      read: await readAttachment({ settings, attachment: { id: "", title: file2.title, url: file2.url } })
+    }))
+  );
+  const verified = [];
+  for (const { file: file2, read } of reads) {
+    if ("error" in read) {
+      return { error: read.error };
+    }
+    const actual = sha256({ content: read.text });
+    if (actual !== file2.sha256) {
+      return { error: `${file2.title} does not match the SHA-256 committed by ${markerName} \u2014 publish the plan again` };
+    }
+    verified.push({ title: file2.title, text: read.text });
+  }
+  return { files: verified };
+};
+var restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix }) => {
+  const listed = await getTicketAttachments3({ settings, identifier });
+  if ("error" in listed) {
+    return { restored: [], error: listed.error };
+  }
+  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+  const markerName = attachmentTitle({ prefix: titlePrefix, name: planAttachmentManifestName });
+  const isSelectableName = titlePrefix === void 0 ? isDurablePlanAttachmentName : isPlanOnlyAttachmentName;
+  const durableAttachments = attachments.filter(({ title }) => isSelectableName({ name: title }));
+  const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
+  const selected = selectManifestAttachment({ attachments, planOnlyAttachments, markerName });
+  if ("error" in selected) {
+    return { restored: [], error: selected.error };
+  }
+  if (selected.manifest === void 0) {
+    return { restored: [] };
+  }
+  const manifestRead = await readAttachment({ settings, attachment: selected.manifest });
+  if ("error" in manifestRead) {
+    return { restored: [], error: manifestRead.error };
+  }
+  const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName, isAllowedName: isSelectableName });
+  if ("error" in parsed) {
+    return { restored: [], error: parsed.error };
+  }
+  const generation = selectGeneration({ manifest: parsed.manifest, durableAttachments, markerName });
+  if ("error" in generation) {
+    return { restored: [], error: generation.error };
+  }
+  const read = await readAndVerifyGeneration({ settings, files: generation.files, markerName });
+  if ("error" in read) {
+    return { restored: [], error: read.error };
+  }
+  const refusal = validatePlanAttachmentGeneration({ files: read.files.map(({ title, text }) => ({ name: title, text })) });
+  if (refusal !== void 0) {
+    return { restored: [], error: refusal.error };
+  }
+  const written = await writeRestoredGeneration({ dir: await planWorkspaceDir({ cwd, name }), files: read.files });
+  if (written !== void 0) {
+    return { restored: [], error: written.error };
+  }
+  const restored = read.files.map(({ title }) => title).sort();
+  return titlePrefix === void 0 ? { restored } : { restored, markerSha256: sha256({ content: manifestRead.text }) };
+};
+
+// src/plan/runPlanDedup.ts
+import { basename as basename19, join as join37 } from "node:path";
+
+// src/plan/common/constants/planAgentConcurrency.ts
+var planAgentConcurrency = 12;
+
+// src/plan/common/utils/getPlanDetectionPass.ts
+import { mkdir as mkdir4 } from "node:fs/promises";
+
+// src/plan/common/utils/getPlanDetectionInputs.ts
+var getPlanDetectionInputs = async ({ cwd, name }) => {
+  const deliverable = await resolvePlanDeliverable({ cwd, name });
+  const empty = { planName: name, decisions: [] };
+  if (deliverable.error) {
+    return { files: [], planPaths: [], decisions: empty, error: deliverable.error };
+  }
+  const { overviewPath, overviewText, files } = deliverable;
+  const planPaths = [...overviewPath ? [overviewPath] : [], ...files.map((file2) => file2.path)];
+  const config2 = await readOptionalConfig({ cwd });
+  const merged = await readMergedDecisions({ cwd, name }).catch((error51) => messageOf({ error: error51 }));
+  return typeof merged === "string" ? { overviewText, files, planPaths, decisions: empty, config: config2, error: merged } : { overviewText, files, planPaths, decisions: merged.merged, config: config2 };
+};
+
+// src/plan/common/utils/getPlanDetectionPass.ts
+var getPlanDetectionPass = async ({ cwd, name }) => {
+  const workspaceDir = await planWorkspaceDir({ cwd, name });
+  await mkdir4(workspaceDir, { recursive: true });
+  const inputs = await getPlanDetectionInputs({ cwd, name });
+  return { ...inputs, workspaceDir };
+};
+
+// src/plan/common/utils/matchDedupVerdicts.ts
+var matchDedupVerdicts = ({ candidates, verdicts }) => {
+  const verdictBySymbol = new Map(verdicts.map((verdict) => [verdict.plannedSymbol, verdict]));
+  return candidates.flatMap((candidate) => {
+    const verdict = verdictBySymbol.get(candidate.plannedSymbol);
+    if (!verdict?.isDuplicate) {
+      return [];
+    }
+    return [
+      {
+        plannedSymbol: candidate.plannedSymbol,
+        plannedPath: candidate.plannedPath,
+        phase: candidate.phase,
+        collidesWith: candidate.collidesWith,
+        recommendation: verdict.recommendation,
+        rationale: verdict.rationale,
+        suggestedLocation: verdict.suggestedLocation,
+        migrateCallers: verdict.migrateCallers
+      }
+    ];
+  });
+};
+
+// src/plan/runPlanDedup.ts
+var groupCandidates = ({ files, candidates }) => {
+  const groups = [];
+  for (const file2 of files) {
+    const phase = basename19(file2.path);
+    const own = candidates.filter((candidate) => candidate.phase === phase);
+    if (own.length > 0) {
+      groups.push({ phase, text: file2.text, candidates: own });
+    }
+  }
+  return groups;
+};
+var spawnDedupJudge = async ({
+  params,
+  pass,
+  group
+}) => {
+  const { cwd, driver, standards, model, effort, permissions, timeoutMs = 30 * 60 * 1e3, level } = params;
+  const invokePlanAgent = createPlanAgentRunner({
+    cwd,
+    driver,
+    workspaceDir: pass.workspaceDir,
+    step: `dedup-${basename19(group.phase, ".md")}`,
+    model,
+    effort,
+    permissions,
+    timeoutMs,
+    level
+  });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanDedupInvocation({ planText: group.text, overviewText: pass.overviewText, candidates: group.candidates, standards }),
+    contract: DedupJudgment
+  });
+  return { group, outcome };
+};
+var foldDedupResults = ({ results }) => {
+  const findings = [];
+  const reviewed = [];
+  const failures = [];
+  for (const result of results) {
+    if (result === void 0) {
+      continue;
+    }
+    if (!result.outcome.ok) {
+      failures.push(`${result.group.phase}: ${result.outcome.rateLimited ? "rate limited or overloaded" : result.outcome.failure}`);
+      continue;
+    }
+    findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
+    reviewed.push(...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({ plannedSymbol, plannedPath, phase })));
+  }
+  return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
+};
+var runPlanDedup = async (params) => {
+  const { cwd, name, onProgress } = params;
+  const progress = onProgress ?? (() => void 0);
+  const pass = await getPlanDetectionPass({ cwd, name });
+  const { workspaceDir, files: planFiles, planPaths, config: config2, error: error51 } = pass;
+  if (error51) {
+    return { status: PlanRunStatus.Failed, workspaceDir, error: error51 };
+  }
+  const stale = checkDeliverableSections({ cwd, name, overviewText: pass.overviewText, files: planFiles, decisions: pass.decisions });
+  if (stale.length > 0) {
+    const files = [...new Set(stale.map(({ phase }) => phase))].join(", ");
+    return { status: PlanRunStatus.Failed, workspaceDir, error: `${files}: ${stale[0].issue} \u2014 ${stale[0].fix}` };
+  }
+  const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
+  const dedupPath = join37(workspaceDir, "dedup.json");
+  const writeReport = async ({
+    findings: findings2,
+    reviewed: reviewed2 = [],
+    incompleteReason
+  }) => {
+    const dedup2 = {
+      planName: name,
+      findings: findings2,
+      reviewed: reviewed2,
+      complete: incompleteReason === void 0,
+      incompleteReason,
+      reviewedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await writeJsonFile({ path: dedupPath, value: dedup2 });
+    return dedup2;
+  };
+  if (candidates.length === 0) {
+    progress(`plan dedup ${name}: no prior-art candidates \u2014 nothing to review`);
+    return { status: PlanRunStatus.Complete, workspaceDir, dedup: await writeReport({ findings: [] }), dedupPath };
+  }
+  const groups = groupCandidates({ files: planFiles, candidates });
+  progress(`plan dedup ${name}: ${candidates.length} candidate(s) detected across ${groups.length} plan file(s), judging`);
+  const fanOut = params.level?.open({ level: ActivityLevelKind.Pass, label: "judge fan-out" });
+  const results = await drainTasks({
+    tasks: groups.map((group) => () => spawnDedupJudge({ params: { ...params, level: fanOut }, pass, group })),
+    concurrency: planAgentConcurrency
+  });
+  const { findings, reviewed, failures, rateLimited } = foldDedupResults({ results });
+  const dedup = await writeReport({ findings, reviewed, incompleteReason: failures.length > 0 ? failures.join("; ") : void 0 });
+  const status = rateLimited ? PlanRunStatus.PausedRateLimit : failures.length > 0 ? PlanRunStatus.Failed : PlanRunStatus.Complete;
+  progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
+  fanOut?.close({ outcome: getPlanRunStatus({ status }) });
+  if (status === PlanRunStatus.PausedRateLimit) {
+    const parked = `rate limited or overloaded \u2014 re-run: lightsout plan dedup --name ${name}`;
+    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, dedup, dedupPath };
+  }
+  return failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `dedup judge failed for ${failures.join("; ")}`, dedup, dedupPath } : { status: PlanRunStatus.Complete, workspaceDir, dedup, dedupPath };
+};
+
+// src/plan/runPlanGrade.ts
+import { basename as basename34, join as join42 } from "node:path";
+
+// src/plan/appendGradeHistory.ts
+import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
+import { dirname as dirname4 } from "node:path";
+var appendGradeHistory = async ({ cwd, name, report: report2 }) => {
+  const path = await gradeHistoryPath({ cwd, name });
+  await mkdir5(dirname4(path), { recursive: true });
+  await appendFile3(path, `${JSON.stringify(GradeReport.parse(report2))}
+`, "utf8");
+};
+
+// src/plan/common/constants/gapCheckLenses.ts
+var gapCheckLenses = Object.values(GapCheckLens);
+
+// src/plan/common/grading/createGradeReport.ts
+var coverageReasons = ({ planFiles, covered, documentationCovered }) => {
+  if (planFiles === void 0) {
+    return [];
+  }
+  const uncovered = planFiles.filter((file2) => !covered.includes(file2));
+  const files = planFiles.length === 0 ? ["no plan file was offered, so nothing is covered"] : [];
+  const unread = uncovered.length === 0 ? [] : [`no reading covers ${uncovered.join(", ")} at its current text`];
+  const documentation = documentationCovered ? [] : ["the whole-plan documentation record does not stand at the current plan text"];
+  return [...files, ...unread, ...documentation];
+};
+var isScopeComplete = ({
+  phases,
+  phasesRequired,
+  phasesChecked,
+  phasesLight,
+  gaps,
+  documentationComplete
+}) => (
+  // A human's `--phase` narrowing speaks for the files they chose, never for the ones they left out.
+  phases === void 0 && // A pass that offered no plan file at all established nothing. A light file counts: it is an exemption the weighing made, not an unread file.
+  (phasesRequired.length > 0 || phasesLight.length > 0) && // `phasesChecked` names a file only when EVERY lens returned for it.
+  phasesRequired.every((phase) => phasesChecked.includes(phase)) && // No memory record carries an unjudged question, so only reading its plan file again can — and a baseline is a request not to.
+  gaps.every(({ outcome }) => outcome !== GapOutcome.Unjudged) && documentationComplete
+);
+var createGradeReport = ({
+  name,
+  phases,
+  structural,
+  gaps,
+  failures,
+  phasesChecked,
+  weights = [],
+  phasesLight = [],
+  commit,
+  treeDirty,
+  scope = GradeScope.Full,
+  focusedOn = [],
+  inputs,
+  scopeReason,
+  phasesRequired,
+  documentationComplete,
+  planFiles,
+  covered = [],
+  documentationCovered = false
+}) => {
+  const narrowed = phases === void 0 ? [] : [`graded a subset on request: ${phases.join(", ")} \u2014 the structural findings still cover every plan file`];
+  const reasons = [...narrowed, ...failures, ...coverageReasons({ planFiles, covered, documentationCovered })];
+  const complete2 = reasons.length === 0;
+  const grade = complete2 && getBlockingFindings({ findings: structural }).length === 0 && getBlockingGaps({ gaps }).length === 0 ? PlanGrade.A : PlanGrade.BelowA;
+  return {
+    planName: name,
+    grade,
+    structural,
+    gaps,
+    phasesChecked,
+    // From what was owed, not from `phasesChecked`: a reader that failed also
+    // leaves `phasesChecked` empty, and that pass did spawn its lenses.
+    lenses: phasesRequired.length === 0 ? [] : gapCheckLenses,
+    weights,
+    phasesLight,
+    complete: complete2,
+    scopeComplete: isScopeComplete({ phases, phasesRequired, phasesChecked, phasesLight, gaps, documentationComplete }),
+    incompleteReason: complete2 ? void 0 : reasons.join("; "),
+    passed: grade === PlanGrade.A,
+    gradedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    gradedCommit: commit,
+    gradedTreeDirty: treeDirty,
+    scope,
+    focusedOn,
+    covered,
+    inputs,
+    scopeReason
+  };
+};
+
+// src/plan/common/grading/notePriorArtCollisions.ts
+import { readFile as readFile21 } from "node:fs/promises";
+import { join as join38 } from "node:path";
+var collisionKey = ({ plannedSymbol, plannedPath, phase }) => `${phase} ${plannedPath} ${plannedSymbol}`;
+var readSettledCollisions = async ({ workspaceDir }) => {
+  const text = await readFile21(join38(workspaceDir, "dedup.json"), "utf8").catch(() => void 0);
+  if (text === void 0) {
+    return /* @__PURE__ */ new Set();
+  }
+  try {
+    const parsed = DedupReport.safeParse(JSON.parse(text));
+    return parsed.success ? new Set(parsed.data.reviewed.map(collisionKey)) : /* @__PURE__ */ new Set();
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+};
+var notePriorArtCollisions = async ({ cwd, name, workspaceDir, planPaths, config: config2, onProgress }) => {
+  const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
+  const settled2 = await readSettledCollisions({ workspaceDir });
+  const unweighed = candidates.filter((candidate) => !settled2.has(collisionKey(candidate)));
+  if (unweighed.length > 0) {
+    onProgress(
+      `plan grade ${name}: ${unweighed.length} planned symbol(s) still name-collide with existing exports \u2014 run \`lightsout plan dedup --name ${name}\``
+    );
+  }
+};
+
+// src/common/git/readGitPrefix.ts
+var readGitPrefix = async ({ cwd }) => {
+  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
+};
+
+// src/common/git/readGitChangedFiles.ts
+var readGitChangedFiles = async ({ cwd }) => {
+  const prefix = await readGitPrefix({ cwd });
+  if (prefix === void 0) {
+    return void 0;
+  }
+  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (status?.exitCode !== 0) {
+    return void 0;
+  }
+  const root = prefix;
+  return status.stdout.split("\n").filter(Boolean).map((line) => {
+    const path = line.slice(3);
+    const arrow = path.lastIndexOf(" -> ");
+    const renameTarget = arrow === -1 ? path : path.slice(arrow + " -> ".length);
+    return renameTarget.replace(/^"|"$/g, "");
+  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
+};
+
+// src/common/git/readGitHeadCommit.ts
+var readGitHeadCommit = async ({ cwd }) => {
+  const head = await runCommand({ command: "git rev-parse HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return head && head.exitCode === 0 ? head.stdout.trim() : void 0;
+};
+
+// src/plan/common/grading/readGradeStamp.ts
+var readGradeStamp = async ({ cwd }) => {
+  const commit = await readGitHeadCommit({ cwd });
+  const changed = commit === void 0 ? void 0 : await readGitChangedFiles({ cwd });
+  return { commit, treeDirty: changed === void 0 ? void 0 : changed.length > 0 };
+};
+
+// src/plan/common/grading/readReusableGrade.ts
+var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
+  const report2 = await readJsonFile({ path: gradePath, schema: GradeReport });
+  const qualifies = report2?.passed === true && report2.complete && report2.scope === GradeScope.Full && report2.inputs?.sha256 === sha2562;
+  return qualifies ? report2 : void 0;
+};
+
+// src/plan/common/grading/runGradePass.ts
+import { basename as basename30, join as join40 } from "node:path";
+
+// src/plan/common/memory/collapseText.ts
+var collapseText = ({ text }) => text.replace(/\s+/g, " ").trim().toLowerCase();
+
+// src/plan/common/observations/dedupeObservations.ts
+var dedupeObservations = ({ observations }) => {
+  const seen = /* @__PURE__ */ new Set();
+  return observations.filter((observation) => {
+    const key = JSON.stringify([observation.phase, observation.lens, observation.area, collapseText({ text: observation.gap })]);
+    const repeat = seen.has(key);
+    seen.add(key);
+    return !repeat;
+  });
+};
+
+// src/plan/common/observations/gapObservations.ts
+var gapObservations = ({ gap }) => gap.observations.length > 0 ? gap.observations : [{ phase: gap.phase, lens: gap.lens, area: gap.area, gap: gap.gap, decision: gap.decision, options: gap.options }];
+
+// src/plan/common/grading/collapseGroupedGaps.ts
+var collapseSide = ({ gap, gaps }) => {
+  const blocking = isBlockingGap({ gap });
+  const side = gaps.filter((member) => member.findingId === gap.findingId && isBlockingGap({ gap: member }) === blocking);
+  let collapsed = [];
+  if (side.length === 1) {
+    collapsed = [gap];
+  } else if (side[0] === gap) {
+    collapsed = [{ ...gap, observations: dedupeObservations({ observations: side.flatMap((member) => gapObservations({ gap: member })) }) }];
+  }
+  return collapsed;
+};
+var collapseGroupedGaps = ({ gaps }) => gaps.flatMap((gap) => (gap.findingId ?? "") === "" ? [gap] : collapseSide({ gap, gaps }));
+
+// src/plan/common/grading/drainGradeAgents.ts
+import { basename as basename23, relative as relative5 } from "node:path";
+
+// src/plan/common/grading/checkPlanDocumentation.ts
+import { basename as basename20 } from "node:path";
+var checkPlanDocumentation = async (params) => {
+  const { cwd, driver, name, workspaceDir, planPaths, files, overviewText, docs, model, effort, permissions } = params;
+  const { timeoutMs, level, onProgress } = params;
+  if (docs === void 0 || docs.length === 0) {
+    return { gaps: [], failures: [], rateLimited: false };
+  }
+  const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: "grade-documentation", model, effort, permissions, timeoutMs, level });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanDocsCheckInvocation({
+      planFiles: files.map((file2) => ({ file: basename20(file2.path), text: file2.text })),
+      overviewText,
+      docs
+    }),
+    contract: GapCheckReport
+  });
+  if (!outcome.ok) {
+    onProgress(`plan grade ${name}: documentation check did not run against ${docs.length} declared surface(s)`);
+    return {
+      gaps: [],
+      failures: [`documentation: ${outcome.rateLimited ? "rate limited or overloaded" : outcome.failure}`],
+      rateLimited: outcome.rateLimited
+    };
+  }
+  const gaps = outcome.report.gaps.map((gap) => ({
+    ...gap,
+    area: GapArea.MissingDocumentation,
+    phase: basename20(planPaths[0]),
+    outcome: GapOutcome.NeedsAHuman,
+    observations: []
+  }));
+  onProgress(`plan grade ${name}: documentation check \u2014 ${gaps.length} finding(s) against ${docs.length} declared surface(s)`);
+  return { gaps, failures: [], rateLimited: false };
+};
+
+// src/plan/common/grading/drainGapCheckers.ts
+import { basename as basename21 } from "node:path";
+var foldGapResults = ({ selected, results }) => {
+  const gaps = [];
+  const failures = [];
+  const returned = /* @__PURE__ */ new Map();
+  const read = [];
+  for (const result of results) {
+    if (result === void 0) {
+      continue;
+    }
+    if (!result.outcome.ok) {
+      failures.push(`${result.phase}/${result.lens}: ${result.outcome.rateLimited ? "rate limited or overloaded" : result.outcome.failure}`);
+      continue;
+    }
+    returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
+    read.push({ phase: result.phase, lens: result.lens });
+    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged, observations: [] })));
+  }
+  const phasesChecked = selected.map((file2) => basename21(file2.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
+  return { gaps, failures, phasesChecked, read };
+};
+var drainGapCheckers = async ({
+  tasks,
+  selected
+}) => {
+  const results = await drainTasks({
+    tasks,
+    concurrency: planAgentConcurrency,
+    shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
+  });
+  return { ...foldGapResults({ selected, results }), rateLimited: results.some((result) => isRateLimited({ result })) };
+};
+
+// src/plan/common/grading/judgeGaps.ts
+import { relative as relative4 } from "node:path";
+
+// src/plan/common/grading/groupGapCandidates.ts
+import { basename as basename22 } from "node:path";
+
+// src/common/fileGroups/groupConnectedFiles.ts
+var groupConnectedFiles = ({ files, edges }) => {
+  const parent = new Map(files.map((file2) => [file2, file2]));
+  const find = (file2) => {
+    const up = parent.get(file2);
+    if (up === void 0 || up === file2) {
+      return file2;
+    }
+    const root = find(up);
+    parent.set(file2, root);
+    return root;
+  };
+  for (const { from, to } of edges) {
+    if (!parent.has(from) || !parent.has(to)) {
+      continue;
+    }
+    const rootFrom = find(from);
+    const rootTo = find(to);
+    if (rootFrom !== rootTo) {
+      parent.set(rootFrom, rootTo);
+    }
+  }
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const root = find(file2);
+    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
+  }
+  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+};
+
+// src/plan/common/constants/gapBatchLimits.ts
+var gapBatchLimits = { maxObservations: 8, maxPlanFiles: 3 };
+
+// src/plan/common/grading/distinctiveWords.ts
+var distinctiveWords = ({ text }) => {
+  const minimumLength = 6;
+  return new Set(
+    text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= minimumLength)
+  );
+};
+
+// src/plan/common/grading/groupGapCandidates.ts
+var candidatesOf = ({ gaps, files }) => gaps.flatMap((gap, index) => {
+  const locations = findingLocations({ observations: gap.observations, phase: gap.phase }).flatMap((phase) => {
+    const file2 = files.find((candidate) => basename22(candidate.path) === phase);
+    return file2 === void 0 ? [] : [{ phase, text: file2.text }];
+  });
+  return locations.length === 0 ? [] : [{ id: `o${index + 1}`, index, gap, locations, words: distinctiveWords({ text: `${gap.gap} ${gap.decision}` }) }];
+});
+var relatedPairs = ({ candidates }) => {
+  const minimumSharedWords = 2;
+  return candidates.flatMap(
+    (first, position) => candidates.slice(position + 1).filter((second) => [...first.words].filter((word) => second.words.has(word)).length >= minimumSharedWords).map((second) => ({ from: first.id, to: second.id }))
+  );
+};
+var spannedLocations = ({ members }) => [
+  ...new Map(members.flatMap((member) => member.locations).map((location) => [location.phase, location])).values()
+];
+var splitGroup = ({ members }) => {
+  const batches = [];
+  for (const member of members) {
+    const last = batches.at(-1);
+    const fits = last !== void 0 && last.length < gapBatchLimits.maxObservations && spannedLocations({ members: [...last, member] }).length <= gapBatchLimits.maxPlanFiles;
+    if (fits) {
+      last.push(member);
+    } else {
+      batches.push([member]);
+    }
+  }
+  return batches;
+};
+var groupGapCandidates = ({ gaps, files }) => {
+  const candidates = candidatesOf({ gaps, files });
+  const components = groupConnectedFiles({ files: candidates.map(({ id }) => id), edges: relatedPairs({ candidates }) });
+  const groups = components.map((component) => {
+    const members = new Set(component);
+    return candidates.filter(({ id }) => members.has(id));
+  }).sort((first, second) => first[0].index - second[0].index);
+  return groups.flatMap(
+    (members) => splitGroup({ members }).map((batch) => ({
+      observations: batch.map(({ id, index, gap }) => ({ id, index, gap })),
+      planTexts: spannedLocations({ members: batch })
+    }))
+  );
+};
+
+// src/plan/common/constants/noJudgeRanReason.ts
+var noJudgeRanReason = "no judge ran \u2014 the fan-out stopped before this finding was judged";
+
+// src/plan/common/paths/citationPathToken.ts
+var citationPathToken = ({ citation }) => {
+  const token = citation.split(":")[0] ?? "";
+  return isPathToken({ token }) ? token : void 0;
+};
+
+// src/plan/common/paths/citedPathExists.ts
+import { isAbsolute as isAbsolute2, join as join39 } from "node:path";
+var citedPathExists = async ({ cwd, token }) => pathExists({ path: isAbsolute2(token) ? token : join39(cwd, token) });
+
+// src/plan/common/memory/confirmCitation.ts
+var minimumCitationLength = 24;
+var confirmPath = async ({ cwd, token }) => {
+  const present = await citedPathExists({ cwd, token });
+  return present ? { ok: true } : { ok: false, reason: `cited ${token}, which is not on disk` };
+};
+var confirmQuote = ({ citation, planText }) => {
+  const quote2 = collapseText({ text: citation });
+  if (quote2.length < minimumCitationLength) {
+    return { ok: false, reason: `citation shorter than ${minimumCitationLength} characters: ${citation}` };
+  }
+  const found = collapseText({ text: planText }).includes(quote2);
+  return found ? { ok: true } : { ok: false, reason: `citation not found in the plan text: ${citation}` };
+};
+var confirmCitation = async ({ cwd, citation, planText }) => {
+  const token = citationPathToken({ citation });
+  return token === void 0 ? confirmQuote({ citation, planText }) : confirmPath({ cwd, token });
+};
+
+// src/plan/common/grading/accountBatchVerdicts.ts
+var isFilled = ({ value }) => (value ?? "").trim().length > 0;
+var hasRequiredEvidence = ({ verdict }) => {
+  const demanded = {
+    [GapOutcome.NeedsAHuman]: isFilled({ value: verdict.humanDecision }),
+    [GapOutcome.AgentCanDecide]: isFilled({ value: verdict.agentDecision }) && isFilled({ value: verdict.safeBecause }),
+    [GapOutcome.AlreadyAnswered]: verdict.answers.length > 0 && verdict.answers.every(({ answerAt }) => isFilled({ value: answerAt }))
+  };
+  return demanded[verdict.outcome];
+};
+var refuseCitations = async ({ cwd, batch, verdict, covered }) => {
+  const texts = new Map(batch.planTexts.map(({ phase, text }) => [phase, text]));
+  const cited = verdict.answers.map(({ phase }) => phase);
+  const spanned = covered.flatMap(({ gap }) => findingLocations({ observations: gap.observations, phase: gap.phase }));
+  const missing = [...new Set(spanned)].filter((phase) => texts.has(phase) && !cited.includes(phase));
+  const repeated = cited.filter((phase, position) => cited.indexOf(phase) !== position);
+  const foreign = cited.filter((phase) => !texts.has(phase));
+  let reason;
+  if (missing.length > 0) {
+    reason = `the judge dismissed this as already answered but cited nothing for ${missing.join(", ")}`;
+  } else if (repeated.length > 0) {
+    reason = `the judge cited ${repeated.join(", ")} more than once`;
+  } else if (foreign.length > 0) {
+    reason = `the judge cited ${foreign.join(", ")}, a plan file this batch holds no text for`;
+  } else {
+    for (const { phase, answerAt } of verdict.answers) {
+      const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: texts.get(phase) ?? "" });
+      if (!confirmed.ok) {
+        reason = `the judge's citation for ${phase} was refused \u2014 ${confirmed.reason}`;
+        break;
+      }
+    }
+  }
+  return reason;
+};
+var refuseVerdict = async ({ cwd, batch, verdict, recordIds }) => {
+  const covers2 = [...new Set(verdict.covers)];
+  const unknown2 = covers2.filter((id) => !batch.observations.some((member) => member.id === id));
+  let reason;
+  if (unknown2.length > 0) {
+    reason = `the judge's ruling named ${unknown2.join(", ")}, which this batch never handed out, so the whole ruling is void`;
+  } else if (covers2.length > 1 && !isFilled({ value: verdict.sharedDefect })) {
+    reason = `the judge grouped ${covers2.join(", ")} as one defect without the shared-defect statement a group demands`;
+  } else if (!hasRequiredEvidence({ verdict })) {
+    reason = `the judge answered ${verdict.outcome} without the evidence that outcome demands`;
+  } else if (verdict.outcome === GapOutcome.AlreadyAnswered) {
+    reason = await refuseCitations({ cwd, batch, verdict, covered: batch.observations.filter(({ id }) => covers2.includes(id)) });
+  }
+  if (reason === void 0 && verdict.matchesFinding !== void 0 && !recordIds.has(verdict.matchesFinding)) {
+    reason = `the judge matched this finding to ${verdict.matchesFinding}, which is not a record this plan holds`;
+  }
+  return reason;
+};
+var standingRulings = ({ verdict, members }) => {
+  const observations = dedupeObservations({ observations: members.flatMap(({ gap }) => gapObservations({ gap })) });
+  const group = members.length > 1 ? { groupId: `g${members[0].index}`, observations } : {};
+  return members.map(({ index, gap }) => [index, { verdict, answerAt: verdict.answers.find(({ phase }) => phase === gap.phase)?.answerAt, ...group }]);
+};
+var accountBatchVerdicts = async ({ cwd, batch, outcome, recordIds, noJudgeReason }) => {
+  if (outcome === void 0 || !outcome.ok) {
+    let unjudgedReason = noJudgeReason ?? noJudgeRanReason;
+    if (outcome !== void 0) {
+      unjudgedReason = outcome.rateLimited ? "the judge was rate limited or overloaded" : outcome.failure;
+    }
+    return new Map(batch.observations.map(({ index }) => [index, { unjudgedReason }]));
+  }
+  const verdicts = outcome.report.verdicts;
+  const coverage = ({ id }) => verdicts.filter((verdict) => verdict.covers.includes(id)).length;
+  const rulings = /* @__PURE__ */ new Map();
+  for (const verdict of verdicts) {
+    const refusal = await refuseVerdict({ cwd, batch, verdict, recordIds });
+    const members = batch.observations.filter(({ id }) => verdict.covers.includes(id) && coverage({ id }) === 1);
+    const settled2 = refusal === void 0 ? standingRulings({ verdict, members }) : members.map(({ index }) => [index, { unjudgedReason: refusal }]);
+    for (const [index, ruling] of settled2) {
+      rulings.set(index, ruling);
+    }
+  }
+  for (const { id, index } of batch.observations) {
+    const count2 = coverage({ id });
+    if (count2 === 0) {
+      rulings.set(index, { unjudgedReason: "the judge's rulings did not cover this observation" });
+    } else if (count2 > 1) {
+      rulings.set(index, { unjudgedReason: "more than one of the judge's rulings covered this observation, so none of them can settle it" });
+    }
+  }
+  return rulings;
+};
+
+// src/plan/common/grading/matchGapVerdicts.ts
+var rulingFields = ({ verdict }) => ({
+  outcome: verdict.outcome,
+  ...verdict.humanDecision === void 0 ? {} : { humanDecision: verdict.humanDecision },
+  ...verdict.agentDecision === void 0 ? {} : { agentDecision: verdict.agentDecision },
+  ...verdict.safeBecause === void 0 ? {} : { safeBecause: verdict.safeBecause }
+});
+var joinRuling = ({ gap, ruling, noJudgeReason }) => {
+  const verdict = ruling?.unjudgedReason === void 0 ? ruling?.verdict : void 0;
+  if (verdict === void 0) {
+    return { ...gap, outcome: GapOutcome.Unjudged, unjudgedReason: ruling?.unjudgedReason ?? noJudgeReason ?? noJudgeRanReason };
+  }
+  return {
+    ...gap,
+    // A carried pending finding arrives with the reason an earlier pass left it
+    // unjudged; once a judge rules, that reason is stale.
+    ...gap.unjudgedReason === void 0 ? {} : { unjudgedReason: void 0 },
+    ...rulingFields({ verdict }),
+    ...ruling?.answerAt === void 0 ? {} : { answerAt: ruling.answerAt },
+    ...ruling?.observations === void 0 ? {} : { groupId: ruling.groupId, sharedDefect: verdict.sharedDefect, observations: ruling.observations },
+    // The agent's raw claim never reaches the record: what is persisted is the id
+    // the engine resolved. A carried finding with no match keeps the record it
+    // already belongs to, or it would open a second one every pass.
+    ...verdict.matchesFinding === void 0 ? {} : { findingId: verdict.matchesFinding }
+  };
+};
+var matchGapVerdicts = async ({ cwd, gaps, batches, batchOutcomes, noJudgeReason, recordIds = /* @__PURE__ */ new Set() }) => {
+  const rulings = /* @__PURE__ */ new Map();
+  for (const [slot, batch] of batches.entries()) {
+    const accounted = await accountBatchVerdicts({ cwd, batch, outcome: batchOutcomes[slot], recordIds, noJudgeReason });
+    for (const [index, ruling] of accounted) {
+      rulings.set(index, ruling);
+    }
+  }
+  return gaps.map((gap, index) => joinRuling({ gap, ruling: rulings.get(index), noJudgeReason }));
+};
+
+// src/plan/common/memory/recordObservations.ts
+var recordObservations = ({ record: record3 }) => gapObservations({ gap: record3 });
+
+// src/plan/common/memory/phaseFindingRecords.ts
+var phaseFindingRecords = ({ memory, phase, statuses }) => memory.findings.filter((record3) => {
+  const touches = recordObservations({ record: record3 }).some((observation) => observation.phase === phase);
+  return touches && (statuses === void 0 || statuses.includes(record3.status));
+});
+
+// src/plan/common/grading/judgeGaps.ts
+var judgeableStatuses = Object.values(GradeFindingStatus).filter((status) => status !== GradeFindingStatus.Superseded);
+var batchRecords = ({ memory, batch }) => [
+  ...new Map(
+    batch.planTexts.flatMap(({ phase }) => phaseFindingRecords({ memory, phase, statuses: judgeableStatuses })).map((record3) => [record3.id, record3])
+  ).values()
+];
+var spawnGapJudge = async ({ params, batch, batchIndex }) => {
+  const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3, level } = params;
+  const invokePlanAgent = createPlanAgentRunner({
+    cwd,
+    driver,
+    workspaceDir,
+    // Numbered by batch rather than named by phase, because a batch may span
+    // several plan files.
+    step: `grade-judge-${batchIndex}`,
+    level,
+    model,
+    effort,
+    permissions,
+    timeoutMs
+  });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanGapJudgeInvocation({
+      planTexts: batch.planTexts,
+      overviewText,
+      standards,
+      // Only a phased plan has siblings to point at, and the judge opens one
+      // itself when an observation is about a seam its batch does not span.
+      planDir: overviewText === void 0 ? void 0 : relative4(cwd, workspaceDir),
+      records: batchRecords({ memory: params.memory, batch }),
+      observations: batch.observations.map(({ id, gap }) => ({ id, observation: gap }))
+    }),
+    contract: GapBatchVerdict
+  });
+  return { outcome };
+};
+var judgeGaps = async (params) => {
+  const { cwd, files, gaps, skipReason: skipReason2, memory } = params;
+  const batches = skipReason2 === void 0 ? groupGapCandidates({ gaps, files }) : [];
+  const results = await drainTasks({
+    tasks: batches.map((batch, batchIndex) => () => spawnGapJudge({ params, batch, batchIndex })),
+    concurrency: planAgentConcurrency,
+    shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
+  });
+  const recordIds = new Set(memory.findings.filter(({ status }) => judgeableStatuses.includes(status)).map(({ id }) => id));
+  return {
+    gaps: await matchGapVerdicts({ cwd, gaps, batches, batchOutcomes: results.map((result) => result?.outcome), noJudgeReason: skipReason2, recordIds }),
+    rateLimited: results.some((result) => isRateLimited({ result }))
+  };
+};
+
+// src/plan/common/grading/drainGradeAgents.ts
+var settledStatuses = [GradeFindingStatus.Resolved, GradeFindingStatus.Noted];
+var spawnGapChecker = async ({
+  params,
+  pass,
+  file: file2,
+  lens,
+  timeoutMs,
+  memory
+}) => {
+  const { cwd, driver, standards, model, effort, permissions, level } = params;
+  const invokePlanAgent = createPlanAgentRunner({
+    cwd,
+    driver,
+    workspaceDir: pass.workspaceDir,
+    step: `grade-${basename23(file2.path, ".md")}-${lens}`,
+    level,
+    model,
+    effort,
+    permissions,
+    timeoutMs,
+    // Two, not one: a reader written off costs the plan file its coverage —
+    // a file is claimed as checked only when every lens returned for it, so
+    // losing readers means re-running the whole pass by hand. Each fresh
+    // invocation still gets its one cheap re-emit, so four spawns is the
+    // worst case. Not three: two is the smallest number that makes "re-run
+    // rather than write off" true, and it caps the worst case at double.
+    maxRoleAttempts: 2
+  });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanGapCheckInvocation({
+      planText: file2.text,
+      overviewText: pass.overviewText,
+      standards,
+      // Only a phased plan has siblings to point at, and the wiring checker
+      // opens one itself when a consumed name's shape is declared elsewhere.
+      planDir: pass.overviewText === void 0 ? void 0 : relative5(cwd, pass.workspaceDir),
+      lens,
+      settled: phaseFindingRecords({ memory, phase: basename23(file2.path), statuses: settledStatuses })
+    }),
+    contract: GapCheckReport
+  });
+  return { phase: basename23(file2.path), lens, outcome };
+};
+var drainGradeAgents = async ({
+  params,
+  pass,
+  selected,
+  carried,
+  memory,
+  documentation,
+  progress
+}) => {
+  const timeoutMs = params.timeoutMs ?? 30 * 60 * 1e3;
+  const tasks = selected.flatMap((file2) => gapCheckLenses.map((lens) => () => spawnGapChecker({ params, pass, file: file2, lens, timeoutMs, memory })));
+  const [readers, docsCheck] = await Promise.all([
+    drainGapCheckers({ tasks, selected }),
+    checkPlanDocumentation({
+      cwd: params.cwd,
+      driver: params.driver,
+      level: params.level,
+      name: params.name,
+      workspaceDir: pass.workspaceDir,
+      planPaths: pass.planPaths,
+      files: pass.files,
+      overviewText: pass.overviewText,
+      docs: documentation ? pass.config?.docs : void 0,
+      model: params.model,
+      effort: params.effort,
+      permissions: params.permissions,
+      timeoutMs,
+      onProgress: progress
+    })
+  ]);
+  const judged = await judgeGaps({
+    ...params,
+    workspaceDir: pass.workspaceDir,
+    overviewText: pass.overviewText,
+    // Every plan file, not the readers' selection: a carried record may name a
+    // file this pass weighed light or left out, and it still needs a judge.
+    files: pass.files,
+    gaps: [...readers.gaps, ...carried],
+    skipReason: readers.rateLimited ? "the reader fan-out hit the rate-limit wall, so no judge was spawned" : void 0,
+    memory
+  });
+  return {
+    gaps: [...judged.gaps, ...docsCheck.gaps],
+    failures: [...readers.failures, ...docsCheck.failures],
+    phasesChecked: readers.phasesChecked,
+    read: readers.read,
+    rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited,
+    documentationComplete: docsCheck.failures.length === 0
+  };
+};
+
+// src/plan/common/grading/prepareGradePass.ts
+import { basename as basename28 } from "node:path";
+
+// src/plan/common/grading/weighSelection.ts
+import { basename as basename24 } from "node:path";
+
+// src/plan/common/constants/defaultWeightThresholds.ts
+var defaultWeightThresholds = { createdFiles: 3, packages: 1 };
+
+// src/common/workspace/packageOf.ts
+var packageOf = ({ file: file2, packagesDir }) => {
+  const prefix = `${packagesDir}/`;
+  if (!file2.startsWith(prefix)) {
+    return void 0;
+  }
+  const rest = file2.slice(prefix.length);
+  const separator2 = rest.indexOf("/");
+  return separator2 > 0 ? rest.slice(0, separator2) : void 0;
+};
+
+// src/plan/common/grading/computePlanWeight.ts
+var countPackages = ({ touched, packagesDir }) => new Set(touched.map((file2) => packageOf({ file: file2, packagesDir }) ?? "<root>")).size;
+var computePlanWeight = ({ plan, phase, packagesDir, thresholds }) => {
+  const { created, touched } = getPlanTouchedPaths({ plan });
+  const packages = countPackages({ touched, packagesDir });
+  const reasons = [];
+  if (created.length > thresholds.createdFiles) {
+    reasons.push(`creates ${created.length} source files, above ${thresholds.createdFiles}`);
+  }
+  if (packages > thresholds.packages) {
+    reasons.push(`touches ${packages} packages, above ${thresholds.packages}`);
+  }
+  if (plan.mirrorPaths.length === 0) {
+    reasons.push("names no pattern to mirror");
+  }
+  return { phase, weight: reasons.length === 0 ? PlanWeight.Light : PlanWeight.Heavy, reasons };
+};
+
+// src/plan/common/grading/weighSelection.ts
+var weighSelection = ({ selected, config: config2 }) => {
+  if (config2?.plan?.contract !== true) {
+    return { weights: [], heavy: selected, light: [] };
+  }
+  const declared = config2.plan["weight-thresholds"];
+  const thresholds = {
+    createdFiles: declared?.["created-files"] ?? defaultWeightThresholds.createdFiles,
+    packages: declared?.packages ?? defaultWeightThresholds.packages
+  };
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const weights = selected.map((file2) => {
+    const base = basename24(file2.path);
+    return computePlanWeight({ plan: parsePlan({ content: file2.text, base }), phase: base, packagesDir, thresholds });
+  });
+  const heavyPhases = new Set(weights.filter(({ weight }) => weight === PlanWeight.Heavy).map(({ phase }) => phase));
+  return {
+    weights,
+    heavy: selected.filter((file2) => heavyPhases.has(basename24(file2.path))),
+    light: weights.filter(({ weight }) => weight === PlanWeight.Light).map(({ phase }) => phase)
+  };
+};
+
+// src/plan/common/memory/pendingFindingGaps.ts
+var pendingFindingGaps = ({ memory }) => memory.findings.filter((record3) => record3.status === GradeFindingStatus.Pending).map((record3) => ({
+  area: record3.area,
+  gap: record3.gap,
+  decision: record3.decision,
+  options: record3.options,
+  phase: record3.phase,
+  lens: record3.lens,
+  observations: recordObservations({ record: record3 }),
+  outcome: GapOutcome.Unjudged,
+  unjudgedReason: record3.unjudgedReason,
+  findingId: record3.id
+}));
+
+// src/plan/common/memory/recheckPlanText.ts
+import { basename as basename25 } from "node:path";
+var recheckPlanText = ({ files, overviewText, phase }) => {
+  const own = files.find((file2) => basename25(file2.path) === phase);
+  const rendered = files.map((file2) => `## Plan file: ${basename25(file2.path)}
+
+${file2.text}`);
+  const wholePlan = [...overviewText === void 0 ? [] : [overviewText], ...rendered].join("\n\n");
+  return own?.text ?? wholePlan;
+};
+
+// src/plan/common/memory/recordResolutions.ts
+var recordResolutions = ({ record: record3 }) => {
+  let resolutions = record3.resolutions;
+  if (resolutions.length === 0 && record3.resolution !== void 0) {
+    resolutions = [{ phase: record3.phase, ...record3.resolution }];
+  }
+  return resolutions;
+};
+
+// src/plan/common/memory/reopenRecord.ts
+var reopenRecord = ({ record: record3, reason, at }) => ({
+  ...record3,
+  status: GradeFindingStatus.Open,
+  resolution: void 0,
+  resolutions: [],
+  lastSeen: at,
+  reopened: [...record3.reopened, { at, reason, priorStatus: record3.status }]
+});
+
+// src/plan/common/memory/revalidateResolutions.ts
+var firstLostCitation = async ({ params, record: record3 }) => {
+  const { cwd, files, overviewText } = params;
+  let lost;
+  for (const { phase, answerAt } of recordResolutions({ record: record3 })) {
+    const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: recheckPlanText({ files, overviewText, phase }) });
+    if (!confirmed.ok) {
+      lost = { phase, answerAt };
+      break;
+    }
+  }
+  return lost;
+};
+var revalidateResolutions = async (params) => {
+  const { memory, at } = params;
+  const findings = [];
+  const reopened = [];
+  for (const record3 of memory.findings) {
+    const lost = record3.status === GradeFindingStatus.Resolved ? await firstLostCitation({ params, record: record3 }) : void 0;
+    if (lost === void 0) {
+      findings.push(record3);
+      continue;
+    }
+    reopened.push(record3.id);
+    findings.push(reopenRecord({ record: record3, reason: `resolution citation for ${lost.phase} no longer found in the plan: ${lost.answerAt}`, at }));
+  }
+  return { memory: { ...memory, findings }, reopened };
+};
+
+// src/plan/common/scope/getDecisionReach.ts
+var unmatchedRows = ({ rows, other }) => {
+  const available = other.map((row) => row.sha256);
+  return rows.filter((row) => {
+    const index = available.indexOf(row.sha256);
+    if (index !== -1) {
+      available.splice(index, 1);
+    }
+    return index === -1;
+  });
+};
+var joinedRows = ({ current, previous }) => {
+  const changed = [...unmatchedRows({ rows: current.rows, other: previous.rows }), ...unmatchedRows({ rows: previous.rows, other: current.rows })];
+  const questions = new Set(changed.map((row) => row.questionSha256));
+  const joinsChange = (row) => questions.has(row.questionSha256);
+  return { changed, current: current.rows.filter(joinsChange), previous: previous.rows.filter(joinsChange) };
+};
+var getDecisionReach = ({ current, previous, overviewFileChanged, edited, phaseFiles }) => {
+  if (previous === void 0) {
+    return { error: "the earlier pass has no decision evidence to compare against" };
+  }
+  if (current === void 0) {
+    return { error: "this pass could not read the overview, so its decisions cannot be compared" };
+  }
+  if (current.overviewDesign === void 0 || previous.overviewDesign === void 0) {
+    return { error: "one of the two passes never measured the shared design text of the overview, so it cannot be compared" };
+  }
+  if (current.overviewDesign !== previous.overviewDesign) {
+    return { error: "the overview changed outside every generated region and every per-phase span, and that is context every phase shares" };
+  }
+  const joined = joinedRows({ current, previous });
+  if (overviewFileChanged && joined.changed.length === 0 && edited.length === 0) {
+    return { error: "the overview moved but no decision row changed, so where the change reaches cannot be placed" };
+  }
+  const rows = [...joined.current, ...joined.previous];
+  if (rows.some((row) => row.phases === void 0)) {
+    return { error: "a changed decision names no phases, so it may reach the whole plan" };
+  }
+  const named = [...new Set(rows.flatMap((row) => row.phases ?? []))].sort();
+  const unknown2 = named.filter((phase) => !phaseFiles.includes(phase));
+  if (unknown2.length > 0) {
+    return { error: `a changed decision names ${unknown2.join(", ")}, which is not a phase file of this plan` };
+  }
+  if (edited.length > 0 && joined.previous.length > 0) {
+    return { error: "a superseded or removed decision named phases while phase text also changed, so the connections its scope ran along may be gone" };
+  }
+  return { phases: named };
+};
+
+// src/common/utils/canonicalJson.ts
+var canonicalize = ({ value }) => {
+  if (Array.isArray(value)) {
+    return value.map((member) => canonicalize({ value: member }));
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  const named = Object.entries(value).filter(([, member]) => member !== void 0);
+  const sorted = named.sort(([left], [right]) => left > right ? 1 : -1);
+  return Object.fromEntries(sorted.map(([key, member]) => [key, canonicalize({ value: member })]));
+};
+var canonicalJson = ({ value }) => (
+  // `undefined` is not representable in JSON, and a fingerprint that encoded it
+  // as the empty string could not be told from one over an empty value.
+  JSON.stringify(canonicalize({ value })) ?? "null"
+);
+
+// src/plan/common/scope/getEditedPhases.ts
+var hashesOf = ({ inputs }) => new Map(inputs.planFiles.map((entry) => [entry.file, entry]));
+var designMoved = ({ current, previous }) => current?.designSha256 === void 0 || previous?.designSha256 === void 0 || current.designSha256 !== previous.designSha256;
+var otherInputMoved = ({ current, previous }) => current.changedFiles === void 0 || previous.changedFiles === void 0 || current.gradedCommit === void 0 || previous.gradedCommit === void 0 || current.gradedCommit !== previous.gradedCommit || canonicalJson({ value: current.changedFiles }) !== canonicalJson({ value: previous.changedFiles }) || current.standards !== previous.standards || current.config !== previous.config || current.prompts !== previous.prompts || current.model !== previous.model || current.effort !== previous.effort;
+var getEditedPhases = ({ current, previous }) => {
+  const overviewBase2 = "overview.md";
+  const currentHashes = hashesOf({ inputs: current });
+  const previousHashes = hashesOf({ inputs: previous });
+  const edited = [];
+  let overviewFileChanged = false;
+  for (const file2 of [.../* @__PURE__ */ new Set([...currentHashes.keys(), ...previousHashes.keys()])].sort()) {
+    const currentEntry = currentHashes.get(file2);
+    const previousEntry = previousHashes.get(file2);
+    if (file2 === overviewBase2) {
+      overviewFileChanged = currentEntry?.sha256 !== previousEntry?.sha256;
+    } else if (designMoved({ current: currentEntry, previous: previousEntry })) {
+      edited.push(file2);
+    }
+  }
+  return { edited, overviewFileChanged, otherInputChanged: otherInputMoved({ current, previous }) };
+};
+
+// src/plan/common/scope/getCoverageSeeds.ts
+var getCoverageSeeds = ({ inputs, previous, overviewText, phaseFiles }) => {
+  if (previous === void 0) {
+    return { seeds: phaseFiles };
+  }
+  const { edited, overviewFileChanged } = getEditedPhases({ current: inputs, previous });
+  if (overviewText === void 0) {
+    return { seeds: edited };
+  }
+  const reach = getDecisionReach({ current: inputs.decisionLog, previous: previous.decisionLog, overviewFileChanged, edited, phaseFiles });
+  return "error" in reach ? { error: reach.error } : { seeds: [...edited, ...reach.phases] };
+};
+
+// src/plan/common/scope/getDesignHashes.ts
+var getDesignHashes = ({ inputs }) => new Map(inputs.planFiles.flatMap(({ file: file2, designSha256 }) => designSha256 === void 0 ? [] : [[file2, designSha256]]));
+
+// src/plan/common/scope/getAffectedPhases.ts
+var getAffectedPhases = ({ connections, edited }) => {
+  const affected = new Set(edited);
+  const pending = [...edited];
+  while (pending.length > 0) {
+    const base = pending.shift() ?? "";
+    for (const neighbour of connections.get(base) ?? []) {
+      if (!affected.has(neighbour)) {
+        affected.add(neighbour);
+        pending.push(neighbour);
+      }
+    }
+  }
+  return [...affected].sort();
+};
+
+// src/plan/common/scope/getInvalidatedPhases.ts
+var mergedConnections = ({ connections, recorded }) => {
+  const merged = new Map([...connections].map(([base, neighbours]) => [base, new Set(neighbours)]));
+  const link = ({ from, to }) => {
+    const neighbours = merged.get(from) ?? /* @__PURE__ */ new Set();
+    neighbours.add(to);
+    merged.set(from, neighbours);
+  };
+  for (const [base, neighbours] of recorded) {
+    for (const neighbour of neighbours) {
+      link({ from: base, to: neighbour });
+      link({ from: neighbour, to: base });
+    }
+  }
+  return merged;
+};
+var getInvalidatedPhases = ({ edited, connections, recorded, phaseFiles }) => {
+  if (connections === void 0) {
+    return [...phaseFiles].sort();
+  }
+  const affected = getAffectedPhases({ connections: mergedConnections({ connections, recorded }), edited });
+  return affected.filter((base) => phaseFiles.includes(base));
+};
+
+// src/plan/common/scope/getStandingCoverage.ts
+var recordedNeighbours = ({ readers }) => {
+  const recorded = /* @__PURE__ */ new Map();
+  for (const entry of readers) {
+    recorded.set(entry.file, [.../* @__PURE__ */ new Set([...recorded.get(entry.file) ?? [], ...entry.neighbours])]);
+  }
+  return recorded;
+};
+var lostOnTheirOwn = ({
+  readers,
+  designHashes,
+  phaseFiles,
+  seeds
+}) => {
+  const moved = phaseFiles.filter((file2) => readers.some((entry) => entry.file === file2 && entry.designSha256 !== designHashes.get(file2)));
+  const unread = phaseFiles.filter((file2) => !readers.some((entry) => entry.file === file2));
+  return [.../* @__PURE__ */ new Set([...seeds, ...moved, ...unread])];
+};
+var standingDocs = ({ docs, designHashes }) => {
+  const recorded = docs?.planFiles ?? [];
+  const stands = docs !== void 0 && recorded.length === designHashes.size && recorded.every((entry) => designHashes.get(entry.file) === entry.designSha256);
+  return stands ? docs : void 0;
+};
+var getStandingCoverage = ({
+  coverage,
+  designHashes,
+  phaseFiles,
+  lenses,
+  connections,
+  otherInputChanged,
+  seeds = []
+}) => {
+  if (otherInputChanged) {
+    return { readers: [], covered: [], invalidated: [...phaseFiles].sort() };
+  }
+  const edited = lostOnTheirOwn({ readers: coverage.readers, designHashes, phaseFiles, seeds });
+  const lost = getInvalidatedPhases({ edited, connections, recorded: recordedNeighbours({ readers: coverage.readers }), phaseFiles });
+  const readers = coverage.readers.filter((entry) => !lost.includes(entry.file) && entry.designSha256 === designHashes.get(entry.file));
+  const covers2 = ({ file: file2, lens }) => readers.some((entry) => entry.file === file2 && entry.lens === lens);
+  const covered = phaseFiles.filter((file2) => lenses.every((lens) => covers2({ file: file2, lens }))).sort();
+  const docs = standingDocs({ docs: coverage.docs, designHashes });
+  return {
+    readers,
+    covered,
+    invalidated: phaseFiles.filter((file2) => !covered.includes(file2)).sort(),
+    ...docs === void 0 ? {} : { docs }
+  };
+};
+
+// src/plan/common/scope/getPassCoverage.ts
+var getPassCoverage = ({ phaseFiles, overviewText, inputs, coverage, connections, baseline }) => {
+  const seeded = baseline === void 0 ? { seeds: [] } : getCoverageSeeds({ inputs, previous: baseline, overviewText, phaseFiles });
+  return getStandingCoverage({
+    coverage,
+    designHashes: getDesignHashes({ inputs }),
+    phaseFiles,
+    lenses: gapCheckLenses,
+    connections,
+    otherInputChanged: baseline !== void 0 && getEditedPhases({ current: inputs, previous: baseline }).otherInputChanged,
+    seeds: "error" in seeded ? phaseFiles : seeded.seeds
+  });
+};
+
+// src/plan/common/scope/getPhaseGraph.ts
+import { basename as basename27 } from "node:path";
+
+// src/plan/common/scope/getPhaseConnections.ts
+import { basename as basename26 } from "node:path";
+var providedBy = ({ phase, exports }) => /* @__PURE__ */ new Set([
+  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename26(path)),
+  ...exports,
+  ...getComparableTokens({ lines: phase.plan.sections.get("What Next Plan Expects") ?? [] }).keys()
+]);
+var getPhaseConnections = ({ phases, declarations }) => {
+  const paired = phases.map((phase) => ({ phase, declaration: declarations.find((entry) => entry.file === phase.base) }));
+  const undeclared = paired.filter((entry) => entry.declaration === void 0);
+  if (undeclared.length > 0) {
+    return {
+      error: `${undeclared.map(({ phase }) => phase.base).join(", ")} has no block in the overview's '## Phase Declarations', so what it hands to the other phases cannot be read`
+    };
+  }
+  const provides = /* @__PURE__ */ new Map();
+  const consumes = /* @__PURE__ */ new Map();
+  for (const { phase, declaration } of paired) {
+    provides.set(phase.base, providedBy({ phase, exports: declaration?.exports ?? [] }));
+    consumes.set(phase.base, new Set(getComparableTokens({ lines: phase.plan.lines }).keys()));
+  }
+  const connections = new Map(phases.map((phase) => [phase.base, /* @__PURE__ */ new Set()]));
+  for (const left of phases) {
+    for (const right of phases) {
+      const linked = left.base !== right.base && [...consumes.get(left.base) ?? []].some((token) => provides.get(right.base)?.has(token));
+      if (linked) {
+        connections.get(left.base)?.add(right.base);
+        connections.get(right.base)?.add(left.base);
+      }
+    }
+  }
+  return { connections };
+};
+
+// src/plan/common/scope/getPhaseGraph.ts
+var parseFiles = ({ files }) => files.map((file2) => {
+  const base = basename27(file2.path);
+  return { path: file2.path, base, number: Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1), plan: parsePlan({ content: file2.text, base }) };
+});
+var getPhaseGraph = ({ files, overviewText }) => getPhaseConnections({
+  phases: parseFiles({ files }),
+  declarations: parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: "overview.md" }) })
+});
+
+// src/plan/common/grading/prepareGradePass.ts
+var phaseGraph = ({ pass }) => {
+  if (pass.overviewText === void 0) {
+    return new Map(pass.files.map((file2) => [basename28(file2.path), /* @__PURE__ */ new Set()]));
+  }
+  const graph = getPhaseGraph({ files: pass.files, overviewText: pass.overviewText });
+  return "error" in graph ? void 0 : graph.connections;
+};
+var prepareGradePass = async ({
+  params,
+  pass,
+  selected,
+  scope,
+  inputs,
+  memory,
+  structural,
+  at,
+  progress
+}) => {
+  const { cwd, name } = params;
+  const planFiles = pass.files.map((file2) => basename28(file2.path));
+  const { weights, heavy, light } = weighSelection({ selected, config: pass.config });
+  const connections = phaseGraph({ pass });
+  const found = getPassCoverage({
+    phaseFiles: planFiles,
+    overviewText: pass.overviewText,
+    inputs,
+    coverage: memory.coverage,
+    connections,
+    baseline: memory.lastPass?.inputs
+  });
+  const documentation = found.docs === void 0;
+  const revalidated = await revalidateResolutions({ cwd, files: pass.files, overviewText: pass.overviewText, memory, at });
+  const carried = pendingFindingGaps({ memory: revalidated.memory });
+  progress(
+    `plan grade ${name}: ${scope} pass \u2014 ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) \xD7 ${gapCheckLenses.length} lens(es)${found.covered.length > 0 ? `, ${found.covered.length} plan file(s) already covered at their current text and read by nobody again` : ""}${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ""}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ""}${carried.length > 0 ? `, ${carried.length} pending finding(s) carried in for a judge` : ""}`
+  );
+  return { planFiles, weights, heavy, light, connections, found, documentation, memory: revalidated.memory, carried };
+};
+
+// src/plan/common/memory/absorbObservations.ts
+var absorbObservations = ({ record: record3, observations, at }) => {
+  const merged = { ...record3, observations: dedupeObservations({ observations: [...recordObservations({ record: record3 }), ...observations] }) };
+  const cited = new Set(recordResolutions({ record: record3 }).map(({ phase }) => phase));
+  const uncovered = findingLocations({ observations: merged.observations, phase: record3.phase }).filter((location) => !cited.has(location));
+  const reason = `gained an observation at ${uncovered.join(", ")}, where no confirmed citation closes it`;
+  return record3.status === GradeFindingStatus.Resolved && uncovered.length > 0 ? reopenRecord({ record: merged, reason, at }) : merged;
+};
+
+// src/plan/common/memory/mergeFindingRecords.ts
+var dispositionOf = ({ outcome }) => outcome === GapOutcome.Unjudged ? void 0 : outcome;
+var statusFor = ({ disposition }) => disposition === GapOutcome.NeedsAHuman ? GradeFindingStatus.Open : GradeFindingStatus.Noted;
+var complete = ({ record: record3 }) => ({
+  lens: void 0,
+  disposition: void 0,
+  unjudgedReason: void 0,
+  sharedDefect: void 0,
+  supersededBy: void 0,
+  humanDecision: void 0,
+  agentDecision: void 0,
+  safeBecause: void 0,
+  answerAt: void 0,
+  resolution: void 0,
+  ...record3
+});
+var openRecord = ({ gap, id, at }) => {
+  const disposition = dispositionOf({ outcome: gap.outcome });
+  return complete({
+    record: {
+      id,
+      phase: gap.phase,
+      lens: gap.lens,
+      area: gap.area,
+      gap: gap.gap,
+      decision: gap.decision,
+      options: gap.options,
+      observations: gapObservations({ gap }),
+      firstSeen: at,
+      lastSeen: at,
+      status: disposition === void 0 ? GradeFindingStatus.Pending : statusFor({ disposition }),
+      disposition,
+      unjudgedReason: disposition === void 0 ? gap.unjudgedReason : void 0,
+      sharedDefect: gap.sharedDefect,
+      humanDecision: gap.humanDecision,
+      agentDecision: gap.agentDecision,
+      safeBecause: gap.safeBecause,
+      answerAt: gap.answerAt,
+      resolutions: [],
+      reopened: []
+    }
+  });
+};
+var promote = ({ record: record3, gap }) => {
+  const disposition = dispositionOf({ outcome: gap.outcome });
+  if (record3.disposition !== void 0 || disposition === void 0) {
+    return record3;
+  }
+  return {
+    ...record3,
+    status: record3.status === GradeFindingStatus.Pending ? statusFor({ disposition }) : record3.status,
+    disposition,
+    unjudgedReason: void 0,
+    humanDecision: record3.humanDecision ?? gap.humanDecision,
+    agentDecision: gap.agentDecision,
+    safeBecause: gap.safeBecause,
+    answerAt: gap.answerAt
+  };
+};
+var touchRecord = ({ record: record3, gap, at }) => {
+  const seen = promote({ record: { ...record3, lastSeen: at, sharedDefect: record3.sharedDefect ?? gap.sharedDefect }, gap });
+  const closed = seen.status === GradeFindingStatus.Resolved || seen.status === GradeFindingStatus.Noted;
+  const ruled = closed && gap.outcome === GapOutcome.NeedsAHuman ? reopenRecord({ record: seen, reason: gap.humanDecision ?? gap.decision, at }) : seen;
+  return complete({ record: absorbObservations({ record: ruled, observations: gapObservations({ gap }), at }) });
+};
+var matchesByText = ({ record: record3, gap }) => record3.phase === gap.phase && record3.area === gap.area && collapseText({ text: record3.gap }) === collapseText({ text: gap.gap });
+var followSupersede = ({ findings, index }) => index !== -1 && findings[index].status === GradeFindingStatus.Superseded ? followSupersede({ findings, index: findings.findIndex((record3) => record3.id === findings[index].supersededBy) }) : index;
+var findRecord = ({ findings, gap }) => {
+  let matches = () => false;
+  if (gap.findingId !== void 0) {
+    matches = (record3) => record3.id === gap.findingId;
+  } else if (gap.lens === void 0) {
+    matches = (record3) => matchesByText({ record: record3, gap });
+  } else if (gap.outcome === GapOutcome.Unjudged) {
+    matches = (record3) => record3.status === GradeFindingStatus.Pending && matchesByText({ record: record3, gap });
+  }
+  return followSupersede({ findings, index: findings.findIndex(matches) });
+};
+var creationOrder = ({ record: record3 }) => Number(record3.id.slice(1));
+var supersede = ({ survivor, absorbed, at }) => {
+  const unanswered = absorbed.status === GradeFindingStatus.Open || absorbed.status === GradeFindingStatus.Pending;
+  const reason = `absorbed the unanswered obligation of ${absorbed.id} when a judge confirmed the two were one defect`;
+  const carrying = { ...survivor, humanDecision: survivor.humanDecision ?? absorbed.humanDecision };
+  const raised = unanswered && carrying.status !== GradeFindingStatus.Open ? reopenRecord({ record: carrying, reason, at }) : carrying;
+  return {
+    survivor: absorbObservations({ record: raised, observations: recordObservations({ record: absorbed }), at }),
+    absorbed: { ...absorbed, status: GradeFindingStatus.Superseded, supersededBy: survivor.id }
+  };
+};
+var pinGroups = ({ memory, gaps, at }) => {
+  const findings = [...memory.findings];
+  const pinned = /* @__PURE__ */ new Map();
+  for (const groupId of new Set(gaps.flatMap((gap) => gap.groupId === void 0 ? [] : [gap.groupId]))) {
+    const members = gaps.filter((gap) => gap.groupId === groupId && gap.findingId !== void 0);
+    const indexes = [...new Set(members.map((gap) => findRecord({ findings, gap })).filter((index) => index !== -1))];
+    const ordered = indexes.sort((first, second) => creationOrder({ record: findings[first] }) - creationOrder({ record: findings[second] }));
+    const [survivorIndex, ...absorbedIndexes] = ordered;
+    for (const absorbedIndex of absorbedIndexes) {
+      const moved = supersede({ survivor: findings[survivorIndex], absorbed: findings[absorbedIndex], at });
+      findings[survivorIndex] = complete({ record: moved.survivor });
+      findings[absorbedIndex] = complete({ record: moved.absorbed });
+    }
+    if (survivorIndex !== void 0) {
+      pinned.set(groupId, findings[survivorIndex].id);
+    }
+  }
+  return { findings, pinned };
+};
+var mergeFindingRecords = ({ memory, gaps, at }) => {
+  const { findings, pinned } = pinGroups({ memory, gaps, at });
+  const stamped = [];
+  let nextFindingNumber = memory.nextFindingNumber;
+  for (const gap of gaps) {
+    const pinnedId = gap.groupId === void 0 ? void 0 : pinned.get(gap.groupId);
+    const index = pinnedId === void 0 ? findRecord({ findings, gap }) : findings.findIndex((record3) => record3.id === pinnedId);
+    if (index === -1) {
+      const id = `f${nextFindingNumber}`;
+      nextFindingNumber += 1;
+      findings.push(openRecord({ gap, id, at }));
+      stamped.push({ ...gap, findingId: id });
+      if (gap.groupId !== void 0) {
+        pinned.set(gap.groupId, id);
+      }
+      continue;
+    }
+    findings[index] = touchRecord({ record: findings[index], gap, at });
+    stamped.push({ ...gap, findingId: findings[index].id });
+  }
+  return { memory: { ...memory, findings, nextFindingNumber }, gaps: stamped };
+};
+
+// src/plan/common/memory/openFindingGaps.ts
+var blockingRuling = ({ record: record3, refusals }) => record3.status === GradeFindingStatus.Pending ? { outcome: GapOutcome.Unjudged, unjudgedReason: record3.unjudgedReason } : { outcome: GapOutcome.NeedsAHuman, humanDecision: record3.humanDecision, unjudgedReason: refusals?.get(record3.id) };
+var openFindingGaps = ({ memory, gaps, refusals }) => {
+  const carried = new Set(gaps.filter((gap) => isBlockingGap({ gap })).map((gap) => gap.findingId));
+  const blocking = [GradeFindingStatus.Open, GradeFindingStatus.Pending];
+  return memory.findings.filter((record3) => blocking.includes(record3.status) && !carried.has(record3.id)).map((record3) => ({
+    area: record3.area,
+    gap: record3.gap,
+    decision: record3.decision,
+    options: record3.options,
+    phase: record3.phase,
+    lens: record3.lens,
+    observations: record3.observations,
+    sharedDefect: record3.sharedDefect,
+    ...blockingRuling({ record: record3, refusals }),
+    findingId: record3.id
+  }));
+};
+
+// src/plan/common/memory/recordReadCoverage.ts
+var keyOf = ({ file: file2, lens }) => `${file2}\0${lens}`;
+var pairsRead = ({ read, light }) => {
+  const pairs = /* @__PURE__ */ new Map();
+  for (const { phase, lens } of read) {
+    pairs.set(keyOf({ file: phase, lens }), { file: phase, lens });
+  }
+  for (const file2 of light.phases) {
+    for (const lens of light.lenses) {
+      pairs.set(keyOf({ file: file2, lens }), { file: file2, lens });
+    }
+  }
+  return [...pairs.values()];
+};
+var freshEntries = ({ read, light, designHashes, connections, at }) => {
+  if (connections === void 0) {
+    return [];
+  }
+  return pairsRead({ read, light }).flatMap(({ file: file2, lens }) => {
+    const designSha256 = designHashes.get(file2);
+    return designSha256 === void 0 ? [] : [{ file: file2, lens, designSha256, neighbours: [...connections.get(file2) ?? []].sort(), at }];
+  });
+};
+var documentationEntry = ({ designHashes, at }) => ({
+  planFiles: [...designHashes].map(([file2, designSha256]) => ({ file: file2, designSha256 })).sort((left, right) => left.file.localeCompare(right.file)),
+  at
+});
+var recordReadCoverage = ({
+  standing,
+  docs,
+  read,
+  light,
+  designHashes,
+  connections,
+  documentationChecked,
+  narrowed,
+  at
+}) => {
+  if (narrowed) {
+    return { readers: standing, docs };
+  }
+  const fresh = freshEntries({ read, light, designHashes, connections, at });
+  const written = new Set(fresh.map((entry) => keyOf(entry)));
+  return {
+    readers: [...standing.filter((entry) => !written.has(keyOf(entry))), ...fresh],
+    docs: documentationChecked ? documentationEntry({ designHashes, at }) : docs
+  };
+};
+
+// src/plan/common/memory/recordPassCoverage.ts
+var recordPassCoverage = ({
+  planFiles,
+  overviewText,
+  inputs,
+  standing,
+  docs,
+  read,
+  light,
+  connections,
+  documentationChecked,
+  narrowed,
+  at
+}) => {
+  const coverage = recordReadCoverage({
+    standing,
+    docs,
+    read,
+    light: { phases: light, lenses: gapCheckLenses },
+    designHashes: getDesignHashes({ inputs }),
+    connections,
+    documentationChecked,
+    narrowed,
+    at
+  });
+  return { coverage, standing: getPassCoverage({ phaseFiles: planFiles, overviewText, inputs, coverage, connections }) };
+};
+
+// src/plan/common/memory/verifyOpenFindings.ts
+import { basename as basename29, relative as relative6 } from "node:path";
+
+// src/plan/common/memory/settleRecheckedRecord.ts
+var checkLocation = async ({
+  cwd,
+  location,
+  planText,
+  outcome
+}) => {
+  const report2 = outcome?.ok === true ? outcome.report : void 0;
+  const citation = report2?.outcome === GapOutcome.AlreadyAnswered ? report2.answerAt ?? "" : void 0;
+  const confirmed = citation === void 0 ? void 0 : await confirmCitation({ cwd, citation, planText });
+  return {
+    resolution: confirmed?.ok === true && citation !== void 0 ? { phase: location, answerAt: citation } : void 0,
+    refusal: confirmed?.ok === false ? `${location}: ${confirmed.reason}` : void 0
+  };
+};
+var settleRecheckedRecord = async ({ cwd, record: record3, located, at }) => {
+  const checks = await Promise.all(located.map(({ location, planText, outcome }) => checkLocation({ cwd, location, planText, outcome })));
+  const resolutions = checks.flatMap(({ resolution }) => resolution === void 0 ? [] : [{ ...resolution, verifiedAt: at }]);
+  const refusals = checks.flatMap(({ refusal }) => refusal === void 0 ? [] : [refusal]);
+  const closed = resolutions.length === located.length;
+  const asked = { ...record3, lastRecheckedAt: at, resolution: void 0 };
+  return {
+    record: closed ? { ...asked, status: GradeFindingStatus.Resolved, resolutions } : asked,
+    refusal: refusals.length > 0 ? refusals.join("; ") : void 0
+  };
+};
+
+// src/plan/common/memory/verifyOpenFindings.ts
+var locationsOf = ({ record: record3 }) => findingLocations({ observations: recordObservations({ record: record3 }), phase: record3.phase });
+var recheckPairs = ({
+  record: record3,
+  locations,
+  files,
+  overviewText
+}) => {
+  const observations = recordObservations({ record: record3 });
+  return locations.map((location) => ({
+    record: record3,
+    location,
+    locations,
+    observation: observations.filter((observation) => observation.phase === location)[0],
+    planText: recheckPlanText({ files, overviewText, phase: location })
+  }));
+};
+var isWorthAsking = ({
+  record: record3,
+  locations,
+  invalidated,
+  planFiles
+}) => record3.lastRecheckedAt === void 0 || locations.some((location) => invalidated.includes(location) || !planFiles.includes(location));
+var spawnRecheck = async ({ params, pair }) => {
+  const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3, level } = params;
+  const invokePlanAgent = createPlanAgentRunner({
+    cwd,
+    driver,
+    workspaceDir,
+    step: `grade-recheck-${pair.record.id}-${basename29(pair.location, ".md")}`,
+    level,
+    model,
+    effort,
+    permissions,
+    timeoutMs
+  });
+  const outcome = await invokePlanAgent({
+    invocation: buildPlanFindingRecheckInvocation({
+      planText: pair.planText,
+      overviewText,
+      standards,
+      // Only a phased plan has siblings to point at, and a record raised
+      // against one phase may now be answered in another.
+      planDir: overviewText === void 0 ? void 0 : relative6(cwd, workspaceDir),
+      record: pair.record,
+      observation: pair.observation,
+      locations: pair.locations
+    }),
+    contract: GapVerdict
+  });
+  return { outcome };
+};
+var verifyOpenFindings = async (params) => {
+  const { cwd, files, overviewText, memory, at, skipReason: skipReason2, invalidated } = params;
+  const planFiles = files.map((file2) => basename29(file2.path));
+  const located = memory.findings.filter((record3) => record3.status === GradeFindingStatus.Open).map((record3) => ({ record: record3, locations: locationsOf({ record: record3 }) }));
+  const worth = skipReason2 === void 0 ? located.filter((entry) => isWorthAsking({ ...entry, invalidated, planFiles })) : [];
+  const asked = worth.map(({ record: record3 }) => record3);
+  const pairs = worth.flatMap(({ record: record3, locations }) => recheckPairs({ record: record3, locations, files, overviewText }));
+  const results = await drainTasks({
+    tasks: pairs.map((pair) => () => spawnRecheck({ params, pair })),
+    concurrency: planAgentConcurrency,
+    shouldStop: ({ results: settled3 }) => settled3.some((result) => isRateLimited({ result }))
+  });
+  const settled2 = /* @__PURE__ */ new Map();
+  const refusals = /* @__PURE__ */ new Map();
+  for (const record3 of asked) {
+    const answers = pairs.flatMap(
+      (pair, slot) => pair.record === record3 ? [{ location: pair.location, planText: pair.planText, outcome: results[slot]?.outcome }] : []
+    );
+    const { record: next, refusal } = await settleRecheckedRecord({ cwd, record: record3, located: answers, at });
+    settled2.set(record3.id, next);
+    if (refusal !== void 0) {
+      refusals.set(record3.id, refusal);
+    }
+  }
+  return {
+    memory: { ...memory, findings: memory.findings.map((record3) => settled2.get(record3.id) ?? record3) },
+    rateLimited: results.some((result) => isRateLimited({ result })),
+    refusals
+  };
+};
+
+// src/plan/common/memory/writeGradeMemory.ts
+var writeGradeMemory = async ({ cwd, name, memory }) => {
+  await writeJsonFile({ path: await gradeMemoryPath({ cwd, name }), value: GradeMemory.parse(memory) });
+};
+
+// src/plan/common/grading/runGradePass.ts
+var nextBaselines = ({ memory, report: report2, inputs, at }) => ({
+  lastPass: report2.scopeComplete ? { scope: report2.scope, inputs, at } : memory.lastPass,
+  lastPassingFullReview: report2.complete && report2.passed ? { inputs, at } : memory.lastPassingFullReview
+});
+var persistPass = async ({
+  cwd,
+  name,
+  workspaceDir,
+  report: report2,
+  memory
+}) => {
+  await writeJsonFile({ path: join40(workspaceDir, gradeFileName), value: report2 });
+  await appendGradeHistory({ cwd, name, report: report2 });
+  await writeGradeMemory({ cwd, name, memory });
+};
+var runGradePass = async (args) => {
+  const { params, pass, scope, focusedOn, scopeReason, inputs, structural, stamp: stamp3, progress } = args;
+  const { cwd, name, phases } = params;
+  const passLevel = params.level?.open({ level: ActivityLevelKind.Pass, label: `${scope} pass` });
+  const passParams = { ...params, level: passLevel };
+  const passArgs = { ...args, params: passParams };
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const { planFiles, weights, heavy, light, connections, found, documentation, memory: opened, carried } = await prepareGradePass({ ...passArgs, at });
+  const agents = await drainGradeAgents({ params: passParams, pass, selected: heavy, carried, memory: opened, documentation, progress });
+  const verified = await verifyOpenFindings({
+    ...passParams,
+    workspaceDir: pass.workspaceDir,
+    overviewText: pass.overviewText,
+    files: pass.files,
+    memory: opened,
+    at,
+    skipReason: agents.rateLimited ? "the reader fan-out hit the rate-limit wall, so no finding was re-verified" : void 0,
+    // The same value the reader selection narrowed by, never a second closure:
+    // two reach rules that can disagree is the defect one reach rule avoids.
+    invalidated: found.invalidated
+  });
+  const merged = mergeFindingRecords({ memory: verified.memory, gaps: agents.gaps, at });
+  const { coverage, standing } = recordPassCoverage({
+    planFiles,
+    overviewText: pass.overviewText,
+    inputs,
+    standing: found.readers,
+    docs: found.docs,
+    read: agents.read,
+    light,
+    connections,
+    documentationChecked: documentation && agents.documentationComplete,
+    // A human's `--phase` narrowing speaks only for the files they chose, so it
+    // records nothing: writing entries from it is the one way it could buy an approval.
+    narrowed: phases !== void 0,
+    at
+  });
+  const gaps = collapseGroupedGaps({ gaps: [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })] });
+  const report2 = createGradeReport({
+    ...stamp3,
+    name,
+    phases,
+    structural,
+    gaps,
+    failures: agents.failures,
+    phasesChecked: agents.phasesChecked,
+    weights,
+    phasesLight: light,
+    scope,
+    focusedOn,
+    inputs,
+    scopeReason,
+    phasesRequired: heavy.map((file2) => basename30(file2.path)),
+    documentationComplete: agents.documentationComplete,
+    planFiles,
+    covered: standing.covered,
+    documentationCovered: standing.docs !== void 0
+  });
+  const nextMemory = { ...merged.memory, coverage, ...nextBaselines({ memory: merged.memory, report: report2, inputs, at }), updatedAt: at };
+  await persistPass({ cwd, name, workspaceDir: pass.workspaceDir, report: report2, memory: nextMemory });
+  const rateLimited = agents.rateLimited || verified.rateLimited;
+  passLevel?.close({ outcome: rateLimited ? RunStatus.PausedRateLimit : agents.failures.length > 0 ? RunStatus.Failed : RunStatus.Passed });
+  return { report: report2, memory: nextMemory, rateLimited, failures: agents.failures };
+};
+
+// src/plan/common/memory/readGradeMemory.ts
+import { readFile as readFile22 } from "node:fs/promises";
+var readJson = async ({ path }) => {
+  const text = await readFile22(path, "utf8");
+  try {
+    const value = JSON.parse(text);
+    return { value };
+  } catch (cause) {
+    return { failure: cause instanceof Error ? cause.message : String(cause) };
+  }
+};
+var readGradeMemory = async ({ cwd, name }) => {
+  const path = await gradeMemoryPath({ cwd, name });
+  if (!await pathExists({ path })) {
+    return void 0;
+  }
+  const read = await readJson({ path });
+  if ("failure" in read) {
+    throw new Error(`the finding memory at ${path} is not readable JSON: ${read.failure}`);
+  }
+  const parsed = GradeMemory.safeParse(read.value);
+  if (!parsed.success) {
+    throw new Error(`the finding memory at ${path} is not a readable grade memory: ${parsed.error.message}`);
+  }
+  return parsed.data;
+};
+
+// src/plan/common/scope/decideGradeScope.ts
+import { basename as basename31 } from "node:path";
+var everyPhase = ({ files }) => files.map((file2) => basename31(file2.path));
+var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
+  const phases = everyPhase({ files });
+  const full = ({ reason: reason2 }) => ({ scope: GradeScope.Full, phases, reuse: false, reason: reason2 });
+  if (narrowed) {
+    return full({ reason: "full review: a human narrowed this pass with --phase, which the engine never overrides" });
+  }
+  if (inputs.gradedCommit === void 0 || inputs.changedFiles === void 0) {
+    return full({ reason: "full review: the git probe did not run, so the state of the code beside the plan is unknown" });
+  }
+  if (memory?.lastPassingFullReview?.inputs.sha256 === inputs.sha256) {
+    return { scope: GradeScope.Full, phases, reuse: true, reason: "the recorded passing full review already covers these inputs" };
+  }
+  const previous = memory?.lastPass?.inputs;
+  if (previous === void 0) {
+    return full({ reason: "full review: no earlier pass is on record, so this pass is the baseline" });
+  }
+  const { otherInputChanged } = getEditedPhases({ current: inputs, previous });
+  if (otherInputChanged) {
+    return full({ reason: "full review: the code, standards, configuration, prompts or model moved since the last pass" });
+  }
+  const seeded = getCoverageSeeds({ inputs, previous, overviewText, phaseFiles: phases });
+  if ("error" in seeded) {
+    return full({ reason: `full review: ${seeded.error}` });
+  }
+  if (files.length < 2 || overviewText === void 0) {
+    return full({ reason: "full review: a single plan file has no phase closure to narrow to" });
+  }
+  const graph = getPhaseGraph({ files, overviewText });
+  if ("error" in graph) {
+    return full({ reason: `full review: the phase graph could not be built \u2014 ${graph.error}` });
+  }
+  const standing = getStandingCoverage({
+    coverage: memory?.coverage ?? { readers: [] },
+    designHashes: getDesignHashes({ inputs }),
+    phaseFiles: phases,
+    lenses: gapCheckLenses,
+    connections: graph.connections,
+    otherInputChanged: false,
+    seeds: seeded.seeds
+  });
+  if (standing.invalidated.length >= files.length) {
+    return full({ reason: "full review: no recorded reading still stands, so this pass reads every plan file anyway" });
+  }
+  const reach = standing.invalidated.length > 0 ? standing.invalidated.join(", ") : "nothing \u2014 every plan file is covered at its current text";
+  const reason = `focused review: the plan files whose recorded reading no longer stands \u2014 ${reach}`;
+  return { scope: GradeScope.Focused, phases: standing.invalidated, reuse: false, reason };
+};
+
+// src/plan/common/scope/getGradeInputs.ts
+import { readFile as readFile23 } from "node:fs/promises";
+import { basename as basename32, join as join41 } from "node:path";
+
+// src/plan/common/scope/getPlanDesignHash.ts
+var droppedRanges = ({ plan, keepRegions }) => [...plan.generatedRegionRanges].filter(([heading]) => !keepRegions.includes(heading)).map(([, range]) => range).sort((left, right) => right.start - left.start);
+var getPlanDesignHash = ({ plan, keepRegions = [], attributed = "" }) => {
+  const design = [...plan.lines];
+  for (const { start, end } of droppedRanges({ plan, keepRegions })) {
+    design.splice(start - 1, end - start + 1);
+  }
+  return sha256({ content: canonicalJson({ value: { design: design.join("\n"), attributed } }) });
+};
+
+// src/plan/common/scope/getOverviewDesignHashes.ts
+var perPhaseRegions = [generatedPlanRegions.phases, generatedPlanRegions.phaseDeclarations];
+var textOf = ({ overview, start, end }) => overview.lines.slice(start - 1, end).join("\n");
+var getOverviewDesignHashes = ({ overview, phaseFiles }) => {
+  const declarations = parsePhaseDeclarations({ plan: overview });
+  const unplaceable = ({ reason }) => ({
+    error: reason,
+    shared: getPlanDesignHash({ plan: overview, keepRegions: perPhaseRegions })
+  });
+  const attributed = /* @__PURE__ */ new Map();
+  const spanless = [];
+  for (const { file: file2, rowLine, blockRange } of declarations) {
+    if (rowLine === void 0 || blockRange === void 0) {
+      spanless.push(file2);
+      continue;
+    }
+    attributed.set(file2, [textOf({ overview, start: rowLine, end: rowLine }), textOf({ overview, ...blockRange })].join("\n"));
+  }
+  if (spanless.length > 0) {
+    return unplaceable({ reason: `the overview declares ${spanless.join(", ")} with no row or no declaration block, so that span belongs to no phase` });
+  }
+  const foreign = [...attributed.keys()].filter((file2) => !phaseFiles.includes(file2));
+  if (foreign.length > 0) {
+    return unplaceable({ reason: `the overview credits text to ${foreign.join(", ")}, which is not a phase file of this plan` });
+  }
+  const undeclared = phaseFiles.filter((file2) => !attributed.has(file2));
+  if (undeclared.length > 0) {
+    return unplaceable({
+      reason: `the overview declares nothing for ${undeclared.join(", ")}, so that phase file's overview text cannot be told from the shared text`
+    });
+  }
+  return { shared: getPlanDesignHash({ plan: overview }), attributed };
+};
+
+// src/plan/common/scope/getGradeInputs.ts
+var hashFile = async ({ path }) => {
+  const content = await readFile23(path).catch(() => void 0);
+  return content === void 0 ? "absent" : sha256({ content });
+};
+var planRelevantConfig = ({ config: config2 }) => ({
+  plan: config2?.plan,
+  docs: config2?.docs,
+  gates: config2?.gates,
+  "packages-dir": config2?.["packages-dir"],
+  "executor-file-limit": config2?.["executor-file-limit"]
+});
+var hashChangedFiles = async ({ cwd, changed }) => Promise.all([...changed].sort().map(async (path) => ({ path, sha256: await hashFile({ path: join41(cwd, path) }) })));
+var toDecisionEntry = ({ row }) => {
+  const phases = row.question.startsWith("Global constraint:") ? void 0 : row.phases;
+  return {
+    sha256: sha256({ content: canonicalJson({ value: row }) }),
+    questionSha256: sha256({ content: row.question }),
+    ...phases === void 0 ? {} : { phases }
+  };
+};
+var overviewBase = "overview.md";
+var readPlanFile = async ({ path }) => {
+  const file2 = basename32(path);
+  const content = await readFile23(path).catch(() => void 0);
+  return content === void 0 ? { file: file2, sha256: "absent" } : { file: file2, sha256: sha256({ content }), plan: parsePlan({ content: content.toString("utf8"), base: file2 }) };
+};
+var readDecisionPart = ({ decisions, overviewDesign }) => ({
+  ...overviewDesign === void 0 ? {} : { overviewDesign },
+  rows: decisions.map((row) => toDecisionEntry({ row }))
+});
+var designHashesOf = ({ read }) => {
+  const overview = read.find((entry) => entry.file === overviewBase)?.plan;
+  const phaseFiles = read.map(({ file: file2 }) => file2).filter((file2) => file2 !== overviewBase);
+  const split = overview === void 0 ? void 0 : getOverviewDesignHashes({ overview, phaseFiles });
+  const hashes = /* @__PURE__ */ new Map();
+  for (const { file: file2, plan } of read) {
+    if (plan === void 0) {
+      continue;
+    }
+    const attributed = split !== void 0 && !("error" in split) ? split.attributed.get(file2) : void 0;
+    hashes.set(file2, file2 === overviewBase && split !== void 0 ? split.shared : getPlanDesignHash({ plan, attributed }));
+  }
+  return hashes;
+};
+var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: config2, model, effort }) => {
+  const read = (await Promise.all(planPaths.map((path) => readPlanFile({ path })))).sort((left, right) => left.file > right.file ? 1 : -1);
+  const designHashes = designHashesOf({ read });
+  const planFiles = read.map(({ file: file2, sha256: fileSha256 }) => {
+    const designSha256 = designHashes.get(file2);
+    return { file: file2, sha256: fileSha256, ...designSha256 === void 0 ? {} : { designSha256 } };
+  });
+  const gradedCommit = await readGitHeadCommit({ cwd });
+  const changed = await readGitChangedFiles({ cwd });
+  const decisionLog = readDecisionPart({ decisions, overviewDesign: designHashes.get(overviewBase) });
+  const measured = {
+    planFiles,
+    gradedCommit,
+    changedFiles: changed === void 0 ? void 0 : await hashChangedFiles({ cwd, changed }),
+    standards: standards === void 0 ? void 0 : sha256({ content: standards }),
+    config: sha256({ content: canonicalJson({ value: planRelevantConfig({ config: config2 }) }) }),
+    prompts: sha256({ content: planGradePromptTexts.join("\n") }),
+    model,
+    effort,
+    decisionLog
+  };
+  return { ...measured, sha256: sha256({ content: canonicalJson({ value: measured }) }) };
+};
+
+// src/plan/common/utils/selectPhaseFiles.ts
+import { basename as basename33 } from "node:path";
+var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename33(file2.path))?.[1] ?? Number.NaN);
+var selectPhaseFiles = ({ files, phases }) => {
+  if (phases === void 0) {
+    return { selected: files };
+  }
+  const listing = `available: ${files.map((file2) => basename33(file2.path)).join(", ")}`;
+  if (phases.length === 0) {
+    return { error: `--phase named no phase file \u2014 ${listing}` };
+  }
+  const wanted = /* @__PURE__ */ new Set();
+  for (const value of phases) {
+    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename33(file2.path) === value);
+    if (matches.length !== 1) {
+      return { error: `--phase ${value} matches ${matches.length} plan file(s) \u2014 ${listing}` };
+    }
+    wanted.add(matches[0].path);
+  }
+  return { selected: files.filter((file2) => wanted.has(file2.path)) };
+};
+
+// src/plan/runPlanGrade.ts
+var stopOnStructure = async ({
+  params,
+  gradePath,
+  structural,
+  blocking,
+  stamp: stamp3,
+  progress
+}) => {
+  const report2 = createGradeReport({
+    name: params.name,
+    phases: params.phases,
+    structural,
+    gaps: [],
+    failures: [`${blocking} blocking structural finding(s) \u2014 the semantic readers were not launched`],
+    phasesChecked: [],
+    commit: stamp3.commit,
+    treeDirty: stamp3.treeDirty,
+    phasesRequired: [],
+    documentationComplete: false
+  });
+  await writeJsonFile({ path: gradePath, value: report2 });
+  await appendGradeHistory({ cwd: params.cwd, name: params.name, report: report2 });
+  progress(`plan grade ${params.name}: ${blocking} blocking structural finding(s) \u2014 stopped before any agent was spawned`);
+  return report2;
+};
+var runDecidedPass = async (context) => {
+  const { params, pass, selected, decision, inputs, memory, structural, stamp: stamp3, progress } = context;
+  const focused = decision.scope === GradeScope.Focused;
+  return runGradePass({
+    params,
+    pass,
+    selected: focused ? selected.filter((file2) => decision.phases.includes(basename34(file2.path))) : selected,
+    scope: decision.scope,
+    focusedOn: focused ? decision.phases : [],
+    scopeReason: decision.reason,
+    inputs,
+    memory,
+    structural,
+    stamp: stamp3,
+    progress
+  });
+};
+var runPlanGrade = async (params) => {
+  const { cwd, name, phases, onProgress, standards, model, effort } = params;
+  const progress = onProgress ?? (() => void 0);
+  const pass = await getPlanDetectionPass({ cwd, name });
+  const { workspaceDir, files, planPaths, config: config2, error: error51 } = pass;
+  if (error51) {
+    return { status: PlanRunStatus.Failed, workspaceDir, error: error51 };
+  }
+  const selection = selectPhaseFiles({ files, phases });
+  if ("error" in selection) {
+    return { status: PlanRunStatus.Failed, workspaceDir, error: selection.error };
+  }
+  const gradePath = join42(workspaceDir, gradeFileName);
+  const structural = await lintPlanStructure({ cwd, planPaths, decisions: pass.decisions, config: config2 });
+  const stamp3 = await readGradeStamp({ cwd });
+  const blockingStructural = getBlockingFindings({ findings: structural });
+  if (blockingStructural.length > 0) {
+    const stopped = await stopOnStructure({ params, gradePath, structural, blocking: blockingStructural.length, stamp: stamp3, progress });
+    return { status: PlanRunStatus.Complete, workspaceDir, grade: stopped, gradePath };
+  }
+  await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config: config2, onProgress: progress });
+  let found;
+  try {
+    found = await readGradeMemory({ cwd, name });
+  } catch (cause) {
+    return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
+  }
+  const inputs = await getGradeInputs({ cwd, planPaths, decisions: pass.decisions.decisions, standards, config: config2, model, effort });
+  const decision = decideGradeScope({ files, overviewText: pass.overviewText, memory: found, inputs, narrowed: phases !== void 0 });
+  const reusable = decision.reuse ? await readReusableGrade({ gradePath, sha256: inputs.sha256 }) : void 0;
+  if (reusable !== void 0) {
+    progress(
+      `plan grade ${name}: the recorded passing full review still covers the current inputs \u2014 nothing was re-run; delete ${await gradeMemoryPath({ cwd, name })} to force a new baseline`
+    );
+    return { status: PlanRunStatus.Complete, workspaceDir, grade: reusable, gradePath, reused: true };
+  }
+  const memory = found ?? { planName: name, findings: [], coverage: { readers: [] }, nextFindingNumber: 1, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const last = await runDecidedPass({ params, pass, selected: selection.selected, decision, inputs, memory, structural, stamp: stamp3, progress });
+  const report2 = last.report;
+  const blocking = getBlockingGaps({ gaps: report2.gaps });
+  progress(`plan grade ${name}: judged ${report2.gaps.length} finding(s), ${blocking.length} blocking`);
+  progress(`plan grade ${name}: ${report2.grade} (${structural.length} structural, ${report2.gaps.length} gap(s), ${blocking.length} blocking)`);
+  if (last.rateLimited) {
+    const parked = `rate limited or overloaded \u2014 re-run: lightsout plan grade --name ${name}`;
+    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report2, gradePath };
+  }
+  return last.failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${last.failures.join("; ")}`, grade: report2, gradePath } : { status: PlanRunStatus.Complete, workspaceDir, grade: report2, gradePath };
+};
+
+// src/plan/runPlanLint.ts
+var runPlanLint = async ({ cwd, name, onProgress }) => {
+  const progress = onProgress ?? (() => void 0);
+  const inputs = await getPlanDetectionInputs({ cwd, name });
+  if (inputs.error) {
+    return { status: PlanRunStatus.Failed, error: inputs.error };
+  }
+  const findings = await lintPlanStructure({ cwd, planPaths: inputs.planPaths, decisions: inputs.decisions, config: inputs.config });
+  const blocking = getBlockingFindings({ findings });
+  progress(
+    `plan lint ${name}: ${blocking.length} blocking, ${findings.length - blocking.length} advisory finding(s) across ${inputs.planPaths.length} file(s)`
+  );
+  return { status: PlanRunStatus.Complete, findings, planPaths: inputs.planPaths };
+};
+
+// src/plan/runPlanVerifyFacts.ts
+import { copyFile, mkdir as mkdir6, writeFile as writeFile7 } from "node:fs/promises";
+import { join as join44, resolve as resolve3 } from "node:path";
+
+// src/plan/verifyFacts.ts
+import { readFile as readFile24 } from "node:fs/promises";
+import { join as join43 } from "node:path";
+var verifyFacts = async ({ cwd, facts }) => {
+  const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
+  const missingPaths = [];
+  for (const path of paths) {
+    const exists3 = await pathExists({ path: join43(cwd, path) });
+    if (!exists3) {
+      missingPaths.push(path);
+    }
+  }
+  const missingScripts = [];
+  let scriptsChecked = 0;
+  for (const area of facts.areas) {
+    if (area.scripts.length === 0) {
+      continue;
+    }
+    const manifestPaths = [join43(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join43(cwd, pkg, "package.json"))];
+    const available = /* @__PURE__ */ new Set();
+    for (const manifestPath of manifestPaths) {
+      const raw = await readFile24(manifestPath, "utf8").catch(() => void 0);
+      if (raw) {
+        for (const key of getManifestScriptKeys({ raw })) {
+          available.add(key);
+        }
+      }
+    }
+    for (const script of area.scripts) {
+      scriptsChecked += 1;
+      if (!available.has(script.key)) {
+        missingScripts.push(script.key);
+      }
+    }
+  }
+  return {
+    pathsChecked: paths.length,
+    missingPaths,
+    scriptsChecked,
+    missingScripts
+  };
+};
+
+// src/plan/runPlanVerifyFacts.ts
+var snapshotNotes = async ({
+  cwd,
+  workspaceDir,
+  notesFile,
+  progress
+}) => {
+  const source = resolve3(cwd, notesFile);
+  const destination = join44(workspaceDir, "brainstorm-notes.md");
+  const alreadyFrozen = await pathExists({ path: destination });
+  if (alreadyFrozen) {
+    progress("plan verify-facts \xB7 brainstorm-notes.md already frozen \u2014 snapshot skipped");
+    return { error: void 0 };
+  }
+  try {
+    await mkdir6(workspaceDir, { recursive: true });
+    await copyFile(source, destination);
+  } catch {
+    return { error: `notes file not found: ${source}` };
+  }
+  progress(`plan verify-facts \xB7 notes frozen \u2192 ${destination}`);
+  return { error: void 0 };
+};
+var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
+  const progress = onProgress ?? (() => void 0);
+  const workspaceDir = await planWorkspaceDir({ cwd, name });
+  const factsPath = join44(workspaceDir, "facts.json");
+  if (notesFile !== void 0) {
+    const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
+    if (snapshot.error !== void 0) {
+      return { status: PlanRunStatus.Failed, workspaceDir, error: snapshot.error };
+    }
+  }
+  let authored;
+  try {
+    authored = await readPlanWorkspaceFile({
+      cwd,
+      name,
+      fileName: "facts.json",
+      schema: AuthoredFacts,
+      notFound: (filePath) => `no authored facts for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`
+    });
+  } catch (error51) {
+    return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: error51 }) };
+  }
+  const verification = await verifyFacts({ cwd, facts: authored });
+  const facts = {
+    request: authored.request,
+    areas: authored.areas,
+    verification,
+    verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  await writeFile7(factsPath, `${JSON.stringify(facts, void 0, "	")}
+`, "utf8");
+  const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
+  progress(
+    `plan verify-facts \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
+  );
+  return { status: PlanRunStatus.Complete, facts, factsPath, workspaceDir, error: void 0 };
+};
+
+// src/brainstorm/publish/publishBrainstorm.ts
+var contentTypeOf2 = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
+var prepareAttachments2 = async ({
+  dir,
+  titlePrefix
+}) => {
+  const files = [];
+  for (const name of brainstormAttachmentFileNames) {
+    const content = await readFile25(join45(dir, name)).catch((error51) => ({ error: messageOf({ error: error51 }) }));
+    const optional2 = titlePrefix !== void 0 && name !== brainstormNotesFileName;
+    if (Buffer.isBuffer(content)) {
+      files.push({ name, content });
+    } else if (!optional2) {
+      return { error: `could not read ${name} from ${dir} \u2014 run the \`brainstorm\` skill first: ${content.error}` };
+    }
+  }
+  return { attachments: [...files, { name: brainstormAttachmentManifestName, content: serializeAttachmentManifest({ files }) }] };
+};
+var attachBrainstormFiles = async ({
+  settings,
+  ticketId,
+  ticketRef,
+  attachments,
+  onProgress,
+  titlePrefix
+}) => {
+  const published = [];
+  for (const attachment of attachments) {
+    const title = attachmentTitle({ prefix: titlePrefix, name: attachment.name });
+    const failure = await setTicketAttachment3({
+      settings,
+      ticketId,
+      title,
+      content: attachment.content,
+      contentType: contentTypeOf2({ name: attachment.name })
+    });
+    if (failure !== void 0) {
+      return { published, error: failure.error };
+    }
+    published.push(title);
+    onProgress(`attached ${title} to ${ticketRef}`);
+  }
+  return { published, error: void 0 };
+};
+var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
+  const prepared = await prepareAttachments2({ dir: await planWorkspaceDir({ cwd, name }), titlePrefix });
+  if ("error" in prepared) {
+    return { published: [], error: prepared.error };
+  }
+  const ticketRef = await readPlanWorkOrderRef({ cwd, name });
+  if (ticketRef === void 0) {
+    return {
+      published: [],
+      error: `the brainstorm for '${name}' cannot be published: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`
+    };
+  }
+  const settings = resolveTrackerSettings({ config: config2, env });
+  if ("error" in settings) {
+    return { ticketRef, published: [], error: settings.error };
+  }
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
+  if ("error" in tickets) {
+    return { ticketRef, published: [], error: tickets.error };
+  }
+  const ticket = tickets.at(0);
+  if (ticket === void 0) {
+    return { ticketRef, published: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
+  }
+  const { published, error: error51 } = await attachBrainstormFiles({
+    settings,
+    ticketId: ticket.id,
+    ticketRef,
+    attachments: prepared.attachments,
+    onProgress,
+    titlePrefix
+  });
+  return error51 === void 0 ? { ticketRef, published } : { ticketRef, published, error: error51 };
+};
+
+// src/brainstorm/restore/restoreBrainstormFiles.ts
+import { mkdir as mkdir7, writeFile as writeFile8 } from "node:fs/promises";
+import { join as join46 } from "node:path";
+
+// src/brainstorm/common/utils/isBrainstormOnlyAttachmentName.ts
+var isBrainstormOnlyAttachmentName = ({ name }) => name !== brainstormNotesFileName && brainstormAttachmentFileNames.includes(name);
+
+// src/brainstorm/restore/restoreBrainstormFiles.ts
+var readAttachment2 = async ({
+  settings,
+  attachment
+}) => {
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
+};
+var readGeneration = async ({
+  settings,
+  manifest,
+  selected,
+  markerName,
+  required: required2
+}) => {
+  const files = [];
+  for (const listed of manifest.files) {
+    const matches = selected.filter(({ title }) => title === listed.name);
+    const attachment = matches.length === 1 ? matches[0] : void 0;
+    if (attachment === void 0) {
+      return {
+        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
+      };
+    }
+    const read = await readAttachment2({ settings, attachment });
+    if ("error" in read) {
+      return { error: read.error };
+    }
+    if (sha256({ content: read.text }) !== listed.sha256) {
+      return { error: `${listed.name} does not match the SHA-256 committed by ${markerName} \u2014 publish the brainstorm again` };
+    }
+    files.push({ title: listed.name, text: read.text });
+  }
+  const missing = required2.filter((name) => !files.some(({ title }) => title === name));
+  return missing.length === 0 ? { files } : { error: `the brainstorm generation on the ticket is missing ${missing.join(", ")} \u2014 publish the brainstorm again from the machine holding the folder` };
+};
+var writeIntoFolder = async ({ dir, files }) => {
+  const restored = [];
+  const skipped = [];
+  try {
+    await mkdir7(dir, { recursive: true });
+    for (const { title, text } of files) {
+      if (await pathExists({ path: join46(dir, title) })) {
+        skipped.push(title);
+        continue;
+      }
+      await writeFile8(join46(dir, title), text, "utf8");
+      restored.push(title);
+    }
+  } catch (error51) {
+    return { restored: [], skipped: [], error: `the fetched brainstorm could not be written: ${messageOf({ error: error51 })}` };
+  }
+  return { restored: restored.sort(), skipped: skipped.sort() };
+};
+var restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix }) => {
+  const listed = await getTicketAttachments3({ settings, identifier });
+  if ("error" in listed) {
+    return { restored: [], skipped: [], error: listed.error };
+  }
+  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
+  const markerName = attachmentTitle({ prefix: titlePrefix, name: brainstormAttachmentManifestName });
+  const selected = attachments.filter(({ title }) => brainstormAttachmentFileNames.includes(title));
+  const markers = attachments.filter(({ title }) => title === brainstormAttachmentManifestName);
+  const marker = markers[0];
+  const isEvidence = titlePrefix === void 0 ? isBrainstormOnlyAttachmentName : ({ name: title }) => brainstormAttachmentFileNames.includes(title);
+  if (!attachments.some(({ title }) => isEvidence({ name: title })) && markers.length === 0) {
+    return { restored: [], skipped: [] };
+  }
+  if (marker === void 0 || markers.length > 1) {
+    return {
+      restored: [],
+      skipped: [],
+      error: marker === void 0 ? `the ticket carries brainstorm attachments but no ${markerName} commit marker \u2014 publish the brainstorm again` : `the ticket carries more than one ${markerName} attachment, so no single committed brainstorm generation can be selected`
+    };
+  }
+  const markerRead = await readAttachment2({ settings, attachment: marker });
+  if ("error" in markerRead) {
+    return { restored: [], skipped: [], error: markerRead.error };
+  }
+  const parsed = parseAttachmentManifest({
+    text: markerRead.text,
+    markerName,
+    // The list holds two bare names, so membership is already the bareness
+    // guard the plan side needs `basename` for.
+    isAllowedName: ({ name: listed2 }) => brainstormAttachmentFileNames.includes(listed2)
+  });
+  if ("error" in parsed) {
+    return { restored: [], skipped: [], error: parsed.error };
+  }
+  const generation = await readGeneration({
+    settings,
+    manifest: parsed.manifest,
+    selected,
+    markerName,
+    // Under a prefix `brainstorm-decisions.json` is optional, because a plan of
+    // a ticket may be shaped by a brainstorm that settled no decision of its own.
+    required: titlePrefix === void 0 ? brainstormAttachmentFileNames : [brainstormNotesFileName]
+  });
+  if ("error" in generation) {
+    return { restored: [], skipped: [], error: generation.error };
+  }
+  return writeIntoFolder({ dir: await planWorkspaceDir({ cwd, name }), files: generation.files });
+};
+
+// src/cli/common/args/getStringFlag.ts
+var getStringFlag = ({ flags, name }) => {
+  const value = flags.get(name);
+  return typeof value === "string" ? value : void 0;
+};
+
+// src/commands/common/constants/build/autoPlanCatalogEntry.ts
+var autoPlanCatalogEntry = {
+  id: "auto-plan",
+  slash: "/auto-plan",
+  group: CommandGroup.Build,
+  summary: "Plan a ticket alone \u2014 self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the `auto-plan` config block.",
+  whenToUse: 'Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide". It stops for the questions two reasonable engineers would answer differently, and for nothing else; the `auto-plan` config block says whether approval also starts the build.',
+  invocations: [],
+  flags: [],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/brainstormCatalogEntry.ts
+var brainstormCatalogEntry = {
+  id: "brainstorm",
+  slash: "/brainstorm",
+  cli: "lightsout brainstorm",
+  group: CommandGroup.Build,
+  summary: "Shape a vague idea into a buildable direction through dialogue \u2014 checks whether it is one idea or several, offers 2\u20133 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words.",
+  whenToUse: "Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome \u2014 ready to implement, or ready to auto-plan \u2014 and publishes the design write-up and the settled decisions to the ticket.",
+  invocations: [{ id: "brainstorm-publish", positional: "publish" }],
+  flags: [
+    {
+      name: "name",
+      value: "<name>",
+      meaning: "The brainstorm\u2019s plan, under .lightsout/work-orders/<work-order-name>/plans/ \u2014 a plan address <work-order-name>/<NNN-slug>, or a legacy folder name.",
+      required: true
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/implementSteps.ts
+var implementSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Hand the finished plan to `/implement`",
+      "Resolve settings from the config",
+      "Snapshot existing worktree changes and create a run ID",
+      "Create a repository lock so other lightsout runs cannot clash"
+    ],
+    note: "Isolates the agent\u2019s changes and makes the run safely resumable",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run lint, type checks, tests, build, and coverage before implementation begins",
+      "Stop immediately if any gate is already failing",
+      "Record files touched by setup or gates in the manifest"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "IMPLEMENT THE PLAN",
+    actor: CommandActor.Agent,
+    bullets: [
+      "The implementation agent follows the finished spec",
+      "It writes the code and returns a structured report",
+      "It can run only commands explicitly allowed in the config"
+    ],
+    note: "Executes the finished spec without reopening settled decisions",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-implement.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE IMPLEMENTATION",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run lint, type checks, tests, build, and coverage",
+      "Try up to two lightweight repairs if a gate fails",
+      "If the gates remain red, park the run with all evidence"
+    ],
+    note: "Prevents a broken implementation from moving forward",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "WRITE THE TESTS",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Spawn a test-writing agent for each source file that changed",
+      "Add tests until coverage meets the configured threshold",
+      "Skip this step when no eligible source files changed"
+    ],
+    note: "Makes sure the new behavior is covered by tests",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
+  },
+  {
+    title: "VERIFY THE TESTS",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the new tests pass and coverage meets the configured threshold",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REFACTOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Review changed code for duplication and structural issues",
+      "Reuse existing helpers or extract shared abstractions",
+      "Refactor to your code standards without changing behavior",
+      "Skip this step when requested or when nothing changed"
+    ],
+    note: "Removes duplication and keeps agent-written code aligned with your code standards",
+    saved: [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
+  },
+  {
+    title: "VERIFY THE REFACTOR",
+    actor: CommandActor.Engine,
+    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
+    note: "Confirms the refactor preserved behavior and passes every gate",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "FORMAT THE CODE",
+    actor: CommandActor.Engine,
+    bullets: ["Run the configured formatter on all changed files", "Re-run lint, type checks, tests, build, and coverage"],
+    note: "Confirms formatting does not break a green run",
+    saved: [".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "REPORT THE RESULT",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Generate the final report from artifacts saved during the run",
+      "Record the final status, steps, retries, rejected reports, token cost, and friction",
+      "Keep the complete run history in one folder"
+    ],
+    note: "Leaves an inspectable record of what happened and why the run passed or failed",
+    saved: [".lightsout/runs/<id>/"]
+  }
+];
+
+// src/commands/common/constants/build/implementCatalogEntry.ts
+var implementCatalogEntry = {
+  id: "implement",
+  slash: "/implement",
+  cli: "lightsout implement",
+  group: CommandGroup.Build,
+  summary: "Run the lightsout deterministic implementation pipeline on a plan file.",
+  whenToUse: "Run it when a plan is graded and you want the work done unattended. Every step is gated by the repo\u2019s own tests, lint, types and coverage, and the run parks rather than pushing past a gate it cannot satisfy.",
+  invocations: [{ id: "implement" }, { id: "implement-folder", note: "folder: overview.md runs all phases, else plan.md" }],
+  flags: [
+    { name: "plan", value: "<path>", meaning: "The plan file to implement.", shape: "implement", required: true },
+    {
+      name: "overview",
+      value: "<path>",
+      meaning: "The overview this plan is one phase of, so the run reads the wider intent.",
+      fallback: "The plan is implemented on its own.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "packages",
+      value: "<a,b>",
+      meaning: "Comma-separated package names the gates are scoped to.",
+      fallback: "The packages the run actually changed files in.",
+      shape: "implement",
+      required: false
+    },
+    {
+      name: "plan",
+      value: "<folder>",
+      meaning: "A plan workspace folder \u2014 overview.md runs every phase as a child run, plan.md runs the one.",
+      shape: "implement-folder",
+      required: true
+    },
+    {
+      name: "start-phase",
+      value: "<n>",
+      meaning: "The phase number a phased run begins at.",
+      fallback: "The first phase that has not already passed.",
+      shape: "implement-folder",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
+    {
+      name: "worktree",
+      meaning: "Build in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
+      fallback: "The `implement.worktree` config key, which defaults to on.",
+      required: false
+    },
+    { name: "no-worktree", meaning: "Build in the checkout this was launched from rather than a worktree of its own.", required: false },
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
+  ],
+  steps: implementSteps,
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "work-order", "ticket-state", "self-check"],
+  graphic: {
+    title: "How /implement turns the spec into verified code",
+    subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
+    banner: "The model can claim success. Lightsout requires evidence.",
+    columns: 5
+  }
+};
+
+// src/commands/common/constants/build/implementDirectCatalogEntry.ts
+var implementDirectCatalogEntry = {
+  id: "implement-direct",
+  cli: "lightsout implement-direct",
+  group: CommandGroup.Build,
+  summary: "Build one ticket straight from its body, with the repo's own gates as the only bar, and commit what passes.",
+  whenToUse: "Run it on work small enough that a plan would cost more than the work: it reads the ticket body, builds from it, runs the repo\u2019s gates, and commits. It refuses a dirty tree, because it commits everything in the tree when it is done.",
+  invocations: [{ id: "implement-direct" }],
+  flags: [
+    { name: "ticket", value: "<path>", meaning: "A file holding the ticket body to build from.", required: true },
+    {
+      name: "ref",
+      value: "<ticket>",
+      meaning: "The ticket reference the run and its commit are labelled with.",
+      fallback: "The ticket reference the current branch carries.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to build in.", fallback: "The process working directory.", required: false },
+    {
+      name: "worktree",
+      meaning: "Build in a fresh git worktree of this repository, on a branch named after the ticket.",
+      fallback: "The `implement.worktree` config key, which defaults to on.",
+      required: false
+    },
+    { name: "no-worktree", meaning: "Build in the checkout this was launched from rather than a worktree of its own.", required: false },
+    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/planSteps.ts
+var planSteps = [
+  {
+    title: "CREATE THE PLAN WORKSPACE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Start from a direct request or existing `/brainstorm` notes",
+      "Create a name for the plan",
+      "Preserve any existing notes as the plan\u2019s starting context"
+    ],
+    note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/brainstorm-notes.md"],
+    savedLabel: "SAVED WHEN NOTES EXIST"
+  },
+  {
+    title: "RECORD THE FACTS",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Inspect the code and files relevant to the plan request",
+      "Record the repository facts the plan will rely on",
+      "Verify every referenced file and path before moving forward"
+    ],
+    note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/facts.json"]
+  },
+  {
+    title: "SETTLE THE SCOPE AND CONSTRAINTS",
+    actor: CommandActor.You,
+    bullets: [
+      "Decide whether the request needs one plan or multiple phases",
+      "Record the requirements and constraints the plan must follow",
+      "Planning agent asks questions until you are both aligned"
+    ],
+    note: "Prevents scope and project constraints from being decided during implementation",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/decisions.json"]
+  },
+  {
+    title: "CHOOSE THE APPROACH",
+    actor: CommandActor.You,
+    bullets: [
+      "Planning agent presents 2\u20133 distinct options with trade-offs",
+      "You choose the approach the plan will follow",
+      "Skip this step only when the approach is already settled"
+    ],
+    note: "Ensures the design is chosen before implementation begins",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/decisions.json"]
+  },
+  {
+    title: "WRITE THE IMPLEMENTATION PLAN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Turn the verified facts and decisions into a complete plan",
+      "Validate the plan\u2019s structure and revise it until it passes",
+      "Use one plan or split larger work into clear phases"
+    ],
+    note: "Creates the specification the implementation agent will follow",
+    saved: [
+      ".lightsout/work-orders/<work-order-name>/plans/<plan-id>/plan.md",
+      ".lightsout/work-orders/<work-order-name>/plans/<plan-id>/overview.md",
+      ".lightsout/work-orders/<work-order-name>/plans/<plan-id>/phase<N>-<slug>.md"
+    ]
+  },
+  {
+    title: "STRESS-TEST THE PLAN",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent questions you about edge cases and unresolved choices",
+      "You answer every decision that could change implementation",
+      "Every answer is added to the plan immediately"
+    ],
+    note: "Prevents the implementation agent from filling gaps on its own",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/decisions.json"]
+  },
+  {
+    title: "CATCH DUPLICATION BEFORE CODING",
+    actor: CommandActor.You,
+    bullets: [
+      "The planning agent searches for existing code related to the plan request",
+      "Decide whether to reuse, extend, extract, defer, or keep the code separate",
+      "Update the plan before implementation begins"
+    ],
+    note: "Prevents duplicate logic and competing abstractions",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/dedup.json"]
+  },
+  {
+    title: "GET THE PLAN TO AN A GRADE",
+    actor: CommandActor.Engine,
+    bullets: [
+      "The engine grades the plan and identifies every gap",
+      "The planning agent updates the plan to address each finding",
+      "Re-grade until it earns an A with no unresolved gaps"
+    ],
+    note: "Proves the plan is complete enough for an implementation agent with no prior context",
+    saved: [".lightsout/work-orders/<work-order-name>/plans/<plan-id>/grade.json"]
+  }
+];
+
+// src/commands/common/constants/build/planCatalogEntry.ts
+var planCatalogEntry = {
+  id: "plan",
+  slash: "/plan",
+  cli: "lightsout plan",
+  group: CommandGroup.Build,
+  summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
+  whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
+  invocations: [
+    { id: "plan-workspace", positional: "workspace" },
+    { id: "plan-verify-facts", positional: "verify-facts" },
+    { id: "plan-draft", positional: "draft" },
+    { id: "plan-sync-decisions", positional: "sync-decisions" },
+    { id: "plan-lint", positional: "lint" },
+    { id: "plan-dedup", positional: "dedup" },
+    { id: "plan-grade", positional: "grade", note: "--phase grades only those phases, and always marks the result incomplete" },
+    { id: "plan-publish", positional: "publish" }
+  ],
+  flags: [
+    {
+      name: "name",
+      value: "<name>",
+      meaning: "The plan to work in, under .lightsout/work-orders/<work-order-name>/plans/ \u2014 a plan address <work-order-name>/<NNN-slug>, or a legacy folder name.",
+      required: true
+    },
+    {
+      name: "notes",
+      value: "<path>",
+      meaning: "Rough notes to start from \u2014 a /brainstorm file, or anything you wrote yourself.",
+      fallback: "The workspace starts from the request alone.",
+      shape: "plan-verify-facts",
+      required: false
+    },
+    {
+      name: "legacy",
+      meaning: "Draft with the previous drafting implementation rather than the focused one.",
+      fallback: "The focused drafting implementation.",
+      shape: "plan-draft",
+      required: false
+    },
+    {
+      name: "scope",
+      value: "single|phased",
+      meaning: "Whether to write one plan or an overview with a file per phase.",
+      fallback: "Chosen from the size of the work.",
+      shape: "plan-draft",
+      required: false
+    },
+    {
+      name: "phase",
+      value: "<n[,n]>",
+      meaning: "Grade only these phases of a phased plan.",
+      fallback: "Every phase is graded, and the result may be complete.",
+      shape: "plan-grade",
+      required: false
+    },
+    {
+      name: "cwd",
+      value: "<path>",
+      meaning: "The checkout the command is launched from; the plan\u2019s worktree is resolved from it.",
+      fallback: "The process working directory.",
+      required: false
+    },
+    {
+      name: "worktree",
+      meaning: "Plan in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
+      fallback: "The `plan.worktree` config key, which defaults to on.",
+      required: false
+    },
+    { name: "no-worktree", meaning: "Plan in the checkout this was launched from rather than a worktree of its own.", required: false }
+  ],
+  steps: planSteps,
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "work-order", "ticket-state", "self-check"],
+  graphic: {
+    title: "How /plan turns a request into an implementation-ready spec",
+    subtitle: "Final spec and every decision recorded before any code is written.",
+    banner: "The implementation-ready spec can now be handed to /implement in a fresh context window.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/build/queueCatalogEntry.ts
+var queueCatalogEntry = {
+  id: "queue",
+  cli: "lightsout queue",
+  group: CommandGroup.Build,
+  summary: "Drain the tracker of automatable tickets in parallel worktrees, relaying any question to this terminal or to a mailbox directory.",
+  whenToUse: "Run it when the tracker holds tickets you have labelled for automation and you want them built without picking them up one at a time: it makes a worktree and branch per ticket, runs the worker its label names, puts any question it cannot answer to this terminal \u2014 or, with `--file-relay`, to a mailbox directory an agent session or an editor can answer from \u2014 then ships the ready branches one at a time, each rebased onto fresh main with the gates re-run. A mailbox question nobody answers parks its ticket once `queue.question-timeout` elapses. It stops when nothing is left to do; running it again resumes whatever parked.",
+  invocations: [{ id: "queue" }],
+  flags: [
+    {
+      name: "file-relay",
+      value: "[dir]",
+      meaning: "Relay questions as files in a mailbox directory instead of asking on this terminal. Defaults to .lightsout/queue/relay under the repo, emptied at startup.",
+      fallback: "Questions are asked on the terminal that started the drain.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to drain into.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/resumeCatalogEntry.ts
+var resumeCatalogEntry = {
+  id: "resume",
+  cli: "lightsout resume",
+  group: CommandGroup.Build,
+  summary: "Pick a parked run back up where it stopped, in the workspace that run recorded \u2014 same manifest, same work list, nothing repeated.",
+  whenToUse: "Use it when a run parked \u2014 a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone, and it returns to the checkout that run recorded rather than the one you happen to be standing in. A direct run built from a ticket is continued here too: it picks its unfinished stage back up from the ticket frozen beside the run, rather than being re-run from the ticket file.",
+  invocations: [{ id: "resume" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked run to pick back up.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false },
+    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
+    { name: "ship", meaning: "Ship the branch after the resumed run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
+    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/selfCheckCatalogEntry.ts
+var selfCheckCatalogEntry = {
+  id: "self-check",
+  cli: "lightsout self-check",
+  group: CommandGroup.Build,
+  summary: "The engine's own check of a writing agent's change, run by that agent before it reports.",
+  whenToUse: "Nothing a human reaches for. The engine grants it to the feature executor, the refactor executor and the direct worker inside their own spawns, so an agent sees the cheap gates it is about to be judged on while its context is still loaded. It takes the live run id and reads everything else from that run \u2014 and it decides nothing: the engine's own gates run afterwards over the full scope and are the only verdict.",
+  invocations: [{ id: "self-check" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The live run whose manifest says which step, schedule and scope this check mirrors.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "work-order", "ticket-state"]
+};
+
+// src/commands/common/constants/build/shipCatalogEntry.ts
+var shipCatalogEntry = {
+  id: "ship",
+  cli: "lightsout ship",
+  group: CommandGroup.Build,
+  summary: "Take the current branch from committed work to merged and cleaned up, and write a typed result.",
+  whenToUse: "Run it when the branch is committed and you want it merged: it pushes the branch, opens or adopts the pull request, waits for the checks, merges, deletes the branch and syncs the default branch \u2014 then writes one JSON result a tracker skill can read.",
+  invocations: [{ id: "ship" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "work-order", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/build/ticketStateCatalogEntry.ts
+var ticketStateCatalogEntry = {
+  id: "ticket-state",
+  cli: "lightsout ticket-state",
+  group: CommandGroup.Build,
+  summary: "Write a ticket's planning status, its tracker workflow status, or both.",
+  whenToUse: "Run it at a workflow transition \u2014 when brainstorming finishes, when a plan is approved, when implementation begins \u2014 so the ticket says what preparation it still owes and where implementation stands. The workflow skills call it at each of those moments, so the tracker says the same thing however the work was started.",
+  invocations: [{ id: "ticket-state" }],
+  flags: [
+    { name: "ref", value: "<ticket>", meaning: "The ticket to write, by its human reference.", required: true },
+    {
+      name: "planning-status",
+      value: "<status>",
+      meaning: "What preparation the ticket still owes: planning-needs-brainstorm, planning-needs-plan, planning-ready-auto-plan, planning-complete or planning-not-needed.",
+      fallback: "The planning status is left as it is.",
+      required: false
+    },
+    {
+      name: "tracker-status",
+      value: "ready|in-progress",
+      meaning: "Where implementation stands, named by role so one line works in every repository: ready when shaping is finished and implementation is waiting, in-progress when source changes have begun. Done is not among them \u2014 a ticket reaches done only when a merge is positively confirmed, which the ship path writes.",
+      fallback: "The tracker status is left as it is.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository whose config names the tracker.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "work-order", "self-check"]
+};
+
+// src/commands/common/constants/build/workOrderCatalogEntry.ts
+var workOrderNameFlag = ({ shape }) => ({
+  name: "name",
+  value: "<work-order-name>",
+  meaning: "The ticket to act on, named by its branch \u2014 which is also its folder under .lightsout/work-orders/, never one plan's address.",
+  shape,
+  required: true
+});
+var workOrderCatalogEntry = {
+  id: "work-order",
+  cli: "lightsout work-order",
+  group: CommandGroup.Build,
+  summary: "Create a work order, and change and show its record of the plans it holds, the mode they implement in, and its request to ship.",
+  whenToUse: "Reach for it whenever work is started, gains a plan or changes shape. `new` is the one command that writes a work order\u2019s name \u2014 give it `--ticket <ref>` and the engine reads that ticket\u2019s title from the tracker and summarises it, or `--title <words>` and the words are taken as handed; the name is written once and never again. `add-plan` starts the next plan and prints its address; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.",
+  invocations: [
+    { id: "work-order-new", positional: "new" },
+    { id: "work-order-add-plan", positional: "add-plan" },
+    { id: "work-order-mode", positional: "mode" },
+    { id: "work-order-request-ship", positional: "request-ship" },
+    { id: "work-order-exclude-plan", positional: "exclude-plan" },
+    { id: "work-order-retitle-plan", positional: "retitle-plan" },
+    { id: "work-order-show", positional: "show" },
+    { id: "work-order-sync", positional: "sync" }
+  ],
+  flags: [
+    {
+      name: "ticket",
+      value: "<ref>",
+      meaning: "The tracker ticket this work is for. The engine reads that ticket's title and summarises it into the work order's name \u2014 nobody hands it one.",
+      fallback: "Nothing is read from a tracker; give --title instead to name the work yourself.",
+      shape: "work-order-new",
+      required: false,
+      exclusiveWith: "work-order-name-source"
+    },
+    {
+      name: "title",
+      value: "<words>",
+      meaning: "The words to name this work when no tracker names it \u2014 taken exactly as typed, and slugged into the label and the branch.",
+      fallback: "Nothing is named from words; give --ticket instead to take the name from a tracker ticket.",
+      shape: "work-order-new",
+      required: false,
+      exclusiveWith: "work-order-name-source"
+    },
+    workOrderNameFlag({ shape: "work-order-add-plan" }),
+    {
+      name: "slug",
+      value: "<slug>",
+      meaning: "The new plan's fixed slug: lowercase letter-and-digit words joined by single hyphens, at most 40 characters.",
+      shape: "work-order-add-plan",
+      required: true
+    },
+    {
+      name: "title",
+      value: "<title>",
+      meaning: "The plan's first display title, which stays changeable.",
+      fallback: "The slug is used as the title.",
+      shape: "work-order-add-plan",
+      required: false
+    },
+    workOrderNameFlag({ shape: "work-order-mode" }),
+    {
+      name: "set",
+      value: "single-plan|multiple-plan",
+      meaning: "How this ticket organises its plans: single-plan means plan 001 alone supplies the implementation, multiple-plan means its plans implement in numeric order on one branch.",
+      shape: "work-order-mode",
+      required: true
+    },
+    {
+      name: "approve",
+      meaning: "Carry out a switch to single-plan mode, excluding every later plan.",
+      fallback: "The switch is previewed and nothing is changed.",
+      shape: "work-order-mode",
+      required: false
+    },
+    workOrderNameFlag({ shape: "work-order-request-ship" }),
+    {
+      name: "plans",
+      value: "<id,id>",
+      meaning: "Every plan the request approves, as full ids or bare numbers \u2014 it must name each plan the ticket still includes.",
+      fallback: "Nothing is requested; give --withdraw instead to take a pending request back.",
+      shape: "work-order-request-ship",
+      required: false,
+      exclusiveWith: "ship-request"
+    },
+    {
+      name: "withdraw",
+      meaning: "Take a pending ship request back, leaving the ticket open.",
+      fallback: "Nothing is withdrawn; give --plans instead to record a request.",
+      shape: "work-order-request-ship",
+      required: false,
+      exclusiveWith: "ship-request"
+    },
+    workOrderNameFlag({ shape: "work-order-exclude-plan" }),
+    { name: "plan", value: "<id>", meaning: "The plan to exclude, as its full id or its number on its own.", shape: "work-order-exclude-plan", required: true },
+    {
+      name: "reason",
+      value: "<text>",
+      meaning: "Why this plan is out of the ticket's work \u2014 the record's only account of the decision.",
+      shape: "work-order-exclude-plan",
+      required: true
+    },
+    {
+      name: "implementation-removed",
+      meaning: "Declare this plan's implementation taken off the branch, which the repository's own gates then verify on that branch's checkout.",
+      fallback: "The exclusion records no removal, and the plan's implementation stays where it is.",
+      shape: "work-order-exclude-plan",
+      required: false
+    },
+    workOrderNameFlag({ shape: "work-order-retitle-plan" }),
+    { name: "plan", value: "<id>", meaning: "The plan to retitle, as its full id or its number on its own.", shape: "work-order-retitle-plan", required: true },
+    {
+      name: "title",
+      value: "<title>",
+      meaning: "The plan's new display title. Its id, its folder and any pending ship request are untouched.",
+      shape: "work-order-retitle-plan",
+      required: true
+    },
+    workOrderNameFlag({ shape: "work-order-show" }),
+    workOrderNameFlag({ shape: "work-order-sync" }),
+    {
+      name: "keep",
+      value: "local|published",
+      meaning: "Which copy wins when this machine and the ticket have both changed the record.",
+      fallback: "The ordinary sync: the ticket\u2019s copy is taken when only it moved, and this machine\u2019s is sent when only it did.",
+      shape: "work-order-sync",
+      required: false
+    },
+    {
+      name: "cwd",
+      value: "<path>",
+      meaning: "Any checkout of the repository; the record is found in its primary checkout.",
+      fallback: "The process working directory.",
+      required: false
+    }
+  ],
+  steps: [],
+  records: CommandRecordKind.Plans,
+  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket-state", "self-check"]
+};
+
+// src/commands/common/constants/burnDown/refactorSteps.ts
+var refactorSteps = [
+  {
+    title: "START THE RUN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
+      "Refuse to start without a config, without git, or with uncommitted changes",
+      "Create a run ID and a repository lock so no other lightsout run touches the same tree"
+    ],
+    note: "Keeps the entire cleanup as one diff you can read, revert, or resume",
+    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
+  },
+  {
+    title: "FIND THE WORK",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
+      "Detectors that read types need the repo\u2019s own TypeScript, and say so when it is missing",
+      "Leave out anything already accepted as known debt, unless you asked for everything"
+    ],
+    note: "Detection is deterministic code \u2014 no agent is ever asked to go find problems",
+    saved: ["lightsout.standards-baseline.json"],
+    savedLabel: "READ FROM DISK"
+  },
+  {
+    title: "GROUP INTO BATCHES",
+    actor: CommandActor.Engine,
+    bullets: [
+      "One batch is one kind of finding in one area \u2014 a package, a top-level folder, or the repo root",
+      "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
+      "Freeze the list to disk and work from it \u2014 never recompute it midway"
+    ],
+    note: "Gives each agent a single coherent job instead of a pile of unrelated fixes",
+    saved: [".lightsout/runs/<id>/worklist.json"]
+  },
+  {
+    title: "VERIFY THE REPO STARTS GREEN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Run any code generator first, then lint, type checks, tests, build, and coverage",
+      "Stop immediately if any gate is already failing",
+      "Skip this on a resumed run when an earlier attempt already proved it green"
+    ],
+    note: "Proves any later failure was introduced by this run, not inherited from the repository",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "SKIP WHAT IS ALREADY FIXED",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again immediately before each batch starts",
+      "If earlier batches already cleared these findings, close the batch and spend no agent",
+      "Collect fresh size warnings for the batch\u2019s files \u2014 the frozen ones cite line numbers that have since moved"
+    ],
+    note: "Never pays an agent to fix something that is already gone",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "FIX ONE BATCH",
+    actor: CommandActor.Agent,
+    bullets: [
+      "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
+      "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
+      "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
+    ],
+    note: "Changes structure only \u2014 the behavior has to survive untouched",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
+  },
+  {
+    title: "VERIFY THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Re-run the gates, scoped to the packages that changed, with coverage always on",
+      "Try up to two lightweight repairs when a gate goes red",
+      "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
+    ],
+    note: "Stops a batch that broke the build from reaching the next one",
+    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
+  },
+  {
+    title: "BRING IN A SUPERVISOR",
+    actor: CommandActor.Agent,
+    bullets: [
+      "When the quick repairs run out, a read-only supervisor diagnoses the failure",
+      "It either grants one guided retry or rules the failure a human problem",
+      "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
+    ],
+    note: "Buys judgment exactly once, instead of retrying forever",
+    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
+  },
+  {
+    title: "RULE ON THE BATCH",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check again \u2014 the code rules, and a copied block that merely moved is not gone",
+      "Gone counts as resolved; still there with nothing changed counts as declined, with the agent\u2019s reasoning kept",
+      "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
+    ],
+    note: "Work finished without a report still counts, and changed files come from git, minus generated output",
+    saved: ["manifest.json", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "KNOW WHEN TO STOP",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Three declines in a row end the run \u2014 the pattern is systemic, and more spend will not fix it",
+      "A refusal on scope grounds counts as a decline and the run carries on",
+      "A harness rate limit or your batch budget parks the run instead of failing it"
+    ],
+    note: "Each batch is saved before the next begins, and declines are read back \u2014 resuming re-runs nothing",
+    saved: ["manifest.json"]
+  },
+  {
+    title: "MEASURE THE BURN-DOWN",
+    actor: CommandActor.Engine,
+    bullets: [
+      "Check the whole scope once more and report findings before and after, one line per kind",
+      "A parked run reports no burn-down \u2014 resume it to finish and measure",
+      "Keep every batch outcome, retry, token cost, and point of friction in one folder"
+    ],
+    note: "Turns the cleanup into a number you can check rather than a claim",
+    saved: [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
+  },
+  {
+    title: "REVIEW AND COMMIT",
+    actor: CommandActor.You,
+    bullets: [
+      "Read each declined batch alongside the agent\u2019s own reasoning for leaving it",
+      "Fix it by hand, or accept it as known debt in the baseline",
+      "Review the working-tree diff and commit it \u2014 the engine never commits"
+    ],
+    note: "Leaves the last call on unfixed debt with a human",
+    saved: ["lightsout.standards-baseline.json"]
+  }
+];
+
+// src/commands/common/constants/burnDown/refactorCatalogEntry.ts
+var refactorCatalogEntry = {
+  id: "refactor",
+  slash: "/refactor",
+  cli: "lightsout refactor",
+  group: CommandGroup.BurnDown,
+  summary: "Burn down a repo\u2019s standards-check findings (duplication, size, structure, boundary violations) in verified, resumable batches via the lightsout refactor pipeline.",
+  whenToUse: "Reach for it when standards-check has more findings than anyone will fix by hand. It burns them down in verified, resumable batches, each one gated before it lands.",
+  invocations: [{ id: "refactor" }, { id: "refactor-resume", note: "resume a parked refactor run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked refactor run to pick back up.", shape: "refactor-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to burn down.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Burn down only this subdirectory.", fallback: "The whole repository.", shape: "refactor", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "refactor", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the work-list is finished.",
+      shape: "refactor",
+      required: false
+    },
+    { name: "code-checks", meaning: "Build the work-list from the mechanical checks alone, with no agent review.", shape: "refactor", required: false },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "refactor", required: false }
+  ],
+  steps: refactorSteps,
+  records: CommandRecordKind.Runs,
+  related: ["test-coverage-to-threshold", "standards-check"],
+  graphic: {
+    title: "How /refactor turns standards findings into verified cleanup",
+    subtitle: "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
+    banner: "The engine never commits. It hands back a measured before-and-after and a diff you review.",
+    columns: 4
+  }
+};
+
+// src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts
+var testCoverageToThresholdCatalogEntry = {
+  id: "test-coverage-to-threshold",
+  slash: "/test-coverage-to-threshold",
+  cli: "lightsout test-coverage-to-threshold",
+  group: CommandGroup.BurnDown,
+  summary: "Raise a repo\u2019s unit-test coverage until its own coverage script passes, in verified, resumable batches via the lightsout coverage pipeline.",
+  whenToUse: "Use it when the coverage gate is what stands between you and a green build. It writes tests in batches until your own coverage script passes, and stops there.",
+  invocations: [{ id: "test-coverage-to-threshold" }, { id: "test-coverage-to-threshold-resume", note: "resume a parked coverage run" }],
+  flags: [
+    { name: "run", value: "<id>", meaning: "The parked coverage run to pick back up.", shape: "test-coverage-to-threshold-resume", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to raise coverage in.", fallback: "The process working directory.", required: false },
+    {
+      name: "max-batches",
+      value: "<n>",
+      meaning: "Park the run after this many batches.",
+      fallback: "The run continues until the coverage script passes.",
+      shape: "test-coverage-to-threshold",
+      required: false
+    },
+    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "test-coverage-to-threshold", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Runs,
+  related: ["refactor", "standards-check"]
+};
+
+// src/commands/common/constants/housekeeping/doctorCatalogEntry.ts
+var doctorCatalogEntry = {
+  id: "doctor",
+  cli: "lightsout doctor",
+  group: CommandGroup.Housekeeping,
+  summary: "Check the install end to end \u2014 config, harness, gates, standards \u2014 and name what is missing.",
+  whenToUse: "Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.",
+  invocations: [{ id: "doctor" }],
+  flags: [
+    { name: "cwd", value: "<path>", meaning: "Repository to check the install of.", fallback: "The process working directory.", required: false },
+    {
+      name: "usage-probe",
+      meaning: "Spend one throwaway agent call on the configured harness to confirm its token fields still parse. Real money on your own subscription.",
+      required: false
+    }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "friction", "improve", "voice", "report"]
+};
+
+// src/commands/common/constants/housekeeping/frictionCatalogEntry.ts
+var frictionCatalogEntry = {
+  id: "friction",
+  cli: "lightsout friction",
+  group: CommandGroup.Housekeeping,
+  summary: "Collect what slowed the agents down across recent runs, so the next fix is the one that pays.",
+  whenToUse: "Reach for it after a few runs, when you want the next improvement to be the one that pays. It collects what actually slowed the agents down instead of what you assume did.",
+  invocations: [{ id: "friction" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository whose runs are read.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "improve", "voice", "report"]
+};
+
+// src/commands/common/constants/housekeeping/improveCatalogEntry.ts
+var improveCatalogEntry = {
+  id: "improve",
+  cli: "lightsout improve",
+  group: CommandGroup.Housekeeping,
+  summary: "Feed this repo\u2019s friction back to the lightsout engine as a change proposal.",
+  whenToUse: "Use it when this repo\u2019s friction is really the engine\u2019s problem. It turns those findings into a change proposal against a lightsout checkout you point it at.",
+  invocations: [{ id: "improve" }],
+  flags: [
+    { name: "engine", value: "<lightsout-repo-path>", meaning: "The lightsout checkout the change proposal is written against.", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository whose friction is read.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "voice", "report"]
+};
+
+// src/commands/common/constants/housekeeping/reportCatalogEntry.ts
+var reportCatalogEntry = {
+  id: "report",
+  cli: "lightsout report",
+  group: CommandGroup.Housekeeping,
+  summary: "Show where a plan's hours and money went: every level of the run down to each harness process, with its time, tokens and cost.",
+  whenToUse: "Reach for it after planning a ticket, when you want to know which step burned the hours, how many harness processes it took and what it cost. It reads what the plan commands recorded, so it spends nothing and can be run as often as you like. Name a ticket folder rather than one plan to see what the whole ticket cost.",
+  invocations: [{ id: "report" }],
+  flags: [
+    {
+      name: "plan",
+      value: "<name>",
+      meaning: "The plan to report on \u2014 a plan address, a legacy plan folder name, or a ticket folder, which reports every plan under it beneath one totalled ticket row.",
+      required: true
+    },
+    {
+      name: "json",
+      meaning: "Print the same totalled tree as data instead of the table, so a chart and this table read one calculation.",
+      fallback: "The table is printed.",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository whose plan folders are read.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "improve", "voice"]
+};
+
+// src/commands/common/constants/housekeeping/statusCatalogEntry.ts
+var statusCatalogEntry = {
+  id: "status",
+  cli: "lightsout status",
+  group: CommandGroup.Housekeeping,
+  summary: "Show what lightsout sees in this repo: config, harness, packs, any run still parked \u2014 and, for one run, what it is doing right now.",
+  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing. Pass --now to see the run that is going right now, printed once.",
+  invocations: [
+    { id: "status" },
+    { id: "status-run", note: "one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going" },
+    { id: "status-now", note: "the run that is going, printed once; a phased plan shows its phase sequence and the phase moving now" },
+    { id: "status-planning", note: "one plan's planning steps, printed once" },
+    { id: "status-shipping", note: "one branch's ship steps, read from the checkout that ships it" },
+    { id: "status-queue", note: "the queue's board, then one status block per active ticket, printed once" }
+  ],
+  flags: [
+    {
+      name: "run",
+      value: "<id>",
+      meaning: "Show one run in detail \u2014 its steps, their outcomes and durations, what it is doing now. Takes the shortened eight-character id reports print.",
+      fallback: "Every run is listed, one line each.",
+      shape: "status-run",
+      required: false
+    },
+    {
+      name: "watch",
+      meaning: "Repaint the detail block every two minutes until the run stops, so a detached run can be followed. Without --run it follows the one run that is going, and its phase children with it; when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing.",
+      fallback: "The block is printed once.",
+      shape: "status-run",
+      required: false
+    },
+    {
+      name: "now",
+      meaning: "Show the run that is going, printed once and never repainted \u2014 for a phased plan, its phase sequence followed by the phase moving now. It answers at once rather than waiting for a run to appear; with nothing going it falls back to the newest run of any status, and when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing. Cannot be combined with --run, --watch, --planning, --shipping or --queue.",
+      shape: "status-now",
+      required: true
+    },
+    {
+      name: "planning",
+      value: "<name>",
+      meaning: "Show the named plan folder's planning steps \u2014 verify-facts, draft, dedup, grade, publish \u2014 with their outcomes, attempts and durations, and what is running now. Cannot be combined with --run or --watch.",
+      shape: "status-planning",
+      required: true
+    },
+    {
+      name: "shipping",
+      value: "<branch>",
+      meaning: "Show the branch's ship steps \u2014 integrate, push, pull-request, checks, merge, sync \u2014 in the run block's layout, printed once, read from the record in the checkout --cwd names. Cannot be combined with --run, --watch or --planning.",
+      shape: "status-shipping",
+      required: true
+    },
+    {
+      name: "queue",
+      meaning: "Show the queue's seven-column board \u2014 Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked \u2014 then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
+      shape: "status-queue",
+      required: true
+    },
+    {
+      name: "run",
+      value: "<id>",
+      meaning: "The queue run to show \u2014 a past or crashed one included. Takes the shortened eight-character id reports print.",
+      fallback: "The live queue run this checkout's run lock names.",
+      shape: "status-queue",
+      required: false
+    },
+    {
+      name: "wait",
+      meaning: "Wait up to a minute for a queue run to take the lock, for a status request made right after launching a queue \u2014 the queue has not taken the lock yet, and without this the answer would be that no queue is going.",
+      fallback: "A bare --queue answers at once.",
+      shape: "status-queue",
+      required: false
+    },
+    { name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["doctor", "friction", "improve", "voice", "report"]
+};
+
+// src/commands/common/constants/housekeeping/voiceCatalogEntry.ts
+var voiceCatalogEntry = {
+  id: "voice",
+  slash: "/lightsout:voice",
+  cli: "lightsout voice",
+  group: CommandGroup.Housekeeping,
+  summary: "Turn the spoken read-out of lightsout interview questions on or off for this project \u2014 `/lightsout:voice on` and `/lightsout:voice off`.",
+  whenToUse: "Turn it on when you would rather hear the interview questions than watch for them. Mac-only, off until you turn it on, and per-project.",
+  invocations: [
+    { id: "voice-toggle", positional: "on|off", note: "toggle spoken read-out of interview questions \u2014 Mac-only" },
+    { id: "voice-hook", positional: "hook", note: "hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question" }
+  ],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Project the setting belongs to.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["status", "doctor", "friction", "improve", "report"]
+};
+
+// src/commands/common/constants/standards/standardsCheckCatalogEntry.ts
+var standardsCheckCatalogEntry = {
+  id: "standards-check",
+  cli: "lightsout standards-check",
+  group: CommandGroup.Standards,
+  summary: "Check the repo against its standards packs and report every finding, machine checks and agent review alike.",
+  whenToUse: "Run it to see where the repo stands against its packs, before a refactor or after one. `--list` prints the enforcement ledger instead: which rules are blocking, which advisory, which off.",
+  invocations: [{ id: "standards-check" }, { id: "standards-check-list", note: "print the enforcement ledger" }],
+  flags: [
+    { name: "list", meaning: "Print the enforcement ledger \u2014 blocking, advisory, off \u2014 and check nothing.", shape: "standards-check-list", required: true },
+    { name: "cwd", value: "<path>", meaning: "Repository to check.", fallback: "The process working directory.", required: false },
+    { name: "path", value: "<subdir>", meaning: "Check only this subdirectory.", fallback: "The whole repository.", shape: "standards-check", required: false },
+    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "standards-check", required: false },
+    { name: "baseline", meaning: "Write the findings to the baseline file as accepted debt.", shape: "standards-check", required: false },
+    { name: "code-checks", meaning: "Run the mechanical checks only.", shape: "standards-check", required: false, exclusiveWith: "half" },
+    { name: "agent-review", meaning: "Run the agent review only.", shape: "standards-check", required: false, exclusiveWith: "half" }
+  ],
+  steps: [],
+  records: CommandRecordKind.Snapshots,
+  related: ["standards-validate", "standards-health", "refactor", "test-coverage-to-threshold"]
+};
+
+// src/commands/common/constants/standards/standardsHealthCatalogEntry.ts
+var standardsHealthCatalogEntry = {
+  id: "standards-health",
+  cli: "lightsout standards-health",
+  group: CommandGroup.Standards,
+  summary: "Report each rule\u2019s coverage and how often agents decline it \u2014 which standards are actually holding.",
+  whenToUse: "Reach for it when you suspect a standard is decorative \u2014 declared, but never enforced in practice. It shows per-rule coverage and how often agents decline the rule when asked to fix it.",
+  invocations: [{ id: "standards-health", note: "per-rule coverage and how often agents decline it" }],
+  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-validate"]
+};
+
+// src/commands/common/constants/standards/standardsValidateCatalogEntry.ts
+var standardsValidateCatalogEntry = {
+  id: "standards-validate",
+  cli: "lightsout standards-validate",
+  group: CommandGroup.Standards,
+  summary: "Run every rule\u2019s check against its own fixtures, so a rule that no longer detects what it claims fails loudly.",
+  whenToUse: "Run it after writing or editing a rule, and in CI for a pack you ship. It proves each check still passes its own pass fixtures and still fails its fail fixtures.",
+  invocations: [{ id: "standards-validate", note: "run every check against its own fixtures" }],
+  flags: [
+    { name: "pack", value: "<path>", meaning: "Validate only the pack at this folder.", fallback: "Every pack the config loads.", required: false },
+    { name: "cwd", value: "<path>", meaning: "Repository whose packs are validated.", fallback: "The process working directory.", required: false }
+  ],
+  steps: [],
+  records: CommandRecordKind.Nothing,
+  related: ["standards-check", "standards-health"]
+};
+
+// src/commands/commandCatalog.ts
+var commandCatalog = [
+  brainstormCatalogEntry,
+  planCatalogEntry,
+  autoPlanCatalogEntry,
+  implementCatalogEntry,
+  implementDirectCatalogEntry,
+  resumeCatalogEntry,
+  shipCatalogEntry,
+  queueCatalogEntry,
+  workOrderCatalogEntry,
+  ticketStateCatalogEntry,
+  selfCheckCatalogEntry,
+  refactorCatalogEntry,
+  testCoverageToThresholdCatalogEntry,
+  standardsCheckCatalogEntry,
+  standardsValidateCatalogEntry,
+  standardsHealthCatalogEntry,
+  statusCatalogEntry,
+  reportCatalogEntry,
+  doctorCatalogEntry,
+  frictionCatalogEntry,
+  improveCatalogEntry,
+  voiceCatalogEntry
+];
+
+// src/commands/getCommandCatalogEntry.ts
+var getCommandCatalogEntry = ({ id }) => commandCatalog.find((entry) => entry.id === id);
+
+// src/commands/spellFlag.ts
+var spellFlag = ({ flag }) => flag.value === void 0 ? `--${flag.name}` : `--${flag.name} ${flag.value}`;
+
+// src/commands/renderUsage.ts
+var usageOrder = [
+  "implement",
+  "implement-folder",
+  "implement-direct",
+  "resume",
+  "ship",
+  "queue",
+  "status",
+  "status-run",
+  "status-now",
+  "status-planning",
+  "status-shipping",
+  "status-queue",
+  "report",
+  "doctor",
+  "standards-check",
+  "standards-check-list",
+  "standards-validate",
+  "standards-health",
+  "refactor",
+  "refactor-resume",
+  "test-coverage-to-threshold",
+  "test-coverage-to-threshold-resume",
+  "brainstorm-publish",
+  "plan-workspace",
+  "plan-verify-facts",
+  "plan-draft",
+  "plan-sync-decisions",
+  "plan-lint",
+  "plan-dedup",
+  "plan-grade",
+  "plan-publish",
+  "work-order-new",
+  "work-order-add-plan",
+  "work-order-mode",
+  "work-order-request-ship",
+  "work-order-exclude-plan",
+  "work-order-retitle-plan",
+  "work-order-show",
+  "work-order-sync",
+  "ticket-state",
+  "self-check",
+  "friction",
+  "improve",
+  "voice-toggle",
+  "voice-hook"
+];
+var renderExclusiveGroup = ({ flags, key }) => {
+  const group = flags.filter((flag) => flag.exclusiveWith === key);
+  return `[${group.map((flag) => spellFlag({ flag })).join(" | ")}]`;
+};
+var renderFlags = ({ entry, invocation }) => {
+  const shown = entry.flags.filter((flag) => flag.shape === void 0 || flag.shape === invocation.id);
+  const rendered = [];
+  const groupsSeen = /* @__PURE__ */ new Set();
+  for (const flag of shown) {
+    if (flag.exclusiveWith === void 0) {
+      rendered.push(flag.required ? spellFlag({ flag }) : `[${spellFlag({ flag })}]`);
+    } else if (!groupsSeen.has(flag.exclusiveWith)) {
+      groupsSeen.add(flag.exclusiveWith);
+      rendered.push(renderExclusiveGroup({ flags: shown, key: flag.exclusiveWith }));
+    }
+  }
+  return rendered;
+};
+var padNote = ({ body, note }) => `${body}${" ".repeat(Math.max(3, 54 - body.length))}(${note})`;
+var renderLine = ({ cli, entry, invocation }) => {
+  const words = [cli, invocation.positional, ...renderFlags({ entry, invocation })].filter((word) => word !== void 0);
+  const body = `  ${words.join(" ")}`;
+  return invocation.note === void 0 ? body : padNote({ body, note: invocation.note });
+};
+var renderUsage = () => {
+  const header = "lightsout \u2014 deterministic engine for coding agents\n\nusage:";
+  const exitCodes = `exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
+  1  anything else`;
+  const lines = [];
+  for (const id of usageOrder) {
+    const entry = commandCatalog.find((candidate) => candidate.invocations.some((invocation2) => invocation2.id === id));
+    const invocation = entry?.invocations.find((candidate) => candidate.id === id);
+    if (entry?.cli !== void 0 && invocation !== void 0) {
+      lines.push(renderLine({ cli: entry.cli, entry, invocation }));
+    }
+  }
+  return `${header}
+${lines.join("\n")}
+
+${exitCodes}
+`;
+};
+
+// src/cli/common/constants/usage.ts
+var usage = renderUsage();
+
+// src/cli/common/utils/exitCli.ts
+var exitCli = async ({ code }) => {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve18) => stream.write("", () => resolve18()))));
+  return process.exit(code);
+};
+
+// src/cli/common/args/getRequiredFlag.ts
+var getRequiredFlag = async ({ flags, name }) => {
+  const value = getStringFlag({ flags, name });
+  if (!value) {
+    console.error(usage);
+    return exitCli({ code: 1 });
+  }
+  return value;
+};
+
+// src/cli/common/terminal/paint.ts
+var paint = ({ code }) => (text) => process.stdout.isTTY ? `\x1B[${code}m${text}\x1B[0m` : text;
+
+// src/cli/common/terminal/bold.ts
+var bold = paint({ code: "1" });
+
+// src/cli/common/utils/createProgressPrinter.ts
+var createProgressPrinter = () => {
+  const startedAt = Date.now();
+  return (message) => {
+    const seconds = Math.round((Date.now() - startedAt) / 1e3);
+    console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
+  };
+};
+
+// src/cli/common/utils/describeMissingPlanAddress.ts
+var describeMissingPlanAddress = ({ name, missing }) => `'${name}' is not a plan address, so there is no ${missing} \u2014 a plan of a work order is addressed as '<work-order-name>/<plan-id>', and \`lightsout work-order show --name ${name}\` lists the plans that work order holds`;
+
+// src/common/config/readConfig.ts
+import { join as join47 } from "node:path";
+var readConfig = async ({ cwd }) => {
+  const configPath = join47(cwd, "lightsout.config.json");
+  const raw = await readConfigFile({ configPath });
+  if (raw === void 0) {
+    throw new Error(`lightsout.config.json not found at ${configPath}`);
+  }
+  return parseConfig({ raw, configPath });
+};
+
+// src/cli/brainstorm/brainstormPublishCommand.ts
+var brainstormPublishCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const address = parsePlanAddress({ name });
+  if (address === void 0) {
+    console.error(describeMissingPlanAddress({ name, missing: "plan whose brainstorm could be published" }));
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const report2 = await publishBrainstorm({
+    cwd,
+    name,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter(),
+    titlePrefix: address.planId
+  });
+  if (report2.error !== void 0) {
+    console.error(`
+${report2.error}`);
+    return exitCli({ code: 1 });
+  }
+  console.log(`
+${bold(`brainstorm publish ${name}`)} \u2014 ${report2.published.length} file(s) attached to ${report2.ticketRef}`);
+  for (const file2 of report2.published) {
+    console.log(`  ${file2}`);
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/common/args/getPositionals.ts
+var getPositionals = ({ args }) => {
+  const positionals = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token?.startsWith("--")) {
+      if (args[index + 1] !== void 0 && !args[index + 1]?.startsWith("--")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (token) {
+      positionals.push(token);
+    }
+  }
+  return positionals;
+};
+
+// src/cli/brainstorm/brainstormCommand.ts
+var brainstormCommand = async ({ flags, rest, cwd }) => {
+  if (getPositionals({ args: rest })[0] === "publish") {
+    await brainstormPublishCommand({ flags, rest, cwd });
+    return;
+  }
+  console.error(usage);
+  return exitCli({ code: 1 });
+};
+
+// src/cli/common/args/readCommandFlags.ts
+var readCommandFlags = ({ command }) => {
+  const entry = getCommandCatalogEntry({ id: command });
+  return /* @__PURE__ */ new Set(["cwd", ...entry?.flags.map((flag) => flag.name) ?? []]);
+};
+
+// src/cli/common/args/getUnknownFlagsMessage.ts
+var getUnknownFlagsMessage = ({ command, flags }) => {
+  const accepted = readCommandFlags({ command });
+  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
+  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
+};
+
+// src/cli/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
+};
+
+// src/cli/common/utils/loadRepoEnvFile.ts
+import { existsSync, readFileSync } from "node:fs";
+import { join as join48 } from "node:path";
+import { parseEnv } from "node:util";
+var resolveEnvFilePath = async ({ cwd }) => {
+  const own = join48(cwd, ".env");
+  if (existsSync(own)) {
+    return own;
+  }
+  const primary = await readGitPrimaryCheckout({ cwd });
+  const shared = primary === void 0 ? void 0 : join48(primary, ".env");
+  return shared !== void 0 && shared !== own && existsSync(shared) ? shared : void 0;
+};
+var loadRepoEnvFile = async ({ cwd }) => {
+  const envFilePath = await resolveEnvFilePath({ cwd });
+  if (envFilePath === void 0) {
+    return;
+  }
+  try {
+    for (const [name, value] of Object.entries(parseEnv(readFileSync(envFilePath, "utf8")))) {
+      process.env[name] ??= value;
+    }
+  } catch (error51) {
+    console.error(`lightsout: ignored ${envFilePath}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+  }
+};
+
+// src/cli/common/terminal/dim.ts
+var dim = paint({ code: "2" });
+
+// src/cli/common/terminal/green.ts
+var green = paint({ code: "32" });
+
+// src/cli/common/terminal/red.ts
+var red = paint({ code: "31" });
+
+// src/cli/common/terminal/yellow.ts
+var yellow = paint({ code: "33" });
+
+// src/doctor/checkConfiguredPaths.ts
+import { stat as stat3 } from "node:fs/promises";
+import { join as join49 } from "node:path";
+var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
+  if (!paths) {
+    return void 0;
+  }
+  const absent = [];
+  for (const prefix of paths) {
+    await stat3(join49(cwd, prefix)).catch(() => absent.push(prefix));
+  }
+  return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
+};
+
+// src/doctor/checkCoverageSummary.ts
+import { stat as stat4 } from "node:fs/promises";
+import { join as join50 } from "node:path";
+
+// src/common/constants/defaultCoverageSummaryPath.ts
+var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
+
+// src/doctor/checkCoverageSummary.ts
+var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
+  const scoped = config2["package-gates"]?.["test-coverage"];
+  const rootApplies = typeof config2.gates["test-coverage"] === "string";
+  if (!scoped && !rootApplies) {
+    return void 0;
+  }
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
+  const expected = scopes.map((entry) => ({ label: entry.label, path: join50(entry.dir, summaryPath) }));
+  const absent = [];
+  for (const entry of expected) {
+    await stat4(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
+  }
+  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
+    id: "coverage-summary",
+    status: "warn",
+    detail: `not found: ${absent.join(", ")}`,
+    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
+  };
+};
+
+// src/doctor/common/constants/probeTimeoutMs.ts
+var probeTimeoutMs = 15e3;
+
+// src/doctor/checkGitignore.ts
+var checkGitignore = async ({ cwd }) => {
+  const stateDir = ".lightsout";
+  const result = await runCommand({ command: `git check-ignore -q -- '${stateDir}/probe'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: 128 }));
+  const gitUsable = result.exitCode === 0 || result.exitCode === 1;
+  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : result.exitCode === 0 ? { id: "gitignore", status: "pass", detail: "the lightsout state directory is ignored (verified via git check-ignore)" } : {
+    id: "gitignore",
+    status: "warn",
+    detail: `run state not ignored: ${stateDir}`,
+    fix: `add to .gitignore:
+${stateDir}`
+  };
+};
+
+// src/doctor/checkHarness.ts
+var driverBinaries = { "claude-code": "claude", codex: "codex", omp: "omp", pi: "pi" };
+var getReferencedDriverNames = ({ config: config2 }) => {
+  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
+  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
+  return [...new Set(names)];
+};
+var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
+  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
+  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
+  const versions = [];
+  const failures = [];
+  for (const binary of binaries) {
+    try {
+      const probed = await probe({ binary });
+      if (probed.exitCode === 0) {
+        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
+      } else {
+        failures.push({
+          binary,
+          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+${probed.stderr}`.trim().slice(0, 200)}`,
+          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+        });
+      }
+    } catch (error51) {
+      failures.push({
+        binary,
+        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
+        fix: `install the ${binary} CLI and log in`
+      });
+    }
+  }
+  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
+    id: "harness",
+    status: "fail",
+    detail: failures.map((failure) => failure.detail).join("\n"),
+    fix: failures.map((failure) => failure.fix).join("\n")
+  };
+};
+
+// src/doctor/checkHarnessUsage.ts
+var usageAdapters = {
+  "claude-code": "packages/engine/src/drivers/createClaudeCodeDriver.ts",
+  omp: "packages/engine/src/drivers/createPiDriver.ts",
+  pi: "packages/engine/src/drivers/createPiDriver.ts"
+};
+var holdsFiniteNumber = ({ value }) => typeof value === "object" && value !== null && Object.values(value).some((member) => typeof member === "number" && Number.isFinite(member));
+var carriesStreamedUsage = ({ event, depth }) => {
+  const maxEventDepth = 6;
+  if (depth > maxEventDepth || typeof event !== "object" || event === null) {
+    return false;
+  }
+  return Object.entries(event).some(
+    ([key, value]) => key === "usage" && holdsFiniteNumber({ value }) || carriesStreamedUsage({ event: value, depth: depth + 1 })
+  );
+};
+var probeHarnessUsage = async ({ cwd, harness, driver }) => {
+  const timeoutMs = 12e4;
+  let streamed = false;
+  try {
+    const result = await (driver ?? getDriver({ name: harness })).invoke({
+      prompt: "Reply with the single word: ok. Do not use any tools.",
+      cwd,
+      permissions: Permissions.ReadOnly,
+      timeoutMs,
+      onEvent: (event) => {
+        streamed = streamed || carriesStreamedUsage({ event, depth: 0 });
+      }
+    });
+    return { streamed, usage: result.usage };
+  } catch (error51) {
+    return { error: messageOf({ error: error51 }) };
+  }
+};
+var verdictOf = ({ harness, probed }) => {
+  const adapter = usageAdapters[harness] ?? `the ${harness} driver`;
+  let verdict;
+  if ("error" in probed) {
+    verdict = {
+      status: "fail",
+      detail: `the ${harness} probe call did not finish: ${probed.error}`,
+      fix: `run \`${harness === "claude-code" ? "claude" : harness} --version\` and confirm the harness is installed and logged in, then run the probe again`
+    };
+  } else if (probed.usage === void 0) {
+    verdict = {
+      status: "fail",
+      detail: `${harness} reported no tokens at all \u2014 a settled call came back with no usage`,
+      fix: `${harness} has most likely renamed its token fields \u2014 re-capture its real output and update the parse in ${adapter}`
+    };
+  } else if (!probed.streamed) {
+    verdict = {
+      status: "warn",
+      detail: `${harness} reported ${probed.usage.inputTokens} in / ${probed.usage.outputTokens} out when the call settled, but streamed no token counts on the way`,
+      fix: `a process killed at its time limit never settles, so it would recover nothing \u2014 re-capture ${harness}'s real output and update the streamed-usage parse in ${adapter}`
+    };
+  } else {
+    verdict = {
+      status: "pass",
+      detail: `${harness} reported ${probed.usage.inputTokens} in / ${probed.usage.outputTokens} out when the call settled, and streamed token counts as it ran`
+    };
+  }
+  return { id: "harness-usage", ...verdict };
+};
+var checkHarnessUsage = async ({ cwd, config: config2, driver }) => {
+  const harness = config2.harness ?? "claude-code";
+  if (harness === "codex") {
+    return {
+      id: "harness-usage",
+      status: "note",
+      detail: "codex reads no usage by design, so it is not probed \u2014 codex plans report no tokens"
+    };
+  }
+  return verdictOf({ harness, probed: await probeHarnessUsage({ cwd, harness, driver }) });
+};
+
+// src/doctor/checkJestMocks.ts
+import { readFile as readFile26 } from "node:fs/promises";
+
+// src/doctor/common/utils/findJestConfigs.ts
+import { readdir as readdir4 } from "node:fs/promises";
+import { join as join51 } from "node:path";
+var findJestConfigs = async ({ packageDir }) => {
+  const rootEntries = await readdir4(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join51(packageDir, name));
+  for (const testDir of ["test", "tests"]) {
+    const testEntries = await readdir4(join51(packageDir, testDir), { recursive: true }).catch(() => []);
+    found.push(
+      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join51(packageDir, testDir, name))
+    );
+  }
+  return found;
+};
+
+// src/doctor/checkJestMocks.ts
+var checkJestMocks = async ({ cwd, packageDirs }) => {
+  const jestFindings = [];
+  let jestConfigCount = 0;
+  for (const { label: label2, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      jestConfigCount += 1;
+      const text = await readFile26(configPath, "utf8").catch(() => "");
+      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
+      if (absent.length > 0) {
+        jestFindings.push(`${label2}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
+      }
+    }
+  }
+  if (jestConfigCount === 0) {
+    return void 0;
+  }
+  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
+    id: "jest-mocks",
+    status: "warn",
+    detail: jestFindings.join("; "),
+    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
+  };
+};
+
+// src/doctor/checkJestReporter.ts
+import { createRequire as createRequire2 } from "node:module";
+
+// src/common/constants/testReporterEnv.ts
+var testReporterEnv = {
+  /** Absolute path of the reporter file the engine wrote into the run folder. */
+  reporter: "LIGHTSOUT_JEST_REPORTER",
+  /** Directory this gate execution's per-test results go in. */
+  resultsDir: "LIGHTSOUT_TEST_RESULTS_DIR"
+};
+
+// src/doctor/checkJestReporter.ts
+var sentinel = "/lightsout/doctor/jest-reporter-probe.cjs";
+var carriesSentinel = ({ reporters }) => Array.isArray(reporters) && reporters.some((entry) => entry === sentinel || Array.isArray(entry) && entry[0] === sentinel);
+var configOf = ({ loaded }) => typeof loaded === "object" && loaded !== null && "jest" in loaded ? loaded.jest : loaded;
+var readableConfig = ({ config: config2 }) => typeof config2 === "object" && config2 !== null && !("then" in config2 && typeof config2.then === "function") ? { ...config2 } : void 0;
+var inspectConfig = ({ configPath }) => {
+  const previous = process.env[testReporterEnv.reporter];
+  process.env[testReporterEnv.reporter] = sentinel;
+  try {
+    const loaded = createRequire2(configPath)(configPath);
+    const config2 = readableConfig({ config: configOf({ loaded }) });
+    if (config2 === void 0) {
+      return void 0;
+    }
+    return { carries: carriesSentinel({ reporters: config2.reporters }) };
+  } catch {
+    return void 0;
+  } finally {
+    if (previous === void 0) {
+      delete process.env[testReporterEnv.reporter];
+    } else {
+      process.env[testReporterEnv.reporter] = previous;
+    }
+  }
+};
+var checkJestReporter = async ({ cwd, packageDirs }) => {
+  const missing = [];
+  const unchecked = [];
+  let configCount = 0;
+  for (const { label: label2, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      configCount += 1;
+      const inspected = inspectConfig({ configPath });
+      const where = `${label2}: ${configPath.slice(cwd.length + 1)}`;
+      if (inspected === void 0) {
+        unchecked.push(`${where} (unchecked \u2014 could not be read as a configuration object)`);
+      } else if (!inspected.carries) {
+        missing.push(where);
+      }
+    }
+  }
+  if (configCount === 0) {
+    return void 0;
+  }
+  return missing.length === 0 ? { id: "jest-reporter", status: "pass", detail: ["every loadable Jest config loads the engine's per-test reporter", ...unchecked].join("; ") } : {
+    id: "jest-reporter",
+    status: "warn",
+    detail: [...missing, ...unchecked].join("; "),
+    fix: `add the engine's reporter to each Jest config \u2014 \`const lightsoutReporter = process.env.${testReporterEnv.reporter}; reporters: lightsoutReporter ? ['default', lightsoutReporter] : ['default']\` \u2014 naming the \`reporters\` key replaces Jest's default, so 'default' must be restated`
+  };
+};
+
+// src/doctor/checkLintRules.ts
+import { readdir as readdir5, readFile as readFile27 } from "node:fs/promises";
+import { join as join52 } from "node:path";
+var checkLintRules = async ({ config: config2, packageDirs }) => {
+  if (config2["standards-packs"] === false) {
+    return void 0;
+  }
+  const lintFindings = [];
+  let lintConfigCount = 0;
+  for (const { label: label2, dir } of packageDirs) {
+    const entries = await readdir5(dir).catch(() => []);
+    const lintConfigs = entries.filter(
+      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
+    );
+    for (const name of lintConfigs) {
+      lintConfigCount += 1;
+      const text = await readFile27(join52(dir, name), "utf8").catch(() => "");
+      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
+      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
+      if (unenforced.length > 0) {
+        lintFindings.push(`${label2}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
+      }
+    }
+  }
+  return lintConfigCount === 0 ? {
+    id: "lint-rules",
+    status: "note",
+    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
+  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
+    id: "lint-rules",
+    status: "note",
+    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
+  };
+};
+
+// src/doctor/checkScriptBinaries.ts
+var checkScriptBinaries = async ({ cwd, config: config2 }) => {
+  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2["package-gates"] ?? {})].filter(
+    (value) => typeof value === "string"
+  );
+  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
+  const missingBinaries = [];
+  for (const name of binaries) {
+    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
+    if (result.exitCode !== 0) {
+      missingBinaries.push(name);
+    }
+  }
+  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
+    id: "script-binaries",
+    status: "fail",
+    detail: `not on PATH: ${missingBinaries.join(", ")}`,
+    fix: "install the missing tool(s) \u2014 every gate depends on them"
+  };
+};
+
+// src/doctor/checkSourceWalk.ts
+import { relative as relative7 } from "node:path";
+var sourceExtension2 = /\.(m|c)?[jt]sx?$/;
+var skipReason = ({ path, generated, standardsPacks }) => {
+  const segments = path.split("/");
+  if (path.endsWith(".d.ts")) {
+    return "declaration file";
+  }
+  if (segments.some((segment) => segment.startsWith("."))) {
+    return "dot directory";
+  }
+  if (segments.includes("node_modules")) {
+    return "dependency tree";
+  }
+  if (generated.some((prefix) => path.startsWith(prefix.replace(/\/$/, "")))) {
+    return "declared generated";
+  }
+  const insidePack = standardsPacks.some((pack) => path.startsWith(`${pack}/`));
+  if (insidePack && segments.includes("fixtures")) {
+    return "standards pack fixture";
+  }
+  const beforeSrc = segments.slice(0, segments.indexOf("src") === -1 ? segments.length : segments.indexOf("src"));
+  return beforeSrc.some((segment) => ["dist", "build", "coverage", "out"].includes(segment)) ? "build output" : void 0;
+};
+var checkSourceWalk = async ({ cwd, generated = [] }) => {
+  const result = await runCommand({ command: "git ls-files -z", cwd, timeoutMs: probeTimeoutMs }).catch(() => void 0);
+  if (result === void 0 || result.exitCode !== 0) {
+    return { id: "source-walk", status: "warn", detail: "not a git repository \u2014 the walk has no second opinion to check against" };
+  }
+  const tracked = (result.stdout ?? "").split("\0").filter((path) => path !== "" && sourceExtension2.test(path)).map((path) => relative7(".", path));
+  const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: generated });
+  const walked = new Set(files);
+  const unexplained = tracked.filter((path) => !walked.has(path) && skipReason({ path, generated, standardsPacks }) === void 0);
+  if (unexplained.length === 0) {
+    return { id: "source-walk", status: "pass", detail: `walk reads ${files.length} of ${tracked.length} tracked source file(s); every skip is accounted for` };
+  }
+  const shown = unexplained.slice(0, 5);
+  return {
+    id: "source-walk",
+    status: "fail",
+    detail: `${unexplained.length} tracked source file(s) the walk never reads: ${shown.join(", ")}${unexplained.length > shown.length ? ", \u2026" : ""}`,
+    fix: "no rule reads these \u2014 either the walk is skipping a directory it should not, or the path belongs in the config's `generated` list"
+  };
+};
+
+// src/doctor/checkUserEvent.ts
+import { readFile as readFile28 } from "node:fs/promises";
+import { join as join53 } from "node:path";
+var packageDependencies = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var checkUserEvent = async ({ packageDirs }) => {
+  const fireEventOnly = [];
+  for (const { label: label2, dir } of packageDirs) {
+    const raw = await readFile28(join53(dir, "package.json"), "utf8").catch(() => void 0);
+    let json2;
+    try {
+      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
+    if (!parsed?.success) {
+      continue;
+    }
+    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
+    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
+    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
+      fireEventOnly.push(label2);
+    }
+  }
+  if (fireEventOnly.length === 0) {
+    return void 0;
+  }
+  return {
+    id: "user-event",
+    status: "note",
+    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
+  };
+};
+
+// src/doctor/resolvePackageDirs.ts
+import { readdir as readdir6 } from "node:fs/promises";
+import { join as join55 } from "node:path";
+
+// src/common/workspace/readPackageManifest.ts
+import { readFile as readFile29 } from "node:fs/promises";
+import { join as join54 } from "node:path";
+var PackageManifest = external_exports.object({
+  name: external_exports.string().min(1),
+  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var readPackageManifest = async ({ cwd, packagesDir, packageDir }) => {
+  const manifestPath = join54(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile29(manifestPath, "utf8").catch(() => {
+    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
+  });
+  const parsed = PackageManifest.safeParse(JSON.parse(raw));
+  if (!parsed.success) {
+    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
+  }
+  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
+};
+
+// src/doctor/resolvePackageDirs.ts
+var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
+  const packageDirs = [{ label: "root", dir: cwd }];
+  if (!config2["package-gates"]) {
+    return { packageDirs };
+  }
+  const entries = await readdir6(join55(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const templates = Object.entries(config2["package-gates"]).filter((pair) => typeof pair[1] === "string");
+  const skips = [];
+  for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
+    const manifest = await readPackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
+    if (!manifest) {
+      continue;
+    }
+    packageDirs.push({ label: entry.name, dir: join55(cwd, packagesDir, entry.name) });
+    const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
+    if (absent.length > 0) {
+      skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
+    }
+  }
+  const scopedGatesCheck = skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
+    id: "scoped-gates",
+    status: "note",
+    detail: `gates will skip for: ${skips.join("; ")} \u2014 intentional if these packages have nothing to check; a typo'd script name looks identical`
+  };
+  return { packageDirs, scopedGatesCheck };
+};
+
+// src/doctor/runDoctor.ts
+var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
+var pushOptional = ({ checks, check: check2 }) => {
+  if (check2) {
+    checks.push(check2);
+  }
+};
+var configuredPathAudits = ({ config: config2 }) => [
+  { id: "generated", paths: config2.generated, fix: "run the generator once, or remove stale entries from `generated`" },
+  { id: "vendored", paths: config2.vendored, fix: "restore the third-party code, or remove stale entries from `vendored`" }
+];
+var runDoctor = async ({ cwd, probeHarness, usageProbe, usageDriver }) => {
+  const checks = [];
+  let config2;
+  try {
+    config2 = await readConfig({ cwd });
+  } catch (error51) {
+    return [
+      {
+        id: "config",
+        status: "fail",
+        detail: messageOf({ error: error51 }),
+        fix: "create or repair lightsout.config.json \u2014 every other check depends on it"
+      }
+    ];
+  }
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  checks.push({
+    id: "config",
+    status: "pass",
+    detail: `lightsout.config.json valid \xB7 harness ${config2.harness ?? "claude-code"}${config2["package-gates"] ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
+  });
+  checks.push(await checkHarness({ cwd, config: config2, probeHarness }));
+  if (usageProbe) {
+    checks.push(await checkHarnessUsage({ cwd, config: config2, driver: usageDriver }));
+  }
+  checks.push(await checkGitignore({ cwd }));
+  checks.push(await checkSourceWalk({ cwd, generated: config2.generated }));
+  const { packageDirs, scopedGatesCheck } = await resolvePackageDirs({ cwd, config: config2, packagesDir });
+  pushOptional({ checks, check: scopedGatesCheck });
+  pushOptional({ checks, check: await checkJestMocks({ cwd, packageDirs }) });
+  pushOptional({ checks, check: await checkJestReporter({ cwd, packageDirs }) });
+  pushOptional({ checks, check: await checkUserEvent({ packageDirs }) });
+  pushOptional({ checks, check: await checkLintRules({ config: config2, packageDirs }) });
+  for (const audit of configuredPathAudits({ config: config2 })) {
+    pushOptional({ checks, check: await checkConfiguredPaths({ cwd, ...audit }) });
+  }
+  pushOptional({ checks, check: await checkCoverageSummary({ config: config2, packageDirs }) });
+  checks.push(await checkScriptBinaries({ cwd, config: config2 }));
+  return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
+};
+
+// src/cli/doctorCommand.ts
+var warnBeforeProbing = async ({ cwd }) => {
+  const config2 = await readOptionalConfig({ cwd }).catch(() => void 0);
+  console.log(`--usage-probe: about to spend one real agent call on ${config2?.harness ?? "claude-code"} \u2014 it bills your own subscription.`);
+};
+var doctorCommand = async ({ cwd, flags }) => {
+  const usageProbe = flags.has("usage-probe");
+  if (usageProbe && flags.get("usage-probe") !== true) {
+    console.error(usage);
+    return exitCli({ code: 1 });
+  }
+  if (usageProbe) {
+    await warnBeforeProbing({ cwd });
+  }
+  const checks = await runDoctor({ cwd, usageProbe });
+  const icon = { pass: green("\u2713"), note: dim("\u2139"), warn: yellow("\u26A0"), fail: red("\u2717") };
+  const counts = { pass: 0, note: 0, warn: 0, fail: 0 };
+  console.log(`doctor    ${cwd}
+`);
+  for (const check2 of checks) {
+    counts[check2.status] += 1;
+    console.log(`${icon[check2.status]} ${check2.id.padEnd(16)}${check2.detail}`);
+    if (check2.fix) {
+      for (const line of check2.fix.split("\n")) {
+        console.log(dim(`  ${"".padEnd(16)}${line}`));
+      }
+    }
+  }
+  const tally = Object.entries(counts).filter(([, count2]) => count2 > 0).map(([status, count2]) => `${count2} ${status}`).join(" \xB7 ");
+  console.log(`
+${checks.length} check(s) \xB7 ${tally}`);
+  return exitCli({ code: counts.fail > 0 ? 1 : 0 });
+};
+
+// src/runState/common/utils/appendRunLog.ts
+import { appendFile as appendFile4, mkdir as mkdir8 } from "node:fs/promises";
+import { join as join60 } from "node:path";
+
+// src/runState/common/services/RunDirectoryIndex.ts
+import { readdir as readdir8 } from "node:fs/promises";
+import { join as join59 } from "node:path";
+
+// src/runState/common/paths/listRunLocations.ts
+import { readdir as readdir7 } from "node:fs/promises";
+import { join as join58 } from "node:path";
+
+// src/runState/common/paths/getCommandRunsDir.ts
+import { join as join56 } from "node:path";
+var commandFolders = {
+  [PipelineKind.Implement]: "implement",
+  [PipelineKind.Phases]: "implement",
+  [PipelineKind.Direct]: "direct",
+  [PipelineKind.Refactor]: "refactor",
+  [PipelineKind.Coverage]: "coverage",
+  [PipelineKind.Queue]: "queue"
+};
+var getCommandRunsDir = ({ stateDir, pipeline }) => join56(stateDir, commandFolders[pipeline], "runs");
+
+// src/runState/common/paths/getWorkOrderRunsDir.ts
+import { join as join57 } from "node:path";
+var getWorkOrderRunsDir = ({ workOrderFolder }) => join57(workOrderFolder, "runs");
+
+// src/runState/common/paths/listRunLocations.ts
+var listRunLocations = async ({ cwd }) => {
+  const tickets = await workOrdersDir({ cwd });
+  const entries = await readdir7(tickets, { withFileTypes: true }).catch(() => []);
+  const ticketRuns = entries.filter((entry) => entry.isDirectory()).map((entry) => getWorkOrderRunsDir({ workOrderFolder: join58(tickets, entry.name) }));
+  const stateDir = await resolveSharedStateDir({ cwd });
+  const commandRuns = new Set(Object.values(PipelineKind).map((pipeline) => getCommandRunsDir({ stateDir, pipeline })));
+  return [...ticketRuns, ...commandRuns];
+};
+
+// src/runState/RunNotFoundError.ts
+var RunNotFoundError = class extends Error {
+};
+
+// src/runState/common/services/RunDirectoryIndex.ts
+var scanLocations = async ({ cwd }) => {
+  const found = /* @__PURE__ */ new Map();
+  for (const location of await listRunLocations({ cwd })) {
+    const entries = await readdir8(location, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
+      found.set(entry.name, join59(location, entry.name));
+    }
+  }
+  return found;
+};
+var matchRuns = ({ known, runId }) => {
+  const exact = known.get(runId);
+  return exact === void 0 ? [...known].filter(([candidate]) => candidate.startsWith(runId)).map(([candidate, runDir]) => ({ runId: candidate, runDir })) : [{ runId, runDir: exact }];
+};
+var RunDirectoryIndex = class {
+  /** One run-id-to-directory map per `cwd` — filled by its first scan, and added to as runs are created. */
+  directories = /* @__PURE__ */ new Map();
+  scanned = /* @__PURE__ */ new Set();
+  /**
+   * Which run a typed id names, and where it is — both from one lookup, so the
+   * two questions can never be answered from two different scans.
+   *
+   * @throws {RunNotFoundError} When nothing matches the id, or when a shortened id matches more than one run — which names the matches.
+   */
+  async resolve({ cwd, runId }) {
+    let matches = matchRuns({ known: await this.load({ cwd }), runId });
+    if (matches.length === 0) {
+      matches = matchRuns({ known: await this.rescan({ cwd }), runId });
+    }
+    if (matches.length === 0) {
+      throw new RunNotFoundError(`no run matching '${runId}' \u2014 list the runs this repo has with: lightsout status`);
+    }
+    if (matches.length > 1) {
+      throw new RunNotFoundError(`run id '${runId}' matches ${matches.length} runs (${matches.map((match) => match.runId).join(", ")}) \u2014 pass more of the id`);
+    }
+    return matches[0];
+  }
+  /** Remember a directory as it is created, so the run answers to its own id before anything is written into it. */
+  record({ cwd, runId, runDir }) {
+    this.entriesFor({ cwd }).set(runId, runDir);
+  }
+  entriesFor({ cwd }) {
+    const standing = this.directories.get(cwd);
+    if (standing !== void 0) {
+      return standing;
+    }
+    const fresh = /* @__PURE__ */ new Map();
+    this.directories.set(cwd, fresh);
+    return fresh;
+  }
+  async load({ cwd }) {
+    return this.scanned.has(cwd) ? this.entriesFor({ cwd }) : this.rescan({ cwd });
+  }
+  async rescan({ cwd }) {
+    const entries = this.entriesFor({ cwd });
+    for (const [runId, runDir] of await scanLocations({ cwd })) {
+      entries.set(runId, runDir);
+    }
+    this.scanned.add(cwd);
+    return entries;
+  }
+};
+
+// src/runState/common/constants/runDirectoryIndex.ts
+var runDirectoryIndex = new RunDirectoryIndex();
+
+// src/runState/common/paths/resolveRunDir.ts
+var resolveRunDir = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runDir;
+
+// src/runState/common/utils/appendRunLog.ts
+var appendRunLog = async ({ cwd, runId, fileName, record: record3 }) => {
+  const dir = await resolveRunDir({ cwd, runId });
+  await mkdir8(dir, { recursive: true });
+  await appendFile4(join60(dir, fileName), `${JSON.stringify(record3)}
+`, "utf8");
+};
+
+// src/runState/appendCommandLog.ts
+var appendCommandLog = async ({ cwd, runId, record: record3 }) => {
+  await appendRunLog({ cwd, runId, fileName: "commands.jsonl", record: record3 });
+};
+
+// src/common/utils/appendJsonlRecords.ts
+import { appendFile as appendFile5, mkdir as mkdir9 } from "node:fs/promises";
+import { dirname as dirname5 } from "node:path";
+var appendJsonlRecords = async ({ path, schema, entries, runId, step }) => {
+  if (entries.length === 0) {
+    return;
+  }
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const lines = entries.map((entry) => JSON.stringify(schema.parse({ ...entry, at, runId, step }))).join("\n");
+  await mkdir9(dirname5(path), { recursive: true });
+  await appendFile5(path, `${lines}
+`, "utf8");
+};
+
+// src/runState/common/paths/getFrictionPath.ts
+import { join as join61 } from "node:path";
+var getFrictionPath = async ({ cwd }) => {
+  return join61(await resolveSharedStateDir({ cwd }), "friction.jsonl");
+};
+
+// src/runState/appendFriction.ts
+var appendFriction = async ({ cwd, runId, step, friction }) => appendJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord, entries: friction, runId, step });
+
+// src/runState/common/paths/getReviewFindingsPath.ts
+import { join as join62 } from "node:path";
+var getReviewFindingsPath = async ({ cwd }) => {
+  return join62(await resolveSharedStateDir({ cwd }), "review-findings.jsonl");
+};
+
+// src/runState/appendReviewFindings.ts
+var appendReviewFindings = async ({ cwd, runId, step, findings }) => appendJsonlRecords({ path: await getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord, entries: findings, runId, step });
+
+// src/runState/appendTestReview.ts
+var appendTestReview = async ({ cwd, runId, record: record3 }) => {
+  await appendRunLog({ cwd, runId, fileName: "test-reviews.jsonl", record: record3 });
+};
+
+// src/runState/common/paths/resolveNewRunDir.ts
+import { join as join63 } from "node:path";
+var resolveNewRunDir = async ({ cwd, planName, workOrderName, pipeline, runId }) => {
+  const ticket = planName === void 0 ? workOrderName : workOrderNameOf({ name: planName });
+  const runsDir = ticket === void 0 ? getCommandRunsDir({ stateDir: await resolveSharedStateDir({ cwd }), pipeline: pipeline ?? PipelineKind.Implement }) : getWorkOrderRunsDir({ workOrderFolder: await workOrderFolderDir({ cwd, name: ticket }) });
+  return join63(runsDir, runId);
+};
+
+// src/runState/common/paths/resolveRunId.ts
+var resolveRunId = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runId;
+
+// src/runState/common/utils/buildCleanupSummary.ts
+var buildCleanupSummary = ({ step }) => {
+  const parsed = RefactorStepReport.safeParse(step.report);
+  let summary;
+  if (parsed.success) {
+    const { roundsUsed, endReason, remaining, inherited, uncertain, finalReview, failures } = parsed.data;
+    summary = {
+      rounds: roundsUsed,
+      endReason,
+      remainingFindings: remaining.length,
+      carriedFindings: inherited.length + uncertain.length,
+      reviewFindings: finalReview.length,
+      failures: failures.length
+    };
+  }
+  return summary;
+};
+
+// src/runState/createRun.ts
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { mkdir as mkdir10 } from "node:fs/promises";
+import { resolve as resolve5 } from "node:path";
+
+// src/common/git/readGitCurrentBranch.ts
+var readGitCurrentBranch = async ({ cwd }) => {
+  const branch = await runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const name = branch && branch.exitCode === 0 ? branch.stdout.trim() : "";
+  return name === "" || name === "HEAD" ? void 0 : name;
+};
+
+// src/common/utils/toRepoRelativePath.ts
+import { relative as relative8, resolve as resolve4 } from "node:path";
+var toRepoRelativePath = ({ cwd, path }) => relative8(cwd, resolve4(cwd, path));
+
+// src/runState/writeRunManifest.ts
+import { rename as rename3, writeFile as writeFile9 } from "node:fs/promises";
+
+// src/runState/common/paths/getRunManifestPath.ts
+import { join as join64 } from "node:path";
+var getRunManifestPath = async ({ cwd, runId }) => join64(await resolveRunDir({ cwd, runId }), "manifest.json");
+
+// src/runState/writeRunManifest.ts
+var writeRunManifest = async ({ cwd, manifest }) => {
+  const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const manifestPath = await getRunManifestPath({ cwd, runId: manifest.runId });
+  const tmpPath = `${manifestPath}.tmp`;
+  await writeFile9(tmpPath, `${JSON.stringify(stamped, null, "	")}
+`, "utf8");
+  await rename3(tmpPath, manifestPath);
+  return stamped;
+};
+
+// src/runState/createRun.ts
+var createRun = async ({
+  cwd,
+  runId,
+  plan,
+  pipeline,
+  ticketRef,
+  overview,
+  parentRunId,
+  driver,
+  config: config2,
+  baselineDirtyFiles,
+  willShip
+}) => {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const recordedPlan = toRepoRelativePath({ cwd, path: plan });
+  const planName = await planNameFromPath({ cwd, planPath: recordedPlan });
+  const branch = await readGitCurrentBranch({ cwd });
+  const manifest = {
+    runId: runId ?? randomUUID2(),
+    createdAt: now,
+    updatedAt: now,
+    plan: recordedPlan,
+    planName,
+    pipeline,
+    ticketRef,
+    overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
+    parentRunId,
+    harness: driver,
+    config: config2,
+    branch,
+    // Absolute, because the reader that wants it is standing in another checkout
+    // and has nothing to join a relative path onto. Written from what this
+    // function already holds rather than threaded down from three pipeline entry
+    // points: `cwd` IS the checkout the run's work happens in.
+    workspace: resolve5(cwd),
+    willShip,
+    status: RunStatus.Pending,
+    currentStep: null,
+    steps: [],
+    changedFiles: [],
+    commits: [],
+    packages: [],
+    baselineDirtyFiles: baselineDirtyFiles ?? [],
+    testSubjects: [],
+    acceptanceTests: [],
+    approvedTests: [],
+    unreachableChangedFiles: [],
+    coverageExcludedChangedFiles: []
+  };
+  const runDir = await resolveNewRunDir({
+    cwd,
+    planName,
+    workOrderName: planName === void 0 && ticketRef !== void 0 ? branch : void 0,
+    pipeline,
+    runId: manifest.runId
+  });
+  await mkdir10(runDir, { recursive: true });
+  runDirectoryIndex.record({ cwd, runId: manifest.runId, runDir });
+  return writeRunManifest({ cwd, manifest });
+};
+
+// src/runState/isPidAlive.ts
+var isPidAlive = ({ pid }) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error51) {
+    return typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EPERM";
+  }
+};
+
+// src/runState/isRunLive.ts
+var isRunLive = ({ manifest, lock }) => {
+  if (!lock || !isPidAlive({ pid: lock.pid })) {
+    return false;
+  }
+  if (lock.runId === manifest.runId) {
+    return true;
+  }
+  const running = manifest.steps.find((step) => step.status === RunStatus.Running);
+  if (manifest.pipeline !== PipelineKind.Phases || running === void 0) {
+    return false;
+  }
+  const child = PhaseReport.safeParse(running.report);
+  return child.success && child.data.runId === lock.runId;
+};
+
+// src/runState/isRunPaused.ts
+var isRunPaused = ({ status }) => status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
+
+// src/runState/isRunResumable.ts
+var isRunResumable = ({ status, live: live2 }) => {
+  if (status === RunStatus.Running) {
+    return !live2;
+  }
+  return status === RunStatus.Failed || status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
+};
+
+// src/runState/listRunIds.ts
+import { readdir as readdir9 } from "node:fs/promises";
+var listRunIds = async ({ cwd, workOrderName }) => {
+  const locations = workOrderName === void 0 ? await listRunLocations({ cwd }) : [getWorkOrderRunsDir({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderName }) })];
+  const runIds = [];
+  for (const location of locations) {
+    const entries = await readdir9(location, { withFileTypes: true }).catch(() => []);
+    runIds.push(...entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+  }
+  return runIds.sort();
+};
+
+// src/runState/lock/acquireRunLock.ts
+import { mkdir as mkdir11, unlink, writeFile as writeFile10 } from "node:fs/promises";
+import { dirname as dirname6 } from "node:path";
+
+// src/runState/lock/common/utils/getRunLockPath.ts
+import { join as join65 } from "node:path";
+var getRunLockPath = ({ cwd }) => {
+  return join65(cwd, ".lightsout", "lock.json");
+};
+
+// src/runState/lock/RunLockError.ts
+var RunLockError = class extends Error {
+};
+
+// src/runState/lock/readRunLock.ts
+import { readFile as readFile30 } from "node:fs/promises";
+var readRunLock = async ({ cwd }) => {
+  const raw = await readFile30(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  try {
+    return RunLock.parse(JSON.parse(raw));
+  } catch {
+    return void 0;
+  }
+};
+
+// src/runState/lock/acquireRunLock.ts
+var acquireRunLock = async ({ cwd, runId }) => {
+  const lockPath = getRunLockPath({ cwd });
+  const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
+`;
+  await mkdir11(dirname6(lockPath), { recursive: true });
+  let stalePid;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await writeFile10(lockPath, payload, { flag: "wx" });
+      return { stalePid };
+    } catch (error51) {
+      const isAlreadyHeld = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EEXIST";
+      if (!isAlreadyHeld) {
+        throw error51;
+      }
+    }
+    const holder = await readRunLock({ cwd });
+    if (holder && isPidAlive({ pid: holder.pid })) {
+      throw new RunLockError(
+        `another lightsout run is active in this repo: run ${holder.runId} (pid ${holder.pid}, started ${holder.startedAt}). Wait for it to finish \u2014 or delete .lightsout/lock.json if you are certain nothing is running.`
+      );
+    }
+    stalePid = holder?.pid;
+    await unlink(lockPath).catch(() => void 0);
+  }
+  throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
+};
+
+// src/runState/lock/readLiveRunLock.ts
+var readLiveRunLock = async ({ cwd }) => {
+  const lock = await readRunLock({ cwd });
+  return lock !== void 0 && isPidAlive({ pid: lock.pid }) ? lock : void 0;
+};
+
+// src/runState/lock/readRunProcessLock.ts
+import { stat as stat5 } from "node:fs/promises";
+var readRunProcessLock = async ({ cwd, manifest }) => {
+  const { workspace } = manifest;
+  const recorded = workspace === void 0 ? void 0 : await stat5(workspace).then(
+    (entry) => entry.isDirectory() ? workspace : void 0,
+    () => void 0
+  );
+  return readRunLock({ cwd: recorded ?? cwd });
+};
+
+// src/runState/lock/releaseRunLock.ts
+import { unlink as unlink2 } from "node:fs/promises";
+var releaseRunLock = async ({ cwd, runId }) => {
+  const holder = await readRunLock({ cwd });
+  if (!holder || holder.pid !== process.pid || holder.runId !== runId) {
+    return;
+  }
+  await unlink2(getRunLockPath({ cwd })).catch(() => void 0);
+};
+
+// src/runState/lock/withRunLock.ts
+import { randomUUID as randomUUID3 } from "node:crypto";
+var withRunLock = async ({ params, run }) => {
+  const runId = params.existing?.runId ?? params.runId ?? randomUUID3();
+  const lock = await acquireRunLock({ cwd: params.cwd, runId });
+  if (lock.stalePid !== void 0) {
+    params.onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
+  }
+  try {
+    return await run({ ...params, runId });
+  } finally {
+    await releaseRunLock({ cwd: params.cwd, runId });
+  }
+};
+
+// src/runState/progress/createProgressSink.ts
+import { mkdir as mkdir12 } from "node:fs/promises";
+import { dirname as dirname7 } from "node:path";
+
+// src/runState/progress/getProgressLogPath.ts
+import { join as join66 } from "node:path";
+var getProgressLogPath = async ({ cwd, runId }) => {
+  return join66(await resolveRunDir({ cwd, runId }), "progress.jsonl");
+};
+
+// src/runState/progress/createProgressSink.ts
+var createProgressSink = ({ cwd, runId }) => {
+  const logPath = getProgressLogPath({ cwd, runId });
+  const sink = createEventFileSink({ path: logPath, ready: logPath.then((path) => mkdir12(dirname7(path), { recursive: true })) });
+  return (message) => {
+    sink({ at: (/* @__PURE__ */ new Date()).toISOString(), message });
+  };
+};
+
+// src/runState/progress/readLastProgressMessage.ts
+var readLastProgressMessage = async ({ cwd, runId }) => {
+  const records = await readJsonlRecords({ path: await getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
+  return records.at(-1)?.message;
+};
+
+// src/runState/readFriction.ts
+var readFriction = async ({ cwd }) => readJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord });
+
+// src/runState/readRunManifest.ts
+import { readFile as readFile31 } from "node:fs/promises";
+var readRunManifest = async ({ cwd, runId }) => {
+  const raw = await readFile31(await getRunManifestPath({ cwd, runId }), "utf8");
+  return RunManifest.parse(JSON.parse(raw));
+};
+
+// src/runState/common/utils/appendAgentLog.ts
+var appendAgentLog = async ({ cwd, runId, record: record3 }) => {
+  await appendRunLog({ cwd, runId, fileName: "agents.jsonl", record: record3 });
+};
+
+// src/runState/recordAgentUsage.ts
+var recordAgentUsage = async ({ cwd, runId, step, model, effort, totals, usage: usage2 }) => {
+  if (!usage2) {
+    return;
+  }
+  totals.invocations += 1;
+  totals.inputTokens += usage2.inputTokens;
+  totals.outputTokens += usage2.outputTokens;
+  totals.cacheReadTokens += usage2.cacheReadTokens;
+  totals.cacheCreationTokens += usage2.cacheCreationTokens;
+  totals.costUsd += usage2.costUsd;
+  await appendAgentLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model, effort, ...usage2 } });
+};
+
+// src/runState/seedUsageTotals.ts
+var seedUsageTotals = ({ usage: usage2 }) => ({
+  invocations: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  costUsd: 0,
+  ...usage2
+});
+
+// src/runState/standardsBaseline/getRunStandardsBaselinePath.ts
+import { join as join67 } from "node:path";
+var getRunStandardsBaselinePath = async ({ cwd, runId }) => {
+  return join67(await resolveRunDir({ cwd, runId }), "standards-baseline.json");
+};
+
+// src/runState/standardsBaseline/readRunStandardsBaseline.ts
+var readRunStandardsBaseline = async ({ cwd, runId }) => {
+  return readJsonFile({ path: await getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
+};
+
+// src/runState/standardsBaseline/writeRunStandardsBaseline.ts
+import { mkdir as mkdir13 } from "node:fs/promises";
+import { dirname as dirname8 } from "node:path";
+var writeRunStandardsBaseline = async ({ cwd, runId, snapshot }) => {
+  const path = await getRunStandardsBaselinePath({ cwd, runId });
+  await mkdir13(dirname8(path), { recursive: true });
+  await writeJsonFile({ path, value: snapshot });
+};
+
+// src/runState/summarizeRun.ts
+import { readdir as readdir10 } from "node:fs/promises";
+import { join as join68 } from "node:path";
+
+// src/common/selfCheck/selfCheckStepPrefix.ts
+var selfCheckStepPrefix = "self-check-";
+
+// src/common/selfCheck/isSelfCheckStep.ts
+var isSelfCheckStep = ({ step }) => step?.startsWith(selfCheckStepPrefix) ?? false;
+
+// src/runState/summarizeRun.ts
+var LedgerRecord = external_exports.object({
+  step: external_exports.string(),
+  outputTokens: external_exports.number(),
+  costUsd: external_exports.number()
+});
+var CommandRecord = external_exports.object({
+  /** The pipeline step the execution was recorded under; absent on a record written outside a step. */
+  step: external_exports.string().optional(),
+  durationMs: external_exports.number().optional(),
+  rerun: external_exports.literal(true).optional(),
+  skipped: external_exports.literal(true).optional()
+});
+var summarizeRun = async ({ cwd, manifest }) => {
+  const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
+  const ledger = await readJsonlRecords({ path: join68(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands2 = (await readJsonlRecords({ path: join68(runDir, "commands.jsonl"), schema: CommandRecord })).filter(
+    (command) => !isSelfCheckStep({ step: command.step })
+  );
+  const agentFiles = await readdir10(join68(runDir, "agents")).catch(() => []);
+  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
+  const perStepUsage = /* @__PURE__ */ new Map();
+  for (const record3 of ledger) {
+    const step = record3.step.endsWith("-supervisor") ? record3.step.slice(0, -"-supervisor".length) : record3.step;
+    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
+    totals.invocations += 1;
+    totals.outputTokens += record3.outputTokens;
+    totals.costUsd += record3.costUsd;
+    perStepUsage.set(step, totals);
+  }
+  const frictionByArea = /* @__PURE__ */ new Map();
+  const verificationRepairs = /* @__PURE__ */ new Map();
+  for (const entry of friction) {
+    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  for (const step of manifest.steps) {
+    for (const [gateFamily, attempts] of Object.entries(step.verification?.repairAttempts ?? {})) {
+      verificationRepairs.set(gateFamily, (verificationRepairs.get(gateFamily) ?? 0) + attempts);
+    }
+  }
+  const cleanup = manifest.steps.reduce((found, step) => buildCleanupSummary({ step }) ?? found, void 0);
+  const { usage: usage2 } = manifest;
+  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
+  return {
+    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
+    gateMs: commands2.reduce((total, command) => total + (command.durationMs ?? 0), 0),
+    usage: usage2,
+    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
+    steps: manifest.steps.map((step) => ({
+      id: step.id,
+      status: step.status,
+      attempts: step.attempts,
+      durationMs: step.durationMs,
+      changedFiles: step.changedFiles,
+      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
+    })),
+    gates: {
+      commands: commands2.filter((command) => !command.skipped).length,
+      reruns: commands2.filter((command) => command.rerun).length,
+      skipped: commands2.filter((command) => command.skipped).length
+    },
+    verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
+    cleanup,
+    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
+    frictionByArea: [...frictionByArea.entries()].map(([area, count2]) => ({ area, count: count2 }))
+  };
+};
+
+// src/runState/writeManifestWithUsage.ts
+var writeManifestWithUsage = async ({ cwd, manifest, patch, usageTotals }) => {
+  const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
+  return writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
+};
+
+// src/cli/frictionCommand.ts
+var frictionCommand = async ({ cwd }) => {
+  const entries = await readFriction({ cwd });
+  if (entries.length === 0) {
+    console.log("no friction recorded");
+    return exitCli({ code: 0 });
+  }
+  for (const entry of entries) {
+    console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/common/render/printResult.ts
+import { basename as basename35 } from "node:path";
+
+// ../shared/src/formatting/formatCost.ts
+var formatCost = ({ usd }) => `$${usd.toFixed(2)}`;
+
+// ../shared/src/formatting/formatDuration.ts
+var formatDuration = ({ ms }) => {
+  if (ms === void 0) {
+    return "\u2014";
+  }
+  const seconds = Math.round(ms / 1e3);
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
+};
+
+// ../shared/src/formatting/formatTokenCount.ts
+var formatTokenCount = ({ count: count2 }) => {
+  if (count2 >= 1e6) {
+    return `${(count2 / 1e6).toFixed(1)}M`;
+  }
+  return count2 >= 1e3 ? `${(count2 / 1e3).toFixed(1)}k` : `${count2}`;
+};
+
+// src/cli/common/constants/statusIcons.ts
+var statusIcons = {
+  [RunStatus.Passed]: "\u2713",
+  [RunStatus.Failed]: "\u2717",
+  [RunStatus.Running]: "\u2026",
+  [RunStatus.Pending]: "\u25CB",
+  [RunStatus.PausedRateLimit]: "\u23F8",
+  // stopped and resumable, exactly like the rate-limit pause
+  [RunStatus.PausedBudget]: "\u23F8",
+  [RunStatus.Escalated]: "\u2691"
+};
+
+// src/cli/common/render/renderTable.ts
+var renderTable = ({ headers, rows }) => {
+  const allCells = [headers, ...rows.map((row) => row.cells)];
+  const widths = headers.map((_, column) => Math.max(...allCells.map((cells) => (cells[column] ?? "").length)) + 2);
+  const rule = ({ left, mid, right }) => dim(`${left}${widths.map((width) => "\u2500".repeat(width)).join(mid)}${right}`);
+  const renderRow = ({ cells, emphasis, paintCell: paintCell2 }) => {
+    const rendered = cells.map((text, column) => {
+      const width = widths[column] ?? 0;
+      const padded = column === 0 ? ` ${text.padEnd(width - 1)}` : `${text.padStart(width - 1)} `;
+      const painted = paintCell2 ? paintCell2({ text, padded, column }) : padded;
+      return emphasis && text !== "\u2014" ? emphasis(painted) : painted;
+    });
+    return `${dim("\u2502")}${rendered.join(dim("\u2502"))}${dim("\u2502")}`;
+  };
+  const lines = [rule({ left: "\u250C", mid: "\u252C", right: "\u2510" }), renderRow({ cells: headers })];
+  rows.forEach((row, index) => {
+    if (index === 0 || row.ruleAbove !== false) {
+      lines.push(rule({ left: "\u251C", mid: "\u253C", right: "\u2524" }));
+    }
+    lines.push(renderRow(row));
+  });
+  lines.push(rule({ left: "\u2514", mid: "\u2534", right: "\u2518" }));
+  return lines;
+};
+
+// src/cli/common/terminal/paintStatus.ts
+var paintStatus = ({ status, text }) => {
+  if (status === RunStatus.Passed) {
+    return green(text);
+  }
+  return status === RunStatus.Failed ? red(text) : yellow(text);
+};
+
+// src/cli/common/render/printStepTable.ts
+var paintCell = ({ text, padded, status }) => {
+  if (text === "\u2014") {
+    return dim(padded);
+  }
+  if (status !== void 0 && text.startsWith(statusIcons[status] ?? "?")) {
+    return padded.replace(statusIcons[status] ?? "?", paintStatus({ status, text: statusIcons[status] ?? "?" }));
+  }
+  return padded;
+};
+var printStepTable = ({ steps, activeMs }) => {
+  const headers = ["step", "tries", "time", "agents", "out", "cost", "files"];
+  const rows = steps.map((step) => ({
+    status: step.status,
+    cells: [
+      `${statusIcons[step.status] ?? "?"} ${step.id}`,
+      `${step.attempts}`,
+      formatDuration({ ms: step.durationMs }),
+      step.invocations > 0 ? `${step.invocations}` : "\u2014",
+      step.invocations > 0 ? formatTokenCount({ count: step.outputTokens }) : "\u2014",
+      step.invocations > 0 ? formatCost({ usd: step.costUsd }) : "\u2014",
+      step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
+    ]
+  }));
+  const invocations = steps.reduce((count2, step) => count2 + step.invocations, 0);
+  const totalCells = [
+    "  total",
+    "\u2014",
+    activeMs > 0 ? formatDuration({ ms: activeMs }) : "\u2014",
+    invocations > 0 ? `${invocations}` : "\u2014",
+    invocations > 0 ? formatTokenCount({ count: steps.reduce((count2, step) => count2 + step.outputTokens, 0) }) : "\u2014",
+    invocations > 0 ? formatCost({ usd: steps.reduce((total, step) => total + step.costUsd, 0) }) : "\u2014",
+    `${steps.reduce((count2, step) => count2 + (step.changedFiles?.length ?? 0), 0)}`
+  ];
+  const lines = renderTable({
+    headers,
+    rows: [
+      ...rows.map((row) => ({
+        cells: row.cells,
+        paintCell: ({ text, padded }) => paintCell({ text, padded, status: row.status })
+      })),
+      { cells: totalCells, emphasis: bold, paintCell: ({ text, padded }) => paintCell({ text, padded }) }
+    ]
+  });
+  for (const line of lines) {
+    console.log(line);
+  }
+};
+
+// src/cli/common/utils/plural.ts
+var plural = ({ count: count2 }) => count2 === 1 ? "" : "s";
+
+// src/cli/common/render/printResult.ts
+var label = ({ name, value }) => console.log(`${name.padEnd(10)}${value}`);
+var describeGates = ({ gates }) => {
+  const parts = [`${gates.commands} command${plural({ count: gates.commands })}`];
+  if (gates.reruns > 0) {
+    parts.push(`${gates.reruns} flake re-run${plural({ count: gates.reruns })}`);
+  }
+  if (gates.skipped > 0) {
+    parts.push(`${gates.skipped} skipped (no script)`);
+  }
+  return parts.join(" \xB7 ");
+};
+var describeCleanup = ({ cleanup }) => {
+  const parts = [`${cleanup.rounds} round${plural({ count: cleanup.rounds })}`, cleanup.endReason ?? "in progress"];
+  if (cleanup.remainingFindings > 0) {
+    parts.push(`${cleanup.remainingFindings} remaining`);
+  }
+  if (cleanup.carriedFindings > 0) {
+    parts.push(`${cleanup.carriedFindings} carried forward`);
+  }
+  if (cleanup.failures > 0) {
+    parts.push(`${cleanup.failures} failed attempt${plural({ count: cleanup.failures })}`);
+  }
+  return parts.join(" \xB7 ");
+};
+var describeCommits = ({ manifest, ok }) => {
+  if (manifest.commits.length > 0) {
+    return manifest.commits.map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`).join(" \xB7 ");
+  }
+  return ok && manifest.changedFiles.length > 0 ? "none added \u2014 this run\u2019s work was already in the branch\u2019s history" : void 0;
+};
+var printResult = async ({ result, cwd }) => {
+  const { manifest, ok, error: error51 } = result;
+  const summary = await summarizeRun({ cwd, manifest });
+  console.log("");
+  label({ name: "run", value: `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}` });
+  label({ name: "plan", value: basename35(manifest.plan) });
+  label({ name: "wall", value: formatDuration({ ms: summary.wallMs }) });
+  if (summary.activeMs > 0) {
+    label({ name: "active", value: formatDuration({ ms: summary.activeMs }) });
+  }
+  label({ name: "gates", value: formatDuration({ ms: summary.gateMs }) });
+  if (summary.usage && summary.usage.invocations > 0) {
+    const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
+    const share = summary.cacheReadShare === void 0 ? "" : ` (${Math.round(summary.cacheReadShare * 100)}%)`;
+    label({
+      name: "tokens",
+      value: `in ${formatTokenCount({ count: inputTokens })} \xB7 out ${formatTokenCount({ count: outputTokens })} \xB7 cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`
+    });
+    label({ name: "cost", value: `${formatCost({ usd: costUsd })} API-equivalent \xB7 ${invocations} invocation${plural({ count: invocations })}` });
+  }
+  console.log("");
+  printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
+  console.log("");
+  label({ name: "gates", value: describeGates({ gates: summary.gates }) });
+  if (summary.rejectedReports > 0) {
+    label({ name: "retries", value: `${summary.rejectedReports} rejected report${plural({ count: summary.rejectedReports })} re-emitted` });
+  }
+  if (summary.cleanup) {
+    label({ name: "cleanup", value: describeCleanup({ cleanup: summary.cleanup }) });
+  }
+  if (summary.frictionByArea.length > 0) {
+    const total = summary.frictionByArea.reduce((count2, entry) => count2 + entry.count, 0);
+    label({ name: "friction", value: `${total} \xB7 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(" \xB7 ")}` });
+  }
+  if (manifest.packages.length > 0) {
+    label({ name: "scope", value: `${manifest.packages.join(" \xB7 ")}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ""}` });
+  }
+  const commits = describeCommits({ manifest, ok });
+  if (commits !== void 0) {
+    label({ name: "commit", value: commits });
+  }
+  if (manifest.unreachableChangedFiles.length > 0) {
+    label({
+      name: "warning",
+      value: `unreachable-changed-files: ${manifest.unreachableChangedFiles.join(", ")} \u2014 changed, but no public surface reaches them; no tests cover them`
+    });
+  }
+  label({ name: "evidence", value: `.lightsout/runs/${manifest.runId}/` });
+  if (ok || error51 === void 0) {
+    return;
+  }
+  if (isRunPaused({ status: manifest.status })) {
+    console.log(`
+${error51}`);
+  } else {
+    console.error(`
+${error51}`);
+  }
+};
+
+// src/cli/common/constants/contradictoryShipFlagsMessage.ts
+var contradictoryShipFlagsMessage = "--ship and --no-ship contradict each other \u2014 pass at most one";
+
+// src/cli/common/constants/unusableTicketPatternMessage.ts
+var unusableTicketPatternMessage = "ship: `ship.ticket-pattern` must be a valid regular expression carrying a `ticket` named group";
+
+// src/worktree/createWorktree.ts
+import { stat as stat6 } from "node:fs/promises";
+
+// src/common/processes/runOrDescribeFailure.ts
+var runOrDescribeFailure = async ({ command, cwd, timeoutMs = gitTimeoutMs, subject = "git" }) => {
+  const result = await runCommand({ command, cwd, timeoutMs }).catch(() => void 0);
+  return result?.exitCode === 0 ? void 0 : (result?.stderr ?? `${subject} did not answer`).trim();
+};
+
+// src/worktree/records/deleteWorktreeRecord.ts
+import { rm as rm5 } from "node:fs/promises";
+
+// src/worktree/records/common/utils/getWorktreeRecordPath.ts
+import { join as join70 } from "node:path";
+
+// src/common/workspace/findWorkOrderForBranch.ts
+import { readdir as readdir11 } from "node:fs/promises";
+import { join as join69 } from "node:path";
+var findWorkOrderForBranch = async ({ cwd, branch }) => {
+  const folder = await workOrdersDir({ cwd });
+  const entries = await readdir11(folder, { withFileTypes: true }).catch(() => []);
+  const names = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort((first, second) => first.localeCompare(second));
+  let found;
+  for (const name of names) {
+    const record3 = await readWorkOrderRecordFile({ workOrderFolder: join69(folder, name) });
+    if (record3?.branch === branch) {
+      found = { name, record: record3 };
+      break;
+    }
+  }
+  return found;
+};
+
+// src/common/workspace/resolveBranchRecordDir.ts
+var resolveBranchRecordDir = async ({ cwd, branch }) => {
+  const listing = await findWorkOrderForBranch({ cwd, branch });
+  return listing === void 0 ? void 0 : workOrderFolderDir({ cwd, name: listing.name });
+};
+
+// src/worktree/records/common/utils/getWorktreeRecordPath.ts
+var getWorktreeRecordPath = async ({ cwd, branch }) => {
+  const folder = await resolveBranchRecordDir({ cwd, branch });
+  return folder === void 0 ? void 0 : join70(folder, "worktree.json");
+};
+
+// src/worktree/records/deleteWorktreeRecord.ts
+var deleteWorktreeRecord = async ({ cwd, branch }) => {
+  const path = await getWorktreeRecordPath({ cwd, branch });
+  if (path === void 0) {
+    return;
+  }
+  await rm5(path, { force: true }).catch(() => void 0);
+};
+
+// src/worktree/records/readWorktreeRecord.ts
+var readWorktreeRecord = async ({ cwd, branch }) => {
+  const path = await getWorktreeRecordPath({ cwd, branch });
+  return path === void 0 ? void 0 : readJsonFile({ path, schema: WorktreeRecord });
+};
+
+// src/worktree/records/writeWorktreeRecord.ts
+import { mkdir as mkdir14, rename as rename4 } from "node:fs/promises";
+import { dirname as dirname9 } from "node:path";
+var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }) => {
+  const record3 = { branch, owner, worktreePath, createdAt: (/* @__PURE__ */ new Date()).toISOString(), ...startPoint === void 0 ? {} : { startPoint } };
+  try {
+    const recordPath = await getWorktreeRecordPath({ cwd, branch });
+    if (recordPath === void 0) {
+      onProgress?.(`the worktree for ${branch} was not recorded as '${owner}': no work order's record stores that branch, so it keeps no local record`);
+      return;
+    }
+    await mkdir14(dirname9(recordPath), { recursive: true });
+    await writeJsonFile({ path: `${recordPath}.tmp`, value: record3 });
+    await rename4(`${recordPath}.tmp`, recordPath);
+  } catch (error51) {
+    const message = error51 instanceof Error ? error51.message : String(error51);
+    onProgress?.(`the worktree for ${branch} could not be recorded as '${owner}': ${message}`);
+  }
+};
+
+// src/worktree/resolveWorktreePath.ts
+import { join as join72 } from "node:path";
+
+// src/worktree/resolveWorktreesRoot.ts
+import { basename as basename36, dirname as dirname10, join as join71, resolve as resolve6 } from "node:path";
+var resolveWorktreesRoot = async ({ cwd }) => {
+  const primary = await readGitPrimaryCheckout({ cwd });
+  const repo = resolve6(primary ?? cwd);
+  return join71(dirname10(repo), `${basename36(repo)}-worktrees`);
+};
+
+// src/worktree/resolveWorktreePath.ts
+var resolveWorktreePath = async ({ cwd, branch }) => join72(await resolveWorktreesRoot({ cwd }), (await findWorkOrderForBranch({ cwd, branch }))?.name ?? branch);
+
+// src/worktree/createWorktree.ts
+var exists = async ({ path }) => {
+  const found = await stat6(path).catch(() => void 0);
+  return found !== void 0;
+};
+var branchExists = async ({ cwd, branch }) => {
+  const shown = await runCommand({ command: `git rev-parse --verify --quiet refs/heads/${branch}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return shown?.exitCode === 0;
+};
+var describeClaim = async ({ cwd, branch, owner, worktreePath }) => {
+  const record3 = await readWorktreeRecord({ cwd, branch });
+  return record3 === void 0 || record3.owner === owner ? void 0 : `the worktree at ${worktreePath} belongs to a '${record3.owner}' run, so it was left alone`;
+};
+var cutTree = async ({
+  cwd,
+  branch,
+  startPoint,
+  setup,
+  owner,
+  worktreePath,
+  onProgress
+}) => {
+  const adopting = await branchExists({ cwd, branch });
+  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} ${startPoint}`;
+  const addFailure = await runOrDescribeFailure({ command: add, cwd });
+  if (addFailure !== void 0) {
+    return { error: `git could not create a worktree for '${branch}': ${addFailure}` };
+  }
+  onProgress?.(`worktree ${worktreePath} on ${branch}`);
+  await writeWorktreeRecord({ cwd, branch, owner, worktreePath, startPoint: adopting ? void 0 : startPoint, onProgress });
+  if (setup === void 0) {
+    return void 0;
+  }
+  const setupTimeoutMs = 6e5;
+  const setupFailure = await runOrDescribeFailure({ command: setup, cwd: worktreePath, timeoutMs: setupTimeoutMs, subject: "the command" });
+  if (setupFailure !== void 0) {
+    return { error: `the queue's setup command failed in ${worktreePath}: ${setupFailure}` };
+  }
+  onProgress?.(`setup finished in ${worktreePath}`);
+  return void 0;
+};
+var createWorktree = async ({ cwd, branch, startPoint, setup, owner, reuseExisting, onProgress }) => {
+  const worktreePath = await resolveWorktreePath({ cwd, branch });
+  const alreadyThere = await exists({ path: worktreePath });
+  if (alreadyThere && !reuseExisting) {
+    return { error: `something is already at ${worktreePath}, so no worktree was made for '${branch}'` };
+  }
+  const claimed = alreadyThere ? await describeClaim({ cwd, branch, owner, worktreePath }) : void 0;
+  if (claimed !== void 0) {
+    return { error: claimed };
+  }
+  if (alreadyThere) {
+    onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
+  }
+  const failure = alreadyThere ? void 0 : await cutTree({ cwd, branch, startPoint, setup, owner, worktreePath, onProgress });
+  return failure ?? worktreePath;
+};
+
+// src/common/git/readGitDefaultBranch.ts
+var readGitDefaultBranch = async ({ cwd }) => {
+  const head = await runCommand({ command: "git rev-parse --abbrev-ref origin/HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  const name = head && head.exitCode === 0 ? head.stdout.trim() : "";
+  const remotePrefix = "origin/";
+  return name.startsWith(remotePrefix) ? name.slice(remotePrefix.length) : void 0;
+};
+
+// src/worktree/fetchDefaultBranch.ts
+var fetchDefaultBranch = async ({ cwd }) => {
+  const fetchTimeoutMs = 6e4;
+  const fetchFailure = await runOrDescribeFailure({ command: "git fetch origin", cwd, timeoutMs: fetchTimeoutMs });
+  if (fetchFailure !== void 0) {
+    return { error: `git could not fetch origin: ${fetchFailure}` };
+  }
+  const defaultBranch = await readGitDefaultBranch({ cwd });
+  const unset = "the remote's default branch is unset, so there is nothing to cut a branch from \u2014 set it with `git remote set-head origin --auto`";
+  return defaultBranch ?? { error: unset };
+};
+
+// src/common/git/readGitRefCommit.ts
+var readGitRefCommit = async ({ cwd, ref }) => {
+  const named = await runCommand({ command: `git rev-parse --verify --quiet '${ref}^{commit}'`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return named?.exitCode === 0 ? named.stdout.trim() : void 0;
+};
+
+// src/worktree/readBranchWorktree.ts
+var readBranchWorktree = async ({ cwd, branch }) => {
+  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  let found;
+  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
+    const path = /^worktree (.+)$/m.exec(block)?.[1];
+    if (path !== void 0 && /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] === branch) {
+      found = path;
+      break;
+    }
+  }
+  return found;
+};
+
+// src/worktree/prepareWorkOrderBranch.ts
+var readAncestry = async ({ cwd, ancestor, descendant }) => {
+  const asked = await runCommand({ command: `git merge-base --is-ancestor ${ancestor} ${descendant}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  if (asked?.exitCode !== 0 && asked?.exitCode !== 1) {
+    return void 0;
+  }
+  return asked.exitCode === 0;
+};
+var readBranchRelation = async ({ cwd, local, remote }) => {
+  const behind = await readAncestry({ cwd, ancestor: local, descendant: remote });
+  const ahead = await readAncestry({ cwd, ancestor: remote, descendant: local });
+  let relation;
+  if (ahead === true) {
+    relation = "ahead";
+  } else if (behind === true) {
+    relation = "behind";
+  } else if (ahead === false && behind === false) {
+    relation = "diverged";
+  }
+  return relation;
+};
+var fastForwardTicketBranch = async ({ cwd, branch, local, remote }) => {
+  const holder = await readBranchWorktree({ cwd, branch });
+  if (holder !== void 0) {
+    return {
+      error: `the local branch '${branch}' at ${local} is behind the pushed one at ${remote}, and the worktree at ${holder} is standing on it \u2014 bring it up to date there with \`git pull --ff-only\``
+    };
+  }
+  const failure = await runOrDescribeFailure({ command: `git branch -f ${branch} ${remote}`, cwd });
+  return failure === void 0 ? { startPoint: void 0 } : { error: `git could not move '${branch}' to the pushed commit ${remote}: ${failure}` };
+};
+var prepareWorkOrderBranch = async ({ cwd, branch }) => {
+  const local = await readGitRefCommit({ cwd, ref: `refs/heads/${branch}` });
+  const remote = await readGitRefCommit({ cwd, ref: `refs/remotes/origin/${branch}` });
+  if (remote === void 0 || local === remote) {
+    return {};
+  }
+  if (local === void 0) {
+    return { startPoint: remote };
+  }
+  const relation = await readBranchRelation({ cwd, local, remote });
+  let prepared;
+  if (relation === "ahead") {
+    prepared = {};
+  } else if (relation === "behind") {
+    prepared = await fastForwardTicketBranch({ cwd, branch, local, remote });
+  } else if (relation === "diverged") {
+    prepared = {
+      error: `the local branch '${branch}' at ${local} has diverged from the pushed one at ${remote} \u2014 reconcile them before planning or implementing a later plan of this ticket`
+    };
+  } else {
+    prepared = { error: `git could not compare the local branch '${branch}' at ${local} with the pushed one at ${remote}` };
+  }
+  return prepared;
+};
+
+// src/worktree/removeWorktree.ts
+var removeWorktree = async ({ cwd, worktreePath, branch }) => {
+  const removal = await runOrDescribeFailure({ command: `git worktree remove --force ${worktreePath}`, cwd });
+  for (const command of ["git worktree prune", `git branch -d ${branch}`]) {
+    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  }
+  return removal === void 0 ? void 0 : { error: `git could not remove the worktree at ${worktreePath}: ${removal}` };
+};
+
+// src/cli/common/implementRun/removeShippedRunWorkspace.ts
+var describeRemovableTree = async ({ cwd, manifest }) => {
+  const { workspace, branch } = manifest;
+  if (workspace === void 0 || branch === void 0) {
+    return void 0;
+  }
+  const primary = await readGitPrimaryCheckout({ cwd }) ?? cwd;
+  const record3 = await readWorktreeRecord({ cwd: primary, branch });
+  const owned = record3?.owner === WorktreeOwner.Implement && record3.worktreePath === workspace;
+  return owned ? { cwd: primary, branch, worktreePath: workspace } : void 0;
+};
+var removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }) => {
+  const removable = await describeRemovableTree({ cwd, manifest });
+  if (removable === void 0) {
+    return;
+  }
+  const failure = await removeWorktree(removable);
+  if (failure === void 0) {
+    onProgress?.(`removed the worktree at ${removable.worktreePath}`);
+    await deleteWorktreeRecord({ cwd: removable.cwd, branch: removable.branch });
+  } else {
+    onProgress?.(failure.error);
+  }
+};
+
+// src/cli/common/implementRun/resolveRunCwd.ts
+import { stat as stat7 } from "node:fs/promises";
+var resolveRunCwd = async ({ cwd, manifest }) => {
+  const { workspace } = manifest;
+  if (workspace === void 0) {
+    return { workspace: cwd };
+  }
+  const isDirectory = await stat7(workspace).then(
+    (entry) => entry.isDirectory(),
+    () => false
+  );
+  return isDirectory ? { workspace } : { error: `run ${manifest.runId} recorded its workspace at ${workspace}, and there is no checkout there any more` };
+};
+
+// src/cli/common/constants/pausedExitCode.ts
+var pausedExitCode = 2;
+
+// src/cli/common/utils/exitForRunResult.ts
+var exitForRunResult = ({ ok, manifest }) => {
+  if (ok) {
+    return exitCli({ code: 0 });
+  }
+  return exitCli({ code: isRunPaused({ status: manifest.status }) ? pausedExitCode : 1 });
+};
+
+// src/cli/common/utils/resolveCommandHarness.ts
+var resolveCommandHarness = ({ config: config2, command }) => {
+  const entry = config2?.commands?.[command];
+  const globalHarnessName = config2?.harness ?? "claude-code";
+  const driverName = entry?.harness ?? globalHarnessName;
+  const model = entry?.model ?? (driverName === globalHarnessName ? config2?.model : void 0);
+  const effort = entry?.effort ?? config2?.effort;
+  return { driverName, model, effort };
+};
+
+// src/cli/common/utils/resolveEffectiveConfigAndDriver.ts
+var resolveEffectiveConfigAndDriver = ({ config: config2, command }) => {
+  const { driverName, model, effort } = resolveCommandHarness({ config: config2, command });
+  return { config: { ...config2, harness: driverName, model, effort }, driver: getDriver({ name: driverName }), driverName };
+};
 
 // src/ship/forge/common/constants/PullRequestState.ts
 var PullRequestState = {
@@ -131173,7 +136880,7 @@ var RunDetail = external_exports.object({
   jobs: external_exports.array(external_exports.object({ databaseId: external_exports.number(), name: external_exports.string(), conclusion: external_exports.string() }).catchall(external_exports.unknown()))
 });
 var maxEvidenceCharacters = 32e3;
-var resolveRunId = async ({ check: check2, commit, cwd }) => {
+var resolveRunId2 = async ({ check: check2, commit, cwd }) => {
   const linked = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/\d+/.exec(check2.detailsUrl);
   const linkedRunId = linked === null ? void 0 : linked[1];
   if (linkedRunId !== void 0) {
@@ -131203,7 +136910,7 @@ var readOneFailure = async ({ rollup, name, commit, cwd }) => {
   if (row === void 0 || !row.success) {
     return void 0;
   }
-  const runId = await resolveRunId({ check: row.data, commit, cwd });
+  const runId = await resolveRunId2({ check: row.data, commit, cwd });
   if (runId === void 0) {
     return void 0;
   }
@@ -131270,30 +136977,37 @@ var readPullRequestChecks = async ({ prNumber, cwd, expectedHead }) => {
   return { finished: pending.length === 0, green: failing.length === 0, failing, pending, passing, readable: true };
 };
 
-// src/ship/progress/readShippingProgress.ts
-import { readFile as readFile20 } from "node:fs/promises";
-
-// src/ship/progress/common/utils/getShippingProgressPath.ts
-import { join as join35 } from "node:path";
-
-// src/common/utils/toBranchFileName.ts
-var toBranchFileName = ({ branch }) => {
-  return branch.replace(/[^A-Za-z0-9._-]/g, "-");
+// src/ship/readTicketMatch.ts
+var readTicketMatch = ({ branch, ticketPattern }) => {
+  const groups = ticketPattern.exec(branch)?.groups;
+  const captured = Object.entries(groups ?? {}).filter((entry) => entry[1] !== void 0);
+  return captured.some(([name]) => name === "ticket") ? Object.fromEntries(captured) : void 0;
 };
 
+// src/ship/matchesTicketPattern.ts
+var matchesTicketPattern = ({ branch, ticketPattern }) => readTicketMatch({ branch, ticketPattern }) !== void 0;
+
+// src/ship/progress/readShippingProgress.ts
+import { readFile as readFile32 } from "node:fs/promises";
+
 // src/ship/progress/common/utils/getShippingProgressPath.ts
+import { join as join73 } from "node:path";
 var getShippingProgressPath = async ({ cwd, branch }) => {
-  return join35(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "ship-progress.json");
+  const folder = await resolveBranchRecordDir({ cwd, branch });
+  return folder === void 0 ? void 0 : join73(folder, "ship-progress.json");
 };
 
 // src/ship/progress/readShippingProgress.ts
 var isMissingFile = ({ error: error51 }) => typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
 var readShippingProgress = async ({ cwd, branch }) => {
   const path = await getShippingProgressPath({ cwd, branch });
+  if (path === void 0) {
+    return { path: void 0, exists: false, progress: void 0 };
+  }
   let exists3 = true;
   let progress;
   try {
-    const parsed = ShippingProgress.safeParse(JSON.parse(await readFile20(path, "utf8")));
+    const parsed = ShippingProgress.safeParse(JSON.parse(await readFile32(path, "utf8")));
     progress = parsed.success ? parsed.data : void 0;
   } catch (error51) {
     exists3 = !isMissingFile({ error: error51 });
@@ -131302,8 +137016,8 @@ var readShippingProgress = async ({ cwd, branch }) => {
 };
 
 // src/ship/progress/ShippingProgressRecorder.ts
-import { mkdir as mkdir3, rename as rename2, stat as stat3, writeFile as writeFile6 } from "node:fs/promises";
-import { dirname as dirname3, join as join36 } from "node:path";
+import { mkdir as mkdir15, rename as rename5, stat as stat8, writeFile as writeFile11 } from "node:fs/promises";
+import { dirname as dirname11, join as join74 } from "node:path";
 var attemptSteps = [ShippingStepId.Integrate, ShippingStepId.Push, ShippingStepId.PullRequest, ShippingStepId.Checks, ShippingStepId.Merge];
 var pendingSteps = () => Object.values(ShippingStepId).map((id) => ({ id, status: RunStatus.Pending }));
 var freshRecord = ({ branch, maxAttempts }) => {
@@ -131311,23 +137025,26 @@ var freshRecord = ({ branch, maxAttempts }) => {
   return { branch, attempt: 1, maxAttempts, pid: process.pid, startedAt: now, updatedAt: now, steps: pendingSteps() };
 };
 var ensureIgnoreFile = async ({ folder }) => {
-  const ignorePath = join36(folder, ".gitignore");
-  const isFile = await stat3(ignorePath).then(
+  const ignorePath = join74(folder, ".gitignore");
+  const isFile = await stat8(ignorePath).then(
     (found) => found.isFile(),
     () => false
   );
   if (!isFile) {
-    await writeFile6(ignorePath, "*\n", "utf8");
+    await writeFile11(ignorePath, "*\n", "utf8");
   }
 };
 var writeRecord = async ({ recordPath, record: record3 }) => {
   try {
     const path = await recordPath;
-    const folder = dirname3(path);
-    await mkdir3(folder, { recursive: true });
+    if (path === void 0) {
+      return;
+    }
+    const folder = dirname11(path);
+    await mkdir15(folder, { recursive: true });
     await ensureIgnoreFile({ folder });
     await writeJsonFile({ path: `${path}.tmp`, value: record3 });
-    await rename2(`${path}.tmp`, path);
+    await rename5(`${path}.tmp`, path);
   } catch {
   }
 };
@@ -131386,18 +137103,17 @@ var ShippingProgressRecorder = class {
   }
 };
 
-// src/common/git/readGitCurrentBranch.ts
-var readGitCurrentBranch = async ({ cwd }) => {
-  const branch = await runCommand({ command: "git rev-parse --abbrev-ref HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const name = branch && branch.exitCode === 0 ? branch.stdout.trim() : "";
-  return name === "" || name === "HEAD" ? void 0 : name;
+// src/ship/common/utils/getShipResultPath.ts
+import { join as join75 } from "node:path";
+var getShipResultPath = async ({ cwd, branch }) => {
+  const folder = await resolveBranchRecordDir({ cwd, branch });
+  return folder === void 0 ? void 0 : join75(folder, "ship.json");
 };
 
-// src/ship/readTicketMatch.ts
-var readTicketMatch = ({ branch, ticketPattern }) => {
-  const groups = ticketPattern.exec(branch)?.groups;
-  const captured = Object.entries(groups ?? {}).filter((entry) => entry[1] !== void 0);
-  return captured.some(([name]) => name === "ticket") ? Object.fromEntries(captured) : void 0;
+// src/ship/readShipResult.ts
+var readShipResult = async ({ cwd, branch }) => {
+  const path = await getShipResultPath({ cwd, branch });
+  return path === void 0 ? void 0 : readJsonFile({ path, schema: ShipResult });
 };
 
 // src/ship/resolveShipSettings.ts
@@ -131424,27 +137140,6 @@ var resolveShipSettings = ({ config: config2 }) => {
   };
 };
 
-// src/ship/readBranchTicketRef.ts
-var readBranchTicketRef = async ({ config: config2, cwd }) => {
-  const settings = resolveShipSettings({ config: config2 });
-  const branch = await readGitCurrentBranch({ cwd });
-  if (settings === void 0 || branch === void 0) {
-    return void 0;
-  }
-  return readTicketMatch({ branch, ticketPattern: settings.ticketPattern })?.ticket;
-};
-
-// src/ship/common/utils/getShipResultPath.ts
-import { join as join37 } from "node:path";
-var getShipResultPath = async ({ cwd, branch }) => {
-  return join37(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "ship.json");
-};
-
-// src/ship/readShipResult.ts
-var readShipResult = async ({ cwd, branch }) => {
-  return readJsonFile({ path: await getShipResultPath({ cwd, branch }), schema: ShipResult });
-};
-
 // src/ship/resolveShipIntent.ts
 var resolveShipIntent = ({ config: config2, shipFlag, noShipFlag, env, shipRequest }) => {
   const settings = resolveShipSettings({ config: config2 });
@@ -131464,39 +137159,6 @@ var resolveShipIntent = ({ config: config2, shipFlag, noShipFlag, env, shipReque
 
 // src/common/constants/maxCheapFixRetries.ts
 var maxCheapFixRetries = 2;
-
-// src/common/git/readGitPrefix.ts
-var readGitPrefix = async ({ cwd }) => {
-  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
-};
-
-// src/common/git/readGitChangedFiles.ts
-var readGitChangedFiles = async ({ cwd }) => {
-  const prefix = await readGitPrefix({ cwd });
-  if (prefix === void 0) {
-    return void 0;
-  }
-  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (status?.exitCode !== 0) {
-    return void 0;
-  }
-  const root = prefix;
-  return status.stdout.split("\n").filter(Boolean).map((line) => {
-    const path = line.slice(3);
-    const arrow = path.lastIndexOf(" -> ");
-    const renameTarget = arrow === -1 ? path : path.slice(arrow + " -> ".length);
-    return renameTarget.replace(/^"|"$/g, "");
-  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
-};
-
-// src/common/git/readGitDefaultBranch.ts
-var readGitDefaultBranch = async ({ cwd }) => {
-  const head = await runCommand({ command: "git rev-parse --abbrev-ref origin/HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  const name = head && head.exitCode === 0 ? head.stdout.trim() : "";
-  const remotePrefix = "origin/";
-  return name.startsWith(remotePrefix) ? name.slice(remotePrefix.length) : void 0;
-};
 
 // src/ship/checkShipPreconditions.ts
 var describeDirtyTree = ({ changed }) => {
@@ -131539,12 +137201,6 @@ var quoteGitArgument = ({ argument }) => `'${argument.split("'").join(`'\\''`)}'
 
 // src/ship/common/utils/runGit.ts
 var runGit = ({ command, cwd, timeoutMs = gitTimeoutMs }) => runCommand({ command, cwd, timeoutMs }).catch(() => void 0);
-
-// src/common/git/readGitHeadCommit.ts
-var readGitHeadCommit = async ({ cwd }) => {
-  const head = await runCommand({ command: "git rev-parse HEAD", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return head && head.exitCode === 0 ? head.stdout.trim() : void 0;
-};
 
 // src/ship/common/utils/appendCommandOutput.ts
 var appendCommandOutput = ({ sentence, stderr }) => {
@@ -131786,19 +137442,19 @@ var describeGateHold = ({ hold, identifier }) => {
 var isTicketGateHeld = ({ holds, identifier, labels }) => holds[identifier.toLowerCase()] !== void 0 || labels.includes(gateBlockedLabel);
 
 // src/gates/gateHolds/common/utils/readGateHolds.ts
-import { readdir as readdir4, readFile as readFile21 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { readdir as readdir12, readFile as readFile33 } from "node:fs/promises";
+import { join as join77 } from "node:path";
 
 // src/gates/gateHolds/common/utils/getGateHoldPaths.ts
-import { join as join38 } from "node:path";
+import { join as join76 } from "node:path";
 var getGateHoldPaths = async ({ cwd }) => {
-  const dir = join38(await resolveSharedStateDir({ cwd }), "gate-holds");
-  return { dir, pathFor: ({ identifier }) => join38(dir, `${identifier.toLowerCase()}.json`) };
+  const dir = join76(await resolveSharedStateDir({ cwd }), "gate-holds");
+  return { dir, pathFor: ({ identifier }) => join76(dir, `${identifier.toLowerCase()}.json`) };
 };
 
 // src/gates/gateHolds/common/utils/readGateHolds.ts
 var readOneHold = async ({ path }) => {
-  const raw = await readFile21(path, "utf8").catch(() => void 0);
+  const raw = await readFile33(path, "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -131810,10 +137466,10 @@ var readOneHold = async ({ path }) => {
 };
 var readGateHolds = async ({ cwd }) => {
   const { dir } = await getGateHoldPaths({ cwd });
-  const names = await readdir4(dir).catch(() => []);
+  const names = await readdir12(dir).catch(() => []);
   const holds = {};
   for (const name of names.filter((entry) => entry.endsWith(".json"))) {
-    const hold = await readOneHold({ path: join39(dir, name) });
+    const hold = await readOneHold({ path: join77(dir, name) });
     if (hold !== void 0) {
       holds[name.slice(0, -".json".length).toLowerCase()] = hold;
     }
@@ -131822,10 +137478,10 @@ var readGateHolds = async ({ cwd }) => {
 };
 
 // src/gates/gateHolds/common/utils/removeGateHold.ts
-import { unlink } from "node:fs/promises";
+import { unlink as unlink3 } from "node:fs/promises";
 var removeGateHold = async ({ cwd, identifier }) => {
   const { pathFor } = await getGateHoldPaths({ cwd });
-  await unlink(pathFor({ identifier })).catch(() => void 0);
+  await unlink3(pathFor({ identifier })).catch(() => void 0);
 };
 
 // src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts
@@ -131843,13 +137499,13 @@ var writeGateBlockedLabel = async ({ settings, identifier }) => {
 };
 
 // src/gates/gateHolds/common/utils/writeGateHold.ts
-import { mkdir as mkdir4, writeFile as writeFile7 } from "node:fs/promises";
-import { dirname as dirname4 } from "node:path";
+import { mkdir as mkdir16, writeFile as writeFile12 } from "node:fs/promises";
+import { dirname as dirname12 } from "node:path";
 var writeGateHold = async ({ cwd, identifier, hold }) => {
   const { pathFor } = await getGateHoldPaths({ cwd });
   const path = pathFor({ identifier });
-  await mkdir4(dirname4(path), { recursive: true });
-  await writeFile7(path, JSON.stringify(hold), "utf8");
+  await mkdir16(dirname12(path), { recursive: true });
+  await writeFile12(path, JSON.stringify(hold), "utf8");
 };
 
 // src/gates/gateHolds/syncGateHolds.ts
@@ -131939,8 +137595,8 @@ import { randomUUID as randomUUID4 } from "node:crypto";
 var describeGateLockFailure = ({ failure }) => `gates never started: the shared gate reservation in this repository's primary checkout could not be created or read (${failure}). No gate command executed, so nothing here is evidence about the code. Fix the permissions on that .lightsout folder, or free the disk, and start the run again.`;
 
 // src/gates/gateLock/acquireGateLock.ts
-import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname as dirname9 } from "node:path";
+import { existsSync as existsSync2, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname as dirname13 } from "node:path";
 
 // src/gates/gateLock/common/constants/gateLockTimings.ts
 var gateLockTimings = {
@@ -131971,615 +137627,17 @@ var isProcessGroupAlive = ({ pgid }) => {
   }
 };
 
-// src/runState/common/utils/appendRunLog.ts
-import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
-import { join as join44 } from "node:path";
-
-// src/runState/common/services/RunDirectoryIndex.ts
-import { readdir as readdir6 } from "node:fs/promises";
-import { join as join43 } from "node:path";
-
-// src/runState/common/paths/listRunLocations.ts
-import { readdir as readdir5 } from "node:fs/promises";
-import { join as join42 } from "node:path";
-
-// src/runState/common/paths/getCommandRunsDir.ts
-import { join as join40 } from "node:path";
-var commandFolders = {
-  [PipelineKind.Implement]: "implement",
-  [PipelineKind.Phases]: "implement",
-  [PipelineKind.Direct]: "direct",
-  [PipelineKind.Refactor]: "refactor",
-  [PipelineKind.Coverage]: "coverage",
-  [PipelineKind.Queue]: "queue"
-};
-var getCommandRunsDir = ({ stateDir, pipeline }) => join40(stateDir, commandFolders[pipeline], "runs");
-
-// src/runState/common/paths/getTicketRunsDir.ts
-import { join as join41 } from "node:path";
-var getTicketRunsDir = ({ ticketFolder }) => join41(ticketFolder, "runs");
-
-// src/runState/common/paths/listRunLocations.ts
-var listRunLocations = async ({ cwd }) => {
-  const tickets = await ticketsDir({ cwd });
-  const entries = await readdir5(tickets, { withFileTypes: true }).catch(() => []);
-  const ticketRuns = entries.filter((entry) => entry.isDirectory()).map((entry) => getTicketRunsDir({ ticketFolder: join42(tickets, entry.name) }));
-  const stateDir = await resolveSharedStateDir({ cwd });
-  const commandRuns = new Set(Object.values(PipelineKind).map((pipeline) => getCommandRunsDir({ stateDir, pipeline })));
-  return [...ticketRuns, ...commandRuns];
-};
-
-// src/runState/RunNotFoundError.ts
-var RunNotFoundError = class extends Error {
-};
-
-// src/runState/common/services/RunDirectoryIndex.ts
-var scanLocations = async ({ cwd }) => {
-  const found = /* @__PURE__ */ new Map();
-  for (const location of await listRunLocations({ cwd })) {
-    const entries = await readdir6(location, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
-      found.set(entry.name, join43(location, entry.name));
-    }
-  }
-  return found;
-};
-var matchRuns = ({ known, runId }) => {
-  const exact = known.get(runId);
-  return exact === void 0 ? [...known].filter(([candidate]) => candidate.startsWith(runId)).map(([candidate, runDir]) => ({ runId: candidate, runDir })) : [{ runId, runDir: exact }];
-};
-var RunDirectoryIndex = class {
-  /** One run-id-to-directory map per `cwd` — filled by its first scan, and added to as runs are created. */
-  directories = /* @__PURE__ */ new Map();
-  scanned = /* @__PURE__ */ new Set();
-  /**
-   * Which run a typed id names, and where it is — both from one lookup, so the
-   * two questions can never be answered from two different scans.
-   *
-   * @throws {RunNotFoundError} When nothing matches the id, or when a shortened id matches more than one run — which names the matches.
-   */
-  async resolve({ cwd, runId }) {
-    let matches = matchRuns({ known: await this.load({ cwd }), runId });
-    if (matches.length === 0) {
-      matches = matchRuns({ known: await this.rescan({ cwd }), runId });
-    }
-    if (matches.length === 0) {
-      throw new RunNotFoundError(`no run matching '${runId}' \u2014 list the runs this repo has with: lightsout status`);
-    }
-    if (matches.length > 1) {
-      throw new RunNotFoundError(`run id '${runId}' matches ${matches.length} runs (${matches.map((match) => match.runId).join(", ")}) \u2014 pass more of the id`);
-    }
-    return matches[0];
-  }
-  /** Remember a directory as it is created, so the run answers to its own id before anything is written into it. */
-  record({ cwd, runId, runDir }) {
-    this.entriesFor({ cwd }).set(runId, runDir);
-  }
-  entriesFor({ cwd }) {
-    const standing = this.directories.get(cwd);
-    if (standing !== void 0) {
-      return standing;
-    }
-    const fresh = /* @__PURE__ */ new Map();
-    this.directories.set(cwd, fresh);
-    return fresh;
-  }
-  async load({ cwd }) {
-    return this.scanned.has(cwd) ? this.entriesFor({ cwd }) : this.rescan({ cwd });
-  }
-  async rescan({ cwd }) {
-    const entries = this.entriesFor({ cwd });
-    for (const [runId, runDir] of await scanLocations({ cwd })) {
-      entries.set(runId, runDir);
-    }
-    this.scanned.add(cwd);
-    return entries;
-  }
-};
-
-// src/runState/common/constants/runDirectoryIndex.ts
-var runDirectoryIndex = new RunDirectoryIndex();
-
-// src/runState/common/paths/resolveRunDir.ts
-var resolveRunDir = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runDir;
-
-// src/runState/common/utils/appendRunLog.ts
-var appendRunLog = async ({ cwd, runId, fileName, record: record3 }) => {
-  const dir = await resolveRunDir({ cwd, runId });
-  await mkdir5(dir, { recursive: true });
-  await appendFile3(join44(dir, fileName), `${JSON.stringify(record3)}
-`, "utf8");
-};
-
-// src/runState/appendCommandLog.ts
-var appendCommandLog = async ({ cwd, runId, record: record3 }) => {
-  await appendRunLog({ cwd, runId, fileName: "commands.jsonl", record: record3 });
-};
-
-// src/common/utils/appendJsonlRecords.ts
-import { appendFile as appendFile4, mkdir as mkdir6 } from "node:fs/promises";
-import { dirname as dirname5 } from "node:path";
-var appendJsonlRecords = async ({ path, schema, entries, runId, step }) => {
-  if (entries.length === 0) {
-    return;
-  }
-  const at = (/* @__PURE__ */ new Date()).toISOString();
-  const lines = entries.map((entry) => JSON.stringify(schema.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir6(dirname5(path), { recursive: true });
-  await appendFile4(path, `${lines}
-`, "utf8");
-};
-
-// src/runState/common/paths/getFrictionPath.ts
-import { join as join45 } from "node:path";
-var getFrictionPath = async ({ cwd }) => {
-  return join45(await resolveSharedStateDir({ cwd }), "friction.jsonl");
-};
-
-// src/runState/appendFriction.ts
-var appendFriction = async ({ cwd, runId, step, friction }) => appendJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord, entries: friction, runId, step });
-
-// src/runState/common/paths/getReviewFindingsPath.ts
-import { join as join46 } from "node:path";
-var getReviewFindingsPath = async ({ cwd }) => {
-  return join46(await resolveSharedStateDir({ cwd }), "review-findings.jsonl");
-};
-
-// src/runState/appendReviewFindings.ts
-var appendReviewFindings = async ({ cwd, runId, step, findings }) => appendJsonlRecords({ path: await getReviewFindingsPath({ cwd }), schema: ReviewFindingRecord, entries: findings, runId, step });
-
-// src/runState/appendTestReview.ts
-var appendTestReview = async ({ cwd, runId, record: record3 }) => {
-  await appendRunLog({ cwd, runId, fileName: "test-reviews.jsonl", record: record3 });
-};
-
-// src/runState/common/paths/resolveNewRunDir.ts
-import { join as join47 } from "node:path";
-var resolveNewRunDir = async ({ cwd, planName, ticketBranch, pipeline, runId }) => {
-  const ticket = planName === void 0 ? ticketBranch : ticketFolderOf({ name: planName });
-  const runsDir = ticket === void 0 ? getCommandRunsDir({ stateDir: await resolveSharedStateDir({ cwd }), pipeline: pipeline ?? PipelineKind.Implement }) : getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch: ticket }) });
-  return join47(runsDir, runId);
-};
-
-// src/runState/common/paths/resolveRunId.ts
-var resolveRunId2 = async ({ cwd, runId }) => (await runDirectoryIndex.resolve({ cwd, runId })).runId;
-
-// src/runState/common/utils/buildCleanupSummary.ts
-var buildCleanupSummary = ({ step }) => {
-  const parsed = RefactorStepReport.safeParse(step.report);
-  let summary;
-  if (parsed.success) {
-    const { roundsUsed, endReason, remaining, inherited, uncertain, finalReview, failures } = parsed.data;
-    summary = {
-      rounds: roundsUsed,
-      endReason,
-      remainingFindings: remaining.length,
-      carriedFindings: inherited.length + uncertain.length,
-      reviewFindings: finalReview.length,
-      failures: failures.length
-    };
-  }
-  return summary;
-};
-
-// src/runState/createRun.ts
-import { randomUUID as randomUUID2 } from "node:crypto";
-import { mkdir as mkdir7 } from "node:fs/promises";
-import { resolve as resolve4 } from "node:path";
-
-// src/common/utils/toRepoRelativePath.ts
-import { relative as relative4, resolve as resolve3 } from "node:path";
-var toRepoRelativePath = ({ cwd, path }) => relative4(cwd, resolve3(cwd, path));
-
-// src/runState/writeRunManifest.ts
-import { rename as rename3, writeFile as writeFile8 } from "node:fs/promises";
-
-// src/runState/common/paths/getRunManifestPath.ts
-import { join as join48 } from "node:path";
-var getRunManifestPath = async ({ cwd, runId }) => join48(await resolveRunDir({ cwd, runId }), "manifest.json");
-
-// src/runState/writeRunManifest.ts
-var writeRunManifest = async ({ cwd, manifest }) => {
-  const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const manifestPath = await getRunManifestPath({ cwd, runId: manifest.runId });
-  const tmpPath = `${manifestPath}.tmp`;
-  await writeFile8(tmpPath, `${JSON.stringify(stamped, null, "	")}
-`, "utf8");
-  await rename3(tmpPath, manifestPath);
-  return stamped;
-};
-
-// src/runState/createRun.ts
-var createRun = async ({
-  cwd,
-  runId,
-  plan,
-  pipeline,
-  ticketRef,
-  overview,
-  parentRunId,
-  driver,
-  config: config2,
-  baselineDirtyFiles,
-  willShip
-}) => {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const recordedPlan = toRepoRelativePath({ cwd, path: plan });
-  const planName = await planNameFromPath({ cwd, planPath: recordedPlan });
-  const branch = await readGitCurrentBranch({ cwd });
-  const manifest = {
-    runId: runId ?? randomUUID2(),
-    createdAt: now,
-    updatedAt: now,
-    plan: recordedPlan,
-    planName,
-    pipeline,
-    ticketRef,
-    overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
-    parentRunId,
-    harness: driver,
-    config: config2,
-    branch,
-    // Absolute, because the reader that wants it is standing in another checkout
-    // and has nothing to join a relative path onto. Written from what this
-    // function already holds rather than threaded down from three pipeline entry
-    // points: `cwd` IS the checkout the run's work happens in.
-    workspace: resolve4(cwd),
-    willShip,
-    status: RunStatus.Pending,
-    currentStep: null,
-    steps: [],
-    changedFiles: [],
-    commits: [],
-    packages: [],
-    baselineDirtyFiles: baselineDirtyFiles ?? [],
-    testSubjects: [],
-    acceptanceTests: [],
-    approvedTests: [],
-    unreachableChangedFiles: [],
-    coverageExcludedChangedFiles: []
-  };
-  const runDir = await resolveNewRunDir({
-    cwd,
-    planName,
-    ticketBranch: planName === void 0 && ticketRef !== void 0 ? branch : void 0,
-    pipeline,
-    runId: manifest.runId
-  });
-  await mkdir7(runDir, { recursive: true });
-  runDirectoryIndex.record({ cwd, runId: manifest.runId, runDir });
-  return writeRunManifest({ cwd, manifest });
-};
-
-// src/runState/isPidAlive.ts
-var isPidAlive = ({ pid }) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error51) {
-    return typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EPERM";
-  }
-};
-
-// src/runState/isRunLive.ts
-var isRunLive = ({ manifest, lock }) => {
-  if (!lock || !isPidAlive({ pid: lock.pid })) {
-    return false;
-  }
-  if (lock.runId === manifest.runId) {
-    return true;
-  }
-  const running = manifest.steps.find((step) => step.status === RunStatus.Running);
-  if (manifest.pipeline !== PipelineKind.Phases || running === void 0) {
-    return false;
-  }
-  const child = PhaseReport.safeParse(running.report);
-  return child.success && child.data.runId === lock.runId;
-};
-
-// src/runState/isRunPaused.ts
-var isRunPaused = ({ status }) => status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
-
-// src/runState/isRunResumable.ts
-var isRunResumable = ({ status, live: live2 }) => {
-  if (status === RunStatus.Running) {
-    return !live2;
-  }
-  return status === RunStatus.Failed || status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
-};
-
-// src/runState/listRunIds.ts
-import { readdir as readdir7 } from "node:fs/promises";
-var listRunIds = async ({ cwd, ticketBranch }) => {
-  const locations = ticketBranch === void 0 ? await listRunLocations({ cwd }) : [getTicketRunsDir({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) })];
-  const runIds = [];
-  for (const location of locations) {
-    const entries = await readdir7(location, { withFileTypes: true }).catch(() => []);
-    runIds.push(...entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
-  }
-  return runIds.sort();
-};
-
-// src/runState/lock/acquireRunLock.ts
-import { mkdir as mkdir8, unlink as unlink2, writeFile as writeFile9 } from "node:fs/promises";
-import { dirname as dirname6 } from "node:path";
-
-// src/runState/lock/common/utils/getRunLockPath.ts
-import { join as join49 } from "node:path";
-var getRunLockPath = ({ cwd }) => {
-  return join49(cwd, ".lightsout", "lock.json");
-};
-
-// src/runState/lock/RunLockError.ts
-var RunLockError = class extends Error {
-};
-
-// src/runState/lock/readRunLock.ts
-import { readFile as readFile22 } from "node:fs/promises";
-var readRunLock = async ({ cwd }) => {
-  const raw = await readFile22(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
-  if (raw === void 0) {
-    return void 0;
-  }
-  try {
-    return RunLock.parse(JSON.parse(raw));
-  } catch {
-    return void 0;
-  }
-};
-
-// src/runState/lock/acquireRunLock.ts
-var acquireRunLock = async ({ cwd, runId }) => {
-  const lockPath = getRunLockPath({ cwd });
-  const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
-`;
-  await mkdir8(dirname6(lockPath), { recursive: true });
-  let stalePid;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      await writeFile9(lockPath, payload, { flag: "wx" });
-      return { stalePid };
-    } catch (error51) {
-      const isAlreadyHeld = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EEXIST";
-      if (!isAlreadyHeld) {
-        throw error51;
-      }
-    }
-    const holder = await readRunLock({ cwd });
-    if (holder && isPidAlive({ pid: holder.pid })) {
-      throw new RunLockError(
-        `another lightsout run is active in this repo: run ${holder.runId} (pid ${holder.pid}, started ${holder.startedAt}). Wait for it to finish \u2014 or delete .lightsout/lock.json if you are certain nothing is running.`
-      );
-    }
-    stalePid = holder?.pid;
-    await unlink2(lockPath).catch(() => void 0);
-  }
-  throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
-};
-
-// src/runState/lock/readLiveRunLock.ts
-var readLiveRunLock = async ({ cwd }) => {
-  const lock = await readRunLock({ cwd });
-  return lock !== void 0 && isPidAlive({ pid: lock.pid }) ? lock : void 0;
-};
-
-// src/runState/lock/readRunProcessLock.ts
-import { stat as stat4 } from "node:fs/promises";
-var readRunProcessLock = async ({ cwd, manifest }) => {
-  const { workspace } = manifest;
-  const recorded = workspace === void 0 ? void 0 : await stat4(workspace).then(
-    (entry) => entry.isDirectory() ? workspace : void 0,
-    () => void 0
-  );
-  return readRunLock({ cwd: recorded ?? cwd });
-};
-
-// src/runState/lock/releaseRunLock.ts
-import { unlink as unlink3 } from "node:fs/promises";
-var releaseRunLock = async ({ cwd, runId }) => {
-  const holder = await readRunLock({ cwd });
-  if (!holder || holder.pid !== process.pid || holder.runId !== runId) {
-    return;
-  }
-  await unlink3(getRunLockPath({ cwd })).catch(() => void 0);
-};
-
-// src/runState/lock/withRunLock.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
-var withRunLock = async ({ params, run }) => {
-  const runId = params.existing?.runId ?? params.runId ?? randomUUID3();
-  const lock = await acquireRunLock({ cwd: params.cwd, runId });
-  if (lock.stalePid !== void 0) {
-    params.onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
-  }
-  try {
-    return await run({ ...params, runId });
-  } finally {
-    await releaseRunLock({ cwd: params.cwd, runId });
-  }
-};
-
-// src/runState/progress/createProgressSink.ts
-import { mkdir as mkdir9 } from "node:fs/promises";
-import { dirname as dirname7 } from "node:path";
-
-// src/runState/progress/getProgressLogPath.ts
-import { join as join50 } from "node:path";
-var getProgressLogPath = async ({ cwd, runId }) => {
-  return join50(await resolveRunDir({ cwd, runId }), "progress.jsonl");
-};
-
-// src/runState/progress/createProgressSink.ts
-var createProgressSink = ({ cwd, runId }) => {
-  const logPath = getProgressLogPath({ cwd, runId });
-  const sink = createEventFileSink({ path: logPath, ready: logPath.then((path) => mkdir9(dirname7(path), { recursive: true })) });
-  return (message) => {
-    sink({ at: (/* @__PURE__ */ new Date()).toISOString(), message });
-  };
-};
-
-// src/runState/progress/readLastProgressMessage.ts
-var readLastProgressMessage = async ({ cwd, runId }) => {
-  const records = await readJsonlRecords({ path: await getProgressLogPath({ cwd, runId }), schema: ProgressRecord });
-  return records.at(-1)?.message;
-};
-
-// src/runState/readFriction.ts
-var readFriction = async ({ cwd }) => readJsonlRecords({ path: await getFrictionPath({ cwd }), schema: FrictionRecord });
-
-// src/runState/readRunManifest.ts
-import { readFile as readFile23 } from "node:fs/promises";
-var readRunManifest = async ({ cwd, runId }) => {
-  const raw = await readFile23(await getRunManifestPath({ cwd, runId }), "utf8");
-  return RunManifest.parse(JSON.parse(raw));
-};
-
-// src/runState/common/utils/appendAgentLog.ts
-var appendAgentLog = async ({ cwd, runId, record: record3 }) => {
-  await appendRunLog({ cwd, runId, fileName: "agents.jsonl", record: record3 });
-};
-
-// src/runState/recordAgentUsage.ts
-var recordAgentUsage = async ({ cwd, runId, step, model, effort, totals, usage: usage2 }) => {
-  if (!usage2) {
-    return;
-  }
-  totals.invocations += 1;
-  totals.inputTokens += usage2.inputTokens;
-  totals.outputTokens += usage2.outputTokens;
-  totals.cacheReadTokens += usage2.cacheReadTokens;
-  totals.cacheCreationTokens += usage2.cacheCreationTokens;
-  totals.costUsd += usage2.costUsd;
-  await appendAgentLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model, effort, ...usage2 } });
-};
-
-// src/runState/seedUsageTotals.ts
-var seedUsageTotals = ({ usage: usage2 }) => ({
-  invocations: 0,
-  inputTokens: 0,
-  outputTokens: 0,
-  cacheReadTokens: 0,
-  cacheCreationTokens: 0,
-  costUsd: 0,
-  ...usage2
-});
-
-// src/runState/standardsBaseline/getRunStandardsBaselinePath.ts
-import { join as join51 } from "node:path";
-var getRunStandardsBaselinePath = async ({ cwd, runId }) => {
-  return join51(await resolveRunDir({ cwd, runId }), "standards-baseline.json");
-};
-
-// src/runState/standardsBaseline/readRunStandardsBaseline.ts
-var readRunStandardsBaseline = async ({ cwd, runId }) => {
-  return readJsonFile({ path: await getRunStandardsBaselinePath({ cwd, runId }), schema: StandardsSnapshot });
-};
-
-// src/runState/standardsBaseline/writeRunStandardsBaseline.ts
-import { mkdir as mkdir10 } from "node:fs/promises";
-import { dirname as dirname8 } from "node:path";
-var writeRunStandardsBaseline = async ({ cwd, runId, snapshot }) => {
-  const path = await getRunStandardsBaselinePath({ cwd, runId });
-  await mkdir10(dirname8(path), { recursive: true });
-  await writeJsonFile({ path, value: snapshot });
-};
-
-// src/runState/summarizeRun.ts
-import { readdir as readdir8 } from "node:fs/promises";
-import { join as join52 } from "node:path";
-
-// src/common/selfCheck/selfCheckStepPrefix.ts
-var selfCheckStepPrefix = "self-check-";
-
-// src/common/selfCheck/isSelfCheckStep.ts
-var isSelfCheckStep = ({ step }) => step?.startsWith(selfCheckStepPrefix) ?? false;
-
-// src/runState/summarizeRun.ts
-var LedgerRecord = external_exports.object({
-  step: external_exports.string(),
-  outputTokens: external_exports.number(),
-  costUsd: external_exports.number()
-});
-var CommandRecord = external_exports.object({
-  /** The pipeline step the execution was recorded under; absent on a record written outside a step. */
-  step: external_exports.string().optional(),
-  durationMs: external_exports.number().optional(),
-  rerun: external_exports.literal(true).optional(),
-  skipped: external_exports.literal(true).optional()
-});
-var summarizeRun = async ({ cwd, manifest }) => {
-  const runDir = await resolveRunDir({ cwd, runId: manifest.runId });
-  const ledger = await readJsonlRecords({ path: join52(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands2 = (await readJsonlRecords({ path: join52(runDir, "commands.jsonl"), schema: CommandRecord })).filter(
-    (command) => !isSelfCheckStep({ step: command.step })
-  );
-  const agentFiles = await readdir8(join52(runDir, "agents")).catch(() => []);
-  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
-  const perStepUsage = /* @__PURE__ */ new Map();
-  for (const record3 of ledger) {
-    const step = record3.step.endsWith("-supervisor") ? record3.step.slice(0, -"-supervisor".length) : record3.step;
-    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
-    totals.invocations += 1;
-    totals.outputTokens += record3.outputTokens;
-    totals.costUsd += record3.costUsd;
-    perStepUsage.set(step, totals);
-  }
-  const frictionByArea = /* @__PURE__ */ new Map();
-  const verificationRepairs = /* @__PURE__ */ new Map();
-  for (const entry of friction) {
-    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
-  }
-  for (const step of manifest.steps) {
-    for (const [gateFamily, attempts] of Object.entries(step.verification?.repairAttempts ?? {})) {
-      verificationRepairs.set(gateFamily, (verificationRepairs.get(gateFamily) ?? 0) + attempts);
-    }
-  }
-  const cleanup = manifest.steps.reduce((found, step) => buildCleanupSummary({ step }) ?? found, void 0);
-  const { usage: usage2 } = manifest;
-  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
-  return {
-    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
-    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
-    gateMs: commands2.reduce((total, command) => total + (command.durationMs ?? 0), 0),
-    usage: usage2,
-    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
-    steps: manifest.steps.map((step) => ({
-      id: step.id,
-      status: step.status,
-      attempts: step.attempts,
-      durationMs: step.durationMs,
-      changedFiles: step.changedFiles,
-      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
-    })),
-    gates: {
-      commands: commands2.filter((command) => !command.skipped).length,
-      reruns: commands2.filter((command) => command.rerun).length,
-      skipped: commands2.filter((command) => command.skipped).length
-    },
-    verificationRepairs: [...verificationRepairs.entries()].map(([gateFamily, attempts]) => ({ gateFamily, attempts })),
-    cleanup,
-    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
-    frictionByArea: [...frictionByArea.entries()].map(([area, count2]) => ({ area, count: count2 }))
-  };
-};
-
-// src/runState/writeManifestWithUsage.ts
-var writeManifestWithUsage = async ({ cwd, manifest, patch, usageTotals }) => {
-  const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
-  return writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
-};
-
 // src/gates/gateLock/common/utils/isGateLockReclaimable.ts
 var isGateLockReclaimable = ({ lock }) => {
   return !isPidAlive({ pid: lock.pid }) && !lock.gateGroups.some((pgid) => isProcessGroupAlive({ pgid }));
 };
 
 // src/gates/gateLock/readGateLock.ts
-import { readFileSync } from "node:fs";
+import { readFileSync as readFileSync2 } from "node:fs";
 var readGateLock = ({ lockPath }) => {
   let raw;
   try {
-    raw = readFileSync(lockPath, "utf8");
+    raw = readFileSync2(lockPath, "utf8");
   } catch {
     return void 0;
   }
@@ -132615,14 +137673,14 @@ var createReservation = ({ lockPath, cwd, runId }) => {
     outcome = { created: true, present: false, failure: void 0 };
   } catch (error51) {
     const code = codeOf({ error: error51 });
-    const sharedFolderMissing = code === "ENOENT" && existsSync(dirname9(dirname9(lockPath)));
+    const sharedFolderMissing = code === "ENOENT" && existsSync2(dirname13(dirname13(lockPath)));
     if (code === "EEXIST") {
       outcome = { created: false, present: true, failure: void 0 };
     } else if (!sharedFolderMissing) {
       outcome = { created: false, present: false, failure: messageOf({ error: error51 }) };
     } else {
       try {
-        mkdirSync(dirname9(lockPath), { recursive: true });
+        mkdirSync(dirname13(lockPath), { recursive: true });
       } catch (mkdirError) {
         outcome = { created: false, present: false, failure: messageOf({ error: mkdirError }) };
       }
@@ -132668,19 +137726,19 @@ var acquireGateLock = async ({ lockPath, cwd, runId, waitCeilingMs, onProgress }
 };
 
 // src/gates/gateLock/common/utils/getGateLockPath.ts
-import { join as join53 } from "node:path";
+import { join as join78 } from "node:path";
 var getGateLockPath = async ({ cwd }) => {
-  return join53(await resolveSharedStateDir({ cwd }), "gate-lock.json");
+  return join78(await resolveSharedStateDir({ cwd }), "gate-lock.json");
 };
 
 // src/gates/gateLock/common/utils/writeGateLockGroups.ts
-import { writeFile as writeFile10 } from "node:fs/promises";
+import { writeFile as writeFile13 } from "node:fs/promises";
 var writeGateLockGroups = async ({ lockPath, runId, gateGroups }) => {
   const holder = readGateLock({ lockPath });
   if (!holder || holder.pid !== process.pid || holder.runId !== runId) {
     return;
   }
-  await writeFile10(lockPath, `${JSON.stringify({ ...holder, gateGroups }, null, "	")}
+  await writeFile13(lockPath, `${JSON.stringify({ ...holder, gateGroups }, null, "	")}
 `, "utf8").catch(() => void 0);
 };
 
@@ -132733,17 +137791,6 @@ var withGateLock = async ({ cwd, runId, waitCeilingMs, onProgress, run }) => {
   }
 };
 
-// src/common/workspace/packageOf.ts
-var packageOf = ({ file: file2, packagesDir }) => {
-  const prefix = `${packagesDir}/`;
-  if (!file2.startsWith(prefix)) {
-    return void 0;
-  }
-  const rest = file2.slice(prefix.length);
-  const separator = rest.indexOf("/");
-  return separator > 0 ? rest.slice(0, separator) : void 0;
-};
-
 // src/common/constants/defaultGateTimeoutMinutes.ts
 var defaultGateTimeoutMinutes = 15;
 
@@ -132757,18 +137804,10 @@ var stageCounts = {
 var stageCountOf = ({ schedule }) => stageCounts[schedule.kind];
 
 // src/gates/createGateRunner.ts
-import { mkdir as mkdir12, rm as rm4 } from "node:fs/promises";
-
-// src/common/constants/testReporterEnv.ts
-var testReporterEnv = {
-  /** Absolute path of the reporter file the engine wrote into the run folder. */
-  reporter: "LIGHTSOUT_JEST_REPORTER",
-  /** Directory this gate execution's per-test results go in. */
-  resultsDir: "LIGHTSOUT_TEST_RESULTS_DIR"
-};
+import { mkdir as mkdir18, rm as rm6 } from "node:fs/promises";
 
 // src/gates/common/utils/buildGateResult.ts
-import { relative as relative5 } from "node:path";
+import { relative as relative9 } from "node:path";
 var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, rerun, evidenceDir }) => {
   const outputTailChars = 2e3;
   return {
@@ -132779,24 +137818,24 @@ var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed,
     durationMs,
     ...rerun ? { rerun: true } : {},
     ...crashed ? { crashed: true } : {},
-    ...evidenceDir ? { testResultsDir: relative5(cwd, evidenceDir) } : {},
+    ...evidenceDir ? { testResultsDir: relative9(cwd, evidenceDir) } : {},
     ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
   };
 };
 
 // src/gates/testResults/checkAcceptanceTests.ts
-import { join as join55 } from "node:path";
+import { join as join80 } from "node:path";
 
 // src/gates/testResults/readTestResults.ts
-import { readdir as readdir9 } from "node:fs/promises";
-import { join as join54, relative as relative6 } from "node:path";
+import { readdir as readdir13 } from "node:fs/promises";
+import { join as join79, relative as relative10 } from "node:path";
 var readTestResults = async ({ cwd, dir }) => {
-  const entries = await readdir9(dir).catch(() => []);
+  const entries = await readdir13(dir).catch(() => []);
   const merged = [];
   for (const entry of entries.filter((name) => name.endsWith(".json"))) {
-    const parsed = await readJsonFile({ path: join54(dir, entry), schema: TestResultsFile });
-    merged.push(...(parsed?.testResults ?? []).map((file2) => ({ ...file2, testFilePath: relative6(cwd, file2.testFilePath) })));
+    const parsed = await readJsonFile({ path: join79(dir, entry), schema: TestResultsFile });
+    merged.push(...(parsed?.testResults ?? []).map((file2) => ({ ...file2, testFilePath: relative10(cwd, file2.testFilePath) })));
   }
   return merged;
 };
@@ -132814,7 +137853,7 @@ var covers = ({ gate, row, packagesDir }) => gate.skipped !== true && gate.exitC
 var createResultsReader = ({ cwd }) => {
   const readings = /* @__PURE__ */ new Map();
   return ({ dir }) => {
-    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join55(cwd, dir) });
+    const started = readings.get(dir) ?? readTestResults({ cwd, dir: join80(cwd, dir) });
     readings.set(dir, started);
     return started;
   };
@@ -132877,7 +137916,7 @@ var checkAcceptanceTests = async ({ cwd, rows, gates, final, packagesDir, onProg
 };
 
 // src/gates/testResults/checkTestResultsCapability.ts
-import { join as join56 } from "node:path";
+import { join as join81 } from "node:path";
 var setupAdvice = [
   "",
   `lightsout sets ${testReporterEnv.reporter} (the reporter file it wrote into the run folder) and ${testReporterEnv.resultsDir} (where that execution's results go) on every gate command.`,
@@ -132898,7 +137937,7 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
       continue;
     }
     for (const green2 of greens) {
-      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join56(cwd, green2.testResultsDir) });
+      const written = green2.testResultsDir === void 0 ? [] : await readTestResults({ cwd, dir: join81(cwd, green2.testResultsDir) });
       if (written.length === 0) {
         silent.push(`- gate \`${gate}\` in group \`${green2.group}\` ran green and wrote no per-test results`);
       }
@@ -132912,17 +137951,17 @@ var checkTestResultsCapability = async ({ cwd, gates, results, onProgress }) => 
 };
 
 // src/gates/testResults/testResultsDir.ts
-import { join as join57 } from "node:path";
+import { join as join82 } from "node:path";
 var unsafeSegmentCharacters = /[^A-Za-z0-9._-]/g;
 var safeSegment = ({ segment }) => segment.replace(unsafeSegmentCharacters, "-");
 var testResultsDir = async ({ cwd, runId, step, group, kind }) => {
   const runDir = await resolveRunDir({ cwd, runId });
-  return join57(runDir, "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
+  return join82(runDir, "test-results", safeSegment({ segment: step }), safeSegment({ segment: group }), safeSegment({ segment: kind }));
 };
 
 // src/gates/testResults/writeJestReporter.ts
-import { mkdir as mkdir11, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join58 } from "node:path";
+import { mkdir as mkdir17, writeFile as writeFile14 } from "node:fs/promises";
+import { join as join83 } from "node:path";
 
 // src/gates/testResults/jestReporterSource.ts
 var jestReporterSource = `const { mkdirSync, writeFileSync } = require('node:fs');
@@ -132981,9 +138020,9 @@ module.exports = LightsoutJestReporter;
 // src/gates/testResults/writeJestReporter.ts
 var writeJestReporter = async ({ cwd, runId }) => {
   const runDir = await resolveRunDir({ cwd, runId });
-  const reporterPath = join58(runDir, "jest-reporter.cjs");
-  await mkdir11(runDir, { recursive: true });
-  await writeFile11(reporterPath, jestReporterSource);
+  const reporterPath = join83(runDir, "jest-reporter.cjs");
+  await mkdir17(runDir, { recursive: true });
+  await writeFile14(reporterPath, jestReporterSource);
   return reporterPath;
 };
 
@@ -133007,8 +138046,8 @@ var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
   }
   const reporterPath = await writeJestReporter({ cwd, runId });
   const dir = await testResultsDir({ cwd, runId, step: step ?? "gates", group, kind });
-  await rm4(dir, { recursive: true, force: true });
-  await mkdir12(dir, { recursive: true });
+  await rm6(dir, { recursive: true, force: true });
+  await mkdir18(dir, { recursive: true });
   return { dir, env: { [testReporterEnv.reporter]: reporterPath, [testReporterEnv.resultsDir]: dir } };
 };
 var recordCrashFriction = async ({
@@ -133207,25 +138246,6 @@ var resolvePackageGatesConfig = ({ packageGates }) => ({
   ...packageGates.build === void 0 ? {} : { build: packageGates.build },
   extraTests: Object.entries(packageGates).filter((entry) => !fixedKeys2.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
 });
-
-// src/common/workspace/readPackageManifest.ts
-import { readFile as readFile24 } from "node:fs/promises";
-import { join as join59 } from "node:path";
-var PackageManifest = external_exports.object({
-  name: external_exports.string().min(1),
-  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var readPackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join59(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile24(manifestPath, "utf8").catch(() => {
-    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
-  });
-  const parsed = PackageManifest.safeParse(JSON.parse(raw));
-  if (!parsed.success) {
-    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
-  }
-  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
-};
 
 // src/gates/runPackageGates.ts
 var resolveScopedEntries = async ({
@@ -133714,17 +138734,17 @@ var restorePreIntegrationState = async ({ cwd, baselineCommit, onProgress }) => 
 };
 
 // src/standards/detectStandardsChannels.ts
-import { join as join60 } from "node:path";
+import { join as join84 } from "node:path";
 
 // src/common/workspace/readDependencyNames.ts
-import { readFile as readFile25 } from "node:fs/promises";
+import { readFile as readFile34 } from "node:fs/promises";
 var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var readDependencyNames = async ({ manifestPath }) => {
-  const text = await readFile25(manifestPath, "utf8").catch(() => void 0);
+  const text = await readFile34(manifestPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
   }
@@ -133748,7 +138768,7 @@ var channelSignals = {
   nestjs: ["@nestjs/core"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join60(cwd, packagesDir, name, "package.json")) : [join60(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join84(cwd, packagesDir, name, "package.json")) : [join84(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     for (const name of await readDependencyNames({ manifestPath }) ?? []) {
@@ -133789,14 +138809,14 @@ var buildStandardsDocuments = ({ pack, channels }) => {
 };
 
 // src/common/workspace/readPackageDependencies.ts
-import { readdir as readdir10 } from "node:fs/promises";
-import { join as join61 } from "node:path";
+import { readdir as readdir14 } from "node:fs/promises";
+import { join as join85 } from "node:path";
 var readPackageDependencies = async ({ cwd, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
-  dependencies.set(".", await readDependencyNames({ manifestPath: join61(cwd, "package.json") }) ?? []);
-  const children = await readdir10(join61(cwd, packagesDir)).catch(() => []);
+  dependencies.set(".", await readDependencyNames({ manifestPath: join85(cwd, "package.json") }) ?? []);
+  const children = await readdir14(join85(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
-    const names = await readDependencyNames({ manifestPath: join61(cwd, packagesDir, name, "package.json") });
+    const names = await readDependencyNames({ manifestPath: join85(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
       dependencies.set(`${packagesDir}/${name}`, names);
     }
@@ -133826,18 +138846,18 @@ var importFrameworksModule = async ({ modulePath }) => {
 };
 
 // src/standardsPacks/resolveStandardsPacks.ts
-import { isAbsolute as isAbsolute2, resolve as resolve6 } from "node:path";
+import { isAbsolute as isAbsolute3, resolve as resolve8 } from "node:path";
 
 // src/standardsPacks/readStandardsPack.ts
-import { readdir as readdir12, readFile as readFile28 } from "node:fs/promises";
-import { join as join64 } from "node:path";
+import { readdir as readdir16, readFile as readFile37 } from "node:fs/promises";
+import { join as join88 } from "node:path";
 
 // src/common/constants/standardsPackFrameworksFile.ts
 var standardsPackFrameworksFile = "common/frameworks/getFrameworkFacts.ts";
 
 // src/standardsPacks/common/parsing/parseDocumentFolder.ts
-import { readdir as readdir11, readFile as readFile27 } from "node:fs/promises";
-import { join as join63 } from "node:path";
+import { readdir as readdir15, readFile as readFile36 } from "node:fs/promises";
+import { join as join87 } from "node:path";
 
 // src/standardsPacks/common/parsing/parseFrontMatter.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -133882,12 +138902,12 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
 };
 
 // src/standardsPacks/common/parsing/parseRuleFolder.ts
-import { readFile as readFile26 } from "node:fs/promises";
-import { basename as basename19, join as join62 } from "node:path";
+import { readFile as readFile35 } from "node:fs/promises";
+import { basename as basename37, join as join86 } from "node:path";
 
 // src/standardsPacks/common/utils/hasFile.ts
-import { stat as stat5 } from "node:fs/promises";
-var hasFile = async ({ path }) => stat5(path).then(
+import { stat as stat9 } from "node:fs/promises";
+var hasFile = async ({ path }) => stat9(path).then(
   () => true,
   () => false
 );
@@ -133917,7 +138937,7 @@ var ruleDeclaration = external_exports.object({
 });
 var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   const filePath = `${rulePath}/rule.md`;
-  const text = await readFile26(join62(folderPath, "rule.md"), "utf8").catch((error51) => {
+  const text = await readFile35(join86(folderPath, "rule.md"), "utf8").catch((error51) => {
     found.push(`${filePath}: unreadable \u2014 ${messageOf({ error: error51 })}`);
     return void 0;
   });
@@ -133925,7 +138945,7 @@ var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   return { declaration: parsed?.declaration, prose: parsed?.body ?? "" };
 };
 var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) => {
-  const folderName = basename19(folderPath);
+  const folderName = basename37(folderPath);
   const rulePath = `${documentPath}/${folderName}`;
   const found = [];
   const id = /^\d+-(.+)$/.exec(folderName)?.[1];
@@ -133933,7 +138953,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
     found.push(`${rulePath}: rule folder must be named <NN>-<rule-id>, e.g. 01-${folderName}`);
   }
   const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found });
-  const checkPath = join62(folderPath, "check.ts");
+  const checkPath = join86(folderPath, "check.ts");
   const hasCheck = await hasFile({ path: checkPath });
   if (declaration?.checked === true && !hasCheck) {
     found.push(`${rulePath}: declares checked: true but ships no check.ts`);
@@ -133941,7 +138961,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
   if (declaration?.checked === false && hasCheck) {
     found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
   }
-  const fixturesPath = join62(folderPath, "fixtures");
+  const fixturesPath = join86(folderPath, "fixtures");
   let check2;
   if (declaration?.checked === true && hasCheck) {
     try {
@@ -133976,11 +138996,11 @@ var documentDeclaration = external_exports.object({
   channel: external_exports.string().min(1).default("base")
 });
 var listRuleFolders = async ({ folderPath }) => {
-  const entries = await readdir11(folderPath, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir15(folderPath, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const folders = [];
   for (const name of directories) {
-    const isRule = await hasFile({ path: join63(folderPath, name, "rule.md") });
+    const isRule = await hasFile({ path: join87(folderPath, name, "rule.md") });
     if (isRule) {
       folders.push(name);
     }
@@ -133993,7 +139013,7 @@ var parseDocumentFolder = async ({
   set: set2,
   problems
 }) => {
-  const text = await readFile27(join63(folderPath, "document.md"), "utf8").catch(() => void 0);
+  const text = await readFile36(join87(folderPath, "document.md"), "utf8").catch(() => void 0);
   if (text === void 0) {
     problems.push(`${documentPath}/document.md: unreadable`);
     return void 0;
@@ -134006,7 +139026,7 @@ var parseDocumentFolder = async ({
   });
   const rules = [];
   for (const name of await listRuleFolders({ folderPath })) {
-    const rule = await parseRuleFolder({ folderPath: join63(folderPath, name), set: set2, documentPath, problems });
+    const rule = await parseRuleFolder({ folderPath: join87(folderPath, name), set: set2, documentPath, problems });
     if (rule !== void 0 && declaration !== void 0) {
       rules.push({ ...rule, channel: declaration.channel });
     }
@@ -134023,7 +139043,7 @@ var parseDocumentFolder = async ({
 
 // src/standardsPacks/readStandardsPack.ts
 var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
-  const entries = await readdir12(folderPath, { withFileTypes: true }).catch(() => void 0);
+  const entries = await readdir16(folderPath, { withFileTypes: true }).catch(() => void 0);
   if (entries === void 0) {
     return;
   }
@@ -134036,7 +139056,7 @@ var walk = async ({ folderPath, documentPath, set: set2, problems, documents, ru
   } else {
     const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
     for (const name of directories) {
-      await walk({ folderPath: join64(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
+      await walk({ folderPath: join88(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
     }
   }
 };
@@ -134054,8 +139074,8 @@ var findDuplicateIds = ({ rules }) => {
   return duplicates;
 };
 var readStandardsPack = async ({ packPath }) => {
-  const rootFilePath = join64(packPath, standardsPackRootFile);
-  const rootText = await readFile28(rootFilePath, "utf8").catch(() => void 0);
+  const rootFilePath = join88(packPath, standardsPackRootFile);
+  const rootText = await readFile37(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
     throw new Error(`standards pack root file not found: ${rootFilePath}`);
   }
@@ -134073,7 +139093,7 @@ var readStandardsPack = async ({ packPath }) => {
   const documents = [];
   const rules = [];
   for (const set2 of [StandardsSet.Code, StandardsSet.Tests]) {
-    await walk({ folderPath: join64(packPath, set2), documentPath: set2, set: set2, problems, documents, rules });
+    await walk({ folderPath: join88(packPath, set2), documentPath: set2, set: set2, problems, documents, rules });
   }
   if (documents.length === 0) {
     problems.push("pack declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
@@ -134083,9 +139103,9 @@ var readStandardsPack = async ({ packPath }) => {
     throw new Error(`standards pack failed to load (${packPath}):
 ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   }
-  const frameworkOwnedFixturesPath = join64(packPath, "fixtures", "framework-owned");
+  const frameworkOwnedFixturesPath = join88(packPath, "fixtures", "framework-owned");
   const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
-  const frameworksModulePath = join64(packPath, standardsPackFrameworksFile);
+  const frameworksModulePath = join88(packPath, standardsPackFrameworksFile);
   const hasFrameworksModule = await hasFile({ path: frameworksModulePath });
   return {
     name: root.data.name,
@@ -134102,25 +139122,25 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
 };
 
 // src/standardsPacks/resolveDefaultStandardsPack.ts
-import { existsSync as existsSync2 } from "node:fs";
-import { dirname as dirname10, join as join65, resolve as resolve5 } from "node:path";
+import { existsSync as existsSync3 } from "node:fs";
+import { dirname as dirname14, join as join89, resolve as resolve7 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
 var resolveDefaultStandardsPack = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
   if (override !== void 0) {
-    const overridden = resolve5(override);
-    if (!existsSync2(join65(overridden, "lightsout-standards.json"))) {
+    const overridden = resolve7(override);
+    if (!existsSync3(join89(overridden, "lightsout-standards.json"))) {
       throw new Error(`${overrideVariable} points at ${overridden}, which holds no lightsout-standards.json`);
     }
     return overridden;
   }
   const entryPoint = process.argv[1];
-  let current = resolve5(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname10(entryPoint)));
+  let current = resolve7(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname14(entryPoint)));
   let found;
   while (found === void 0) {
-    const candidates = [join65(current, "standards"), join65(current, "plugin", "standards")];
-    found = candidates.find((candidate) => existsSync2(join65(candidate, "lightsout-standards.json")));
-    const parent = dirname10(current);
+    const candidates = [join89(current, "standards"), join89(current, "plugin", "standards")];
+    found = candidates.find((candidate) => existsSync3(join89(candidate, "lightsout-standards.json")));
+    const parent = dirname14(current);
     if (found === void 0 && parent === current) {
       throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
     }
@@ -134137,7 +139157,7 @@ var resolveRoots = ({ cwd, standardsPacks }) => {
   if (standardsPacks === void 0) {
     return [resolveDefaultStandardsPack()];
   }
-  return standardsPacks.map((entry) => isAbsolute2(entry) ? entry : resolve6(cwd, entry));
+  return standardsPacks.map((entry) => isAbsolute3(entry) ? entry : resolve8(cwd, entry));
 };
 var findCrossPackDuplicates = ({ packs }) => {
   const owners = /* @__PURE__ */ new Map();
@@ -134469,7 +139489,7 @@ var mergeCandidate = async ({
   candidate,
   cwd,
   settings,
-  ticketGuard,
+  workOrderGuard,
   stop,
   recorder
 }) => {
@@ -134477,14 +139497,14 @@ var mergeCandidate = async ({
     recorder,
     step: ShippingStepId.Merge,
     run: async () => {
-      const unauthorized = await ticketGuard.authorize({ cwd, branch: stop.branch });
+      const unauthorized = await workOrderGuard.authorize({ cwd, branch: stop.branch });
       return unauthorized === void 0 ? await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd }) : { unauthorized };
     },
     passed: (merged) => typeof merged === "string"
   });
   if (typeof mergeCommit !== "string") {
     if ("unauthorized" in mergeCommit) {
-      return createBlockedAttempt({ stop, reason: ShipBlockReason.TicketNotAuthorized, detail: mergeCommit.unauthorized });
+      return createBlockedAttempt({ stop, reason: ShipBlockReason.WorkOrderNotAuthorized, detail: mergeCommit.unauthorized });
     }
     const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
     return createBlockedAttempt({ stop, reason: ShipBlockReason.MergeRejected, detail, retryable: mergeCommit.staleBase === true });
@@ -134507,7 +139527,7 @@ var runShipAttempt = async ({
   cwd,
   settings,
   integration,
-  ticketGuard,
+  workOrderGuard,
   branch,
   defaultBranch,
   ticket,
@@ -134553,7 +139573,7 @@ var runShipAttempt = async ({
     run: () => readCheckStop({ prNumber: pullRequest.number, candidate, cwd, settings, stop, onProgress }),
     passed: (stopped) => stopped === void 0
   });
-  return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, ticketGuard, stop, recorder });
+  return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, workOrderGuard, stop, recorder });
 };
 
 // src/ship/syncDefaultBranch.ts
@@ -134578,22 +139598,27 @@ var syncDefaultBranch = async ({ cwd, defaultBranch, branch, onProgress }) => {
 };
 
 // src/ship/writeShipResult.ts
-import { mkdir as mkdir13, rename as rename4, writeFile as writeFile12 } from "node:fs/promises";
-import { dirname as dirname11 } from "node:path";
+import { mkdir as mkdir19, rename as rename6, writeFile as writeFile15 } from "node:fs/promises";
+import { dirname as dirname15 } from "node:path";
 var writeShipResult = async ({ cwd, result }) => {
-  const resultPath = await getShipResultPath({ cwd, branch: result.branch ?? "unknown" });
+  const resultPath = result.branch === void 0 ? void 0 : await getShipResultPath({ cwd, branch: result.branch });
+  if (resultPath === void 0) {
+    return void 0;
+  }
   const tmpPath = `${resultPath}.tmp`;
-  await mkdir13(dirname11(resultPath), { recursive: true });
-  await writeFile12(tmpPath, `${JSON.stringify(result, null, "	")}
+  await mkdir19(dirname15(resultPath), { recursive: true });
+  await writeFile15(tmpPath, `${JSON.stringify(result, null, "	")}
 `, "utf8");
-  await rename4(tmpPath, resultPath);
+  await rename6(tmpPath, resultPath);
   return resultPath;
 };
 
 // src/ship/runShip.ts
 var record2 = async ({ cwd, result, onProgress }) => {
   const resultPath = await writeShipResult({ cwd, result });
-  onProgress?.(`ship result: ${resultPath}`);
+  if (resultPath !== void 0) {
+    onProgress?.(`ship result: ${resultPath}`);
+  }
   return result;
 };
 var stopShip = ({
@@ -134617,15 +139642,15 @@ var readBranchDiff = async ({ cwd, defaultBranch }) => {
   return diffed.stdout.length > maxDiffCharacters ? `${diffed.stdout.slice(0, maxDiffCharacters)}
 \u2026 truncated: the branch's diff is longer than this` : diffed.stdout;
 };
-var runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }) => {
+var runShip = async ({ cwd, settings, integration, workOrderGuard, onProgress }) => {
   const preconditions = await checkShipPreconditions({ cwd, ticketPattern: settings.ticketPattern });
   if ("reason" in preconditions) {
     return stopShip({ cwd, onProgress, ...preconditions });
   }
   const { branch, defaultBranch, ticket } = preconditions;
-  const unauthorized = await ticketGuard.authorize({ cwd, branch });
+  const unauthorized = await workOrderGuard.authorize({ cwd, branch });
   if (unauthorized !== void 0) {
-    return stopShip({ cwd, onProgress, reason: ShipBlockReason.TicketNotAuthorized, detail: unauthorized, branch, ticketRef: ticket.ticket ?? branch });
+    return stopShip({ cwd, onProgress, reason: ShipBlockReason.WorkOrderNotAuthorized, detail: unauthorized, branch, ticketRef: ticket.ticket ?? branch });
   }
   const maxAttempts = 1 + maxCheapFixRetries;
   const recorder = new ShippingProgressRecorder({ cwd, branch, maxAttempts });
@@ -134636,7 +139661,7 @@ var runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }) =>
   };
   trackedProgress(`ship: ${branch} \u2192 ${defaultBranch}, ticket ${ticket.ticket}`);
   const branchDiff = await readBranchDiff({ cwd, defaultBranch });
-  const attempt = { cwd, settings, integration, ticketGuard, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
+  const attempt = { cwd, settings, integration, workOrderGuard, branch, defaultBranch, ticket, branchDiff, recorder, onProgress: trackedProgress };
   let outcome = await runShipAttempt(attempt);
   for (let spent = 1; spent < maxAttempts && outcome.retryable; spent += 1) {
     trackedProgress(`ship: attempt ${spent} did not merge \u2014 refreshing and trying again (${spent + 1} of ${maxAttempts})`);
@@ -134646,7 +139671,7 @@ var runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }) =>
   if (outcome.result.status === ShipStatus.Shipped) {
     const { mergeCommit } = outcome.result;
     if (mergeCommit !== void 0) {
-      await ticketGuard.recordShipped({ cwd, branch, mergeCommit });
+      await workOrderGuard.recordShipped({ cwd, branch, mergeCommit });
     }
     recorder.startStep({ step: ShippingStepId.Sync });
     await syncDefaultBranch({ cwd, defaultBranch, branch, onProgress: trackedProgress });
@@ -134656,7085 +139681,6 @@ var runShip = async ({ cwd, settings, integration, ticketGuard, onProgress }) =>
   await recorder.end();
   return result;
 };
-
-// src/plan/readPlanTicketRef.ts
-var readPlanTicketRef = ({ name, ticketPattern }) => readTicketMatch({ branch: ticketFolderOf({ name }), ticketPattern })?.ticket;
-
-// src/plan/publish/publishPlan.ts
-var publishPlan = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
-  const durable = await durablePlanFiles({ cwd, name });
-  if (durable.error !== void 0) {
-    return { published: [], stale: [], error: durable.error };
-  }
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      published: [],
-      stale: [],
-      error: `ship.ticket-pattern is not a usable regular expression with a (?<ticket>) group, so publish cannot read a ticket id out of plan folder '${name}'`
-    };
-  }
-  const ticketRef = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
-  if (ticketRef === void 0) {
-    return {
-      published: [],
-      stale: [],
-      error: `plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch so publish knows which ticket to attach to`
-    };
-  }
-  const prepared = await prepareAttachments({ files: durable.files, titlePrefix });
-  if ("error" in prepared) {
-    return { ticketRef, published: [], stale: [], error: prepared.error };
-  }
-  const settings = resolveTrackerSettings({ config: config2, env });
-  if ("error" in settings) {
-    return { ticketRef, published: [], stale: [], error: settings.error };
-  }
-  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
-  if ("error" in tickets) {
-    return { ticketRef, published: [], stale: [], error: tickets.error };
-  }
-  const ticket = tickets.at(0);
-  if (ticket === void 0) {
-    return { ticketRef, published: [], stale: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
-  }
-  const { published, error: error51 } = await attachDurableFiles({
-    settings,
-    ticketId: ticket.id,
-    ticketRef,
-    attachments: prepared.attachments,
-    onProgress,
-    titlePrefix
-  });
-  if (error51 !== void 0) {
-    return { ticketRef, published, stale: [], error: error51 };
-  }
-  const stale = await reportStaleAttachments({ settings, ticketRef, published, onProgress, titlePrefix });
-  const marker = prepared.attachments.at(-1);
-  return titlePrefix === void 0 || marker === void 0 ? { ticketRef, published, stale } : { ticketRef, published, stale, markerSha256: sha256({ content: marker.content }) };
-};
-
-// src/common/attachmentManifest/parseAttachmentManifest.ts
-var parseAttachmentManifest = ({ text, markerName, isAllowedName }) => {
-  let value;
-  try {
-    value = JSON.parse(text);
-  } catch (error51) {
-    return { error: `${markerName} is not valid JSON: ${messageOf({ error: error51 })}` };
-  }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return { error: `${markerName} must contain an object` };
-  }
-  const candidate = value;
-  if (candidate.schemaVersion !== 1) {
-    return { error: `${markerName} has unsupported schemaVersion ${JSON.stringify(candidate.schemaVersion)} \u2014 expected 1` };
-  }
-  if (!Array.isArray(candidate.files) || candidate.files.length === 0) {
-    return { error: `${markerName} must list at least one durable plan file` };
-  }
-  const files = [];
-  for (const entry of candidate.files) {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      return { error: `${markerName} contains a file entry that is not an object` };
-    }
-    const file2 = entry;
-    if (typeof file2.name !== "string" || !isAllowedName({ name: file2.name })) {
-      return { error: `${markerName} contains a non-durable or unsafe file name: ${JSON.stringify(file2.name)}` };
-    }
-    if (typeof file2.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(file2.sha256)) {
-      return { error: `${markerName} contains an invalid SHA-256 for ${file2.name}` };
-    }
-    if (files.some(({ name }) => name === file2.name)) {
-      return { error: `${markerName} lists ${file2.name} more than once` };
-    }
-    files.push({ name: file2.name, sha256: file2.sha256 });
-  }
-  return { manifest: { schemaVersion: 1, files } };
-};
-
-// src/plan/restore/common/utils/writeRestoredGeneration.ts
-import { mkdir as mkdir14, mkdtemp as mkdtemp3, rename as rename5, rm as rm5, writeFile as writeFile13 } from "node:fs/promises";
-import { dirname as dirname12, join as join66 } from "node:path";
-var writeRestoredGeneration = async ({ dir, files }) => {
-  let temporaryDir;
-  try {
-    const parent = dirname12(dir);
-    await mkdir14(parent, { recursive: true });
-    temporaryDir = await mkdtemp3(join66(parent, ".restore-"));
-    for (const { title, text } of files) {
-      await writeFile13(join66(temporaryDir, title), text, "utf8");
-    }
-    await rename5(temporaryDir, dir);
-    return void 0;
-  } catch (error51) {
-    if (temporaryDir !== void 0) {
-      await rm5(temporaryDir, { recursive: true, force: true }).catch(() => void 0);
-    }
-    return { error: `the restored plan could not be written: ${messageOf({ error: error51 })}` };
-  }
-};
-
-// src/plan/restore/restorePlanWorkspace.ts
-var readAttachment = async ({ settings, attachment }) => {
-  const text = await readTicketAsset3({ settings, url: attachment.url });
-  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
-};
-var selectGeneration = ({
-  manifest,
-  durableAttachments,
-  markerName
-}) => {
-  const files = [];
-  for (const listed of manifest.files) {
-    const matches = durableAttachments.filter(({ title }) => title === listed.name);
-    const attachment = matches.length === 1 ? matches[0] : void 0;
-    if (attachment === void 0) {
-      return {
-        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
-      };
-    }
-    files.push({ title: attachment.title, url: attachment.url, sha256: listed.sha256 });
-  }
-  return { files };
-};
-var selectManifestAttachment = ({
-  attachments,
-  planOnlyAttachments,
-  markerName
-}) => {
-  const manifests = attachments.filter(({ title }) => title === planAttachmentManifestName);
-  const manifest = manifests.length === 1 ? manifests[0] : void 0;
-  if (manifest !== void 0) {
-    return { manifest };
-  }
-  if (manifests.length > 1) {
-    return { error: `the ticket carries more than one ${markerName} attachment, so no single committed plan generation can be selected` };
-  }
-  return planOnlyAttachments.length === 0 ? { manifest: void 0 } : { error: `the ticket carries durable plan attachments but no ${markerName} commit marker \u2014 publish the plan again before implementing it` };
-};
-var readAndVerifyGeneration = async ({ settings, files, markerName }) => {
-  const reads = await Promise.all(
-    files.map(async (file2) => ({
-      file: file2,
-      read: await readAttachment({ settings, attachment: { id: "", title: file2.title, url: file2.url } })
-    }))
-  );
-  const verified = [];
-  for (const { file: file2, read } of reads) {
-    if ("error" in read) {
-      return { error: read.error };
-    }
-    const actual = sha256({ content: read.text });
-    if (actual !== file2.sha256) {
-      return { error: `${file2.title} does not match the SHA-256 committed by ${markerName} \u2014 publish the plan again` };
-    }
-    verified.push({ title: file2.title, text: read.text });
-  }
-  return { files: verified };
-};
-var restorePlanWorkspace = async ({ cwd, name, identifier, settings, titlePrefix }) => {
-  const listed = await getTicketAttachments3({ settings, identifier });
-  if ("error" in listed) {
-    return { restored: [], error: listed.error };
-  }
-  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
-  const markerName = attachmentTitle({ prefix: titlePrefix, name: planAttachmentManifestName });
-  const isSelectableName = titlePrefix === void 0 ? isDurablePlanAttachmentName : isPlanOnlyAttachmentName;
-  const durableAttachments = attachments.filter(({ title }) => isSelectableName({ name: title }));
-  const planOnlyAttachments = attachments.filter(({ title }) => isPlanOnlyAttachmentName({ name: title }));
-  const selected = selectManifestAttachment({ attachments, planOnlyAttachments, markerName });
-  if ("error" in selected) {
-    return { restored: [], error: selected.error };
-  }
-  if (selected.manifest === void 0) {
-    return { restored: [] };
-  }
-  const manifestRead = await readAttachment({ settings, attachment: selected.manifest });
-  if ("error" in manifestRead) {
-    return { restored: [], error: manifestRead.error };
-  }
-  const parsed = parseAttachmentManifest({ text: manifestRead.text, markerName, isAllowedName: isSelectableName });
-  if ("error" in parsed) {
-    return { restored: [], error: parsed.error };
-  }
-  const generation = selectGeneration({ manifest: parsed.manifest, durableAttachments, markerName });
-  if ("error" in generation) {
-    return { restored: [], error: generation.error };
-  }
-  const read = await readAndVerifyGeneration({ settings, files: generation.files, markerName });
-  if ("error" in read) {
-    return { restored: [], error: read.error };
-  }
-  const refusal = validatePlanAttachmentGeneration({ files: read.files.map(({ title, text }) => ({ name: title, text })) });
-  if (refusal !== void 0) {
-    return { restored: [], error: refusal.error };
-  }
-  const written = await writeRestoredGeneration({ dir: await planWorkspaceDir({ cwd, name }), files: read.files });
-  if (written !== void 0) {
-    return { restored: [], error: written.error };
-  }
-  const restored = read.files.map(({ title }) => title).sort();
-  return titlePrefix === void 0 ? { restored } : { restored, markerSha256: sha256({ content: manifestRead.text }) };
-};
-
-// src/plan/runPlanDedup.ts
-import { basename as basename20, join as join67 } from "node:path";
-
-// src/plan/common/constants/planAgentConcurrency.ts
-var planAgentConcurrency = 12;
-
-// src/plan/common/utils/getPlanDetectionPass.ts
-import { mkdir as mkdir15 } from "node:fs/promises";
-
-// src/plan/common/utils/getPlanDetectionInputs.ts
-var getPlanDetectionInputs = async ({ cwd, name }) => {
-  const deliverable = await resolvePlanDeliverable({ cwd, name });
-  const empty = { planName: name, decisions: [] };
-  if (deliverable.error) {
-    return { files: [], planPaths: [], decisions: empty, error: deliverable.error };
-  }
-  const { overviewPath, overviewText, files } = deliverable;
-  const planPaths = [...overviewPath ? [overviewPath] : [], ...files.map((file2) => file2.path)];
-  const config2 = await readOptionalConfig({ cwd });
-  const merged = await readMergedDecisions({ cwd, name }).catch((error51) => messageOf({ error: error51 }));
-  return typeof merged === "string" ? { overviewText, files, planPaths, decisions: empty, config: config2, error: merged } : { overviewText, files, planPaths, decisions: merged.merged, config: config2 };
-};
-
-// src/plan/common/utils/getPlanDetectionPass.ts
-var getPlanDetectionPass = async ({ cwd, name }) => {
-  const workspaceDir = await planWorkspaceDir({ cwd, name });
-  await mkdir15(workspaceDir, { recursive: true });
-  const inputs = await getPlanDetectionInputs({ cwd, name });
-  return { ...inputs, workspaceDir };
-};
-
-// src/plan/common/utils/matchDedupVerdicts.ts
-var matchDedupVerdicts = ({ candidates, verdicts }) => {
-  const verdictBySymbol = new Map(verdicts.map((verdict) => [verdict.plannedSymbol, verdict]));
-  return candidates.flatMap((candidate) => {
-    const verdict = verdictBySymbol.get(candidate.plannedSymbol);
-    if (!verdict?.isDuplicate) {
-      return [];
-    }
-    return [
-      {
-        plannedSymbol: candidate.plannedSymbol,
-        plannedPath: candidate.plannedPath,
-        phase: candidate.phase,
-        collidesWith: candidate.collidesWith,
-        recommendation: verdict.recommendation,
-        rationale: verdict.rationale,
-        suggestedLocation: verdict.suggestedLocation,
-        migrateCallers: verdict.migrateCallers
-      }
-    ];
-  });
-};
-
-// src/plan/runPlanDedup.ts
-var groupCandidates = ({ files, candidates }) => {
-  const groups = [];
-  for (const file2 of files) {
-    const phase = basename20(file2.path);
-    const own = candidates.filter((candidate) => candidate.phase === phase);
-    if (own.length > 0) {
-      groups.push({ phase, text: file2.text, candidates: own });
-    }
-  }
-  return groups;
-};
-var spawnDedupJudge = async ({
-  params,
-  pass,
-  group
-}) => {
-  const { cwd, driver, standards, model, effort, permissions, timeoutMs = 30 * 60 * 1e3, level } = params;
-  const invokePlanAgent = createPlanAgentRunner({
-    cwd,
-    driver,
-    workspaceDir: pass.workspaceDir,
-    step: `dedup-${basename20(group.phase, ".md")}`,
-    model,
-    effort,
-    permissions,
-    timeoutMs,
-    level
-  });
-  const outcome = await invokePlanAgent({
-    invocation: buildPlanDedupInvocation({ planText: group.text, overviewText: pass.overviewText, candidates: group.candidates, standards }),
-    contract: DedupJudgment
-  });
-  return { group, outcome };
-};
-var foldDedupResults = ({ results }) => {
-  const findings = [];
-  const reviewed = [];
-  const failures = [];
-  for (const result of results) {
-    if (result === void 0) {
-      continue;
-    }
-    if (!result.outcome.ok) {
-      failures.push(`${result.group.phase}: ${result.outcome.rateLimited ? "rate limited or overloaded" : result.outcome.failure}`);
-      continue;
-    }
-    findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
-    reviewed.push(...result.group.candidates.map(({ plannedSymbol, plannedPath, phase }) => ({ plannedSymbol, plannedPath, phase })));
-  }
-  return { findings, reviewed, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
-};
-var runPlanDedup = async (params) => {
-  const { cwd, name, onProgress } = params;
-  const progress = onProgress ?? (() => void 0);
-  const pass = await getPlanDetectionPass({ cwd, name });
-  const { workspaceDir, files: planFiles, planPaths, config: config2, error: error51 } = pass;
-  if (error51) {
-    return { status: PlanRunStatus.Failed, workspaceDir, error: error51 };
-  }
-  const stale = checkDeliverableSections({ cwd, name, overviewText: pass.overviewText, files: planFiles, decisions: pass.decisions });
-  if (stale.length > 0) {
-    const files = [...new Set(stale.map(({ phase }) => phase))].join(", ");
-    return { status: PlanRunStatus.Failed, workspaceDir, error: `${files}: ${stale[0].issue} \u2014 ${stale[0].fix}` };
-  }
-  const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
-  const dedupPath = join67(workspaceDir, "dedup.json");
-  const writeReport = async ({
-    findings: findings2,
-    reviewed: reviewed2 = [],
-    incompleteReason
-  }) => {
-    const dedup2 = {
-      planName: name,
-      findings: findings2,
-      reviewed: reviewed2,
-      complete: incompleteReason === void 0,
-      incompleteReason,
-      reviewedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    await writeJsonFile({ path: dedupPath, value: dedup2 });
-    return dedup2;
-  };
-  if (candidates.length === 0) {
-    progress(`plan dedup ${name}: no prior-art candidates \u2014 nothing to review`);
-    return { status: PlanRunStatus.Complete, workspaceDir, dedup: await writeReport({ findings: [] }), dedupPath };
-  }
-  const groups = groupCandidates({ files: planFiles, candidates });
-  progress(`plan dedup ${name}: ${candidates.length} candidate(s) detected across ${groups.length} plan file(s), judging`);
-  const fanOut = params.level?.open({ level: ActivityLevelKind.Pass, label: "judge fan-out" });
-  const results = await drainTasks({
-    tasks: groups.map((group) => () => spawnDedupJudge({ params: { ...params, level: fanOut }, pass, group })),
-    concurrency: planAgentConcurrency
-  });
-  const { findings, reviewed, failures, rateLimited } = foldDedupResults({ results });
-  const dedup = await writeReport({ findings, reviewed, incompleteReason: failures.length > 0 ? failures.join("; ") : void 0 });
-  const status = rateLimited ? PlanRunStatus.PausedRateLimit : failures.length > 0 ? PlanRunStatus.Failed : PlanRunStatus.Complete;
-  progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
-  fanOut?.close({ outcome: getPlanRunStatus({ status }) });
-  if (status === PlanRunStatus.PausedRateLimit) {
-    const parked = `rate limited or overloaded \u2014 re-run: lightsout plan dedup --name ${name}`;
-    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, dedup, dedupPath };
-  }
-  return failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `dedup judge failed for ${failures.join("; ")}`, dedup, dedupPath } : { status: PlanRunStatus.Complete, workspaceDir, dedup, dedupPath };
-};
-
-// src/plan/runPlanGrade.ts
-import { basename as basename35, join as join72 } from "node:path";
-
-// src/plan/appendGradeHistory.ts
-import { appendFile as appendFile5, mkdir as mkdir16 } from "node:fs/promises";
-import { dirname as dirname13 } from "node:path";
-var appendGradeHistory = async ({ cwd, name, report: report2 }) => {
-  const path = await gradeHistoryPath({ cwd, name });
-  await mkdir16(dirname13(path), { recursive: true });
-  await appendFile5(path, `${JSON.stringify(GradeReport.parse(report2))}
-`, "utf8");
-};
-
-// src/plan/common/constants/gapCheckLenses.ts
-var gapCheckLenses = Object.values(GapCheckLens);
-
-// src/plan/common/grading/createGradeReport.ts
-var coverageReasons = ({ planFiles, covered, documentationCovered }) => {
-  if (planFiles === void 0) {
-    return [];
-  }
-  const uncovered = planFiles.filter((file2) => !covered.includes(file2));
-  const files = planFiles.length === 0 ? ["no plan file was offered, so nothing is covered"] : [];
-  const unread = uncovered.length === 0 ? [] : [`no reading covers ${uncovered.join(", ")} at its current text`];
-  const documentation = documentationCovered ? [] : ["the whole-plan documentation record does not stand at the current plan text"];
-  return [...files, ...unread, ...documentation];
-};
-var isScopeComplete = ({
-  phases,
-  phasesRequired,
-  phasesChecked,
-  phasesLight,
-  gaps,
-  documentationComplete
-}) => (
-  // A human's `--phase` narrowing speaks for the files they chose, never for the ones they left out.
-  phases === void 0 && // A pass that offered no plan file at all established nothing. A light file counts: it is an exemption the weighing made, not an unread file.
-  (phasesRequired.length > 0 || phasesLight.length > 0) && // `phasesChecked` names a file only when EVERY lens returned for it.
-  phasesRequired.every((phase) => phasesChecked.includes(phase)) && // No memory record carries an unjudged question, so only reading its plan file again can — and a baseline is a request not to.
-  gaps.every(({ outcome }) => outcome !== GapOutcome.Unjudged) && documentationComplete
-);
-var createGradeReport = ({
-  name,
-  phases,
-  structural,
-  gaps,
-  failures,
-  phasesChecked,
-  weights = [],
-  phasesLight = [],
-  commit,
-  treeDirty,
-  scope = GradeScope.Full,
-  focusedOn = [],
-  inputs,
-  scopeReason,
-  phasesRequired,
-  documentationComplete,
-  planFiles,
-  covered = [],
-  documentationCovered = false
-}) => {
-  const narrowed = phases === void 0 ? [] : [`graded a subset on request: ${phases.join(", ")} \u2014 the structural findings still cover every plan file`];
-  const reasons = [...narrowed, ...failures, ...coverageReasons({ planFiles, covered, documentationCovered })];
-  const complete2 = reasons.length === 0;
-  const grade = complete2 && getBlockingFindings({ findings: structural }).length === 0 && getBlockingGaps({ gaps }).length === 0 ? PlanGrade.A : PlanGrade.BelowA;
-  return {
-    planName: name,
-    grade,
-    structural,
-    gaps,
-    phasesChecked,
-    // From what was owed, not from `phasesChecked`: a reader that failed also
-    // leaves `phasesChecked` empty, and that pass did spawn its lenses.
-    lenses: phasesRequired.length === 0 ? [] : gapCheckLenses,
-    weights,
-    phasesLight,
-    complete: complete2,
-    scopeComplete: isScopeComplete({ phases, phasesRequired, phasesChecked, phasesLight, gaps, documentationComplete }),
-    incompleteReason: complete2 ? void 0 : reasons.join("; "),
-    passed: grade === PlanGrade.A,
-    gradedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    gradedCommit: commit,
-    gradedTreeDirty: treeDirty,
-    scope,
-    focusedOn,
-    covered,
-    inputs,
-    scopeReason
-  };
-};
-
-// src/plan/common/grading/notePriorArtCollisions.ts
-import { readFile as readFile29 } from "node:fs/promises";
-import { join as join68 } from "node:path";
-var collisionKey = ({ plannedSymbol, plannedPath, phase }) => `${phase} ${plannedPath} ${plannedSymbol}`;
-var readSettledCollisions = async ({ workspaceDir }) => {
-  const text = await readFile29(join68(workspaceDir, "dedup.json"), "utf8").catch(() => void 0);
-  if (text === void 0) {
-    return /* @__PURE__ */ new Set();
-  }
-  try {
-    const parsed = DedupReport.safeParse(JSON.parse(text));
-    return parsed.success ? new Set(parsed.data.reviewed.map(collisionKey)) : /* @__PURE__ */ new Set();
-  } catch {
-    return /* @__PURE__ */ new Set();
-  }
-};
-var notePriorArtCollisions = async ({ cwd, name, workspaceDir, planPaths, config: config2, onProgress }) => {
-  const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
-  const settled2 = await readSettledCollisions({ workspaceDir });
-  const unweighed = candidates.filter((candidate) => !settled2.has(collisionKey(candidate)));
-  if (unweighed.length > 0) {
-    onProgress(
-      `plan grade ${name}: ${unweighed.length} planned symbol(s) still name-collide with existing exports \u2014 run \`lightsout plan dedup --name ${name}\``
-    );
-  }
-};
-
-// src/plan/common/grading/readGradeStamp.ts
-var readGradeStamp = async ({ cwd }) => {
-  const commit = await readGitHeadCommit({ cwd });
-  const changed = commit === void 0 ? void 0 : await readGitChangedFiles({ cwd });
-  return { commit, treeDirty: changed === void 0 ? void 0 : changed.length > 0 };
-};
-
-// src/plan/common/grading/readReusableGrade.ts
-var readReusableGrade = async ({ gradePath, sha256: sha2562 }) => {
-  const report2 = await readJsonFile({ path: gradePath, schema: GradeReport });
-  const qualifies = report2?.passed === true && report2.complete && report2.scope === GradeScope.Full && report2.inputs?.sha256 === sha2562;
-  return qualifies ? report2 : void 0;
-};
-
-// src/plan/common/grading/runGradePass.ts
-import { basename as basename31, join as join70 } from "node:path";
-
-// src/plan/common/memory/collapseText.ts
-var collapseText = ({ text }) => text.replace(/\s+/g, " ").trim().toLowerCase();
-
-// src/plan/common/observations/dedupeObservations.ts
-var dedupeObservations = ({ observations }) => {
-  const seen = /* @__PURE__ */ new Set();
-  return observations.filter((observation) => {
-    const key = JSON.stringify([observation.phase, observation.lens, observation.area, collapseText({ text: observation.gap })]);
-    const repeat = seen.has(key);
-    seen.add(key);
-    return !repeat;
-  });
-};
-
-// src/plan/common/observations/gapObservations.ts
-var gapObservations = ({ gap }) => gap.observations.length > 0 ? gap.observations : [{ phase: gap.phase, lens: gap.lens, area: gap.area, gap: gap.gap, decision: gap.decision, options: gap.options }];
-
-// src/plan/common/grading/collapseGroupedGaps.ts
-var collapseSide = ({ gap, gaps }) => {
-  const blocking = isBlockingGap({ gap });
-  const side = gaps.filter((member) => member.findingId === gap.findingId && isBlockingGap({ gap: member }) === blocking);
-  let collapsed = [];
-  if (side.length === 1) {
-    collapsed = [gap];
-  } else if (side[0] === gap) {
-    collapsed = [{ ...gap, observations: dedupeObservations({ observations: side.flatMap((member) => gapObservations({ gap: member })) }) }];
-  }
-  return collapsed;
-};
-var collapseGroupedGaps = ({ gaps }) => gaps.flatMap((gap) => (gap.findingId ?? "") === "" ? [gap] : collapseSide({ gap, gaps }));
-
-// src/plan/common/grading/drainGradeAgents.ts
-import { basename as basename24, relative as relative8 } from "node:path";
-
-// src/plan/common/grading/checkPlanDocumentation.ts
-import { basename as basename21 } from "node:path";
-var checkPlanDocumentation = async (params) => {
-  const { cwd, driver, name, workspaceDir, planPaths, files, overviewText, docs, model, effort, permissions } = params;
-  const { timeoutMs, level, onProgress } = params;
-  if (docs === void 0 || docs.length === 0) {
-    return { gaps: [], failures: [], rateLimited: false };
-  }
-  const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: "grade-documentation", model, effort, permissions, timeoutMs, level });
-  const outcome = await invokePlanAgent({
-    invocation: buildPlanDocsCheckInvocation({
-      planFiles: files.map((file2) => ({ file: basename21(file2.path), text: file2.text })),
-      overviewText,
-      docs
-    }),
-    contract: GapCheckReport
-  });
-  if (!outcome.ok) {
-    onProgress(`plan grade ${name}: documentation check did not run against ${docs.length} declared surface(s)`);
-    return {
-      gaps: [],
-      failures: [`documentation: ${outcome.rateLimited ? "rate limited or overloaded" : outcome.failure}`],
-      rateLimited: outcome.rateLimited
-    };
-  }
-  const gaps = outcome.report.gaps.map((gap) => ({
-    ...gap,
-    area: GapArea.MissingDocumentation,
-    phase: basename21(planPaths[0]),
-    outcome: GapOutcome.NeedsAHuman,
-    observations: []
-  }));
-  onProgress(`plan grade ${name}: documentation check \u2014 ${gaps.length} finding(s) against ${docs.length} declared surface(s)`);
-  return { gaps, failures: [], rateLimited: false };
-};
-
-// src/plan/common/grading/drainGapCheckers.ts
-import { basename as basename22 } from "node:path";
-var foldGapResults = ({ selected, results }) => {
-  const gaps = [];
-  const failures = [];
-  const returned = /* @__PURE__ */ new Map();
-  const read = [];
-  for (const result of results) {
-    if (result === void 0) {
-      continue;
-    }
-    if (!result.outcome.ok) {
-      failures.push(`${result.phase}/${result.lens}: ${result.outcome.rateLimited ? "rate limited or overloaded" : result.outcome.failure}`);
-      continue;
-    }
-    returned.set(result.phase, (returned.get(result.phase) ?? 0) + 1);
-    read.push({ phase: result.phase, lens: result.lens });
-    gaps.push(...result.outcome.report.gaps.map((gap) => ({ ...gap, phase: result.phase, lens: result.lens, outcome: GapOutcome.Unjudged, observations: [] })));
-  }
-  const phasesChecked = selected.map((file2) => basename22(file2.path)).filter((phase) => returned.get(phase) === gapCheckLenses.length);
-  return { gaps, failures, phasesChecked, read };
-};
-var drainGapCheckers = async ({
-  tasks,
-  selected
-}) => {
-  const results = await drainTasks({
-    tasks,
-    concurrency: planAgentConcurrency,
-    shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
-  });
-  return { ...foldGapResults({ selected, results }), rateLimited: results.some((result) => isRateLimited({ result })) };
-};
-
-// src/plan/common/grading/judgeGaps.ts
-import { relative as relative7 } from "node:path";
-
-// src/plan/common/grading/groupGapCandidates.ts
-import { basename as basename23 } from "node:path";
-
-// src/common/fileGroups/groupConnectedFiles.ts
-var groupConnectedFiles = ({ files, edges }) => {
-  const parent = new Map(files.map((file2) => [file2, file2]));
-  const find = (file2) => {
-    const up = parent.get(file2);
-    if (up === void 0 || up === file2) {
-      return file2;
-    }
-    const root = find(up);
-    parent.set(file2, root);
-    return root;
-  };
-  for (const { from, to } of edges) {
-    if (!parent.has(from) || !parent.has(to)) {
-      continue;
-    }
-    const rootFrom = find(from);
-    const rootTo = find(to);
-    if (rootFrom !== rootTo) {
-      parent.set(rootFrom, rootTo);
-    }
-  }
-  const byRoot = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const root = find(file2);
-    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
-  }
-  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
-};
-
-// src/plan/common/constants/gapBatchLimits.ts
-var gapBatchLimits = { maxObservations: 8, maxPlanFiles: 3 };
-
-// src/plan/common/grading/distinctiveWords.ts
-var distinctiveWords = ({ text }) => {
-  const minimumLength = 6;
-  return new Set(
-    text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= minimumLength)
-  );
-};
-
-// src/plan/common/grading/groupGapCandidates.ts
-var candidatesOf = ({ gaps, files }) => gaps.flatMap((gap, index) => {
-  const locations = findingLocations({ observations: gap.observations, phase: gap.phase }).flatMap((phase) => {
-    const file2 = files.find((candidate) => basename23(candidate.path) === phase);
-    return file2 === void 0 ? [] : [{ phase, text: file2.text }];
-  });
-  return locations.length === 0 ? [] : [{ id: `o${index + 1}`, index, gap, locations, words: distinctiveWords({ text: `${gap.gap} ${gap.decision}` }) }];
-});
-var relatedPairs = ({ candidates }) => {
-  const minimumSharedWords = 2;
-  return candidates.flatMap(
-    (first, position) => candidates.slice(position + 1).filter((second) => [...first.words].filter((word) => second.words.has(word)).length >= minimumSharedWords).map((second) => ({ from: first.id, to: second.id }))
-  );
-};
-var spannedLocations = ({ members }) => [
-  ...new Map(members.flatMap((member) => member.locations).map((location) => [location.phase, location])).values()
-];
-var splitGroup = ({ members }) => {
-  const batches = [];
-  for (const member of members) {
-    const last = batches.at(-1);
-    const fits = last !== void 0 && last.length < gapBatchLimits.maxObservations && spannedLocations({ members: [...last, member] }).length <= gapBatchLimits.maxPlanFiles;
-    if (fits) {
-      last.push(member);
-    } else {
-      batches.push([member]);
-    }
-  }
-  return batches;
-};
-var groupGapCandidates = ({ gaps, files }) => {
-  const candidates = candidatesOf({ gaps, files });
-  const components = groupConnectedFiles({ files: candidates.map(({ id }) => id), edges: relatedPairs({ candidates }) });
-  const groups = components.map((component) => {
-    const members = new Set(component);
-    return candidates.filter(({ id }) => members.has(id));
-  }).sort((first, second) => first[0].index - second[0].index);
-  return groups.flatMap(
-    (members) => splitGroup({ members }).map((batch) => ({
-      observations: batch.map(({ id, index, gap }) => ({ id, index, gap })),
-      planTexts: spannedLocations({ members: batch })
-    }))
-  );
-};
-
-// src/plan/common/constants/noJudgeRanReason.ts
-var noJudgeRanReason = "no judge ran \u2014 the fan-out stopped before this finding was judged";
-
-// src/plan/common/paths/citationPathToken.ts
-var citationPathToken = ({ citation }) => {
-  const token = citation.split(":")[0] ?? "";
-  return isPathToken({ token }) ? token : void 0;
-};
-
-// src/plan/common/paths/citedPathExists.ts
-import { isAbsolute as isAbsolute3, join as join69 } from "node:path";
-var citedPathExists = async ({ cwd, token }) => pathExists({ path: isAbsolute3(token) ? token : join69(cwd, token) });
-
-// src/plan/common/memory/confirmCitation.ts
-var minimumCitationLength = 24;
-var confirmPath = async ({ cwd, token }) => {
-  const present = await citedPathExists({ cwd, token });
-  return present ? { ok: true } : { ok: false, reason: `cited ${token}, which is not on disk` };
-};
-var confirmQuote = ({ citation, planText }) => {
-  const quote2 = collapseText({ text: citation });
-  if (quote2.length < minimumCitationLength) {
-    return { ok: false, reason: `citation shorter than ${minimumCitationLength} characters: ${citation}` };
-  }
-  const found = collapseText({ text: planText }).includes(quote2);
-  return found ? { ok: true } : { ok: false, reason: `citation not found in the plan text: ${citation}` };
-};
-var confirmCitation = async ({ cwd, citation, planText }) => {
-  const token = citationPathToken({ citation });
-  return token === void 0 ? confirmQuote({ citation, planText }) : confirmPath({ cwd, token });
-};
-
-// src/plan/common/grading/accountBatchVerdicts.ts
-var isFilled = ({ value }) => (value ?? "").trim().length > 0;
-var hasRequiredEvidence = ({ verdict }) => {
-  const demanded = {
-    [GapOutcome.NeedsAHuman]: isFilled({ value: verdict.humanDecision }),
-    [GapOutcome.AgentCanDecide]: isFilled({ value: verdict.agentDecision }) && isFilled({ value: verdict.safeBecause }),
-    [GapOutcome.AlreadyAnswered]: verdict.answers.length > 0 && verdict.answers.every(({ answerAt }) => isFilled({ value: answerAt }))
-  };
-  return demanded[verdict.outcome];
-};
-var refuseCitations = async ({ cwd, batch, verdict, covered }) => {
-  const texts = new Map(batch.planTexts.map(({ phase, text }) => [phase, text]));
-  const cited = verdict.answers.map(({ phase }) => phase);
-  const spanned = covered.flatMap(({ gap }) => findingLocations({ observations: gap.observations, phase: gap.phase }));
-  const missing = [...new Set(spanned)].filter((phase) => texts.has(phase) && !cited.includes(phase));
-  const repeated = cited.filter((phase, position) => cited.indexOf(phase) !== position);
-  const foreign = cited.filter((phase) => !texts.has(phase));
-  let reason;
-  if (missing.length > 0) {
-    reason = `the judge dismissed this as already answered but cited nothing for ${missing.join(", ")}`;
-  } else if (repeated.length > 0) {
-    reason = `the judge cited ${repeated.join(", ")} more than once`;
-  } else if (foreign.length > 0) {
-    reason = `the judge cited ${foreign.join(", ")}, a plan file this batch holds no text for`;
-  } else {
-    for (const { phase, answerAt } of verdict.answers) {
-      const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: texts.get(phase) ?? "" });
-      if (!confirmed.ok) {
-        reason = `the judge's citation for ${phase} was refused \u2014 ${confirmed.reason}`;
-        break;
-      }
-    }
-  }
-  return reason;
-};
-var refuseVerdict = async ({ cwd, batch, verdict, recordIds }) => {
-  const covers2 = [...new Set(verdict.covers)];
-  const unknown2 = covers2.filter((id) => !batch.observations.some((member) => member.id === id));
-  let reason;
-  if (unknown2.length > 0) {
-    reason = `the judge's ruling named ${unknown2.join(", ")}, which this batch never handed out, so the whole ruling is void`;
-  } else if (covers2.length > 1 && !isFilled({ value: verdict.sharedDefect })) {
-    reason = `the judge grouped ${covers2.join(", ")} as one defect without the shared-defect statement a group demands`;
-  } else if (!hasRequiredEvidence({ verdict })) {
-    reason = `the judge answered ${verdict.outcome} without the evidence that outcome demands`;
-  } else if (verdict.outcome === GapOutcome.AlreadyAnswered) {
-    reason = await refuseCitations({ cwd, batch, verdict, covered: batch.observations.filter(({ id }) => covers2.includes(id)) });
-  }
-  if (reason === void 0 && verdict.matchesFinding !== void 0 && !recordIds.has(verdict.matchesFinding)) {
-    reason = `the judge matched this finding to ${verdict.matchesFinding}, which is not a record this plan holds`;
-  }
-  return reason;
-};
-var standingRulings = ({ verdict, members }) => {
-  const observations = dedupeObservations({ observations: members.flatMap(({ gap }) => gapObservations({ gap })) });
-  const group = members.length > 1 ? { groupId: `g${members[0].index}`, observations } : {};
-  return members.map(({ index, gap }) => [index, { verdict, answerAt: verdict.answers.find(({ phase }) => phase === gap.phase)?.answerAt, ...group }]);
-};
-var accountBatchVerdicts = async ({ cwd, batch, outcome, recordIds, noJudgeReason }) => {
-  if (outcome === void 0 || !outcome.ok) {
-    let unjudgedReason = noJudgeReason ?? noJudgeRanReason;
-    if (outcome !== void 0) {
-      unjudgedReason = outcome.rateLimited ? "the judge was rate limited or overloaded" : outcome.failure;
-    }
-    return new Map(batch.observations.map(({ index }) => [index, { unjudgedReason }]));
-  }
-  const verdicts = outcome.report.verdicts;
-  const coverage = ({ id }) => verdicts.filter((verdict) => verdict.covers.includes(id)).length;
-  const rulings = /* @__PURE__ */ new Map();
-  for (const verdict of verdicts) {
-    const refusal = await refuseVerdict({ cwd, batch, verdict, recordIds });
-    const members = batch.observations.filter(({ id }) => verdict.covers.includes(id) && coverage({ id }) === 1);
-    const settled2 = refusal === void 0 ? standingRulings({ verdict, members }) : members.map(({ index }) => [index, { unjudgedReason: refusal }]);
-    for (const [index, ruling] of settled2) {
-      rulings.set(index, ruling);
-    }
-  }
-  for (const { id, index } of batch.observations) {
-    const count2 = coverage({ id });
-    if (count2 === 0) {
-      rulings.set(index, { unjudgedReason: "the judge's rulings did not cover this observation" });
-    } else if (count2 > 1) {
-      rulings.set(index, { unjudgedReason: "more than one of the judge's rulings covered this observation, so none of them can settle it" });
-    }
-  }
-  return rulings;
-};
-
-// src/plan/common/grading/matchGapVerdicts.ts
-var rulingFields = ({ verdict }) => ({
-  outcome: verdict.outcome,
-  ...verdict.humanDecision === void 0 ? {} : { humanDecision: verdict.humanDecision },
-  ...verdict.agentDecision === void 0 ? {} : { agentDecision: verdict.agentDecision },
-  ...verdict.safeBecause === void 0 ? {} : { safeBecause: verdict.safeBecause }
-});
-var joinRuling = ({ gap, ruling, noJudgeReason }) => {
-  const verdict = ruling?.unjudgedReason === void 0 ? ruling?.verdict : void 0;
-  if (verdict === void 0) {
-    return { ...gap, outcome: GapOutcome.Unjudged, unjudgedReason: ruling?.unjudgedReason ?? noJudgeReason ?? noJudgeRanReason };
-  }
-  return {
-    ...gap,
-    // A carried pending finding arrives with the reason an earlier pass left it
-    // unjudged; once a judge rules, that reason is stale.
-    ...gap.unjudgedReason === void 0 ? {} : { unjudgedReason: void 0 },
-    ...rulingFields({ verdict }),
-    ...ruling?.answerAt === void 0 ? {} : { answerAt: ruling.answerAt },
-    ...ruling?.observations === void 0 ? {} : { groupId: ruling.groupId, sharedDefect: verdict.sharedDefect, observations: ruling.observations },
-    // The agent's raw claim never reaches the record: what is persisted is the id
-    // the engine resolved. A carried finding with no match keeps the record it
-    // already belongs to, or it would open a second one every pass.
-    ...verdict.matchesFinding === void 0 ? {} : { findingId: verdict.matchesFinding }
-  };
-};
-var matchGapVerdicts = async ({ cwd, gaps, batches, batchOutcomes, noJudgeReason, recordIds = /* @__PURE__ */ new Set() }) => {
-  const rulings = /* @__PURE__ */ new Map();
-  for (const [slot, batch] of batches.entries()) {
-    const accounted = await accountBatchVerdicts({ cwd, batch, outcome: batchOutcomes[slot], recordIds, noJudgeReason });
-    for (const [index, ruling] of accounted) {
-      rulings.set(index, ruling);
-    }
-  }
-  return gaps.map((gap, index) => joinRuling({ gap, ruling: rulings.get(index), noJudgeReason }));
-};
-
-// src/plan/common/memory/recordObservations.ts
-var recordObservations = ({ record: record3 }) => gapObservations({ gap: record3 });
-
-// src/plan/common/memory/phaseFindingRecords.ts
-var phaseFindingRecords = ({ memory, phase, statuses }) => memory.findings.filter((record3) => {
-  const touches = recordObservations({ record: record3 }).some((observation) => observation.phase === phase);
-  return touches && (statuses === void 0 || statuses.includes(record3.status));
-});
-
-// src/plan/common/grading/judgeGaps.ts
-var judgeableStatuses = Object.values(GradeFindingStatus).filter((status) => status !== GradeFindingStatus.Superseded);
-var batchRecords = ({ memory, batch }) => [
-  ...new Map(
-    batch.planTexts.flatMap(({ phase }) => phaseFindingRecords({ memory, phase, statuses: judgeableStatuses })).map((record3) => [record3.id, record3])
-  ).values()
-];
-var spawnGapJudge = async ({ params, batch, batchIndex }) => {
-  const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3, level } = params;
-  const invokePlanAgent = createPlanAgentRunner({
-    cwd,
-    driver,
-    workspaceDir,
-    // Numbered by batch rather than named by phase, because a batch may span
-    // several plan files.
-    step: `grade-judge-${batchIndex}`,
-    level,
-    model,
-    effort,
-    permissions,
-    timeoutMs
-  });
-  const outcome = await invokePlanAgent({
-    invocation: buildPlanGapJudgeInvocation({
-      planTexts: batch.planTexts,
-      overviewText,
-      standards,
-      // Only a phased plan has siblings to point at, and the judge opens one
-      // itself when an observation is about a seam its batch does not span.
-      planDir: overviewText === void 0 ? void 0 : relative7(cwd, workspaceDir),
-      records: batchRecords({ memory: params.memory, batch }),
-      observations: batch.observations.map(({ id, gap }) => ({ id, observation: gap }))
-    }),
-    contract: GapBatchVerdict
-  });
-  return { outcome };
-};
-var judgeGaps = async (params) => {
-  const { cwd, files, gaps, skipReason: skipReason2, memory } = params;
-  const batches = skipReason2 === void 0 ? groupGapCandidates({ gaps, files }) : [];
-  const results = await drainTasks({
-    tasks: batches.map((batch, batchIndex) => () => spawnGapJudge({ params, batch, batchIndex })),
-    concurrency: planAgentConcurrency,
-    shouldStop: ({ results: settled2 }) => settled2.some((result) => isRateLimited({ result }))
-  });
-  const recordIds = new Set(memory.findings.filter(({ status }) => judgeableStatuses.includes(status)).map(({ id }) => id));
-  return {
-    gaps: await matchGapVerdicts({ cwd, gaps, batches, batchOutcomes: results.map((result) => result?.outcome), noJudgeReason: skipReason2, recordIds }),
-    rateLimited: results.some((result) => isRateLimited({ result }))
-  };
-};
-
-// src/plan/common/grading/drainGradeAgents.ts
-var settledStatuses = [GradeFindingStatus.Resolved, GradeFindingStatus.Noted];
-var spawnGapChecker = async ({
-  params,
-  pass,
-  file: file2,
-  lens,
-  timeoutMs,
-  memory
-}) => {
-  const { cwd, driver, standards, model, effort, permissions, level } = params;
-  const invokePlanAgent = createPlanAgentRunner({
-    cwd,
-    driver,
-    workspaceDir: pass.workspaceDir,
-    step: `grade-${basename24(file2.path, ".md")}-${lens}`,
-    level,
-    model,
-    effort,
-    permissions,
-    timeoutMs,
-    // Two, not one: a reader written off costs the plan file its coverage —
-    // a file is claimed as checked only when every lens returned for it, so
-    // losing readers means re-running the whole pass by hand. Each fresh
-    // invocation still gets its one cheap re-emit, so four spawns is the
-    // worst case. Not three: two is the smallest number that makes "re-run
-    // rather than write off" true, and it caps the worst case at double.
-    maxRoleAttempts: 2
-  });
-  const outcome = await invokePlanAgent({
-    invocation: buildPlanGapCheckInvocation({
-      planText: file2.text,
-      overviewText: pass.overviewText,
-      standards,
-      // Only a phased plan has siblings to point at, and the wiring checker
-      // opens one itself when a consumed name's shape is declared elsewhere.
-      planDir: pass.overviewText === void 0 ? void 0 : relative8(cwd, pass.workspaceDir),
-      lens,
-      settled: phaseFindingRecords({ memory, phase: basename24(file2.path), statuses: settledStatuses })
-    }),
-    contract: GapCheckReport
-  });
-  return { phase: basename24(file2.path), lens, outcome };
-};
-var drainGradeAgents = async ({
-  params,
-  pass,
-  selected,
-  carried,
-  memory,
-  documentation,
-  progress
-}) => {
-  const timeoutMs = params.timeoutMs ?? 30 * 60 * 1e3;
-  const tasks = selected.flatMap((file2) => gapCheckLenses.map((lens) => () => spawnGapChecker({ params, pass, file: file2, lens, timeoutMs, memory })));
-  const [readers, docsCheck] = await Promise.all([
-    drainGapCheckers({ tasks, selected }),
-    checkPlanDocumentation({
-      cwd: params.cwd,
-      driver: params.driver,
-      level: params.level,
-      name: params.name,
-      workspaceDir: pass.workspaceDir,
-      planPaths: pass.planPaths,
-      files: pass.files,
-      overviewText: pass.overviewText,
-      docs: documentation ? pass.config?.docs : void 0,
-      model: params.model,
-      effort: params.effort,
-      permissions: params.permissions,
-      timeoutMs,
-      onProgress: progress
-    })
-  ]);
-  const judged = await judgeGaps({
-    ...params,
-    workspaceDir: pass.workspaceDir,
-    overviewText: pass.overviewText,
-    // Every plan file, not the readers' selection: a carried record may name a
-    // file this pass weighed light or left out, and it still needs a judge.
-    files: pass.files,
-    gaps: [...readers.gaps, ...carried],
-    skipReason: readers.rateLimited ? "the reader fan-out hit the rate-limit wall, so no judge was spawned" : void 0,
-    memory
-  });
-  return {
-    gaps: [...judged.gaps, ...docsCheck.gaps],
-    failures: [...readers.failures, ...docsCheck.failures],
-    phasesChecked: readers.phasesChecked,
-    read: readers.read,
-    rateLimited: readers.rateLimited || judged.rateLimited || docsCheck.rateLimited,
-    documentationComplete: docsCheck.failures.length === 0
-  };
-};
-
-// src/plan/common/grading/prepareGradePass.ts
-import { basename as basename29 } from "node:path";
-
-// src/plan/common/grading/weighSelection.ts
-import { basename as basename25 } from "node:path";
-
-// src/plan/common/constants/defaultWeightThresholds.ts
-var defaultWeightThresholds = { createdFiles: 3, packages: 1 };
-
-// src/plan/common/grading/computePlanWeight.ts
-var countPackages = ({ touched, packagesDir }) => new Set(touched.map((file2) => packageOf({ file: file2, packagesDir }) ?? "<root>")).size;
-var computePlanWeight = ({ plan, phase, packagesDir, thresholds }) => {
-  const { created, touched } = getPlanTouchedPaths({ plan });
-  const packages = countPackages({ touched, packagesDir });
-  const reasons = [];
-  if (created.length > thresholds.createdFiles) {
-    reasons.push(`creates ${created.length} source files, above ${thresholds.createdFiles}`);
-  }
-  if (packages > thresholds.packages) {
-    reasons.push(`touches ${packages} packages, above ${thresholds.packages}`);
-  }
-  if (plan.mirrorPaths.length === 0) {
-    reasons.push("names no pattern to mirror");
-  }
-  return { phase, weight: reasons.length === 0 ? PlanWeight.Light : PlanWeight.Heavy, reasons };
-};
-
-// src/plan/common/grading/weighSelection.ts
-var weighSelection = ({ selected, config: config2 }) => {
-  if (config2?.plan?.contract !== true) {
-    return { weights: [], heavy: selected, light: [] };
-  }
-  const declared = config2.plan["weight-thresholds"];
-  const thresholds = {
-    createdFiles: declared?.["created-files"] ?? defaultWeightThresholds.createdFiles,
-    packages: declared?.packages ?? defaultWeightThresholds.packages
-  };
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const weights = selected.map((file2) => {
-    const base = basename25(file2.path);
-    return computePlanWeight({ plan: parsePlan({ content: file2.text, base }), phase: base, packagesDir, thresholds });
-  });
-  const heavyPhases = new Set(weights.filter(({ weight }) => weight === PlanWeight.Heavy).map(({ phase }) => phase));
-  return {
-    weights,
-    heavy: selected.filter((file2) => heavyPhases.has(basename25(file2.path))),
-    light: weights.filter(({ weight }) => weight === PlanWeight.Light).map(({ phase }) => phase)
-  };
-};
-
-// src/plan/common/memory/pendingFindingGaps.ts
-var pendingFindingGaps = ({ memory }) => memory.findings.filter((record3) => record3.status === GradeFindingStatus.Pending).map((record3) => ({
-  area: record3.area,
-  gap: record3.gap,
-  decision: record3.decision,
-  options: record3.options,
-  phase: record3.phase,
-  lens: record3.lens,
-  observations: recordObservations({ record: record3 }),
-  outcome: GapOutcome.Unjudged,
-  unjudgedReason: record3.unjudgedReason,
-  findingId: record3.id
-}));
-
-// src/plan/common/memory/recheckPlanText.ts
-import { basename as basename26 } from "node:path";
-var recheckPlanText = ({ files, overviewText, phase }) => {
-  const own = files.find((file2) => basename26(file2.path) === phase);
-  const rendered = files.map((file2) => `## Plan file: ${basename26(file2.path)}
-
-${file2.text}`);
-  const wholePlan = [...overviewText === void 0 ? [] : [overviewText], ...rendered].join("\n\n");
-  return own?.text ?? wholePlan;
-};
-
-// src/plan/common/memory/recordResolutions.ts
-var recordResolutions = ({ record: record3 }) => {
-  let resolutions = record3.resolutions;
-  if (resolutions.length === 0 && record3.resolution !== void 0) {
-    resolutions = [{ phase: record3.phase, ...record3.resolution }];
-  }
-  return resolutions;
-};
-
-// src/plan/common/memory/reopenRecord.ts
-var reopenRecord = ({ record: record3, reason, at }) => ({
-  ...record3,
-  status: GradeFindingStatus.Open,
-  resolution: void 0,
-  resolutions: [],
-  lastSeen: at,
-  reopened: [...record3.reopened, { at, reason, priorStatus: record3.status }]
-});
-
-// src/plan/common/memory/revalidateResolutions.ts
-var firstLostCitation = async ({ params, record: record3 }) => {
-  const { cwd, files, overviewText } = params;
-  let lost;
-  for (const { phase, answerAt } of recordResolutions({ record: record3 })) {
-    const confirmed = await confirmCitation({ cwd, citation: answerAt, planText: recheckPlanText({ files, overviewText, phase }) });
-    if (!confirmed.ok) {
-      lost = { phase, answerAt };
-      break;
-    }
-  }
-  return lost;
-};
-var revalidateResolutions = async (params) => {
-  const { memory, at } = params;
-  const findings = [];
-  const reopened = [];
-  for (const record3 of memory.findings) {
-    const lost = record3.status === GradeFindingStatus.Resolved ? await firstLostCitation({ params, record: record3 }) : void 0;
-    if (lost === void 0) {
-      findings.push(record3);
-      continue;
-    }
-    reopened.push(record3.id);
-    findings.push(reopenRecord({ record: record3, reason: `resolution citation for ${lost.phase} no longer found in the plan: ${lost.answerAt}`, at }));
-  }
-  return { memory: { ...memory, findings }, reopened };
-};
-
-// src/plan/common/scope/getDecisionReach.ts
-var unmatchedRows = ({ rows, other }) => {
-  const available = other.map((row) => row.sha256);
-  return rows.filter((row) => {
-    const index = available.indexOf(row.sha256);
-    if (index !== -1) {
-      available.splice(index, 1);
-    }
-    return index === -1;
-  });
-};
-var joinedRows = ({ current, previous }) => {
-  const changed = [...unmatchedRows({ rows: current.rows, other: previous.rows }), ...unmatchedRows({ rows: previous.rows, other: current.rows })];
-  const questions = new Set(changed.map((row) => row.questionSha256));
-  const joinsChange = (row) => questions.has(row.questionSha256);
-  return { changed, current: current.rows.filter(joinsChange), previous: previous.rows.filter(joinsChange) };
-};
-var getDecisionReach = ({ current, previous, overviewFileChanged, edited, phaseFiles }) => {
-  if (previous === void 0) {
-    return { error: "the earlier pass has no decision evidence to compare against" };
-  }
-  if (current === void 0) {
-    return { error: "this pass could not read the overview, so its decisions cannot be compared" };
-  }
-  if (current.overviewDesign === void 0 || previous.overviewDesign === void 0) {
-    return { error: "one of the two passes never measured the shared design text of the overview, so it cannot be compared" };
-  }
-  if (current.overviewDesign !== previous.overviewDesign) {
-    return { error: "the overview changed outside every generated region and every per-phase span, and that is context every phase shares" };
-  }
-  const joined = joinedRows({ current, previous });
-  if (overviewFileChanged && joined.changed.length === 0 && edited.length === 0) {
-    return { error: "the overview moved but no decision row changed, so where the change reaches cannot be placed" };
-  }
-  const rows = [...joined.current, ...joined.previous];
-  if (rows.some((row) => row.phases === void 0)) {
-    return { error: "a changed decision names no phases, so it may reach the whole plan" };
-  }
-  const named = [...new Set(rows.flatMap((row) => row.phases ?? []))].sort();
-  const unknown2 = named.filter((phase) => !phaseFiles.includes(phase));
-  if (unknown2.length > 0) {
-    return { error: `a changed decision names ${unknown2.join(", ")}, which is not a phase file of this plan` };
-  }
-  if (edited.length > 0 && joined.previous.length > 0) {
-    return { error: "a superseded or removed decision named phases while phase text also changed, so the connections its scope ran along may be gone" };
-  }
-  return { phases: named };
-};
-
-// src/common/utils/canonicalJson.ts
-var canonicalize = ({ value }) => {
-  if (Array.isArray(value)) {
-    return value.map((member) => canonicalize({ value: member }));
-  }
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  const named = Object.entries(value).filter(([, member]) => member !== void 0);
-  const sorted = named.sort(([left], [right]) => left > right ? 1 : -1);
-  return Object.fromEntries(sorted.map(([key, member]) => [key, canonicalize({ value: member })]));
-};
-var canonicalJson = ({ value }) => (
-  // `undefined` is not representable in JSON, and a fingerprint that encoded it
-  // as the empty string could not be told from one over an empty value.
-  JSON.stringify(canonicalize({ value })) ?? "null"
-);
-
-// src/plan/common/scope/getEditedPhases.ts
-var hashesOf = ({ inputs }) => new Map(inputs.planFiles.map((entry) => [entry.file, entry]));
-var designMoved = ({ current, previous }) => current?.designSha256 === void 0 || previous?.designSha256 === void 0 || current.designSha256 !== previous.designSha256;
-var otherInputMoved = ({ current, previous }) => current.changedFiles === void 0 || previous.changedFiles === void 0 || current.gradedCommit === void 0 || previous.gradedCommit === void 0 || current.gradedCommit !== previous.gradedCommit || canonicalJson({ value: current.changedFiles }) !== canonicalJson({ value: previous.changedFiles }) || current.standards !== previous.standards || current.config !== previous.config || current.prompts !== previous.prompts || current.model !== previous.model || current.effort !== previous.effort;
-var getEditedPhases = ({ current, previous }) => {
-  const overviewBase2 = "overview.md";
-  const currentHashes = hashesOf({ inputs: current });
-  const previousHashes = hashesOf({ inputs: previous });
-  const edited = [];
-  let overviewFileChanged = false;
-  for (const file2 of [.../* @__PURE__ */ new Set([...currentHashes.keys(), ...previousHashes.keys()])].sort()) {
-    const currentEntry = currentHashes.get(file2);
-    const previousEntry = previousHashes.get(file2);
-    if (file2 === overviewBase2) {
-      overviewFileChanged = currentEntry?.sha256 !== previousEntry?.sha256;
-    } else if (designMoved({ current: currentEntry, previous: previousEntry })) {
-      edited.push(file2);
-    }
-  }
-  return { edited, overviewFileChanged, otherInputChanged: otherInputMoved({ current, previous }) };
-};
-
-// src/plan/common/scope/getCoverageSeeds.ts
-var getCoverageSeeds = ({ inputs, previous, overviewText, phaseFiles }) => {
-  if (previous === void 0) {
-    return { seeds: phaseFiles };
-  }
-  const { edited, overviewFileChanged } = getEditedPhases({ current: inputs, previous });
-  if (overviewText === void 0) {
-    return { seeds: edited };
-  }
-  const reach = getDecisionReach({ current: inputs.decisionLog, previous: previous.decisionLog, overviewFileChanged, edited, phaseFiles });
-  return "error" in reach ? { error: reach.error } : { seeds: [...edited, ...reach.phases] };
-};
-
-// src/plan/common/scope/getDesignHashes.ts
-var getDesignHashes = ({ inputs }) => new Map(inputs.planFiles.flatMap(({ file: file2, designSha256 }) => designSha256 === void 0 ? [] : [[file2, designSha256]]));
-
-// src/plan/common/scope/getAffectedPhases.ts
-var getAffectedPhases = ({ connections, edited }) => {
-  const affected = new Set(edited);
-  const pending = [...edited];
-  while (pending.length > 0) {
-    const base = pending.shift() ?? "";
-    for (const neighbour of connections.get(base) ?? []) {
-      if (!affected.has(neighbour)) {
-        affected.add(neighbour);
-        pending.push(neighbour);
-      }
-    }
-  }
-  return [...affected].sort();
-};
-
-// src/plan/common/scope/getInvalidatedPhases.ts
-var mergedConnections = ({ connections, recorded }) => {
-  const merged = new Map([...connections].map(([base, neighbours]) => [base, new Set(neighbours)]));
-  const link = ({ from, to }) => {
-    const neighbours = merged.get(from) ?? /* @__PURE__ */ new Set();
-    neighbours.add(to);
-    merged.set(from, neighbours);
-  };
-  for (const [base, neighbours] of recorded) {
-    for (const neighbour of neighbours) {
-      link({ from: base, to: neighbour });
-      link({ from: neighbour, to: base });
-    }
-  }
-  return merged;
-};
-var getInvalidatedPhases = ({ edited, connections, recorded, phaseFiles }) => {
-  if (connections === void 0) {
-    return [...phaseFiles].sort();
-  }
-  const affected = getAffectedPhases({ connections: mergedConnections({ connections, recorded }), edited });
-  return affected.filter((base) => phaseFiles.includes(base));
-};
-
-// src/plan/common/scope/getStandingCoverage.ts
-var recordedNeighbours = ({ readers }) => {
-  const recorded = /* @__PURE__ */ new Map();
-  for (const entry of readers) {
-    recorded.set(entry.file, [.../* @__PURE__ */ new Set([...recorded.get(entry.file) ?? [], ...entry.neighbours])]);
-  }
-  return recorded;
-};
-var lostOnTheirOwn = ({
-  readers,
-  designHashes,
-  phaseFiles,
-  seeds
-}) => {
-  const moved = phaseFiles.filter((file2) => readers.some((entry) => entry.file === file2 && entry.designSha256 !== designHashes.get(file2)));
-  const unread = phaseFiles.filter((file2) => !readers.some((entry) => entry.file === file2));
-  return [.../* @__PURE__ */ new Set([...seeds, ...moved, ...unread])];
-};
-var standingDocs = ({ docs, designHashes }) => {
-  const recorded = docs?.planFiles ?? [];
-  const stands = docs !== void 0 && recorded.length === designHashes.size && recorded.every((entry) => designHashes.get(entry.file) === entry.designSha256);
-  return stands ? docs : void 0;
-};
-var getStandingCoverage = ({
-  coverage,
-  designHashes,
-  phaseFiles,
-  lenses,
-  connections,
-  otherInputChanged,
-  seeds = []
-}) => {
-  if (otherInputChanged) {
-    return { readers: [], covered: [], invalidated: [...phaseFiles].sort() };
-  }
-  const edited = lostOnTheirOwn({ readers: coverage.readers, designHashes, phaseFiles, seeds });
-  const lost = getInvalidatedPhases({ edited, connections, recorded: recordedNeighbours({ readers: coverage.readers }), phaseFiles });
-  const readers = coverage.readers.filter((entry) => !lost.includes(entry.file) && entry.designSha256 === designHashes.get(entry.file));
-  const covers2 = ({ file: file2, lens }) => readers.some((entry) => entry.file === file2 && entry.lens === lens);
-  const covered = phaseFiles.filter((file2) => lenses.every((lens) => covers2({ file: file2, lens }))).sort();
-  const docs = standingDocs({ docs: coverage.docs, designHashes });
-  return {
-    readers,
-    covered,
-    invalidated: phaseFiles.filter((file2) => !covered.includes(file2)).sort(),
-    ...docs === void 0 ? {} : { docs }
-  };
-};
-
-// src/plan/common/scope/getPassCoverage.ts
-var getPassCoverage = ({ phaseFiles, overviewText, inputs, coverage, connections, baseline }) => {
-  const seeded = baseline === void 0 ? { seeds: [] } : getCoverageSeeds({ inputs, previous: baseline, overviewText, phaseFiles });
-  return getStandingCoverage({
-    coverage,
-    designHashes: getDesignHashes({ inputs }),
-    phaseFiles,
-    lenses: gapCheckLenses,
-    connections,
-    otherInputChanged: baseline !== void 0 && getEditedPhases({ current: inputs, previous: baseline }).otherInputChanged,
-    seeds: "error" in seeded ? phaseFiles : seeded.seeds
-  });
-};
-
-// src/plan/common/scope/getPhaseGraph.ts
-import { basename as basename28 } from "node:path";
-
-// src/plan/common/scope/getPhaseConnections.ts
-import { basename as basename27 } from "node:path";
-var providedBy = ({ phase, exports }) => /* @__PURE__ */ new Set([
-  ...getPlanNamedPaths({ plan: phase.plan }).map((path) => basename27(path)),
-  ...exports,
-  ...getComparableTokens({ lines: phase.plan.sections.get("What Next Plan Expects") ?? [] }).keys()
-]);
-var getPhaseConnections = ({ phases, declarations }) => {
-  const paired = phases.map((phase) => ({ phase, declaration: declarations.find((entry) => entry.file === phase.base) }));
-  const undeclared = paired.filter((entry) => entry.declaration === void 0);
-  if (undeclared.length > 0) {
-    return {
-      error: `${undeclared.map(({ phase }) => phase.base).join(", ")} has no block in the overview's '## Phase Declarations', so what it hands to the other phases cannot be read`
-    };
-  }
-  const provides = /* @__PURE__ */ new Map();
-  const consumes = /* @__PURE__ */ new Map();
-  for (const { phase, declaration } of paired) {
-    provides.set(phase.base, providedBy({ phase, exports: declaration?.exports ?? [] }));
-    consumes.set(phase.base, new Set(getComparableTokens({ lines: phase.plan.lines }).keys()));
-  }
-  const connections = new Map(phases.map((phase) => [phase.base, /* @__PURE__ */ new Set()]));
-  for (const left of phases) {
-    for (const right of phases) {
-      const linked = left.base !== right.base && [...consumes.get(left.base) ?? []].some((token) => provides.get(right.base)?.has(token));
-      if (linked) {
-        connections.get(left.base)?.add(right.base);
-        connections.get(right.base)?.add(left.base);
-      }
-    }
-  }
-  return { connections };
-};
-
-// src/plan/common/scope/getPhaseGraph.ts
-var parseFiles = ({ files }) => files.map((file2) => {
-  const base = basename28(file2.path);
-  return { path: file2.path, base, number: Number(/^phase(\d+)-/.exec(base)?.[1] ?? 1), plan: parsePlan({ content: file2.text, base }) };
-});
-var getPhaseGraph = ({ files, overviewText }) => getPhaseConnections({
-  phases: parseFiles({ files }),
-  declarations: parsePhaseDeclarations({ plan: parsePlan({ content: overviewText, base: "overview.md" }) })
-});
-
-// src/plan/common/grading/prepareGradePass.ts
-var phaseGraph = ({ pass }) => {
-  if (pass.overviewText === void 0) {
-    return new Map(pass.files.map((file2) => [basename29(file2.path), /* @__PURE__ */ new Set()]));
-  }
-  const graph = getPhaseGraph({ files: pass.files, overviewText: pass.overviewText });
-  return "error" in graph ? void 0 : graph.connections;
-};
-var prepareGradePass = async ({
-  params,
-  pass,
-  selected,
-  scope,
-  inputs,
-  memory,
-  structural,
-  at,
-  progress
-}) => {
-  const { cwd, name } = params;
-  const planFiles = pass.files.map((file2) => basename29(file2.path));
-  const { weights, heavy, light } = weighSelection({ selected, config: pass.config });
-  const connections = phaseGraph({ pass });
-  const found = getPassCoverage({
-    phaseFiles: planFiles,
-    overviewText: pass.overviewText,
-    inputs,
-    coverage: memory.coverage,
-    connections,
-    baseline: memory.lastPass?.inputs
-  });
-  const documentation = found.docs === void 0;
-  const revalidated = await revalidateResolutions({ cwd, files: pass.files, overviewText: pass.overviewText, memory, at });
-  const carried = pendingFindingGaps({ memory: revalidated.memory });
-  progress(
-    `plan grade ${name}: ${scope} pass \u2014 ${structural.length} structural finding(s), gap-checking ${heavy.length} of ${pass.files.length} plan file(s) \xD7 ${gapCheckLenses.length} lens(es)${found.covered.length > 0 ? `, ${found.covered.length} plan file(s) already covered at their current text and read by nobody again` : ""}${light.length > 0 ? `, ${light.length} weighed light and read by nobody` : ""}${revalidated.reopened.length > 0 ? `, ${revalidated.reopened.length} resolved finding(s) reopened because the plan no longer states their answer` : ""}${carried.length > 0 ? `, ${carried.length} pending finding(s) carried in for a judge` : ""}`
-  );
-  return { planFiles, weights, heavy, light, connections, found, documentation, memory: revalidated.memory, carried };
-};
-
-// src/plan/common/memory/absorbObservations.ts
-var absorbObservations = ({ record: record3, observations, at }) => {
-  const merged = { ...record3, observations: dedupeObservations({ observations: [...recordObservations({ record: record3 }), ...observations] }) };
-  const cited = new Set(recordResolutions({ record: record3 }).map(({ phase }) => phase));
-  const uncovered = findingLocations({ observations: merged.observations, phase: record3.phase }).filter((location) => !cited.has(location));
-  const reason = `gained an observation at ${uncovered.join(", ")}, where no confirmed citation closes it`;
-  return record3.status === GradeFindingStatus.Resolved && uncovered.length > 0 ? reopenRecord({ record: merged, reason, at }) : merged;
-};
-
-// src/plan/common/memory/mergeFindingRecords.ts
-var dispositionOf = ({ outcome }) => outcome === GapOutcome.Unjudged ? void 0 : outcome;
-var statusFor = ({ disposition }) => disposition === GapOutcome.NeedsAHuman ? GradeFindingStatus.Open : GradeFindingStatus.Noted;
-var complete = ({ record: record3 }) => ({
-  lens: void 0,
-  disposition: void 0,
-  unjudgedReason: void 0,
-  sharedDefect: void 0,
-  supersededBy: void 0,
-  humanDecision: void 0,
-  agentDecision: void 0,
-  safeBecause: void 0,
-  answerAt: void 0,
-  resolution: void 0,
-  ...record3
-});
-var openRecord = ({ gap, id, at }) => {
-  const disposition = dispositionOf({ outcome: gap.outcome });
-  return complete({
-    record: {
-      id,
-      phase: gap.phase,
-      lens: gap.lens,
-      area: gap.area,
-      gap: gap.gap,
-      decision: gap.decision,
-      options: gap.options,
-      observations: gapObservations({ gap }),
-      firstSeen: at,
-      lastSeen: at,
-      status: disposition === void 0 ? GradeFindingStatus.Pending : statusFor({ disposition }),
-      disposition,
-      unjudgedReason: disposition === void 0 ? gap.unjudgedReason : void 0,
-      sharedDefect: gap.sharedDefect,
-      humanDecision: gap.humanDecision,
-      agentDecision: gap.agentDecision,
-      safeBecause: gap.safeBecause,
-      answerAt: gap.answerAt,
-      resolutions: [],
-      reopened: []
-    }
-  });
-};
-var promote = ({ record: record3, gap }) => {
-  const disposition = dispositionOf({ outcome: gap.outcome });
-  if (record3.disposition !== void 0 || disposition === void 0) {
-    return record3;
-  }
-  return {
-    ...record3,
-    status: record3.status === GradeFindingStatus.Pending ? statusFor({ disposition }) : record3.status,
-    disposition,
-    unjudgedReason: void 0,
-    humanDecision: record3.humanDecision ?? gap.humanDecision,
-    agentDecision: gap.agentDecision,
-    safeBecause: gap.safeBecause,
-    answerAt: gap.answerAt
-  };
-};
-var touchRecord = ({ record: record3, gap, at }) => {
-  const seen = promote({ record: { ...record3, lastSeen: at, sharedDefect: record3.sharedDefect ?? gap.sharedDefect }, gap });
-  const closed = seen.status === GradeFindingStatus.Resolved || seen.status === GradeFindingStatus.Noted;
-  const ruled = closed && gap.outcome === GapOutcome.NeedsAHuman ? reopenRecord({ record: seen, reason: gap.humanDecision ?? gap.decision, at }) : seen;
-  return complete({ record: absorbObservations({ record: ruled, observations: gapObservations({ gap }), at }) });
-};
-var matchesByText = ({ record: record3, gap }) => record3.phase === gap.phase && record3.area === gap.area && collapseText({ text: record3.gap }) === collapseText({ text: gap.gap });
-var followSupersede = ({ findings, index }) => index !== -1 && findings[index].status === GradeFindingStatus.Superseded ? followSupersede({ findings, index: findings.findIndex((record3) => record3.id === findings[index].supersededBy) }) : index;
-var findRecord = ({ findings, gap }) => {
-  let matches = () => false;
-  if (gap.findingId !== void 0) {
-    matches = (record3) => record3.id === gap.findingId;
-  } else if (gap.lens === void 0) {
-    matches = (record3) => matchesByText({ record: record3, gap });
-  } else if (gap.outcome === GapOutcome.Unjudged) {
-    matches = (record3) => record3.status === GradeFindingStatus.Pending && matchesByText({ record: record3, gap });
-  }
-  return followSupersede({ findings, index: findings.findIndex(matches) });
-};
-var creationOrder = ({ record: record3 }) => Number(record3.id.slice(1));
-var supersede = ({ survivor, absorbed, at }) => {
-  const unanswered = absorbed.status === GradeFindingStatus.Open || absorbed.status === GradeFindingStatus.Pending;
-  const reason = `absorbed the unanswered obligation of ${absorbed.id} when a judge confirmed the two were one defect`;
-  const carrying = { ...survivor, humanDecision: survivor.humanDecision ?? absorbed.humanDecision };
-  const raised = unanswered && carrying.status !== GradeFindingStatus.Open ? reopenRecord({ record: carrying, reason, at }) : carrying;
-  return {
-    survivor: absorbObservations({ record: raised, observations: recordObservations({ record: absorbed }), at }),
-    absorbed: { ...absorbed, status: GradeFindingStatus.Superseded, supersededBy: survivor.id }
-  };
-};
-var pinGroups = ({ memory, gaps, at }) => {
-  const findings = [...memory.findings];
-  const pinned = /* @__PURE__ */ new Map();
-  for (const groupId of new Set(gaps.flatMap((gap) => gap.groupId === void 0 ? [] : [gap.groupId]))) {
-    const members = gaps.filter((gap) => gap.groupId === groupId && gap.findingId !== void 0);
-    const indexes = [...new Set(members.map((gap) => findRecord({ findings, gap })).filter((index) => index !== -1))];
-    const ordered = indexes.sort((first, second) => creationOrder({ record: findings[first] }) - creationOrder({ record: findings[second] }));
-    const [survivorIndex, ...absorbedIndexes] = ordered;
-    for (const absorbedIndex of absorbedIndexes) {
-      const moved = supersede({ survivor: findings[survivorIndex], absorbed: findings[absorbedIndex], at });
-      findings[survivorIndex] = complete({ record: moved.survivor });
-      findings[absorbedIndex] = complete({ record: moved.absorbed });
-    }
-    if (survivorIndex !== void 0) {
-      pinned.set(groupId, findings[survivorIndex].id);
-    }
-  }
-  return { findings, pinned };
-};
-var mergeFindingRecords = ({ memory, gaps, at }) => {
-  const { findings, pinned } = pinGroups({ memory, gaps, at });
-  const stamped = [];
-  let nextFindingNumber = memory.nextFindingNumber;
-  for (const gap of gaps) {
-    const pinnedId = gap.groupId === void 0 ? void 0 : pinned.get(gap.groupId);
-    const index = pinnedId === void 0 ? findRecord({ findings, gap }) : findings.findIndex((record3) => record3.id === pinnedId);
-    if (index === -1) {
-      const id = `f${nextFindingNumber}`;
-      nextFindingNumber += 1;
-      findings.push(openRecord({ gap, id, at }));
-      stamped.push({ ...gap, findingId: id });
-      if (gap.groupId !== void 0) {
-        pinned.set(gap.groupId, id);
-      }
-      continue;
-    }
-    findings[index] = touchRecord({ record: findings[index], gap, at });
-    stamped.push({ ...gap, findingId: findings[index].id });
-  }
-  return { memory: { ...memory, findings, nextFindingNumber }, gaps: stamped };
-};
-
-// src/plan/common/memory/openFindingGaps.ts
-var blockingRuling = ({ record: record3, refusals }) => record3.status === GradeFindingStatus.Pending ? { outcome: GapOutcome.Unjudged, unjudgedReason: record3.unjudgedReason } : { outcome: GapOutcome.NeedsAHuman, humanDecision: record3.humanDecision, unjudgedReason: refusals?.get(record3.id) };
-var openFindingGaps = ({ memory, gaps, refusals }) => {
-  const carried = new Set(gaps.filter((gap) => isBlockingGap({ gap })).map((gap) => gap.findingId));
-  const blocking = [GradeFindingStatus.Open, GradeFindingStatus.Pending];
-  return memory.findings.filter((record3) => blocking.includes(record3.status) && !carried.has(record3.id)).map((record3) => ({
-    area: record3.area,
-    gap: record3.gap,
-    decision: record3.decision,
-    options: record3.options,
-    phase: record3.phase,
-    lens: record3.lens,
-    observations: record3.observations,
-    sharedDefect: record3.sharedDefect,
-    ...blockingRuling({ record: record3, refusals }),
-    findingId: record3.id
-  }));
-};
-
-// src/plan/common/memory/recordReadCoverage.ts
-var keyOf = ({ file: file2, lens }) => `${file2}\0${lens}`;
-var pairsRead = ({ read, light }) => {
-  const pairs = /* @__PURE__ */ new Map();
-  for (const { phase, lens } of read) {
-    pairs.set(keyOf({ file: phase, lens }), { file: phase, lens });
-  }
-  for (const file2 of light.phases) {
-    for (const lens of light.lenses) {
-      pairs.set(keyOf({ file: file2, lens }), { file: file2, lens });
-    }
-  }
-  return [...pairs.values()];
-};
-var freshEntries = ({ read, light, designHashes, connections, at }) => {
-  if (connections === void 0) {
-    return [];
-  }
-  return pairsRead({ read, light }).flatMap(({ file: file2, lens }) => {
-    const designSha256 = designHashes.get(file2);
-    return designSha256 === void 0 ? [] : [{ file: file2, lens, designSha256, neighbours: [...connections.get(file2) ?? []].sort(), at }];
-  });
-};
-var documentationEntry = ({ designHashes, at }) => ({
-  planFiles: [...designHashes].map(([file2, designSha256]) => ({ file: file2, designSha256 })).sort((left, right) => left.file.localeCompare(right.file)),
-  at
-});
-var recordReadCoverage = ({
-  standing,
-  docs,
-  read,
-  light,
-  designHashes,
-  connections,
-  documentationChecked,
-  narrowed,
-  at
-}) => {
-  if (narrowed) {
-    return { readers: standing, docs };
-  }
-  const fresh = freshEntries({ read, light, designHashes, connections, at });
-  const written = new Set(fresh.map((entry) => keyOf(entry)));
-  return {
-    readers: [...standing.filter((entry) => !written.has(keyOf(entry))), ...fresh],
-    docs: documentationChecked ? documentationEntry({ designHashes, at }) : docs
-  };
-};
-
-// src/plan/common/memory/recordPassCoverage.ts
-var recordPassCoverage = ({
-  planFiles,
-  overviewText,
-  inputs,
-  standing,
-  docs,
-  read,
-  light,
-  connections,
-  documentationChecked,
-  narrowed,
-  at
-}) => {
-  const coverage = recordReadCoverage({
-    standing,
-    docs,
-    read,
-    light: { phases: light, lenses: gapCheckLenses },
-    designHashes: getDesignHashes({ inputs }),
-    connections,
-    documentationChecked,
-    narrowed,
-    at
-  });
-  return { coverage, standing: getPassCoverage({ phaseFiles: planFiles, overviewText, inputs, coverage, connections }) };
-};
-
-// src/plan/common/memory/verifyOpenFindings.ts
-import { basename as basename30, relative as relative9 } from "node:path";
-
-// src/plan/common/memory/settleRecheckedRecord.ts
-var checkLocation = async ({
-  cwd,
-  location,
-  planText,
-  outcome
-}) => {
-  const report2 = outcome?.ok === true ? outcome.report : void 0;
-  const citation = report2?.outcome === GapOutcome.AlreadyAnswered ? report2.answerAt ?? "" : void 0;
-  const confirmed = citation === void 0 ? void 0 : await confirmCitation({ cwd, citation, planText });
-  return {
-    resolution: confirmed?.ok === true && citation !== void 0 ? { phase: location, answerAt: citation } : void 0,
-    refusal: confirmed?.ok === false ? `${location}: ${confirmed.reason}` : void 0
-  };
-};
-var settleRecheckedRecord = async ({ cwd, record: record3, located, at }) => {
-  const checks = await Promise.all(located.map(({ location, planText, outcome }) => checkLocation({ cwd, location, planText, outcome })));
-  const resolutions = checks.flatMap(({ resolution }) => resolution === void 0 ? [] : [{ ...resolution, verifiedAt: at }]);
-  const refusals = checks.flatMap(({ refusal }) => refusal === void 0 ? [] : [refusal]);
-  const closed = resolutions.length === located.length;
-  const asked = { ...record3, lastRecheckedAt: at, resolution: void 0 };
-  return {
-    record: closed ? { ...asked, status: GradeFindingStatus.Resolved, resolutions } : asked,
-    refusal: refusals.length > 0 ? refusals.join("; ") : void 0
-  };
-};
-
-// src/plan/common/memory/verifyOpenFindings.ts
-var locationsOf = ({ record: record3 }) => findingLocations({ observations: recordObservations({ record: record3 }), phase: record3.phase });
-var recheckPairs = ({
-  record: record3,
-  locations,
-  files,
-  overviewText
-}) => {
-  const observations = recordObservations({ record: record3 });
-  return locations.map((location) => ({
-    record: record3,
-    location,
-    locations,
-    observation: observations.filter((observation) => observation.phase === location)[0],
-    planText: recheckPlanText({ files, overviewText, phase: location })
-  }));
-};
-var isWorthAsking = ({
-  record: record3,
-  locations,
-  invalidated,
-  planFiles
-}) => record3.lastRecheckedAt === void 0 || locations.some((location) => invalidated.includes(location) || !planFiles.includes(location));
-var spawnRecheck = async ({ params, pair }) => {
-  const { cwd, driver, workspaceDir, overviewText, standards, model, effort, permissions, timeoutMs = 10 * 60 * 1e3, level } = params;
-  const invokePlanAgent = createPlanAgentRunner({
-    cwd,
-    driver,
-    workspaceDir,
-    step: `grade-recheck-${pair.record.id}-${basename30(pair.location, ".md")}`,
-    level,
-    model,
-    effort,
-    permissions,
-    timeoutMs
-  });
-  const outcome = await invokePlanAgent({
-    invocation: buildPlanFindingRecheckInvocation({
-      planText: pair.planText,
-      overviewText,
-      standards,
-      // Only a phased plan has siblings to point at, and a record raised
-      // against one phase may now be answered in another.
-      planDir: overviewText === void 0 ? void 0 : relative9(cwd, workspaceDir),
-      record: pair.record,
-      observation: pair.observation,
-      locations: pair.locations
-    }),
-    contract: GapVerdict
-  });
-  return { outcome };
-};
-var verifyOpenFindings = async (params) => {
-  const { cwd, files, overviewText, memory, at, skipReason: skipReason2, invalidated } = params;
-  const planFiles = files.map((file2) => basename30(file2.path));
-  const located = memory.findings.filter((record3) => record3.status === GradeFindingStatus.Open).map((record3) => ({ record: record3, locations: locationsOf({ record: record3 }) }));
-  const worth = skipReason2 === void 0 ? located.filter((entry) => isWorthAsking({ ...entry, invalidated, planFiles })) : [];
-  const asked = worth.map(({ record: record3 }) => record3);
-  const pairs = worth.flatMap(({ record: record3, locations }) => recheckPairs({ record: record3, locations, files, overviewText }));
-  const results = await drainTasks({
-    tasks: pairs.map((pair) => () => spawnRecheck({ params, pair })),
-    concurrency: planAgentConcurrency,
-    shouldStop: ({ results: settled3 }) => settled3.some((result) => isRateLimited({ result }))
-  });
-  const settled2 = /* @__PURE__ */ new Map();
-  const refusals = /* @__PURE__ */ new Map();
-  for (const record3 of asked) {
-    const answers = pairs.flatMap(
-      (pair, slot) => pair.record === record3 ? [{ location: pair.location, planText: pair.planText, outcome: results[slot]?.outcome }] : []
-    );
-    const { record: next, refusal } = await settleRecheckedRecord({ cwd, record: record3, located: answers, at });
-    settled2.set(record3.id, next);
-    if (refusal !== void 0) {
-      refusals.set(record3.id, refusal);
-    }
-  }
-  return {
-    memory: { ...memory, findings: memory.findings.map((record3) => settled2.get(record3.id) ?? record3) },
-    rateLimited: results.some((result) => isRateLimited({ result })),
-    refusals
-  };
-};
-
-// src/plan/common/memory/writeGradeMemory.ts
-var writeGradeMemory = async ({ cwd, name, memory }) => {
-  await writeJsonFile({ path: await gradeMemoryPath({ cwd, name }), value: GradeMemory.parse(memory) });
-};
-
-// src/plan/common/grading/runGradePass.ts
-var nextBaselines = ({ memory, report: report2, inputs, at }) => ({
-  lastPass: report2.scopeComplete ? { scope: report2.scope, inputs, at } : memory.lastPass,
-  lastPassingFullReview: report2.complete && report2.passed ? { inputs, at } : memory.lastPassingFullReview
-});
-var persistPass = async ({
-  cwd,
-  name,
-  workspaceDir,
-  report: report2,
-  memory
-}) => {
-  await writeJsonFile({ path: join70(workspaceDir, gradeFileName), value: report2 });
-  await appendGradeHistory({ cwd, name, report: report2 });
-  await writeGradeMemory({ cwd, name, memory });
-};
-var runGradePass = async (args) => {
-  const { params, pass, scope, focusedOn, scopeReason, inputs, structural, stamp: stamp3, progress } = args;
-  const { cwd, name, phases } = params;
-  const passLevel = params.level?.open({ level: ActivityLevelKind.Pass, label: `${scope} pass` });
-  const passParams = { ...params, level: passLevel };
-  const passArgs = { ...args, params: passParams };
-  const at = (/* @__PURE__ */ new Date()).toISOString();
-  const { planFiles, weights, heavy, light, connections, found, documentation, memory: opened, carried } = await prepareGradePass({ ...passArgs, at });
-  const agents = await drainGradeAgents({ params: passParams, pass, selected: heavy, carried, memory: opened, documentation, progress });
-  const verified = await verifyOpenFindings({
-    ...passParams,
-    workspaceDir: pass.workspaceDir,
-    overviewText: pass.overviewText,
-    files: pass.files,
-    memory: opened,
-    at,
-    skipReason: agents.rateLimited ? "the reader fan-out hit the rate-limit wall, so no finding was re-verified" : void 0,
-    // The same value the reader selection narrowed by, never a second closure:
-    // two reach rules that can disagree is the defect one reach rule avoids.
-    invalidated: found.invalidated
-  });
-  const merged = mergeFindingRecords({ memory: verified.memory, gaps: agents.gaps, at });
-  const { coverage, standing } = recordPassCoverage({
-    planFiles,
-    overviewText: pass.overviewText,
-    inputs,
-    standing: found.readers,
-    docs: found.docs,
-    read: agents.read,
-    light,
-    connections,
-    documentationChecked: documentation && agents.documentationComplete,
-    // A human's `--phase` narrowing speaks only for the files they chose, so it
-    // records nothing: writing entries from it is the one way it could buy an approval.
-    narrowed: phases !== void 0,
-    at
-  });
-  const gaps = collapseGroupedGaps({ gaps: [...merged.gaps, ...openFindingGaps({ memory: merged.memory, gaps: merged.gaps, refusals: verified.refusals })] });
-  const report2 = createGradeReport({
-    ...stamp3,
-    name,
-    phases,
-    structural,
-    gaps,
-    failures: agents.failures,
-    phasesChecked: agents.phasesChecked,
-    weights,
-    phasesLight: light,
-    scope,
-    focusedOn,
-    inputs,
-    scopeReason,
-    phasesRequired: heavy.map((file2) => basename31(file2.path)),
-    documentationComplete: agents.documentationComplete,
-    planFiles,
-    covered: standing.covered,
-    documentationCovered: standing.docs !== void 0
-  });
-  const nextMemory = { ...merged.memory, coverage, ...nextBaselines({ memory: merged.memory, report: report2, inputs, at }), updatedAt: at };
-  await persistPass({ cwd, name, workspaceDir: pass.workspaceDir, report: report2, memory: nextMemory });
-  const rateLimited = agents.rateLimited || verified.rateLimited;
-  passLevel?.close({ outcome: rateLimited ? RunStatus.PausedRateLimit : agents.failures.length > 0 ? RunStatus.Failed : RunStatus.Passed });
-  return { report: report2, memory: nextMemory, rateLimited, failures: agents.failures };
-};
-
-// src/plan/common/memory/readGradeMemory.ts
-import { readFile as readFile30 } from "node:fs/promises";
-var readJson = async ({ path }) => {
-  const text = await readFile30(path, "utf8");
-  try {
-    const value = JSON.parse(text);
-    return { value };
-  } catch (cause) {
-    return { failure: cause instanceof Error ? cause.message : String(cause) };
-  }
-};
-var readGradeMemory = async ({ cwd, name }) => {
-  const path = await gradeMemoryPath({ cwd, name });
-  if (!await pathExists({ path })) {
-    return void 0;
-  }
-  const read = await readJson({ path });
-  if ("failure" in read) {
-    throw new Error(`the finding memory at ${path} is not readable JSON: ${read.failure}`);
-  }
-  const parsed = GradeMemory.safeParse(read.value);
-  if (!parsed.success) {
-    throw new Error(`the finding memory at ${path} is not a readable grade memory: ${parsed.error.message}`);
-  }
-  return parsed.data;
-};
-
-// src/plan/common/scope/decideGradeScope.ts
-import { basename as basename32 } from "node:path";
-var everyPhase = ({ files }) => files.map((file2) => basename32(file2.path));
-var decideGradeScope = ({ files, overviewText, memory, inputs, narrowed }) => {
-  const phases = everyPhase({ files });
-  const full = ({ reason: reason2 }) => ({ scope: GradeScope.Full, phases, reuse: false, reason: reason2 });
-  if (narrowed) {
-    return full({ reason: "full review: a human narrowed this pass with --phase, which the engine never overrides" });
-  }
-  if (inputs.gradedCommit === void 0 || inputs.changedFiles === void 0) {
-    return full({ reason: "full review: the git probe did not run, so the state of the code beside the plan is unknown" });
-  }
-  if (memory?.lastPassingFullReview?.inputs.sha256 === inputs.sha256) {
-    return { scope: GradeScope.Full, phases, reuse: true, reason: "the recorded passing full review already covers these inputs" };
-  }
-  const previous = memory?.lastPass?.inputs;
-  if (previous === void 0) {
-    return full({ reason: "full review: no earlier pass is on record, so this pass is the baseline" });
-  }
-  const { otherInputChanged } = getEditedPhases({ current: inputs, previous });
-  if (otherInputChanged) {
-    return full({ reason: "full review: the code, standards, configuration, prompts or model moved since the last pass" });
-  }
-  const seeded = getCoverageSeeds({ inputs, previous, overviewText, phaseFiles: phases });
-  if ("error" in seeded) {
-    return full({ reason: `full review: ${seeded.error}` });
-  }
-  if (files.length < 2 || overviewText === void 0) {
-    return full({ reason: "full review: a single plan file has no phase closure to narrow to" });
-  }
-  const graph = getPhaseGraph({ files, overviewText });
-  if ("error" in graph) {
-    return full({ reason: `full review: the phase graph could not be built \u2014 ${graph.error}` });
-  }
-  const standing = getStandingCoverage({
-    coverage: memory?.coverage ?? { readers: [] },
-    designHashes: getDesignHashes({ inputs }),
-    phaseFiles: phases,
-    lenses: gapCheckLenses,
-    connections: graph.connections,
-    otherInputChanged: false,
-    seeds: seeded.seeds
-  });
-  if (standing.invalidated.length >= files.length) {
-    return full({ reason: "full review: no recorded reading still stands, so this pass reads every plan file anyway" });
-  }
-  const reach = standing.invalidated.length > 0 ? standing.invalidated.join(", ") : "nothing \u2014 every plan file is covered at its current text";
-  const reason = `focused review: the plan files whose recorded reading no longer stands \u2014 ${reach}`;
-  return { scope: GradeScope.Focused, phases: standing.invalidated, reuse: false, reason };
-};
-
-// src/plan/common/scope/getGradeInputs.ts
-import { readFile as readFile31 } from "node:fs/promises";
-import { basename as basename33, join as join71 } from "node:path";
-
-// src/plan/common/scope/getPlanDesignHash.ts
-var droppedRanges = ({ plan, keepRegions }) => [...plan.generatedRegionRanges].filter(([heading]) => !keepRegions.includes(heading)).map(([, range]) => range).sort((left, right) => right.start - left.start);
-var getPlanDesignHash = ({ plan, keepRegions = [], attributed = "" }) => {
-  const design = [...plan.lines];
-  for (const { start, end } of droppedRanges({ plan, keepRegions })) {
-    design.splice(start - 1, end - start + 1);
-  }
-  return sha256({ content: canonicalJson({ value: { design: design.join("\n"), attributed } }) });
-};
-
-// src/plan/common/scope/getOverviewDesignHashes.ts
-var perPhaseRegions = [generatedPlanRegions.phases, generatedPlanRegions.phaseDeclarations];
-var textOf = ({ overview, start, end }) => overview.lines.slice(start - 1, end).join("\n");
-var getOverviewDesignHashes = ({ overview, phaseFiles }) => {
-  const declarations = parsePhaseDeclarations({ plan: overview });
-  const unplaceable = ({ reason }) => ({
-    error: reason,
-    shared: getPlanDesignHash({ plan: overview, keepRegions: perPhaseRegions })
-  });
-  const attributed = /* @__PURE__ */ new Map();
-  const spanless = [];
-  for (const { file: file2, rowLine, blockRange } of declarations) {
-    if (rowLine === void 0 || blockRange === void 0) {
-      spanless.push(file2);
-      continue;
-    }
-    attributed.set(file2, [textOf({ overview, start: rowLine, end: rowLine }), textOf({ overview, ...blockRange })].join("\n"));
-  }
-  if (spanless.length > 0) {
-    return unplaceable({ reason: `the overview declares ${spanless.join(", ")} with no row or no declaration block, so that span belongs to no phase` });
-  }
-  const foreign = [...attributed.keys()].filter((file2) => !phaseFiles.includes(file2));
-  if (foreign.length > 0) {
-    return unplaceable({ reason: `the overview credits text to ${foreign.join(", ")}, which is not a phase file of this plan` });
-  }
-  const undeclared = phaseFiles.filter((file2) => !attributed.has(file2));
-  if (undeclared.length > 0) {
-    return unplaceable({
-      reason: `the overview declares nothing for ${undeclared.join(", ")}, so that phase file's overview text cannot be told from the shared text`
-    });
-  }
-  return { shared: getPlanDesignHash({ plan: overview }), attributed };
-};
-
-// src/plan/common/scope/getGradeInputs.ts
-var hashFile = async ({ path }) => {
-  const content = await readFile31(path).catch(() => void 0);
-  return content === void 0 ? "absent" : sha256({ content });
-};
-var planRelevantConfig = ({ config: config2 }) => ({
-  plan: config2?.plan,
-  docs: config2?.docs,
-  gates: config2?.gates,
-  "packages-dir": config2?.["packages-dir"],
-  "executor-file-limit": config2?.["executor-file-limit"]
-});
-var hashChangedFiles = async ({ cwd, changed }) => Promise.all([...changed].sort().map(async (path) => ({ path, sha256: await hashFile({ path: join71(cwd, path) }) })));
-var toDecisionEntry = ({ row }) => {
-  const phases = row.question.startsWith("Global constraint:") ? void 0 : row.phases;
-  return {
-    sha256: sha256({ content: canonicalJson({ value: row }) }),
-    questionSha256: sha256({ content: row.question }),
-    ...phases === void 0 ? {} : { phases }
-  };
-};
-var overviewBase = "overview.md";
-var readPlanFile = async ({ path }) => {
-  const file2 = basename33(path);
-  const content = await readFile31(path).catch(() => void 0);
-  return content === void 0 ? { file: file2, sha256: "absent" } : { file: file2, sha256: sha256({ content }), plan: parsePlan({ content: content.toString("utf8"), base: file2 }) };
-};
-var readDecisionPart = ({ decisions, overviewDesign }) => ({
-  ...overviewDesign === void 0 ? {} : { overviewDesign },
-  rows: decisions.map((row) => toDecisionEntry({ row }))
-});
-var designHashesOf = ({ read }) => {
-  const overview = read.find((entry) => entry.file === overviewBase)?.plan;
-  const phaseFiles = read.map(({ file: file2 }) => file2).filter((file2) => file2 !== overviewBase);
-  const split = overview === void 0 ? void 0 : getOverviewDesignHashes({ overview, phaseFiles });
-  const hashes = /* @__PURE__ */ new Map();
-  for (const { file: file2, plan } of read) {
-    if (plan === void 0) {
-      continue;
-    }
-    const attributed = split !== void 0 && !("error" in split) ? split.attributed.get(file2) : void 0;
-    hashes.set(file2, file2 === overviewBase && split !== void 0 ? split.shared : getPlanDesignHash({ plan, attributed }));
-  }
-  return hashes;
-};
-var getGradeInputs = async ({ cwd, planPaths, decisions, standards, config: config2, model, effort }) => {
-  const read = (await Promise.all(planPaths.map((path) => readPlanFile({ path })))).sort((left, right) => left.file > right.file ? 1 : -1);
-  const designHashes = designHashesOf({ read });
-  const planFiles = read.map(({ file: file2, sha256: fileSha256 }) => {
-    const designSha256 = designHashes.get(file2);
-    return { file: file2, sha256: fileSha256, ...designSha256 === void 0 ? {} : { designSha256 } };
-  });
-  const gradedCommit = await readGitHeadCommit({ cwd });
-  const changed = await readGitChangedFiles({ cwd });
-  const decisionLog = readDecisionPart({ decisions, overviewDesign: designHashes.get(overviewBase) });
-  const measured = {
-    planFiles,
-    gradedCommit,
-    changedFiles: changed === void 0 ? void 0 : await hashChangedFiles({ cwd, changed }),
-    standards: standards === void 0 ? void 0 : sha256({ content: standards }),
-    config: sha256({ content: canonicalJson({ value: planRelevantConfig({ config: config2 }) }) }),
-    prompts: sha256({ content: planGradePromptTexts.join("\n") }),
-    model,
-    effort,
-    decisionLog
-  };
-  return { ...measured, sha256: sha256({ content: canonicalJson({ value: measured }) }) };
-};
-
-// src/plan/common/utils/selectPhaseFiles.ts
-import { basename as basename34 } from "node:path";
-var phaseIndexOf = ({ file: file2 }) => Number(/^phase(\d+)/.exec(basename34(file2.path))?.[1] ?? Number.NaN);
-var selectPhaseFiles = ({ files, phases }) => {
-  if (phases === void 0) {
-    return { selected: files };
-  }
-  const listing = `available: ${files.map((file2) => basename34(file2.path)).join(", ")}`;
-  if (phases.length === 0) {
-    return { error: `--phase named no phase file \u2014 ${listing}` };
-  }
-  const wanted = /* @__PURE__ */ new Set();
-  for (const value of phases) {
-    const matches = /^\d+$/.test(value) ? files.filter((file2) => phaseIndexOf({ file: file2 }) === Number(value)) : files.filter((file2) => basename34(file2.path) === value);
-    if (matches.length !== 1) {
-      return { error: `--phase ${value} matches ${matches.length} plan file(s) \u2014 ${listing}` };
-    }
-    wanted.add(matches[0].path);
-  }
-  return { selected: files.filter((file2) => wanted.has(file2.path)) };
-};
-
-// src/plan/runPlanGrade.ts
-var stopOnStructure = async ({
-  params,
-  gradePath,
-  structural,
-  blocking,
-  stamp: stamp3,
-  progress
-}) => {
-  const report2 = createGradeReport({
-    name: params.name,
-    phases: params.phases,
-    structural,
-    gaps: [],
-    failures: [`${blocking} blocking structural finding(s) \u2014 the semantic readers were not launched`],
-    phasesChecked: [],
-    commit: stamp3.commit,
-    treeDirty: stamp3.treeDirty,
-    phasesRequired: [],
-    documentationComplete: false
-  });
-  await writeJsonFile({ path: gradePath, value: report2 });
-  await appendGradeHistory({ cwd: params.cwd, name: params.name, report: report2 });
-  progress(`plan grade ${params.name}: ${blocking} blocking structural finding(s) \u2014 stopped before any agent was spawned`);
-  return report2;
-};
-var runDecidedPass = async (context) => {
-  const { params, pass, selected, decision, inputs, memory, structural, stamp: stamp3, progress } = context;
-  const focused = decision.scope === GradeScope.Focused;
-  return runGradePass({
-    params,
-    pass,
-    selected: focused ? selected.filter((file2) => decision.phases.includes(basename35(file2.path))) : selected,
-    scope: decision.scope,
-    focusedOn: focused ? decision.phases : [],
-    scopeReason: decision.reason,
-    inputs,
-    memory,
-    structural,
-    stamp: stamp3,
-    progress
-  });
-};
-var runPlanGrade = async (params) => {
-  const { cwd, name, phases, onProgress, standards, model, effort } = params;
-  const progress = onProgress ?? (() => void 0);
-  const pass = await getPlanDetectionPass({ cwd, name });
-  const { workspaceDir, files, planPaths, config: config2, error: error51 } = pass;
-  if (error51) {
-    return { status: PlanRunStatus.Failed, workspaceDir, error: error51 };
-  }
-  const selection = selectPhaseFiles({ files, phases });
-  if ("error" in selection) {
-    return { status: PlanRunStatus.Failed, workspaceDir, error: selection.error };
-  }
-  const gradePath = join72(workspaceDir, gradeFileName);
-  const structural = await lintPlanStructure({ cwd, planPaths, decisions: pass.decisions, config: config2 });
-  const stamp3 = await readGradeStamp({ cwd });
-  const blockingStructural = getBlockingFindings({ findings: structural });
-  if (blockingStructural.length > 0) {
-    const stopped = await stopOnStructure({ params, gradePath, structural, blocking: blockingStructural.length, stamp: stamp3, progress });
-    return { status: PlanRunStatus.Complete, workspaceDir, grade: stopped, gradePath };
-  }
-  await notePriorArtCollisions({ cwd, name, workspaceDir, planPaths, config: config2, onProgress: progress });
-  let found;
-  try {
-    found = await readGradeMemory({ cwd, name });
-  } catch (cause) {
-    return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: cause }) };
-  }
-  const inputs = await getGradeInputs({ cwd, planPaths, decisions: pass.decisions.decisions, standards, config: config2, model, effort });
-  const decision = decideGradeScope({ files, overviewText: pass.overviewText, memory: found, inputs, narrowed: phases !== void 0 });
-  const reusable = decision.reuse ? await readReusableGrade({ gradePath, sha256: inputs.sha256 }) : void 0;
-  if (reusable !== void 0) {
-    progress(
-      `plan grade ${name}: the recorded passing full review still covers the current inputs \u2014 nothing was re-run; delete ${await gradeMemoryPath({ cwd, name })} to force a new baseline`
-    );
-    return { status: PlanRunStatus.Complete, workspaceDir, grade: reusable, gradePath, reused: true };
-  }
-  const memory = found ?? { planName: name, findings: [], coverage: { readers: [] }, nextFindingNumber: 1, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const last = await runDecidedPass({ params, pass, selected: selection.selected, decision, inputs, memory, structural, stamp: stamp3, progress });
-  const report2 = last.report;
-  const blocking = getBlockingGaps({ gaps: report2.gaps });
-  progress(`plan grade ${name}: judged ${report2.gaps.length} finding(s), ${blocking.length} blocking`);
-  progress(`plan grade ${name}: ${report2.grade} (${structural.length} structural, ${report2.gaps.length} gap(s), ${blocking.length} blocking)`);
-  if (last.rateLimited) {
-    const parked = `rate limited or overloaded \u2014 re-run: lightsout plan grade --name ${name}`;
-    return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: parked, grade: report2, gradePath };
-  }
-  return last.failures.length > 0 ? { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${last.failures.join("; ")}`, grade: report2, gradePath } : { status: PlanRunStatus.Complete, workspaceDir, grade: report2, gradePath };
-};
-
-// src/plan/runPlanLint.ts
-var runPlanLint = async ({ cwd, name, onProgress }) => {
-  const progress = onProgress ?? (() => void 0);
-  const inputs = await getPlanDetectionInputs({ cwd, name });
-  if (inputs.error) {
-    return { status: PlanRunStatus.Failed, error: inputs.error };
-  }
-  const findings = await lintPlanStructure({ cwd, planPaths: inputs.planPaths, decisions: inputs.decisions, config: inputs.config });
-  const blocking = getBlockingFindings({ findings });
-  progress(
-    `plan lint ${name}: ${blocking.length} blocking, ${findings.length - blocking.length} advisory finding(s) across ${inputs.planPaths.length} file(s)`
-  );
-  return { status: PlanRunStatus.Complete, findings, planPaths: inputs.planPaths };
-};
-
-// src/plan/runPlanVerifyFacts.ts
-import { copyFile, mkdir as mkdir17, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join74, resolve as resolve7 } from "node:path";
-
-// src/plan/verifyFacts.ts
-import { readFile as readFile32 } from "node:fs/promises";
-import { join as join73 } from "node:path";
-var verifyFacts = async ({ cwd, facts }) => {
-  const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
-  const missingPaths = [];
-  for (const path of paths) {
-    const exists3 = await pathExists({ path: join73(cwd, path) });
-    if (!exists3) {
-      missingPaths.push(path);
-    }
-  }
-  const missingScripts = [];
-  let scriptsChecked = 0;
-  for (const area of facts.areas) {
-    if (area.scripts.length === 0) {
-      continue;
-    }
-    const manifestPaths = [join73(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join73(cwd, pkg, "package.json"))];
-    const available = /* @__PURE__ */ new Set();
-    for (const manifestPath of manifestPaths) {
-      const raw = await readFile32(manifestPath, "utf8").catch(() => void 0);
-      if (raw) {
-        for (const key of getManifestScriptKeys({ raw })) {
-          available.add(key);
-        }
-      }
-    }
-    for (const script of area.scripts) {
-      scriptsChecked += 1;
-      if (!available.has(script.key)) {
-        missingScripts.push(script.key);
-      }
-    }
-  }
-  return {
-    pathsChecked: paths.length,
-    missingPaths,
-    scriptsChecked,
-    missingScripts
-  };
-};
-
-// src/plan/runPlanVerifyFacts.ts
-var snapshotNotes = async ({
-  cwd,
-  workspaceDir,
-  notesFile,
-  progress
-}) => {
-  const source = resolve7(cwd, notesFile);
-  const destination = join74(workspaceDir, "brainstorm-notes.md");
-  const alreadyFrozen = await pathExists({ path: destination });
-  if (alreadyFrozen) {
-    progress("plan verify-facts \xB7 brainstorm-notes.md already frozen \u2014 snapshot skipped");
-    return { error: void 0 };
-  }
-  try {
-    await mkdir17(workspaceDir, { recursive: true });
-    await copyFile(source, destination);
-  } catch {
-    return { error: `notes file not found: ${source}` };
-  }
-  progress(`plan verify-facts \xB7 notes frozen \u2192 ${destination}`);
-  return { error: void 0 };
-};
-var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
-  const progress = onProgress ?? (() => void 0);
-  const workspaceDir = await planWorkspaceDir({ cwd, name });
-  const factsPath = join74(workspaceDir, "facts.json");
-  if (notesFile !== void 0) {
-    const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
-    if (snapshot.error !== void 0) {
-      return { status: PlanRunStatus.Failed, workspaceDir, error: snapshot.error };
-    }
-  }
-  let authored;
-  try {
-    authored = await readPlanWorkspaceFile({
-      cwd,
-      name,
-      fileName: "facts.json",
-      schema: AuthoredFacts,
-      notFound: (filePath) => `no authored facts for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`
-    });
-  } catch (error51) {
-    return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error: error51 }) };
-  }
-  const verification = await verifyFacts({ cwd, facts: authored });
-  const facts = {
-    request: authored.request,
-    areas: authored.areas,
-    verification,
-    verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  await writeFile14(factsPath, `${JSON.stringify(facts, void 0, "	")}
-`, "utf8");
-  const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
-  progress(
-    `plan verify-facts \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
-  );
-  return { status: PlanRunStatus.Complete, facts, factsPath, workspaceDir, error: void 0 };
-};
-
-// src/brainstorm/publish/publishBrainstorm.ts
-var contentTypeOf2 = ({ name }) => name.endsWith(".json") ? "application/json" : "text/markdown";
-var prepareAttachments2 = async ({
-  dir,
-  titlePrefix
-}) => {
-  const files = [];
-  for (const name of brainstormAttachmentFileNames) {
-    const content = await readFile33(join75(dir, name)).catch((error51) => ({ error: messageOf({ error: error51 }) }));
-    const optional2 = titlePrefix !== void 0 && name !== brainstormNotesFileName;
-    if (Buffer.isBuffer(content)) {
-      files.push({ name, content });
-    } else if (!optional2) {
-      return { error: `could not read ${name} from ${dir} \u2014 run the \`brainstorm\` skill first: ${content.error}` };
-    }
-  }
-  return { attachments: [...files, { name: brainstormAttachmentManifestName, content: serializeAttachmentManifest({ files }) }] };
-};
-var attachBrainstormFiles = async ({
-  settings,
-  ticketId,
-  ticketRef,
-  attachments,
-  onProgress,
-  titlePrefix
-}) => {
-  const published = [];
-  for (const attachment of attachments) {
-    const title = attachmentTitle({ prefix: titlePrefix, name: attachment.name });
-    const failure = await setTicketAttachment3({
-      settings,
-      ticketId,
-      title,
-      content: attachment.content,
-      contentType: contentTypeOf2({ name: attachment.name })
-    });
-    if (failure !== void 0) {
-      return { published, error: failure.error };
-    }
-    published.push(title);
-    onProgress(`attached ${title} to ${ticketRef}`);
-  }
-  return { published, error: void 0 };
-};
-var publishBrainstorm = async ({ cwd, name, config: config2, env, onProgress, titlePrefix }) => {
-  const prepared = await prepareAttachments2({ dir: await planWorkspaceDir({ cwd, name }), titlePrefix });
-  if ("error" in prepared) {
-    return { published: [], error: prepared.error };
-  }
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      published: [],
-      error: `ship.ticket-pattern is not a usable regular expression with a (?<ticket>) group, so brainstorm publish cannot read a ticket id out of plan folder '${name}'`
-    };
-  }
-  const ticketRef = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
-  if (ticketRef === void 0) {
-    return {
-      published: [],
-      error: `plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch so brainstorm publish knows which ticket to attach to`
-    };
-  }
-  const settings = resolveTrackerSettings({ config: config2, env });
-  if ("error" in settings) {
-    return { ticketRef, published: [], error: settings.error };
-  }
-  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
-  if ("error" in tickets) {
-    return { ticketRef, published: [], error: tickets.error };
-  }
-  const ticket = tickets.at(0);
-  if (ticket === void 0) {
-    return { ticketRef, published: [], error: `there is no ${ticketRef} on the configured ticket tracker` };
-  }
-  const { published, error: error51 } = await attachBrainstormFiles({
-    settings,
-    ticketId: ticket.id,
-    ticketRef,
-    attachments: prepared.attachments,
-    onProgress,
-    titlePrefix
-  });
-  return error51 === void 0 ? { ticketRef, published } : { ticketRef, published, error: error51 };
-};
-
-// src/brainstorm/restore/restoreBrainstormFiles.ts
-import { mkdir as mkdir18, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join76 } from "node:path";
-
-// src/brainstorm/common/utils/isBrainstormOnlyAttachmentName.ts
-var isBrainstormOnlyAttachmentName = ({ name }) => name !== brainstormNotesFileName && brainstormAttachmentFileNames.includes(name);
-
-// src/brainstorm/restore/restoreBrainstormFiles.ts
-var readAttachment2 = async ({
-  settings,
-  attachment
-}) => {
-  const text = await readTicketAsset3({ settings, url: attachment.url });
-  return typeof text === "string" ? { text } : { error: `the ticket's ${attachment.title} could not be read: ${text.error}` };
-};
-var readGeneration = async ({
-  settings,
-  manifest,
-  selected,
-  markerName,
-  required: required2
-}) => {
-  const files = [];
-  for (const listed of manifest.files) {
-    const matches = selected.filter(({ title }) => title === listed.name);
-    const attachment = matches.length === 1 ? matches[0] : void 0;
-    if (attachment === void 0) {
-      return {
-        error: matches.length === 0 ? `${markerName} lists ${listed.name}, but the ticket carries no attachment with that title` : `the ticket carries more than one attachment named ${listed.name}, so ${markerName} cannot select one generation`
-      };
-    }
-    const read = await readAttachment2({ settings, attachment });
-    if ("error" in read) {
-      return { error: read.error };
-    }
-    if (sha256({ content: read.text }) !== listed.sha256) {
-      return { error: `${listed.name} does not match the SHA-256 committed by ${markerName} \u2014 publish the brainstorm again` };
-    }
-    files.push({ title: listed.name, text: read.text });
-  }
-  const missing = required2.filter((name) => !files.some(({ title }) => title === name));
-  return missing.length === 0 ? { files } : { error: `the brainstorm generation on the ticket is missing ${missing.join(", ")} \u2014 publish the brainstorm again from the machine holding the folder` };
-};
-var writeIntoFolder = async ({ dir, files }) => {
-  const restored = [];
-  const skipped = [];
-  try {
-    await mkdir18(dir, { recursive: true });
-    for (const { title, text } of files) {
-      if (await pathExists({ path: join76(dir, title) })) {
-        skipped.push(title);
-        continue;
-      }
-      await writeFile15(join76(dir, title), text, "utf8");
-      restored.push(title);
-    }
-  } catch (error51) {
-    return { restored: [], skipped: [], error: `the fetched brainstorm could not be written: ${messageOf({ error: error51 })}` };
-  }
-  return { restored: restored.sort(), skipped: skipped.sort() };
-};
-var restoreBrainstormFiles = async ({ cwd, name, identifier, settings, titlePrefix }) => {
-  const listed = await getTicketAttachments3({ settings, identifier });
-  if ("error" in listed) {
-    return { restored: [], skipped: [], error: listed.error };
-  }
-  const attachments = scopeAttachments({ attachments: listed, prefix: titlePrefix });
-  const markerName = attachmentTitle({ prefix: titlePrefix, name: brainstormAttachmentManifestName });
-  const selected = attachments.filter(({ title }) => brainstormAttachmentFileNames.includes(title));
-  const markers = attachments.filter(({ title }) => title === brainstormAttachmentManifestName);
-  const marker = markers[0];
-  const isEvidence = titlePrefix === void 0 ? isBrainstormOnlyAttachmentName : ({ name: title }) => brainstormAttachmentFileNames.includes(title);
-  if (!attachments.some(({ title }) => isEvidence({ name: title })) && markers.length === 0) {
-    return { restored: [], skipped: [] };
-  }
-  if (marker === void 0 || markers.length > 1) {
-    return {
-      restored: [],
-      skipped: [],
-      error: marker === void 0 ? `the ticket carries brainstorm attachments but no ${markerName} commit marker \u2014 publish the brainstorm again` : `the ticket carries more than one ${markerName} attachment, so no single committed brainstorm generation can be selected`
-    };
-  }
-  const markerRead = await readAttachment2({ settings, attachment: marker });
-  if ("error" in markerRead) {
-    return { restored: [], skipped: [], error: markerRead.error };
-  }
-  const parsed = parseAttachmentManifest({
-    text: markerRead.text,
-    markerName,
-    // The list holds two bare names, so membership is already the bareness
-    // guard the plan side needs `basename` for.
-    isAllowedName: ({ name: listed2 }) => brainstormAttachmentFileNames.includes(listed2)
-  });
-  if ("error" in parsed) {
-    return { restored: [], skipped: [], error: parsed.error };
-  }
-  const generation = await readGeneration({
-    settings,
-    manifest: parsed.manifest,
-    selected,
-    markerName,
-    // Under a prefix `brainstorm-decisions.json` is optional, because a plan of
-    // a ticket may be shaped by a brainstorm that settled no decision of its own.
-    required: titlePrefix === void 0 ? brainstormAttachmentFileNames : [brainstormNotesFileName]
-  });
-  if ("error" in generation) {
-    return { restored: [], skipped: [], error: generation.error };
-  }
-  return writeIntoFolder({ dir: await planWorkspaceDir({ cwd, name }), files: generation.files });
-};
-
-// src/cli/common/args/getStringFlag.ts
-var getStringFlag = ({ flags, name }) => {
-  const value = flags.get(name);
-  return typeof value === "string" ? value : void 0;
-};
-
-// src/commands/common/constants/build/autoPlanCatalogEntry.ts
-var autoPlanCatalogEntry = {
-  id: "auto-plan",
-  slash: "/auto-plan",
-  group: CommandGroup.Build,
-  summary: "Plan a ticket alone \u2014 self-answers every question below a written escalation bar, shows you one proposal, and rolls onward per the `auto-plan` config block.",
-  whenToUse: 'Reach for it when the ticket is shaped enough that you would answer most of the interview with "you decide". It stops for the questions two reasonable engineers would answer differently, and for nothing else; the `auto-plan` config block says whether approval also starts the build.',
-  invocations: [],
-  flags: [],
-  steps: [],
-  records: CommandRecordKind.Plans,
-  related: ["brainstorm", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/brainstormCatalogEntry.ts
-var brainstormCatalogEntry = {
-  id: "brainstorm",
-  slash: "/brainstorm",
-  cli: "lightsout brainstorm",
-  group: CommandGroup.Build,
-  summary: "Shape a vague idea into a buildable direction through dialogue \u2014 checks whether it is one idea or several, offers 2\u20133 competing approaches with trade-offs and a recommendation, and converges on a design stated in plain words.",
-  whenToUse: "Reach for it when the idea is still a sentence and you are not sure it is one idea or three. It decides its own outcome \u2014 ready to implement, or ready to auto-plan \u2014 and publishes the design write-up and the settled decisions to the ticket.",
-  invocations: [{ id: "brainstorm-publish", positional: "publish" }],
-  flags: [
-    {
-      name: "name",
-      value: "<name>",
-      meaning: "The brainstorm\u2019s plan, under .lightsout/tickets/<ticket-branch>/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
-      required: true
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository the brainstorm workspace lives in.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Plans,
-  related: ["auto-plan", "plan", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/implementSteps.ts
-var implementSteps = [
-  {
-    title: "START THE RUN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Hand the finished plan to `/implement`",
-      "Resolve settings from the config",
-      "Snapshot existing worktree changes and create a run ID",
-      "Create a repository lock so other lightsout runs cannot clash"
-    ],
-    note: "Isolates the agent\u2019s changes and makes the run safely resumable",
-    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
-  },
-  {
-    title: "VERIFY THE REPO STARTS GREEN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Run lint, type checks, tests, build, and coverage before implementation begins",
-      "Stop immediately if any gate is already failing",
-      "Record files touched by setup or gates in the manifest"
-    ],
-    note: "Proves any later failure was introduced by this run, not inherited from the repository",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "IMPLEMENT THE PLAN",
-    actor: CommandActor.Agent,
-    bullets: [
-      "The implementation agent follows the finished spec",
-      "It writes the code and returns a structured report",
-      "It can run only commands explicitly allowed in the config"
-    ],
-    note: "Executes the finished spec without reopening settled decisions",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-implement.jsonl", "rejected-*.txt"]
-  },
-  {
-    title: "VERIFY THE IMPLEMENTATION",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Re-run lint, type checks, tests, build, and coverage",
-      "Try up to two lightweight repairs if a gate fails",
-      "If the gates remain red, park the run with all evidence"
-    ],
-    note: "Prevents a broken implementation from moving forward",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "WRITE THE TESTS",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Spawn a test-writing agent for each source file that changed",
-      "Add tests until coverage meets the configured threshold",
-      "Skip this step when no eligible source files changed"
-    ],
-    note: "Makes sure the new behavior is covered by tests",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-write-tests.jsonl"]
-  },
-  {
-    title: "VERIFY THE TESTS",
-    actor: CommandActor.Engine,
-    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
-    note: "Confirms the new tests pass and coverage meets the configured threshold",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "REFACTOR",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Review changed code for duplication and structural issues",
-      "Reuse existing helpers or extract shared abstractions",
-      "Refactor to your code standards without changing behavior",
-      "Skip this step when requested or when nothing changed"
-    ],
-    note: "Removes duplication and keeps agent-written code aligned with your code standards",
-    saved: [".lightsout/runs/<id>/agents/", "stream-NN-refactor.jsonl"]
-  },
-  {
-    title: "VERIFY THE REFACTOR",
-    actor: CommandActor.Engine,
-    bullets: ["Re-run lint, type checks, tests, build, and coverage", "Try up to two lightweight repairs if a gate fails"],
-    note: "Confirms the refactor preserved behavior and passes every gate",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "FORMAT THE CODE",
-    actor: CommandActor.Engine,
-    bullets: ["Run the configured formatter on all changed files", "Re-run lint, type checks, tests, build, and coverage"],
-    note: "Confirms formatting does not break a green run",
-    saved: [".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "REPORT THE RESULT",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Generate the final report from artifacts saved during the run",
-      "Record the final status, steps, retries, rejected reports, token cost, and friction",
-      "Keep the complete run history in one folder"
-    ],
-    note: "Leaves an inspectable record of what happened and why the run passed or failed",
-    saved: [".lightsout/runs/<id>/"]
-  }
-];
-
-// src/commands/common/constants/build/implementCatalogEntry.ts
-var implementCatalogEntry = {
-  id: "implement",
-  slash: "/implement",
-  cli: "lightsout implement",
-  group: CommandGroup.Build,
-  summary: "Run the lightsout deterministic implementation pipeline on a plan file.",
-  whenToUse: "Run it when a plan is graded and you want the work done unattended. Every step is gated by the repo\u2019s own tests, lint, types and coverage, and the run parks rather than pushing past a gate it cannot satisfy.",
-  invocations: [{ id: "implement" }, { id: "implement-folder", note: "folder: overview.md runs all phases, else plan.md" }],
-  flags: [
-    { name: "plan", value: "<path>", meaning: "The plan file to implement.", shape: "implement", required: true },
-    {
-      name: "overview",
-      value: "<path>",
-      meaning: "The overview this plan is one phase of, so the run reads the wider intent.",
-      fallback: "The plan is implemented on its own.",
-      shape: "implement",
-      required: false
-    },
-    {
-      name: "packages",
-      value: "<a,b>",
-      meaning: "Comma-separated package names the gates are scoped to.",
-      fallback: "The packages the run actually changed files in.",
-      shape: "implement",
-      required: false
-    },
-    {
-      name: "plan",
-      value: "<folder>",
-      meaning: "A plan workspace folder \u2014 overview.md runs every phase as a child run, plan.md runs the one.",
-      shape: "implement-folder",
-      required: true
-    },
-    {
-      name: "start-phase",
-      value: "<n>",
-      meaning: "The phase number a phased run begins at.",
-      fallback: "The first phase that has not already passed.",
-      shape: "implement-folder",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to implement in.", fallback: "The process working directory.", required: false },
-    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
-    {
-      name: "worktree",
-      meaning: "Build in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
-      fallback: "The `implement.worktree` config key, which defaults to on.",
-      required: false
-    },
-    { name: "no-worktree", meaning: "Build in the checkout this was launched from rather than a worktree of its own.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
-    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
-  ],
-  steps: implementSteps,
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"],
-  graphic: {
-    title: "How /implement turns the spec into verified code",
-    subtitle: "Ten steps, deterministic gates throughout, and a complete record saved to disk.",
-    banner: "The model can claim success. Lightsout requires evidence.",
-    columns: 5
-  }
-};
-
-// src/commands/common/constants/build/implementDirectCatalogEntry.ts
-var implementDirectCatalogEntry = {
-  id: "implement-direct",
-  cli: "lightsout implement-direct",
-  group: CommandGroup.Build,
-  summary: "Build one ticket straight from its body, with the repo's own gates as the only bar, and commit what passes.",
-  whenToUse: "Run it on work small enough that a plan would cost more than the work: it reads the ticket body, builds from it, runs the repo\u2019s gates, and commits. It refuses a dirty tree, because it commits everything in the tree when it is done.",
-  invocations: [{ id: "implement-direct" }],
-  flags: [
-    { name: "ticket", value: "<path>", meaning: "A file holding the ticket body to build from.", required: true },
-    {
-      name: "ref",
-      value: "<ticket>",
-      meaning: "The ticket reference the run and its commit are labelled with.",
-      fallback: "The ticket reference the current branch carries.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to build in.", fallback: "The process working directory.", required: false },
-    {
-      name: "worktree",
-      meaning: "Build in a fresh git worktree of this repository, on a branch named after the ticket.",
-      fallback: "The `implement.worktree` config key, which defaults to on.",
-      required: false
-    },
-    { name: "no-worktree", meaning: "Build in the checkout this was launched from rather than a worktree of its own.", required: false },
-    { name: "ship", meaning: "Ship the branch after the run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
-    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "queue", "resume", "ship", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/planSteps.ts
-var planSteps = [
-  {
-    title: "CREATE THE PLAN WORKSPACE",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Start from a direct request or existing `/brainstorm` notes",
-      "Create a name for the plan",
-      "Preserve any existing notes as the plan\u2019s starting context"
-    ],
-    note: "Gives the plan a stable home without making `/brainstorm` a prerequisite",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md"],
-    savedLabel: "SAVED WHEN NOTES EXIST"
-  },
-  {
-    title: "RECORD THE FACTS",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Inspect the code and files relevant to the plan request",
-      "Record the repository facts the plan will rely on",
-      "Verify every referenced file and path before moving forward"
-    ],
-    note: "Ensures the plan reflects the repository\u2019s current state, not assumptions",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json"]
-  },
-  {
-    title: "SETTLE THE SCOPE AND CONSTRAINTS",
-    actor: CommandActor.You,
-    bullets: [
-      "Decide whether the request needs one plan or multiple phases",
-      "Record the requirements and constraints the plan must follow",
-      "Planning agent asks questions until you are both aligned"
-    ],
-    note: "Prevents scope and project constraints from being decided during implementation",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
-  },
-  {
-    title: "CHOOSE THE APPROACH",
-    actor: CommandActor.You,
-    bullets: [
-      "Planning agent presents 2\u20133 distinct options with trade-offs",
-      "You choose the approach the plan will follow",
-      "Skip this step only when the approach is already settled"
-    ],
-    note: "Ensures the design is chosen before implementation begins",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
-  },
-  {
-    title: "WRITE THE IMPLEMENTATION PLAN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Turn the verified facts and decisions into a complete plan",
-      "Validate the plan\u2019s structure and revise it until it passes",
-      "Use one plan or split larger work into clear phases"
-    ],
-    note: "Creates the specification the implementation agent will follow",
-    saved: [
-      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/plan.md",
-      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/overview.md",
-      ".lightsout/tickets/<ticket-branch>/plans/<plan-id>/phase<N>-<slug>.md"
-    ]
-  },
-  {
-    title: "STRESS-TEST THE PLAN",
-    actor: CommandActor.You,
-    bullets: [
-      "The planning agent questions you about edge cases and unresolved choices",
-      "You answer every decision that could change implementation",
-      "Every answer is added to the plan immediately"
-    ],
-    note: "Prevents the implementation agent from filling gaps on its own",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/decisions.json"]
-  },
-  {
-    title: "CATCH DUPLICATION BEFORE CODING",
-    actor: CommandActor.You,
-    bullets: [
-      "The planning agent searches for existing code related to the plan request",
-      "Decide whether to reuse, extend, extract, defer, or keep the code separate",
-      "Update the plan before implementation begins"
-    ],
-    note: "Prevents duplicate logic and competing abstractions",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/dedup.json"]
-  },
-  {
-    title: "GET THE PLAN TO AN A GRADE",
-    actor: CommandActor.Engine,
-    bullets: [
-      "The engine grades the plan and identifies every gap",
-      "The planning agent updates the plan to address each finding",
-      "Re-grade until it earns an A with no unresolved gaps"
-    ],
-    note: "Proves the plan is complete enough for an implementation agent with no prior context",
-    saved: [".lightsout/tickets/<ticket-branch>/plans/<plan-id>/grade.json"]
-  }
-];
-
-// src/commands/common/constants/build/planCatalogEntry.ts
-var planCatalogEntry = {
-  id: "plan",
-  slash: "/plan",
-  cli: "lightsout plan",
-  group: CommandGroup.Build,
-  summary: "Produce a rigorous, implementation-ready plan for a feature \u2014 one a fresh-context agent can implement without guessing.",
-  whenToUse: "Use it when you know what you want and need a plan a fresh agent could implement without guessing. It interviews you, drafts, grills the draft for edge cases, and grades the result before anyone writes code.",
-  invocations: [
-    { id: "plan-workspace", positional: "workspace" },
-    { id: "plan-verify-facts", positional: "verify-facts" },
-    { id: "plan-draft", positional: "draft" },
-    { id: "plan-sync-decisions", positional: "sync-decisions" },
-    { id: "plan-lint", positional: "lint" },
-    { id: "plan-dedup", positional: "dedup" },
-    { id: "plan-grade", positional: "grade", note: "--phase grades only those phases, and always marks the result incomplete" },
-    { id: "plan-publish", positional: "publish" }
-  ],
-  flags: [
-    {
-      name: "name",
-      value: "<name>",
-      meaning: "The plan to work in, under .lightsout/tickets/<ticket-branch>/plans/ \u2014 a plan address <ticket-branch>/<NNN-slug>, or a legacy folder name.",
-      required: true
-    },
-    {
-      name: "notes",
-      value: "<path>",
-      meaning: "Rough notes to start from \u2014 a /brainstorm file, or anything you wrote yourself.",
-      fallback: "The workspace starts from the request alone.",
-      shape: "plan-verify-facts",
-      required: false
-    },
-    {
-      name: "legacy",
-      meaning: "Draft with the previous drafting implementation rather than the focused one.",
-      fallback: "The focused drafting implementation.",
-      shape: "plan-draft",
-      required: false
-    },
-    {
-      name: "scope",
-      value: "single|phased",
-      meaning: "Whether to write one plan or an overview with a file per phase.",
-      fallback: "Chosen from the size of the work.",
-      shape: "plan-draft",
-      required: false
-    },
-    {
-      name: "phase",
-      value: "<n[,n]>",
-      meaning: "Grade only these phases of a phased plan.",
-      fallback: "Every phase is graded, and the result may be complete.",
-      shape: "plan-grade",
-      required: false
-    },
-    {
-      name: "cwd",
-      value: "<path>",
-      meaning: "The checkout the command is launched from; the plan\u2019s worktree is resolved from it.",
-      fallback: "The process working directory.",
-      required: false
-    },
-    {
-      name: "worktree",
-      meaning: "Plan in a fresh git worktree of this repository, on a branch named after the plan\u2019s ticket folder.",
-      fallback: "The `plan.worktree` config key, which defaults to on.",
-      required: false
-    },
-    { name: "no-worktree", meaning: "Plan in the checkout this was launched from rather than a worktree of its own.", required: false }
-  ],
-  steps: planSteps,
-  records: CommandRecordKind.Plans,
-  related: ["auto-plan", "brainstorm", "implement", "resume", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"],
-  graphic: {
-    title: "How /plan turns a request into an implementation-ready spec",
-    subtitle: "Final spec and every decision recorded before any code is written.",
-    banner: "The implementation-ready spec can now be handed to /implement in a fresh context window.",
-    columns: 4
-  }
-};
-
-// src/commands/common/constants/build/queueCatalogEntry.ts
-var queueCatalogEntry = {
-  id: "queue",
-  cli: "lightsout queue",
-  group: CommandGroup.Build,
-  summary: "Drain the tracker of automatable tickets in parallel worktrees, relaying any question to this terminal or to a mailbox directory.",
-  whenToUse: "Run it when the tracker holds tickets you have labelled for automation and you want them built without picking them up one at a time: it makes a worktree and branch per ticket, runs the worker its label names, puts any question it cannot answer to this terminal \u2014 or, with `--file-relay`, to a mailbox directory an agent session or an editor can answer from \u2014 then ships the ready branches one at a time, each rebased onto fresh main with the gates re-run. A mailbox question nobody answers parks its ticket once `queue.question-timeout` elapses. It stops when nothing is left to do; running it again resumes whatever parked.",
-  invocations: [{ id: "queue" }],
-  flags: [
-    {
-      name: "file-relay",
-      value: "[dir]",
-      meaning: "Relay questions as files in a mailbox directory instead of asking on this terminal. Defaults to .lightsout/queue/relay under the repo, emptied at startup.",
-      fallback: "Questions are asked on the terminal that started the drain.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to drain into.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/resumeCatalogEntry.ts
-var resumeCatalogEntry = {
-  id: "resume",
-  cli: "lightsout resume",
-  group: CommandGroup.Build,
-  summary: "Pick a parked run back up where it stopped, in the workspace that run recorded \u2014 same manifest, same work list, nothing repeated.",
-  whenToUse: "Use it when a run parked \u2014 a rate limit, a batch ceiling, an escalation you have now answered. It restarts from the manifest, so finished work is never redone, and it returns to the checkout that run recorded rather than the one you happen to be standing in. A direct run built from a ticket is continued here too: it picks its unfinished stage back up from the ticket frozen beside the run, rather than being re-run from the ticket file.",
-  invocations: [{ id: "resume" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked run to pick back up.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false },
-    { name: "skip-refactor", meaning: "Skip the refactor step at the end of the run.", required: false },
-    { name: "ship", meaning: "Ship the branch after the resumed run passes: open or adopt the PR, wait for checks, merge, clean up.", required: false },
-    { name: "no-ship", meaning: "End on the run result even when the config\u2019s `ship.after-implement` asks to chain into ship.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "ship", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/selfCheckCatalogEntry.ts
-var selfCheckCatalogEntry = {
-  id: "self-check",
-  cli: "lightsout self-check",
-  group: CommandGroup.Build,
-  summary: "The engine's own check of a writing agent's change, run by that agent before it reports.",
-  whenToUse: "Nothing a human reaches for. The engine grants it to the feature executor, the refactor executor and the direct worker inside their own spawns, so an agent sees the cheap gates it is about to be judged on while its context is still loaded. It takes the live run id and reads everything else from that run \u2014 and it decides nothing: the engine's own gates run afterwards over the full scope and are the only verdict.",
-  invocations: [{ id: "self-check" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The live run whose manifest says which step, schedule and scope this check mirrors.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository the run belongs to.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket", "ticket-state"]
-};
-
-// src/commands/common/constants/build/shipCatalogEntry.ts
-var shipCatalogEntry = {
-  id: "ship",
-  cli: "lightsout ship",
-  group: CommandGroup.Build,
-  summary: "Take the current branch from committed work to merged and cleaned up, and write a typed result.",
-  whenToUse: "Run it when the branch is committed and you want it merged: it pushes the branch, opens or adopts the pull request, waits for the checks, merges, deletes the branch and syncs the default branch \u2014 then writes one JSON result a tracker skill can read.",
-  invocations: [{ id: "ship" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to ship from.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "resume", "implement-direct", "queue", "ticket", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/ticketCatalogEntry.ts
-var ticketCatalogEntry = {
-  id: "ticket",
-  cli: "lightsout ticket",
-  group: CommandGroup.Build,
-  summary: "Change and show a ticket's record of the plans it holds, the mode they implement in, and its request to ship.",
-  whenToUse: "Reach for it whenever a ticket gains a plan or changes shape. `add-plan` starts the next plan, and given `--from` makes that plan out of a named folder\u2019s loose files; `mode` moves a ticket between one plan supplying the implementation and several implementing in numeric order; `request-ship` is how a human declares a multiple-plan ticket finished, and `exclude-plan` takes a plan out of that work for good; `retitle-plan` changes only what a plan is called; `show` reads the record, and `sync` settles a record that moved on two machines at once.",
-  invocations: [
-    { id: "ticket-add-plan", positional: "add-plan" },
-    { id: "ticket-mode", positional: "mode" },
-    { id: "ticket-request-ship", positional: "request-ship" },
-    { id: "ticket-exclude-plan", positional: "exclude-plan" },
-    { id: "ticket-retitle-plan", positional: "retitle-plan" },
-    { id: "ticket-show", positional: "show" },
-    { id: "ticket-sync", positional: "sync" }
-  ],
-  flags: [
-    {
-      name: "name",
-      value: "<ticket-branch>",
-      meaning: "The ticket to act on, named by its branch \u2014 which is also its folder under .lightsout/tickets/, never one plan's address.",
-      required: true
-    },
-    {
-      name: "slug",
-      value: "<slug>",
-      meaning: "The new plan's fixed slug: lowercase letter-and-digit words joined by single hyphens, at most 40 characters.",
-      shape: "ticket-add-plan",
-      required: true
-    },
-    {
-      name: "title",
-      value: "<title>",
-      meaning: "The plan's first display title, which stays changeable.",
-      fallback: "The slug is used as the title.",
-      shape: "ticket-add-plan",
-      required: false
-    },
-    {
-      name: "from",
-      value: "<folder>",
-      meaning: "A plan folder's bare name under the plans directory, whose loose files become this plan: they are moved into the plan's own folder. Never a path, and never one plan's address.",
-      fallback: "The plan is created empty.",
-      shape: "ticket-add-plan",
-      required: false
-    },
-    {
-      name: "set",
-      value: "single-plan|multiple-plan",
-      meaning: "How this ticket organises its plans: single-plan means plan 001 alone supplies the implementation, multiple-plan means its plans implement in numeric order on one branch.",
-      shape: "ticket-mode",
-      required: true
-    },
-    {
-      name: "approve",
-      meaning: "Carry out a switch to single-plan mode, excluding every later plan.",
-      fallback: "The switch is previewed and nothing is changed.",
-      shape: "ticket-mode",
-      required: false
-    },
-    {
-      name: "plans",
-      value: "<id,id>",
-      meaning: "Every plan the request approves, as full ids or bare numbers \u2014 it must name each plan the ticket still includes.",
-      fallback: "Nothing is requested; give --withdraw instead to take a pending request back.",
-      shape: "ticket-request-ship",
-      required: false,
-      exclusiveWith: "ship-request"
-    },
-    {
-      name: "withdraw",
-      meaning: "Take a pending ship request back, leaving the ticket open.",
-      fallback: "Nothing is withdrawn; give --plans instead to record a request.",
-      shape: "ticket-request-ship",
-      required: false,
-      exclusiveWith: "ship-request"
-    },
-    { name: "plan", value: "<id>", meaning: "The plan to exclude, as its full id or its number on its own.", shape: "ticket-exclude-plan", required: true },
-    {
-      name: "reason",
-      value: "<text>",
-      meaning: "Why this plan is out of the ticket's work \u2014 the record's only account of the decision.",
-      shape: "ticket-exclude-plan",
-      required: true
-    },
-    {
-      name: "implementation-removed",
-      meaning: "Declare this plan's implementation taken off the branch, which the repository's own gates then verify on that branch's checkout.",
-      fallback: "The exclusion records no removal, and the plan's implementation stays where it is.",
-      shape: "ticket-exclude-plan",
-      required: false
-    },
-    { name: "plan", value: "<id>", meaning: "The plan to retitle, as its full id or its number on its own.", shape: "ticket-retitle-plan", required: true },
-    {
-      name: "title",
-      value: "<title>",
-      meaning: "The plan's new display title. Its id, its folder and any pending ship request are untouched.",
-      shape: "ticket-retitle-plan",
-      required: true
-    },
-    {
-      name: "keep",
-      value: "local|published",
-      meaning: "Which copy wins when this machine and the ticket have both changed the record.",
-      fallback: "The ordinary sync: the ticket\u2019s copy is taken when only it moved, and this machine\u2019s is sent when only it did.",
-      shape: "ticket-sync",
-      required: false
-    },
-    {
-      name: "cwd",
-      value: "<path>",
-      meaning: "Any checkout of the repository; the record is found in its primary checkout.",
-      fallback: "The process working directory.",
-      required: false
-    }
-  ],
-  steps: [],
-  records: CommandRecordKind.Plans,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket-state", "self-check"]
-};
-
-// src/commands/common/constants/build/ticketStateCatalogEntry.ts
-var ticketStateCatalogEntry = {
-  id: "ticket-state",
-  cli: "lightsout ticket-state",
-  group: CommandGroup.Build,
-  summary: "Write a ticket's planning status, its tracker workflow status, or both.",
-  whenToUse: "Run it at a workflow transition \u2014 when brainstorming finishes, when a plan is approved, when implementation begins \u2014 so the ticket says what preparation it still owes and where implementation stands. The workflow skills call it at each of those moments, so the tracker says the same thing however the work was started.",
-  invocations: [{ id: "ticket-state" }],
-  flags: [
-    { name: "ref", value: "<ticket>", meaning: "The ticket to write, by its human reference.", required: true },
-    {
-      name: "planning-status",
-      value: "<status>",
-      meaning: "What preparation the ticket still owes: planning-needs-brainstorm, planning-needs-plan, planning-ready-auto-plan, planning-complete or planning-not-needed.",
-      fallback: "The planning status is left as it is.",
-      required: false
-    },
-    {
-      name: "tracker-status",
-      value: "ready|in-progress",
-      meaning: "Where implementation stands, named by role so one line works in every repository: ready when shaping is finished and implementation is waiting, in-progress when source changes have begun. Done is not among them \u2014 a ticket reaches done only when a merge is positively confirmed, which the ship path writes.",
-      fallback: "The tracker status is left as it is.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository whose config names the tracker.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["auto-plan", "brainstorm", "plan", "implement", "implement-direct", "resume", "ship", "queue", "ticket", "self-check"]
-};
-
-// src/commands/common/constants/burnDown/refactorSteps.ts
-var refactorSteps = [
-  {
-    title: "START THE RUN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Point `/refactor` at the whole repo or one folder, with an optional batch budget",
-      "Refuse to start without a config, without git, or with uncommitted changes",
-      "Create a run ID and a repository lock so no other lightsout run touches the same tree"
-    ],
-    note: "Keeps the entire cleanup as one diff you can read, revert, or resume",
-    saved: [".lightsout/runs/<id>/manifest.json", ".lightsout/lock.json"]
-  },
-  {
-    title: "FIND THE WORK",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Search source files for repeated names, copied code, duplicate logic, oversized code, misplaced files, boundary violations, and dead exports",
-      "Detectors that read types need the repo\u2019s own TypeScript, and say so when it is missing",
-      "Leave out anything already accepted as known debt, unless you asked for everything"
-    ],
-    note: "Detection is deterministic code \u2014 no agent is ever asked to go find problems",
-    saved: ["lightsout.standards-baseline.json"],
-    savedLabel: "READ FROM DISK"
-  },
-  {
-    title: "GROUP INTO BATCHES",
-    actor: CommandActor.Engine,
-    bullets: [
-      "One batch is one kind of finding in one area \u2014 a package, a top-level folder, or the repo root",
-      "The most mechanical kinds run first, twelve findings at most, and a finding spanning two areas gets its own batch",
-      "Freeze the list to disk and work from it \u2014 never recompute it midway"
-    ],
-    note: "Gives each agent a single coherent job instead of a pile of unrelated fixes",
-    saved: [".lightsout/runs/<id>/worklist.json"]
-  },
-  {
-    title: "VERIFY THE REPO STARTS GREEN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Run any code generator first, then lint, type checks, tests, build, and coverage",
-      "Stop immediately if any gate is already failing",
-      "Skip this on a resumed run when an earlier attempt already proved it green"
-    ],
-    note: "Proves any later failure was introduced by this run, not inherited from the repository",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "SKIP WHAT IS ALREADY FIXED",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check again immediately before each batch starts",
-      "If earlier batches already cleared these findings, close the batch and spend no agent",
-      "Collect fresh size warnings for the batch\u2019s files \u2014 the frozen ones cite line numbers that have since moved"
-    ],
-    note: "Never pays an agent to fix something that is already gone",
-    saved: ["manifest.json"]
-  },
-  {
-    title: "FIX ONE BATCH",
-    actor: CommandActor.Agent,
-    bullets: [
-      "Batches run one at a time; the agent gets the findings, the files they live in, and your code standards",
-      "Findings must be fixed or explained; size warnings are judged against your documented exemptions",
-      "It may run only the commands your config allows, works under a time limit, and answers with one structured report"
-    ],
-    note: "Changes structure only \u2014 the behavior has to survive untouched",
-    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-*.jsonl", "rejected-*.txt"]
-  },
-  {
-    title: "VERIFY THE BATCH",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Re-run the gates, scoped to the packages that changed, with coverage always on",
-      "Try up to two lightweight repairs when a gate goes red",
-      "Send a coverage-only failure to a test-writing agent; a mixed failure goes back to the refactor agent first"
-    ],
-    note: "Stops a batch that broke the build from reaching the next one",
-    saved: ["manifest.json", ".lightsout/runs/<id>/commands.jsonl"]
-  },
-  {
-    title: "BRING IN A SUPERVISOR",
-    actor: CommandActor.Agent,
-    bullets: [
-      "When the quick repairs run out, a read-only supervisor diagnoses the failure",
-      "It either grants one guided retry or rules the failure a human problem",
-      "If the gates are still red after that, the run stops with the diagnosis attached as evidence"
-    ],
-    note: "Buys judgment exactly once, instead of retrying forever",
-    saved: [".lightsout/runs/<id>/agents/", "stream-batch-NN-supervisor.jsonl"]
-  },
-  {
-    title: "RULE ON THE BATCH",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check again \u2014 the code rules, and a copied block that merely moved is not gone",
-      "Gone counts as resolved; still there with nothing changed counts as declined, with the agent\u2019s reasoning kept",
-      "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
-    ],
-    note: "Work finished without a report still counts, and changed files come from git, minus generated output",
-    saved: ["manifest.json", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "KNOW WHEN TO STOP",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Three declines in a row end the run \u2014 the pattern is systemic, and more spend will not fix it",
-      "A refusal on scope grounds counts as a decline and the run carries on",
-      "A harness rate limit or your batch budget parks the run instead of failing it"
-    ],
-    note: "Each batch is saved before the next begins, and declines are read back \u2014 resuming re-runs nothing",
-    saved: ["manifest.json"]
-  },
-  {
-    title: "MEASURE THE BURN-DOWN",
-    actor: CommandActor.Engine,
-    bullets: [
-      "Check the whole scope once more and report findings before and after, one line per kind",
-      "A parked run reports no burn-down \u2014 resume it to finish and measure",
-      "Keep every batch outcome, retry, token cost, and point of friction in one folder"
-    ],
-    note: "Turns the cleanup into a number you can check rather than a claim",
-    saved: [".lightsout/runs/<id>/", "agents.jsonl", ".lightsout/friction.jsonl"]
-  },
-  {
-    title: "REVIEW AND COMMIT",
-    actor: CommandActor.You,
-    bullets: [
-      "Read each declined batch alongside the agent\u2019s own reasoning for leaving it",
-      "Fix it by hand, or accept it as known debt in the baseline",
-      "Review the working-tree diff and commit it \u2014 the engine never commits"
-    ],
-    note: "Leaves the last call on unfixed debt with a human",
-    saved: ["lightsout.standards-baseline.json"]
-  }
-];
-
-// src/commands/common/constants/burnDown/refactorCatalogEntry.ts
-var refactorCatalogEntry = {
-  id: "refactor",
-  slash: "/refactor",
-  cli: "lightsout refactor",
-  group: CommandGroup.BurnDown,
-  summary: "Burn down a repo\u2019s standards-check findings (duplication, size, structure, boundary violations) in verified, resumable batches via the lightsout refactor pipeline.",
-  whenToUse: "Reach for it when standards-check has more findings than anyone will fix by hand. It burns them down in verified, resumable batches, each one gated before it lands.",
-  invocations: [{ id: "refactor" }, { id: "refactor-resume", note: "resume a parked refactor run" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked refactor run to pick back up.", shape: "refactor-resume", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to burn down.", fallback: "The process working directory.", required: false },
-    { name: "path", value: "<subdir>", meaning: "Burn down only this subdirectory.", fallback: "The whole repository.", shape: "refactor", required: false },
-    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "refactor", required: false },
-    {
-      name: "max-batches",
-      value: "<n>",
-      meaning: "Park the run after this many batches.",
-      fallback: "The run continues until the work-list is finished.",
-      shape: "refactor",
-      required: false
-    },
-    { name: "code-checks", meaning: "Build the work-list from the mechanical checks alone, with no agent review.", shape: "refactor", required: false },
-    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "refactor", required: false }
-  ],
-  steps: refactorSteps,
-  records: CommandRecordKind.Runs,
-  related: ["test-coverage-to-threshold", "standards-check"],
-  graphic: {
-    title: "How /refactor turns standards findings into verified cleanup",
-    subtitle: "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
-    banner: "The engine never commits. It hands back a measured before-and-after and a diff you review.",
-    columns: 4
-  }
-};
-
-// src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts
-var testCoverageToThresholdCatalogEntry = {
-  id: "test-coverage-to-threshold",
-  slash: "/test-coverage-to-threshold",
-  cli: "lightsout test-coverage-to-threshold",
-  group: CommandGroup.BurnDown,
-  summary: "Raise a repo\u2019s unit-test coverage until its own coverage script passes, in verified, resumable batches via the lightsout coverage pipeline.",
-  whenToUse: "Use it when the coverage gate is what stands between you and a green build. It writes tests in batches until your own coverage script passes, and stops there.",
-  invocations: [{ id: "test-coverage-to-threshold" }, { id: "test-coverage-to-threshold-resume", note: "resume a parked coverage run" }],
-  flags: [
-    { name: "run", value: "<id>", meaning: "The parked coverage run to pick back up.", shape: "test-coverage-to-threshold-resume", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to raise coverage in.", fallback: "The process working directory.", required: false },
-    {
-      name: "max-batches",
-      value: "<n>",
-      meaning: "Park the run after this many batches.",
-      fallback: "The run continues until the coverage script passes.",
-      shape: "test-coverage-to-threshold",
-      required: false
-    },
-    { name: "allow-dirty", meaning: "Start even though the git tree has uncommitted changes.", shape: "test-coverage-to-threshold", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Runs,
-  related: ["refactor", "standards-check"]
-};
-
-// src/commands/common/constants/housekeeping/doctorCatalogEntry.ts
-var doctorCatalogEntry = {
-  id: "doctor",
-  cli: "lightsout doctor",
-  group: CommandGroup.Housekeeping,
-  summary: "Check the install end to end \u2014 config, harness, gates, standards \u2014 and name what is missing.",
-  whenToUse: "Run it first, on a repo where something is not working. It checks config, harness, gates and standards in order and names the first thing that is missing.",
-  invocations: [{ id: "doctor" }],
-  flags: [
-    { name: "cwd", value: "<path>", meaning: "Repository to check the install of.", fallback: "The process working directory.", required: false },
-    {
-      name: "usage-probe",
-      meaning: "Spend one throwaway agent call on the configured harness to confirm its token fields still parse. Real money on your own subscription.",
-      required: false
-    }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "friction", "improve", "voice", "report"]
-};
-
-// src/commands/common/constants/housekeeping/frictionCatalogEntry.ts
-var frictionCatalogEntry = {
-  id: "friction",
-  cli: "lightsout friction",
-  group: CommandGroup.Housekeeping,
-  summary: "Collect what slowed the agents down across recent runs, so the next fix is the one that pays.",
-  whenToUse: "Reach for it after a few runs, when you want the next improvement to be the one that pays. It collects what actually slowed the agents down instead of what you assume did.",
-  invocations: [{ id: "friction" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository whose runs are read.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "improve", "voice", "report"]
-};
-
-// src/commands/common/constants/housekeeping/improveCatalogEntry.ts
-var improveCatalogEntry = {
-  id: "improve",
-  cli: "lightsout improve",
-  group: CommandGroup.Housekeeping,
-  summary: "Feed this repo\u2019s friction back to the lightsout engine as a change proposal.",
-  whenToUse: "Use it when this repo\u2019s friction is really the engine\u2019s problem. It turns those findings into a change proposal against a lightsout checkout you point it at.",
-  invocations: [{ id: "improve" }],
-  flags: [
-    { name: "engine", value: "<lightsout-repo-path>", meaning: "The lightsout checkout the change proposal is written against.", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository whose friction is read.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "friction", "voice", "report"]
-};
-
-// src/commands/common/constants/housekeeping/reportCatalogEntry.ts
-var reportCatalogEntry = {
-  id: "report",
-  cli: "lightsout report",
-  group: CommandGroup.Housekeeping,
-  summary: "Show where a plan's hours and money went: every level of the run down to each harness process, with its time, tokens and cost.",
-  whenToUse: "Reach for it after planning a ticket, when you want to know which step burned the hours, how many harness processes it took and what it cost. It reads what the plan commands recorded, so it spends nothing and can be run as often as you like. Name a ticket folder rather than one plan to see what the whole ticket cost.",
-  invocations: [{ id: "report" }],
-  flags: [
-    {
-      name: "plan",
-      value: "<name>",
-      meaning: "The plan to report on \u2014 a plan address, a legacy plan folder name, or a ticket folder, which reports every plan under it beneath one totalled ticket row.",
-      required: true
-    },
-    {
-      name: "json",
-      meaning: "Print the same totalled tree as data instead of the table, so a chart and this table read one calculation.",
-      fallback: "The table is printed.",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository whose plan folders are read.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "friction", "improve", "voice"]
-};
-
-// src/commands/common/constants/housekeeping/statusCatalogEntry.ts
-var statusCatalogEntry = {
-  id: "status",
-  cli: "lightsout status",
-  group: CommandGroup.Housekeeping,
-  summary: "Show what lightsout sees in this repo: config, harness, packs, any run still parked \u2014 and, for one run, what it is doing right now.",
-  whenToUse: "Run it when you come back to a repo and need to know what lightsout thinks is going on. It names the config, the harness, the packs in play, and any run still parked. Name a run and it shows what is happening inside that run instead: its steps, their outcomes and durations, and what it is working on this moment. Name a branch with --shipping to follow it while it ships. Pass --queue while a queue drains to see every ticket on its board and what each active one is doing. Pass --now to see the run that is going right now, printed once.",
-  invocations: [
-    { id: "status" },
-    { id: "status-run", note: "one run in detail; --watch repaints it every two minutes, and without --run it follows the one run that is going" },
-    { id: "status-now", note: "the run that is going, printed once; a phased plan shows its phase sequence and the phase moving now" },
-    { id: "status-planning", note: "one plan's planning steps, printed once" },
-    { id: "status-shipping", note: "one branch's ship steps, read from the checkout that ships it" },
-    { id: "status-queue", note: "the queue's board, then one status block per active ticket, printed once" }
-  ],
-  flags: [
-    {
-      name: "run",
-      value: "<id>",
-      meaning: "Show one run in detail \u2014 its steps, their outcomes and durations, what it is doing now. Takes the shortened eight-character id reports print.",
-      fallback: "Every run is listed, one line each.",
-      shape: "status-run",
-      required: false
-    },
-    {
-      name: "watch",
-      meaning: "Repaint the detail block every two minutes until the run stops, so a detached run can be followed. Without --run it follows the one run that is going, and its phase children with it; when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing.",
-      fallback: "The block is printed once.",
-      shape: "status-run",
-      required: false
-    },
-    {
-      name: "now",
-      meaning: "Show the run that is going, printed once and never repainted \u2014 for a phased plan, its phase sequence followed by the phase moving now. It answers at once rather than waiting for a run to appear; with nothing going it falls back to the newest run of any status, and when several unrelated runs are going it names their ids and asks for --run <id> instead of guessing. Cannot be combined with --run, --watch, --planning, --shipping or --queue.",
-      shape: "status-now",
-      required: true
-    },
-    {
-      name: "planning",
-      value: "<name>",
-      meaning: "Show the named plan folder's planning steps \u2014 verify-facts, draft, dedup, grade, publish \u2014 with their outcomes, attempts and durations, and what is running now. Cannot be combined with --run or --watch.",
-      shape: "status-planning",
-      required: true
-    },
-    {
-      name: "shipping",
-      value: "<branch>",
-      meaning: "Show the branch's ship steps \u2014 integrate, push, pull-request, checks, merge, sync \u2014 in the run block's layout, printed once, read from the record in the checkout --cwd names. Cannot be combined with --run, --watch or --planning.",
-      shape: "status-shipping",
-      required: true
-    },
-    {
-      name: "queue",
-      meaning: "Show the queue's seven-column board \u2014 Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked \u2014 then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
-      shape: "status-queue",
-      required: true
-    },
-    {
-      name: "run",
-      value: "<id>",
-      meaning: "The queue run to show \u2014 a past or crashed one included. Takes the shortened eight-character id reports print.",
-      fallback: "The live queue run this checkout's run lock names.",
-      shape: "status-queue",
-      required: false
-    },
-    {
-      name: "wait",
-      meaning: "Wait up to a minute for a queue run to take the lock, for a status request made right after launching a queue \u2014 the queue has not taken the lock yet, and without this the answer would be that no queue is going.",
-      fallback: "A bare --queue answers at once.",
-      shape: "status-queue",
-      required: false
-    },
-    { name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["doctor", "friction", "improve", "voice", "report"]
-};
-
-// src/commands/common/constants/housekeeping/voiceCatalogEntry.ts
-var voiceCatalogEntry = {
-  id: "voice",
-  slash: "/lightsout:voice",
-  cli: "lightsout voice",
-  group: CommandGroup.Housekeeping,
-  summary: "Turn the spoken read-out of lightsout interview questions on or off for this project \u2014 `/lightsout:voice on` and `/lightsout:voice off`.",
-  whenToUse: "Turn it on when you would rather hear the interview questions than watch for them. Mac-only, off until you turn it on, and per-project.",
-  invocations: [
-    { id: "voice-toggle", positional: "on|off", note: "toggle spoken read-out of interview questions \u2014 Mac-only" },
-    { id: "voice-hook", positional: "hook", note: "hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question" }
-  ],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Project the setting belongs to.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["status", "doctor", "friction", "improve", "report"]
-};
-
-// src/commands/common/constants/standards/standardsCheckCatalogEntry.ts
-var standardsCheckCatalogEntry = {
-  id: "standards-check",
-  cli: "lightsout standards-check",
-  group: CommandGroup.Standards,
-  summary: "Check the repo against its standards packs and report every finding, machine checks and agent review alike.",
-  whenToUse: "Run it to see where the repo stands against its packs, before a refactor or after one. `--list` prints the enforcement ledger instead: which rules are blocking, which advisory, which off.",
-  invocations: [{ id: "standards-check" }, { id: "standards-check-list", note: "print the enforcement ledger" }],
-  flags: [
-    { name: "list", meaning: "Print the enforcement ledger \u2014 blocking, advisory, off \u2014 and check nothing.", shape: "standards-check-list", required: true },
-    { name: "cwd", value: "<path>", meaning: "Repository to check.", fallback: "The process working directory.", required: false },
-    { name: "path", value: "<subdir>", meaning: "Check only this subdirectory.", fallback: "The whole repository.", shape: "standards-check", required: false },
-    { name: "all", meaning: "Include findings the baseline has already accepted as known debt.", shape: "standards-check", required: false },
-    { name: "baseline", meaning: "Write the findings to the baseline file as accepted debt.", shape: "standards-check", required: false },
-    { name: "code-checks", meaning: "Run the mechanical checks only.", shape: "standards-check", required: false, exclusiveWith: "half" },
-    { name: "agent-review", meaning: "Run the agent review only.", shape: "standards-check", required: false, exclusiveWith: "half" }
-  ],
-  steps: [],
-  records: CommandRecordKind.Snapshots,
-  related: ["standards-validate", "standards-health", "refactor", "test-coverage-to-threshold"]
-};
-
-// src/commands/common/constants/standards/standardsHealthCatalogEntry.ts
-var standardsHealthCatalogEntry = {
-  id: "standards-health",
-  cli: "lightsout standards-health",
-  group: CommandGroup.Standards,
-  summary: "Report each rule\u2019s coverage and how often agents decline it \u2014 which standards are actually holding.",
-  whenToUse: "Reach for it when you suspect a standard is decorative \u2014 declared, but never enforced in practice. It shows per-rule coverage and how often agents decline the rule when asked to fix it.",
-  invocations: [{ id: "standards-health", note: "per-rule coverage and how often agents decline it" }],
-  flags: [{ name: "cwd", value: "<path>", meaning: "Repository to report on.", fallback: "The process working directory.", required: false }],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["standards-check", "standards-validate"]
-};
-
-// src/commands/common/constants/standards/standardsValidateCatalogEntry.ts
-var standardsValidateCatalogEntry = {
-  id: "standards-validate",
-  cli: "lightsout standards-validate",
-  group: CommandGroup.Standards,
-  summary: "Run every rule\u2019s check against its own fixtures, so a rule that no longer detects what it claims fails loudly.",
-  whenToUse: "Run it after writing or editing a rule, and in CI for a pack you ship. It proves each check still passes its own pass fixtures and still fails its fail fixtures.",
-  invocations: [{ id: "standards-validate", note: "run every check against its own fixtures" }],
-  flags: [
-    { name: "pack", value: "<path>", meaning: "Validate only the pack at this folder.", fallback: "Every pack the config loads.", required: false },
-    { name: "cwd", value: "<path>", meaning: "Repository whose packs are validated.", fallback: "The process working directory.", required: false }
-  ],
-  steps: [],
-  records: CommandRecordKind.Nothing,
-  related: ["standards-check", "standards-health"]
-};
-
-// src/commands/commandCatalog.ts
-var commandCatalog = [
-  brainstormCatalogEntry,
-  planCatalogEntry,
-  autoPlanCatalogEntry,
-  implementCatalogEntry,
-  implementDirectCatalogEntry,
-  resumeCatalogEntry,
-  shipCatalogEntry,
-  queueCatalogEntry,
-  ticketCatalogEntry,
-  ticketStateCatalogEntry,
-  selfCheckCatalogEntry,
-  refactorCatalogEntry,
-  testCoverageToThresholdCatalogEntry,
-  standardsCheckCatalogEntry,
-  standardsValidateCatalogEntry,
-  standardsHealthCatalogEntry,
-  statusCatalogEntry,
-  reportCatalogEntry,
-  doctorCatalogEntry,
-  frictionCatalogEntry,
-  improveCatalogEntry,
-  voiceCatalogEntry
-];
-
-// src/commands/getCommandCatalogEntry.ts
-var getCommandCatalogEntry = ({ id }) => commandCatalog.find((entry) => entry.id === id);
-
-// src/commands/spellFlag.ts
-var spellFlag = ({ flag }) => flag.value === void 0 ? `--${flag.name}` : `--${flag.name} ${flag.value}`;
-
-// src/commands/renderUsage.ts
-var usageOrder = [
-  "implement",
-  "implement-folder",
-  "implement-direct",
-  "resume",
-  "ship",
-  "queue",
-  "status",
-  "status-run",
-  "status-now",
-  "status-planning",
-  "status-shipping",
-  "status-queue",
-  "report",
-  "doctor",
-  "standards-check",
-  "standards-check-list",
-  "standards-validate",
-  "standards-health",
-  "refactor",
-  "refactor-resume",
-  "test-coverage-to-threshold",
-  "test-coverage-to-threshold-resume",
-  "brainstorm-publish",
-  "plan-workspace",
-  "plan-verify-facts",
-  "plan-draft",
-  "plan-sync-decisions",
-  "plan-lint",
-  "plan-dedup",
-  "plan-grade",
-  "plan-publish",
-  "ticket-add-plan",
-  "ticket-mode",
-  "ticket-request-ship",
-  "ticket-exclude-plan",
-  "ticket-retitle-plan",
-  "ticket-show",
-  "ticket-sync",
-  "ticket-state",
-  "self-check",
-  "friction",
-  "improve",
-  "voice-toggle",
-  "voice-hook"
-];
-var renderExclusiveGroup = ({ flags, key }) => {
-  const group = flags.filter((flag) => flag.exclusiveWith === key);
-  return `[${group.map((flag) => spellFlag({ flag })).join(" | ")}]`;
-};
-var renderFlags = ({ entry, invocation }) => {
-  const shown = entry.flags.filter((flag) => flag.shape === void 0 || flag.shape === invocation.id);
-  const rendered = [];
-  const groupsSeen = /* @__PURE__ */ new Set();
-  for (const flag of shown) {
-    if (flag.exclusiveWith === void 0) {
-      rendered.push(flag.required ? spellFlag({ flag }) : `[${spellFlag({ flag })}]`);
-    } else if (!groupsSeen.has(flag.exclusiveWith)) {
-      groupsSeen.add(flag.exclusiveWith);
-      rendered.push(renderExclusiveGroup({ flags: shown, key: flag.exclusiveWith }));
-    }
-  }
-  return rendered;
-};
-var padNote = ({ body, note }) => `${body}${" ".repeat(Math.max(3, 54 - body.length))}(${note})`;
-var renderLine = ({ cli, entry, invocation }) => {
-  const words = [cli, invocation.positional, ...renderFlags({ entry, invocation })].filter((word) => word !== void 0);
-  const body = `  ${words.join(" ")}`;
-  return invocation.note === void 0 ? body : padNote({ body, note: invocation.note });
-};
-var renderUsage = () => {
-  const header = "lightsout \u2014 deterministic engine for coding agents\n\nusage:";
-  const exitCodes = `exit codes (implement, resume, refactor, test-coverage-to-threshold):
-  0  finished
-  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
-  1  anything else`;
-  const lines = [];
-  for (const id of usageOrder) {
-    const entry = commandCatalog.find((candidate) => candidate.invocations.some((invocation2) => invocation2.id === id));
-    const invocation = entry?.invocations.find((candidate) => candidate.id === id);
-    if (entry?.cli !== void 0 && invocation !== void 0) {
-      lines.push(renderLine({ cli: entry.cli, entry, invocation }));
-    }
-  }
-  return `${header}
-${lines.join("\n")}
-
-${exitCodes}
-`;
-};
-
-// src/cli/common/constants/usage.ts
-var usage = renderUsage();
-
-// src/cli/common/utils/exitCli.ts
-var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve18) => stream.write("", () => resolve18()))));
-  return process.exit(code);
-};
-
-// src/cli/common/args/getRequiredFlag.ts
-var getRequiredFlag = async ({ flags, name }) => {
-  const value = getStringFlag({ flags, name });
-  if (!value) {
-    console.error(usage);
-    return exitCli({ code: 1 });
-  }
-  return value;
-};
-
-// src/cli/common/terminal/paint.ts
-var paint = ({ code }) => (text) => process.stdout.isTTY ? `\x1B[${code}m${text}\x1B[0m` : text;
-
-// src/cli/common/terminal/bold.ts
-var bold = paint({ code: "1" });
-
-// src/cli/common/utils/createProgressPrinter.ts
-var createProgressPrinter = () => {
-  const startedAt = Date.now();
-  return (message) => {
-    const seconds = Math.round((Date.now() - startedAt) / 1e3);
-    console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
-  };
-};
-
-// src/common/config/readConfig.ts
-import { join as join77 } from "node:path";
-var readConfig = async ({ cwd }) => {
-  const configPath = join77(cwd, "lightsout.config.json");
-  const raw = await readConfigFile({ configPath });
-  if (raw === void 0) {
-    throw new Error(`lightsout.config.json not found at ${configPath}`);
-  }
-  return parseConfig({ raw, configPath });
-};
-
-// src/cli/brainstorm/brainstormPublishCommand.ts
-var brainstormPublishCommand = async ({ flags, cwd }) => {
-  const name = await getRequiredFlag({ flags, name: "name" });
-  const config2 = await readConfig({ cwd });
-  const report2 = await publishBrainstorm({
-    cwd,
-    name,
-    config: config2,
-    env: process.env,
-    onProgress: createProgressPrinter(),
-    titlePrefix: parsePlanAddress({ name })?.planId
-  });
-  if (report2.error !== void 0) {
-    console.error(`
-${report2.error}`);
-    return exitCli({ code: 1 });
-  }
-  console.log(`
-${bold(`brainstorm publish ${name}`)} \u2014 ${report2.published.length} file(s) attached to ${report2.ticketRef}`);
-  for (const file2 of report2.published) {
-    console.log(`  ${file2}`);
-  }
-  return exitCli({ code: 0 });
-};
-
-// src/cli/common/args/getPositionals.ts
-var getPositionals = ({ args }) => {
-  const positionals = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const token = args[index];
-    if (token?.startsWith("--")) {
-      if (args[index + 1] !== void 0 && !args[index + 1]?.startsWith("--")) {
-        index += 1;
-      }
-      continue;
-    }
-    if (token) {
-      positionals.push(token);
-    }
-  }
-  return positionals;
-};
-
-// src/cli/brainstorm/brainstormCommand.ts
-var brainstormCommand = async ({ flags, rest, cwd }) => {
-  if (getPositionals({ args: rest })[0] === "publish") {
-    await brainstormPublishCommand({ flags, rest, cwd });
-    return;
-  }
-  console.error(usage);
-  return exitCli({ code: 1 });
-};
-
-// src/cli/common/args/readCommandFlags.ts
-var readCommandFlags = ({ command }) => {
-  const entry = getCommandCatalogEntry({ id: command });
-  return /* @__PURE__ */ new Set(["cwd", ...entry?.flags.map((flag) => flag.name) ?? []]);
-};
-
-// src/cli/common/args/getUnknownFlagsMessage.ts
-var getUnknownFlagsMessage = ({ command, flags }) => {
-  const accepted = readCommandFlags({ command });
-  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
-  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
-};
-
-// src/cli/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
-      continue;
-    }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
-    }
-  }
-  return flags;
-};
-
-// src/cli/common/utils/loadRepoEnvFile.ts
-import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
-import { join as join78 } from "node:path";
-import { parseEnv } from "node:util";
-var resolveEnvFilePath = async ({ cwd }) => {
-  const own = join78(cwd, ".env");
-  if (existsSync3(own)) {
-    return own;
-  }
-  const primary = await readGitPrimaryCheckout({ cwd });
-  const shared = primary === void 0 ? void 0 : join78(primary, ".env");
-  return shared !== void 0 && shared !== own && existsSync3(shared) ? shared : void 0;
-};
-var loadRepoEnvFile = async ({ cwd }) => {
-  const envFilePath = await resolveEnvFilePath({ cwd });
-  if (envFilePath === void 0) {
-    return;
-  }
-  try {
-    for (const [name, value] of Object.entries(parseEnv(readFileSync2(envFilePath, "utf8")))) {
-      process.env[name] ??= value;
-    }
-  } catch (error51) {
-    console.error(`lightsout: ignored ${envFilePath}: ${error51 instanceof Error ? error51.message : String(error51)}`);
-  }
-};
-
-// src/cli/common/terminal/dim.ts
-var dim = paint({ code: "2" });
-
-// src/cli/common/terminal/green.ts
-var green = paint({ code: "32" });
-
-// src/cli/common/terminal/red.ts
-var red = paint({ code: "31" });
-
-// src/cli/common/terminal/yellow.ts
-var yellow = paint({ code: "33" });
-
-// src/doctor/checkConfiguredPaths.ts
-import { stat as stat6 } from "node:fs/promises";
-import { join as join79 } from "node:path";
-var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
-  if (!paths) {
-    return void 0;
-  }
-  const absent = [];
-  for (const prefix of paths) {
-    await stat6(join79(cwd, prefix)).catch(() => absent.push(prefix));
-  }
-  return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
-};
-
-// src/doctor/checkCoverageSummary.ts
-import { stat as stat7 } from "node:fs/promises";
-import { join as join80 } from "node:path";
-
-// src/common/constants/defaultCoverageSummaryPath.ts
-var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
-
-// src/doctor/checkCoverageSummary.ts
-var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
-  const scoped = config2["package-gates"]?.["test-coverage"];
-  const rootApplies = typeof config2.gates["test-coverage"] === "string";
-  if (!scoped && !rootApplies) {
-    return void 0;
-  }
-  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
-  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
-  const expected = scopes.map((entry) => ({ label: entry.label, path: join80(entry.dir, summaryPath) }));
-  const absent = [];
-  for (const entry of expected) {
-    await stat7(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
-  }
-  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
-    id: "coverage-summary",
-    status: "warn",
-    detail: `not found: ${absent.join(", ")}`,
-    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
-  };
-};
-
-// src/doctor/common/constants/probeTimeoutMs.ts
-var probeTimeoutMs = 15e3;
-
-// src/doctor/checkGitignore.ts
-var checkGitignore = async ({ cwd }) => {
-  const stateDir = ".lightsout";
-  const result = await runCommand({ command: `git check-ignore -q -- '${stateDir}/probe'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: 128 }));
-  const gitUsable = result.exitCode === 0 || result.exitCode === 1;
-  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : result.exitCode === 0 ? { id: "gitignore", status: "pass", detail: "the lightsout state directory is ignored (verified via git check-ignore)" } : {
-    id: "gitignore",
-    status: "warn",
-    detail: `run state not ignored: ${stateDir}`,
-    fix: `add to .gitignore:
-${stateDir}`
-  };
-};
-
-// src/doctor/checkHarness.ts
-var driverBinaries = { "claude-code": "claude", codex: "codex", omp: "omp", pi: "pi" };
-var getReferencedDriverNames = ({ config: config2 }) => {
-  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
-  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
-  return [...new Set(names)];
-};
-var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
-  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
-  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
-  const versions = [];
-  const failures = [];
-  for (const binary of binaries) {
-    try {
-      const probed = await probe({ binary });
-      if (probed.exitCode === 0) {
-        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
-      } else {
-        failures.push({
-          binary,
-          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
-${probed.stderr}`.trim().slice(0, 200)}`,
-          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
-        });
-      }
-    } catch (error51) {
-      failures.push({
-        binary,
-        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
-        fix: `install the ${binary} CLI and log in`
-      });
-    }
-  }
-  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
-    id: "harness",
-    status: "fail",
-    detail: failures.map((failure) => failure.detail).join("\n"),
-    fix: failures.map((failure) => failure.fix).join("\n")
-  };
-};
-
-// src/doctor/checkHarnessUsage.ts
-var usageAdapters = {
-  "claude-code": "packages/engine/src/drivers/createClaudeCodeDriver.ts",
-  omp: "packages/engine/src/drivers/createPiDriver.ts",
-  pi: "packages/engine/src/drivers/createPiDriver.ts"
-};
-var holdsFiniteNumber = ({ value }) => typeof value === "object" && value !== null && Object.values(value).some((member) => typeof member === "number" && Number.isFinite(member));
-var carriesStreamedUsage = ({ event, depth }) => {
-  const maxEventDepth = 6;
-  if (depth > maxEventDepth || typeof event !== "object" || event === null) {
-    return false;
-  }
-  return Object.entries(event).some(
-    ([key, value]) => key === "usage" && holdsFiniteNumber({ value }) || carriesStreamedUsage({ event: value, depth: depth + 1 })
-  );
-};
-var probeHarnessUsage = async ({ cwd, harness, driver }) => {
-  const timeoutMs = 12e4;
-  let streamed = false;
-  try {
-    const result = await (driver ?? getDriver({ name: harness })).invoke({
-      prompt: "Reply with the single word: ok. Do not use any tools.",
-      cwd,
-      permissions: Permissions.ReadOnly,
-      timeoutMs,
-      onEvent: (event) => {
-        streamed = streamed || carriesStreamedUsage({ event, depth: 0 });
-      }
-    });
-    return { streamed, usage: result.usage };
-  } catch (error51) {
-    return { error: messageOf({ error: error51 }) };
-  }
-};
-var verdictOf = ({ harness, probed }) => {
-  const adapter = usageAdapters[harness] ?? `the ${harness} driver`;
-  let verdict;
-  if ("error" in probed) {
-    verdict = {
-      status: "fail",
-      detail: `the ${harness} probe call did not finish: ${probed.error}`,
-      fix: `run \`${harness === "claude-code" ? "claude" : harness} --version\` and confirm the harness is installed and logged in, then run the probe again`
-    };
-  } else if (probed.usage === void 0) {
-    verdict = {
-      status: "fail",
-      detail: `${harness} reported no tokens at all \u2014 a settled call came back with no usage`,
-      fix: `${harness} has most likely renamed its token fields \u2014 re-capture its real output and update the parse in ${adapter}`
-    };
-  } else if (!probed.streamed) {
-    verdict = {
-      status: "warn",
-      detail: `${harness} reported ${probed.usage.inputTokens} in / ${probed.usage.outputTokens} out when the call settled, but streamed no token counts on the way`,
-      fix: `a process killed at its time limit never settles, so it would recover nothing \u2014 re-capture ${harness}'s real output and update the streamed-usage parse in ${adapter}`
-    };
-  } else {
-    verdict = {
-      status: "pass",
-      detail: `${harness} reported ${probed.usage.inputTokens} in / ${probed.usage.outputTokens} out when the call settled, and streamed token counts as it ran`
-    };
-  }
-  return { id: "harness-usage", ...verdict };
-};
-var checkHarnessUsage = async ({ cwd, config: config2, driver }) => {
-  const harness = config2.harness ?? "claude-code";
-  if (harness === "codex") {
-    return {
-      id: "harness-usage",
-      status: "note",
-      detail: "codex reads no usage by design, so it is not probed \u2014 codex plans report no tokens"
-    };
-  }
-  return verdictOf({ harness, probed: await probeHarnessUsage({ cwd, harness, driver }) });
-};
-
-// src/doctor/checkJestMocks.ts
-import { readFile as readFile34 } from "node:fs/promises";
-
-// src/doctor/common/utils/findJestConfigs.ts
-import { readdir as readdir13 } from "node:fs/promises";
-import { join as join81 } from "node:path";
-var findJestConfigs = async ({ packageDir }) => {
-  const rootEntries = await readdir13(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join81(packageDir, name));
-  for (const testDir of ["test", "tests"]) {
-    const testEntries = await readdir13(join81(packageDir, testDir), { recursive: true }).catch(() => []);
-    found.push(
-      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join81(packageDir, testDir, name))
-    );
-  }
-  return found;
-};
-
-// src/doctor/checkJestMocks.ts
-var checkJestMocks = async ({ cwd, packageDirs }) => {
-  const jestFindings = [];
-  let jestConfigCount = 0;
-  for (const { label: label2, dir } of packageDirs) {
-    for (const configPath of await findJestConfigs({ packageDir: dir })) {
-      jestConfigCount += 1;
-      const text = await readFile34(configPath, "utf8").catch(() => "");
-      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
-      if (absent.length > 0) {
-        jestFindings.push(`${label2}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
-      }
-    }
-  }
-  if (jestConfigCount === 0) {
-    return void 0;
-  }
-  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
-    id: "jest-mocks",
-    status: "warn",
-    detail: jestFindings.join("; "),
-    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
-  };
-};
-
-// src/doctor/checkJestReporter.ts
-import { createRequire as createRequire2 } from "node:module";
-var sentinel = "/lightsout/doctor/jest-reporter-probe.cjs";
-var carriesSentinel = ({ reporters }) => Array.isArray(reporters) && reporters.some((entry) => entry === sentinel || Array.isArray(entry) && entry[0] === sentinel);
-var configOf = ({ loaded }) => typeof loaded === "object" && loaded !== null && "jest" in loaded ? loaded.jest : loaded;
-var readableConfig = ({ config: config2 }) => typeof config2 === "object" && config2 !== null && !("then" in config2 && typeof config2.then === "function") ? { ...config2 } : void 0;
-var inspectConfig = ({ configPath }) => {
-  const previous = process.env[testReporterEnv.reporter];
-  process.env[testReporterEnv.reporter] = sentinel;
-  try {
-    const loaded = createRequire2(configPath)(configPath);
-    const config2 = readableConfig({ config: configOf({ loaded }) });
-    if (config2 === void 0) {
-      return void 0;
-    }
-    return { carries: carriesSentinel({ reporters: config2.reporters }) };
-  } catch {
-    return void 0;
-  } finally {
-    if (previous === void 0) {
-      delete process.env[testReporterEnv.reporter];
-    } else {
-      process.env[testReporterEnv.reporter] = previous;
-    }
-  }
-};
-var checkJestReporter = async ({ cwd, packageDirs }) => {
-  const missing = [];
-  const unchecked = [];
-  let configCount = 0;
-  for (const { label: label2, dir } of packageDirs) {
-    for (const configPath of await findJestConfigs({ packageDir: dir })) {
-      configCount += 1;
-      const inspected = inspectConfig({ configPath });
-      const where = `${label2}: ${configPath.slice(cwd.length + 1)}`;
-      if (inspected === void 0) {
-        unchecked.push(`${where} (unchecked \u2014 could not be read as a configuration object)`);
-      } else if (!inspected.carries) {
-        missing.push(where);
-      }
-    }
-  }
-  if (configCount === 0) {
-    return void 0;
-  }
-  return missing.length === 0 ? { id: "jest-reporter", status: "pass", detail: ["every loadable Jest config loads the engine's per-test reporter", ...unchecked].join("; ") } : {
-    id: "jest-reporter",
-    status: "warn",
-    detail: [...missing, ...unchecked].join("; "),
-    fix: `add the engine's reporter to each Jest config \u2014 \`const lightsoutReporter = process.env.${testReporterEnv.reporter}; reporters: lightsoutReporter ? ['default', lightsoutReporter] : ['default']\` \u2014 naming the \`reporters\` key replaces Jest's default, so 'default' must be restated`
-  };
-};
-
-// src/doctor/checkLintRules.ts
-import { readdir as readdir14, readFile as readFile35 } from "node:fs/promises";
-import { join as join82 } from "node:path";
-var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2["standards-packs"] === false) {
-    return void 0;
-  }
-  const lintFindings = [];
-  let lintConfigCount = 0;
-  for (const { label: label2, dir } of packageDirs) {
-    const entries = await readdir14(dir).catch(() => []);
-    const lintConfigs = entries.filter(
-      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
-    );
-    for (const name of lintConfigs) {
-      lintConfigCount += 1;
-      const text = await readFile35(join82(dir, name), "utf8").catch(() => "");
-      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
-      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
-      if (unenforced.length > 0) {
-        lintFindings.push(`${label2}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
-      }
-    }
-  }
-  return lintConfigCount === 0 ? {
-    id: "lint-rules",
-    status: "note",
-    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
-  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
-    id: "lint-rules",
-    status: "note",
-    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
-  };
-};
-
-// src/doctor/checkScriptBinaries.ts
-var checkScriptBinaries = async ({ cwd, config: config2 }) => {
-  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2["package-gates"] ?? {})].filter(
-    (value) => typeof value === "string"
-  );
-  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
-  const missingBinaries = [];
-  for (const name of binaries) {
-    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
-    if (result.exitCode !== 0) {
-      missingBinaries.push(name);
-    }
-  }
-  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
-    id: "script-binaries",
-    status: "fail",
-    detail: `not on PATH: ${missingBinaries.join(", ")}`,
-    fix: "install the missing tool(s) \u2014 every gate depends on them"
-  };
-};
-
-// src/doctor/checkSourceWalk.ts
-import { relative as relative10 } from "node:path";
-var sourceExtension2 = /\.(m|c)?[jt]sx?$/;
-var skipReason = ({ path, generated, standardsPacks }) => {
-  const segments = path.split("/");
-  if (path.endsWith(".d.ts")) {
-    return "declaration file";
-  }
-  if (segments.some((segment) => segment.startsWith("."))) {
-    return "dot directory";
-  }
-  if (segments.includes("node_modules")) {
-    return "dependency tree";
-  }
-  if (generated.some((prefix) => path.startsWith(prefix.replace(/\/$/, "")))) {
-    return "declared generated";
-  }
-  const insidePack = standardsPacks.some((pack) => path.startsWith(`${pack}/`));
-  if (insidePack && segments.includes("fixtures")) {
-    return "standards pack fixture";
-  }
-  const beforeSrc = segments.slice(0, segments.indexOf("src") === -1 ? segments.length : segments.indexOf("src"));
-  return beforeSrc.some((segment) => ["dist", "build", "coverage", "out"].includes(segment)) ? "build output" : void 0;
-};
-var checkSourceWalk = async ({ cwd, generated = [] }) => {
-  const result = await runCommand({ command: "git ls-files -z", cwd, timeoutMs: probeTimeoutMs }).catch(() => void 0);
-  if (result === void 0 || result.exitCode !== 0) {
-    return { id: "source-walk", status: "warn", detail: "not a git repository \u2014 the walk has no second opinion to check against" };
-  }
-  const tracked = (result.stdout ?? "").split("\0").filter((path) => path !== "" && sourceExtension2.test(path)).map((path) => relative10(".", path));
-  const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: generated });
-  const walked = new Set(files);
-  const unexplained = tracked.filter((path) => !walked.has(path) && skipReason({ path, generated, standardsPacks }) === void 0);
-  if (unexplained.length === 0) {
-    return { id: "source-walk", status: "pass", detail: `walk reads ${files.length} of ${tracked.length} tracked source file(s); every skip is accounted for` };
-  }
-  const shown = unexplained.slice(0, 5);
-  return {
-    id: "source-walk",
-    status: "fail",
-    detail: `${unexplained.length} tracked source file(s) the walk never reads: ${shown.join(", ")}${unexplained.length > shown.length ? ", \u2026" : ""}`,
-    fix: "no rule reads these \u2014 either the walk is skipping a directory it should not, or the path belongs in the config's `generated` list"
-  };
-};
-
-// src/doctor/checkUserEvent.ts
-import { readFile as readFile36 } from "node:fs/promises";
-import { join as join83 } from "node:path";
-var packageDependencies = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var checkUserEvent = async ({ packageDirs }) => {
-  const fireEventOnly = [];
-  for (const { label: label2, dir } of packageDirs) {
-    const raw = await readFile36(join83(dir, "package.json"), "utf8").catch(() => void 0);
-    let json2;
-    try {
-      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
-    } catch {
-      continue;
-    }
-    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
-    if (!parsed?.success) {
-      continue;
-    }
-    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
-    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
-    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
-      fireEventOnly.push(label2);
-    }
-  }
-  if (fireEventOnly.length === 0) {
-    return void 0;
-  }
-  return {
-    id: "user-event",
-    status: "note",
-    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
-  };
-};
-
-// src/doctor/resolvePackageDirs.ts
-import { readdir as readdir15 } from "node:fs/promises";
-import { join as join84 } from "node:path";
-var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
-  const packageDirs = [{ label: "root", dir: cwd }];
-  if (!config2["package-gates"]) {
-    return { packageDirs };
-  }
-  const entries = await readdir15(join84(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-  const templates = Object.entries(config2["package-gates"]).filter((pair) => typeof pair[1] === "string");
-  const skips = [];
-  for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
-    const manifest = await readPackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
-    if (!manifest) {
-      continue;
-    }
-    packageDirs.push({ label: entry.name, dir: join84(cwd, packagesDir, entry.name) });
-    const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
-    if (absent.length > 0) {
-      skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
-    }
-  }
-  const scopedGatesCheck = skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
-    id: "scoped-gates",
-    status: "note",
-    detail: `gates will skip for: ${skips.join("; ")} \u2014 intentional if these packages have nothing to check; a typo'd script name looks identical`
-  };
-  return { packageDirs, scopedGatesCheck };
-};
-
-// src/doctor/runDoctor.ts
-var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
-var pushOptional = ({ checks, check: check2 }) => {
-  if (check2) {
-    checks.push(check2);
-  }
-};
-var configuredPathAudits = ({ config: config2 }) => [
-  { id: "generated", paths: config2.generated, fix: "run the generator once, or remove stale entries from `generated`" },
-  { id: "vendored", paths: config2.vendored, fix: "restore the third-party code, or remove stale entries from `vendored`" }
-];
-var runDoctor = async ({ cwd, probeHarness, usageProbe, usageDriver }) => {
-  const checks = [];
-  let config2;
-  try {
-    config2 = await readConfig({ cwd });
-  } catch (error51) {
-    return [
-      {
-        id: "config",
-        status: "fail",
-        detail: messageOf({ error: error51 }),
-        fix: "create or repair lightsout.config.json \u2014 every other check depends on it"
-      }
-    ];
-  }
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  checks.push({
-    id: "config",
-    status: "pass",
-    detail: `lightsout.config.json valid \xB7 harness ${config2.harness ?? "claude-code"}${config2["package-gates"] ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
-  });
-  checks.push(await checkHarness({ cwd, config: config2, probeHarness }));
-  if (usageProbe) {
-    checks.push(await checkHarnessUsage({ cwd, config: config2, driver: usageDriver }));
-  }
-  checks.push(await checkGitignore({ cwd }));
-  checks.push(await checkSourceWalk({ cwd, generated: config2.generated }));
-  const { packageDirs, scopedGatesCheck } = await resolvePackageDirs({ cwd, config: config2, packagesDir });
-  pushOptional({ checks, check: scopedGatesCheck });
-  pushOptional({ checks, check: await checkJestMocks({ cwd, packageDirs }) });
-  pushOptional({ checks, check: await checkJestReporter({ cwd, packageDirs }) });
-  pushOptional({ checks, check: await checkUserEvent({ packageDirs }) });
-  pushOptional({ checks, check: await checkLintRules({ config: config2, packageDirs }) });
-  for (const audit of configuredPathAudits({ config: config2 })) {
-    pushOptional({ checks, check: await checkConfiguredPaths({ cwd, ...audit }) });
-  }
-  pushOptional({ checks, check: await checkCoverageSummary({ config: config2, packageDirs }) });
-  checks.push(await checkScriptBinaries({ cwd, config: config2 }));
-  return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
-};
-
-// src/cli/doctorCommand.ts
-var warnBeforeProbing = async ({ cwd }) => {
-  const config2 = await readOptionalConfig({ cwd }).catch(() => void 0);
-  console.log(`--usage-probe: about to spend one real agent call on ${config2?.harness ?? "claude-code"} \u2014 it bills your own subscription.`);
-};
-var doctorCommand = async ({ cwd, flags }) => {
-  const usageProbe = flags.has("usage-probe");
-  if (usageProbe && flags.get("usage-probe") !== true) {
-    console.error(usage);
-    return exitCli({ code: 1 });
-  }
-  if (usageProbe) {
-    await warnBeforeProbing({ cwd });
-  }
-  const checks = await runDoctor({ cwd, usageProbe });
-  const icon = { pass: green("\u2713"), note: dim("\u2139"), warn: yellow("\u26A0"), fail: red("\u2717") };
-  const counts = { pass: 0, note: 0, warn: 0, fail: 0 };
-  console.log(`doctor    ${cwd}
-`);
-  for (const check2 of checks) {
-    counts[check2.status] += 1;
-    console.log(`${icon[check2.status]} ${check2.id.padEnd(16)}${check2.detail}`);
-    if (check2.fix) {
-      for (const line of check2.fix.split("\n")) {
-        console.log(dim(`  ${"".padEnd(16)}${line}`));
-      }
-    }
-  }
-  const tally = Object.entries(counts).filter(([, count2]) => count2 > 0).map(([status, count2]) => `${count2} ${status}`).join(" \xB7 ");
-  console.log(`
-${checks.length} check(s) \xB7 ${tally}`);
-  return exitCli({ code: counts.fail > 0 ? 1 : 0 });
-};
-
-// src/cli/frictionCommand.ts
-var frictionCommand = async ({ cwd }) => {
-  const entries = await readFriction({ cwd });
-  if (entries.length === 0) {
-    console.log("no friction recorded");
-    return exitCli({ code: 0 });
-  }
-  for (const entry of entries) {
-    console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
-  }
-  return exitCli({ code: 0 });
-};
-
-// src/cli/common/render/printResult.ts
-import { basename as basename36 } from "node:path";
-
-// ../shared/src/formatting/formatCost.ts
-var formatCost = ({ usd }) => `$${usd.toFixed(2)}`;
-
-// ../shared/src/formatting/formatDuration.ts
-var formatDuration = ({ ms }) => {
-  if (ms === void 0) {
-    return "\u2014";
-  }
-  const seconds = Math.round(ms / 1e3);
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
-};
-
-// ../shared/src/formatting/formatTokenCount.ts
-var formatTokenCount = ({ count: count2 }) => {
-  if (count2 >= 1e6) {
-    return `${(count2 / 1e6).toFixed(1)}M`;
-  }
-  return count2 >= 1e3 ? `${(count2 / 1e3).toFixed(1)}k` : `${count2}`;
-};
-
-// src/cli/common/constants/statusIcons.ts
-var statusIcons = {
-  [RunStatus.Passed]: "\u2713",
-  [RunStatus.Failed]: "\u2717",
-  [RunStatus.Running]: "\u2026",
-  [RunStatus.Pending]: "\u25CB",
-  [RunStatus.PausedRateLimit]: "\u23F8",
-  // stopped and resumable, exactly like the rate-limit pause
-  [RunStatus.PausedBudget]: "\u23F8",
-  [RunStatus.Escalated]: "\u2691"
-};
-
-// src/cli/common/render/renderTable.ts
-var renderTable = ({ headers, rows }) => {
-  const allCells = [headers, ...rows.map((row) => row.cells)];
-  const widths = headers.map((_, column) => Math.max(...allCells.map((cells) => (cells[column] ?? "").length)) + 2);
-  const rule = ({ left, mid, right }) => dim(`${left}${widths.map((width) => "\u2500".repeat(width)).join(mid)}${right}`);
-  const renderRow = ({ cells, emphasis, paintCell: paintCell2 }) => {
-    const rendered = cells.map((text, column) => {
-      const width = widths[column] ?? 0;
-      const padded = column === 0 ? ` ${text.padEnd(width - 1)}` : `${text.padStart(width - 1)} `;
-      const painted = paintCell2 ? paintCell2({ text, padded, column }) : padded;
-      return emphasis && text !== "\u2014" ? emphasis(painted) : painted;
-    });
-    return `${dim("\u2502")}${rendered.join(dim("\u2502"))}${dim("\u2502")}`;
-  };
-  const lines = [rule({ left: "\u250C", mid: "\u252C", right: "\u2510" }), renderRow({ cells: headers })];
-  rows.forEach((row, index) => {
-    if (index === 0 || row.ruleAbove !== false) {
-      lines.push(rule({ left: "\u251C", mid: "\u253C", right: "\u2524" }));
-    }
-    lines.push(renderRow(row));
-  });
-  lines.push(rule({ left: "\u2514", mid: "\u2534", right: "\u2518" }));
-  return lines;
-};
-
-// src/cli/common/terminal/paintStatus.ts
-var paintStatus = ({ status, text }) => {
-  if (status === RunStatus.Passed) {
-    return green(text);
-  }
-  return status === RunStatus.Failed ? red(text) : yellow(text);
-};
-
-// src/cli/common/render/printStepTable.ts
-var paintCell = ({ text, padded, status }) => {
-  if (text === "\u2014") {
-    return dim(padded);
-  }
-  if (status !== void 0 && text.startsWith(statusIcons[status] ?? "?")) {
-    return padded.replace(statusIcons[status] ?? "?", paintStatus({ status, text: statusIcons[status] ?? "?" }));
-  }
-  return padded;
-};
-var printStepTable = ({ steps, activeMs }) => {
-  const headers = ["step", "tries", "time", "agents", "out", "cost", "files"];
-  const rows = steps.map((step) => ({
-    status: step.status,
-    cells: [
-      `${statusIcons[step.status] ?? "?"} ${step.id}`,
-      `${step.attempts}`,
-      formatDuration({ ms: step.durationMs }),
-      step.invocations > 0 ? `${step.invocations}` : "\u2014",
-      step.invocations > 0 ? formatTokenCount({ count: step.outputTokens }) : "\u2014",
-      step.invocations > 0 ? formatCost({ usd: step.costUsd }) : "\u2014",
-      step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
-    ]
-  }));
-  const invocations = steps.reduce((count2, step) => count2 + step.invocations, 0);
-  const totalCells = [
-    "  total",
-    "\u2014",
-    activeMs > 0 ? formatDuration({ ms: activeMs }) : "\u2014",
-    invocations > 0 ? `${invocations}` : "\u2014",
-    invocations > 0 ? formatTokenCount({ count: steps.reduce((count2, step) => count2 + step.outputTokens, 0) }) : "\u2014",
-    invocations > 0 ? formatCost({ usd: steps.reduce((total, step) => total + step.costUsd, 0) }) : "\u2014",
-    `${steps.reduce((count2, step) => count2 + (step.changedFiles?.length ?? 0), 0)}`
-  ];
-  const lines = renderTable({
-    headers,
-    rows: [
-      ...rows.map((row) => ({
-        cells: row.cells,
-        paintCell: ({ text, padded }) => paintCell({ text, padded, status: row.status })
-      })),
-      { cells: totalCells, emphasis: bold, paintCell: ({ text, padded }) => paintCell({ text, padded }) }
-    ]
-  });
-  for (const line of lines) {
-    console.log(line);
-  }
-};
-
-// src/cli/common/utils/plural.ts
-var plural = ({ count: count2 }) => count2 === 1 ? "" : "s";
-
-// src/cli/common/render/printResult.ts
-var label = ({ name, value }) => console.log(`${name.padEnd(10)}${value}`);
-var describeGates = ({ gates }) => {
-  const parts = [`${gates.commands} command${plural({ count: gates.commands })}`];
-  if (gates.reruns > 0) {
-    parts.push(`${gates.reruns} flake re-run${plural({ count: gates.reruns })}`);
-  }
-  if (gates.skipped > 0) {
-    parts.push(`${gates.skipped} skipped (no script)`);
-  }
-  return parts.join(" \xB7 ");
-};
-var describeCleanup = ({ cleanup }) => {
-  const parts = [`${cleanup.rounds} round${plural({ count: cleanup.rounds })}`, cleanup.endReason ?? "in progress"];
-  if (cleanup.remainingFindings > 0) {
-    parts.push(`${cleanup.remainingFindings} remaining`);
-  }
-  if (cleanup.carriedFindings > 0) {
-    parts.push(`${cleanup.carriedFindings} carried forward`);
-  }
-  if (cleanup.failures > 0) {
-    parts.push(`${cleanup.failures} failed attempt${plural({ count: cleanup.failures })}`);
-  }
-  return parts.join(" \xB7 ");
-};
-var describeCommits = ({ manifest, ok }) => {
-  if (manifest.commits.length > 0) {
-    return manifest.commits.map((commit) => `${commit.sha.slice(0, 7)} ${commit.subject}`).join(" \xB7 ");
-  }
-  return ok && manifest.changedFiles.length > 0 ? "none added \u2014 this run\u2019s work was already in the branch\u2019s history" : void 0;
-};
-var printResult = async ({ result, cwd }) => {
-  const { manifest, ok, error: error51 } = result;
-  const summary = await summarizeRun({ cwd, manifest });
-  console.log("");
-  label({ name: "run", value: `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}` });
-  label({ name: "plan", value: basename36(manifest.plan) });
-  label({ name: "wall", value: formatDuration({ ms: summary.wallMs }) });
-  if (summary.activeMs > 0) {
-    label({ name: "active", value: formatDuration({ ms: summary.activeMs }) });
-  }
-  label({ name: "gates", value: formatDuration({ ms: summary.gateMs }) });
-  if (summary.usage && summary.usage.invocations > 0) {
-    const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
-    const share = summary.cacheReadShare === void 0 ? "" : ` (${Math.round(summary.cacheReadShare * 100)}%)`;
-    label({
-      name: "tokens",
-      value: `in ${formatTokenCount({ count: inputTokens })} \xB7 out ${formatTokenCount({ count: outputTokens })} \xB7 cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`
-    });
-    label({ name: "cost", value: `${formatCost({ usd: costUsd })} API-equivalent \xB7 ${invocations} invocation${plural({ count: invocations })}` });
-  }
-  console.log("");
-  printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
-  console.log("");
-  label({ name: "gates", value: describeGates({ gates: summary.gates }) });
-  if (summary.rejectedReports > 0) {
-    label({ name: "retries", value: `${summary.rejectedReports} rejected report${plural({ count: summary.rejectedReports })} re-emitted` });
-  }
-  if (summary.cleanup) {
-    label({ name: "cleanup", value: describeCleanup({ cleanup: summary.cleanup }) });
-  }
-  if (summary.frictionByArea.length > 0) {
-    const total = summary.frictionByArea.reduce((count2, entry) => count2 + entry.count, 0);
-    label({ name: "friction", value: `${total} \xB7 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(" \xB7 ")}` });
-  }
-  if (manifest.packages.length > 0) {
-    label({ name: "scope", value: `${manifest.packages.join(" \xB7 ")}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ""}` });
-  }
-  const commits = describeCommits({ manifest, ok });
-  if (commits !== void 0) {
-    label({ name: "commit", value: commits });
-  }
-  if (manifest.unreachableChangedFiles.length > 0) {
-    label({
-      name: "warning",
-      value: `unreachable-changed-files: ${manifest.unreachableChangedFiles.join(", ")} \u2014 changed, but no public surface reaches them; no tests cover them`
-    });
-  }
-  label({ name: "evidence", value: `.lightsout/runs/${manifest.runId}/` });
-  if (ok || error51 === void 0) {
-    return;
-  }
-  if (isRunPaused({ status: manifest.status })) {
-    console.log(`
-${error51}`);
-  } else {
-    console.error(`
-${error51}`);
-  }
-};
-
-// src/cli/common/constants/contradictoryShipFlagsMessage.ts
-var contradictoryShipFlagsMessage = "--ship and --no-ship contradict each other \u2014 pass at most one";
-
-// src/cli/common/constants/unusableTicketPatternMessage.ts
-var unusableTicketPatternMessage = "ship: `ship.ticket-pattern` must be a valid regular expression carrying a `ticket` named group";
-
-// src/worktree/createWorktree.ts
-import { stat as stat8 } from "node:fs/promises";
-
-// src/common/processes/runOrDescribeFailure.ts
-var runOrDescribeFailure = async ({ command, cwd, timeoutMs = gitTimeoutMs, subject = "git" }) => {
-  const result = await runCommand({ command, cwd, timeoutMs }).catch(() => void 0);
-  return result?.exitCode === 0 ? void 0 : (result?.stderr ?? `${subject} did not answer`).trim();
-};
-
-// src/worktree/records/deleteWorktreeRecord.ts
-import { rm as rm6 } from "node:fs/promises";
-
-// src/worktree/records/common/utils/getWorktreeRecordPath.ts
-import { join as join85 } from "node:path";
-var getWorktreeRecordPath = async ({ cwd, branch }) => {
-  return join85(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "worktree.json");
-};
-
-// src/worktree/records/deleteWorktreeRecord.ts
-var deleteWorktreeRecord = async ({ cwd, branch }) => {
-  await rm6(await getWorktreeRecordPath({ cwd, branch }), { force: true }).catch(() => void 0);
-};
-
-// src/worktree/records/readWorktreeRecord.ts
-var readWorktreeRecord = async ({ cwd, branch }) => {
-  return readJsonFile({ path: await getWorktreeRecordPath({ cwd, branch }), schema: WorktreeRecord });
-};
-
-// src/worktree/records/writeWorktreeRecord.ts
-import { mkdir as mkdir19, rename as rename6 } from "node:fs/promises";
-import { dirname as dirname14 } from "node:path";
-var writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }) => {
-  const record3 = { branch, owner, worktreePath, createdAt: (/* @__PURE__ */ new Date()).toISOString(), ...startPoint === void 0 ? {} : { startPoint } };
-  try {
-    const recordPath = await getWorktreeRecordPath({ cwd, branch });
-    await mkdir19(dirname14(recordPath), { recursive: true });
-    await writeJsonFile({ path: `${recordPath}.tmp`, value: record3 });
-    await rename6(`${recordPath}.tmp`, recordPath);
-  } catch (error51) {
-    const message = error51 instanceof Error ? error51.message : String(error51);
-    onProgress?.(`the worktree for ${branch} could not be recorded as '${owner}': ${message}`);
-  }
-};
-
-// src/worktree/resolveWorktreePath.ts
-import { join as join87 } from "node:path";
-
-// src/worktree/resolveWorktreesRoot.ts
-import { basename as basename37, dirname as dirname15, join as join86, resolve as resolve8 } from "node:path";
-var resolveWorktreesRoot = async ({ cwd }) => {
-  const primary = await readGitPrimaryCheckout({ cwd });
-  const repo = resolve8(primary ?? cwd);
-  return join86(dirname15(repo), `${basename37(repo)}-worktrees`);
-};
-
-// src/worktree/resolveWorktreePath.ts
-var resolveWorktreePath = async ({ cwd, branch }) => join87(await resolveWorktreesRoot({ cwd }), branch);
-
-// src/worktree/createWorktree.ts
-var exists = async ({ path }) => {
-  const found = await stat8(path).catch(() => void 0);
-  return found !== void 0;
-};
-var branchExists = async ({ cwd, branch }) => {
-  const shown = await runCommand({ command: `git rev-parse --verify --quiet refs/heads/${branch}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return shown?.exitCode === 0;
-};
-var describeClaim = async ({ cwd, branch, owner, worktreePath }) => {
-  const record3 = await readWorktreeRecord({ cwd, branch });
-  return record3 === void 0 || record3.owner === owner ? void 0 : `the worktree at ${worktreePath} belongs to a '${record3.owner}' run, so it was left alone`;
-};
-var cutTree = async ({
-  cwd,
-  branch,
-  startPoint,
-  setup,
-  owner,
-  worktreePath,
-  onProgress
-}) => {
-  const adopting = await branchExists({ cwd, branch });
-  const add = adopting ? `git worktree add ${worktreePath} ${branch}` : `git worktree add ${worktreePath} -b ${branch} ${startPoint}`;
-  const addFailure = await runOrDescribeFailure({ command: add, cwd });
-  if (addFailure !== void 0) {
-    return { error: `git could not create a worktree for '${branch}': ${addFailure}` };
-  }
-  onProgress?.(`worktree ${worktreePath} on ${branch}`);
-  await writeWorktreeRecord({ cwd, branch, owner, worktreePath, startPoint: adopting ? void 0 : startPoint, onProgress });
-  if (setup === void 0) {
-    return void 0;
-  }
-  const setupTimeoutMs = 6e5;
-  const setupFailure = await runOrDescribeFailure({ command: setup, cwd: worktreePath, timeoutMs: setupTimeoutMs, subject: "the command" });
-  if (setupFailure !== void 0) {
-    return { error: `the queue's setup command failed in ${worktreePath}: ${setupFailure}` };
-  }
-  onProgress?.(`setup finished in ${worktreePath}`);
-  return void 0;
-};
-var createWorktree = async ({ cwd, branch, startPoint, setup, owner, reuseExisting, onProgress }) => {
-  const worktreePath = await resolveWorktreePath({ cwd, branch });
-  const alreadyThere = await exists({ path: worktreePath });
-  if (alreadyThere && !reuseExisting) {
-    return { error: `something is already at ${worktreePath}, so no worktree was made for '${branch}'` };
-  }
-  const claimed = alreadyThere ? await describeClaim({ cwd, branch, owner, worktreePath }) : void 0;
-  if (claimed !== void 0) {
-    return { error: claimed };
-  }
-  if (alreadyThere) {
-    onProgress?.(`worktree already at ${worktreePath} \u2014 continuing in it`);
-  }
-  const failure = alreadyThere ? void 0 : await cutTree({ cwd, branch, startPoint, setup, owner, worktreePath, onProgress });
-  return failure ?? worktreePath;
-};
-
-// src/worktree/fetchDefaultBranch.ts
-var fetchDefaultBranch = async ({ cwd }) => {
-  const fetchTimeoutMs = 6e4;
-  const fetchFailure = await runOrDescribeFailure({ command: "git fetch origin", cwd, timeoutMs: fetchTimeoutMs });
-  if (fetchFailure !== void 0) {
-    return { error: `git could not fetch origin: ${fetchFailure}` };
-  }
-  const defaultBranch = await readGitDefaultBranch({ cwd });
-  const unset = "the remote's default branch is unset, so there is nothing to cut a branch from \u2014 set it with `git remote set-head origin --auto`";
-  return defaultBranch ?? { error: unset };
-};
-
-// src/common/git/readGitRefCommit.ts
-var readGitRefCommit = async ({ cwd, ref }) => {
-  const named = await runCommand({ command: `git rev-parse --verify --quiet '${ref}^{commit}'`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return named?.exitCode === 0 ? named.stdout.trim() : void 0;
-};
-
-// src/worktree/readBranchWorktree.ts
-var readBranchWorktree = async ({ cwd, branch }) => {
-  const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  let found;
-  for (const block of (listed?.exitCode === 0 ? listed.stdout : "").split("\n\n")) {
-    const path = /^worktree (.+)$/m.exec(block)?.[1];
-    if (path !== void 0 && /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] === branch) {
-      found = path;
-      break;
-    }
-  }
-  return found;
-};
-
-// src/worktree/prepareTicketBranch.ts
-var readAncestry = async ({ cwd, ancestor, descendant }) => {
-  const asked = await runCommand({ command: `git merge-base --is-ancestor ${ancestor} ${descendant}`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  if (asked?.exitCode !== 0 && asked?.exitCode !== 1) {
-    return void 0;
-  }
-  return asked.exitCode === 0;
-};
-var readBranchRelation = async ({ cwd, local, remote }) => {
-  const behind = await readAncestry({ cwd, ancestor: local, descendant: remote });
-  const ahead = await readAncestry({ cwd, ancestor: remote, descendant: local });
-  let relation;
-  if (ahead === true) {
-    relation = "ahead";
-  } else if (behind === true) {
-    relation = "behind";
-  } else if (ahead === false && behind === false) {
-    relation = "diverged";
-  }
-  return relation;
-};
-var fastForwardTicketBranch = async ({ cwd, branch, local, remote }) => {
-  const holder = await readBranchWorktree({ cwd, branch });
-  if (holder !== void 0) {
-    return {
-      error: `the local branch '${branch}' at ${local} is behind the pushed one at ${remote}, and the worktree at ${holder} is standing on it \u2014 bring it up to date there with \`git pull --ff-only\``
-    };
-  }
-  const failure = await runOrDescribeFailure({ command: `git branch -f ${branch} ${remote}`, cwd });
-  return failure === void 0 ? { startPoint: void 0 } : { error: `git could not move '${branch}' to the pushed commit ${remote}: ${failure}` };
-};
-var prepareTicketBranch = async ({ cwd, branch }) => {
-  const local = await readGitRefCommit({ cwd, ref: `refs/heads/${branch}` });
-  const remote = await readGitRefCommit({ cwd, ref: `refs/remotes/origin/${branch}` });
-  if (remote === void 0 || local === remote) {
-    return {};
-  }
-  if (local === void 0) {
-    return { startPoint: remote };
-  }
-  const relation = await readBranchRelation({ cwd, local, remote });
-  let prepared;
-  if (relation === "ahead") {
-    prepared = {};
-  } else if (relation === "behind") {
-    prepared = await fastForwardTicketBranch({ cwd, branch, local, remote });
-  } else if (relation === "diverged") {
-    prepared = {
-      error: `the local branch '${branch}' at ${local} has diverged from the pushed one at ${remote} \u2014 reconcile them before planning or implementing a later plan of this ticket`
-    };
-  } else {
-    prepared = { error: `git could not compare the local branch '${branch}' at ${local} with the pushed one at ${remote}` };
-  }
-  return prepared;
-};
-
-// src/worktree/removeWorktree.ts
-var removeWorktree = async ({ cwd, worktreePath, branch }) => {
-  const removal = await runOrDescribeFailure({ command: `git worktree remove --force ${worktreePath}`, cwd });
-  for (const command of ["git worktree prune", `git branch -d ${branch}`]) {
-    await runCommand({ command, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  }
-  return removal === void 0 ? void 0 : { error: `git could not remove the worktree at ${worktreePath}: ${removal}` };
-};
-
-// src/cli/common/implementRun/removeShippedRunWorkspace.ts
-var describeRemovableTree = async ({ cwd, manifest }) => {
-  const { workspace, branch } = manifest;
-  if (workspace === void 0 || branch === void 0) {
-    return void 0;
-  }
-  const primary = await readGitPrimaryCheckout({ cwd }) ?? cwd;
-  const record3 = await readWorktreeRecord({ cwd: primary, branch });
-  const owned = record3?.owner === WorktreeOwner.Implement && record3.worktreePath === workspace;
-  return owned ? { cwd: primary, branch, worktreePath: workspace } : void 0;
-};
-var removeShippedRunWorkspace = async ({ cwd, manifest, onProgress }) => {
-  const removable = await describeRemovableTree({ cwd, manifest });
-  if (removable === void 0) {
-    return;
-  }
-  const failure = await removeWorktree(removable);
-  if (failure === void 0) {
-    onProgress?.(`removed the worktree at ${removable.worktreePath}`);
-    await deleteWorktreeRecord({ cwd: removable.cwd, branch: removable.branch });
-  } else {
-    onProgress?.(failure.error);
-  }
-};
-
-// src/cli/common/implementRun/resolveRunCwd.ts
-import { stat as stat9 } from "node:fs/promises";
-var resolveRunCwd = async ({ cwd, manifest }) => {
-  const { workspace } = manifest;
-  if (workspace === void 0) {
-    return { workspace: cwd };
-  }
-  const isDirectory = await stat9(workspace).then(
-    (entry) => entry.isDirectory(),
-    () => false
-  );
-  return isDirectory ? { workspace } : { error: `run ${manifest.runId} recorded its workspace at ${workspace}, and there is no checkout there any more` };
-};
-
-// src/cli/common/constants/pausedExitCode.ts
-var pausedExitCode = 2;
-
-// src/cli/common/utils/exitForRunResult.ts
-var exitForRunResult = ({ ok, manifest }) => {
-  if (ok) {
-    return exitCli({ code: 0 });
-  }
-  return exitCli({ code: isRunPaused({ status: manifest.status }) ? pausedExitCode : 1 });
-};
-
-// src/cli/common/utils/resolveCommandHarness.ts
-var resolveCommandHarness = ({ config: config2, command }) => {
-  const entry = config2?.commands?.[command];
-  const globalHarnessName = config2?.harness ?? "claude-code";
-  const driverName = entry?.harness ?? globalHarnessName;
-  const model = entry?.model ?? (driverName === globalHarnessName ? config2?.model : void 0);
-  const effort = entry?.effort ?? config2?.effort;
-  return { driverName, model, effort };
-};
-
-// src/cli/common/utils/resolveEffectiveConfigAndDriver.ts
-var resolveEffectiveConfigAndDriver = ({ config: config2, command }) => {
-  const { driverName, model, effort } = resolveCommandHarness({ config: config2, command });
-  return { config: { ...config2, harness: driverName, model, effort }, driver: getDriver({ name: driverName }), driverName };
-};
-
-// src/ticket/common/planSource/fillPlanFolder.ts
-import { mkdir as mkdir20 } from "node:fs/promises";
-
-// src/ticket/common/planSource/describeLooseFileNotice.ts
-var describeLooseFileNotice = ({ address, planId, hasDeliverable, hasUnfinishedRun, moveError, rewriteError }) => [
-  ...hasDeliverable ? [`the files moved into plan ${planId} are not published under its own titles yet \u2014 run \`lightsout plan publish --name ${address}\`.`] : [],
-  ...hasUnfinishedRun ? [
-    `the source folder's earlier runs can no longer be resumed through their old plan path now that its files have moved \u2014 finish plan ${planId}'s implementation with \`lightsout implement --plan ${planWorkspacePath({ name: address })}\`.`
-  ] : [],
-  ...moveError === void 0 ? [] : [moveError],
-  ...rewriteError === void 0 ? [] : [rewriteError]
-];
-
-// src/ticket/common/planSource/moveLooseFilesIntoPlan.ts
-import { rename as rename7, rmdir } from "node:fs/promises";
-import { dirname as dirname16, join as join88 } from "node:path";
-var moveLooseFilesIntoPlan = async ({ plansFolder, planFolder, entries, retire }) => {
-  const moved = [];
-  let failure;
-  try {
-    for (const entry of entries) {
-      await rename7(join88(plansFolder, entry), join88(planFolder, entry));
-      moved.push(entry);
-    }
-  } catch (error51) {
-    failure = {
-      error: `the loose files of '${plansFolder}' could not all be moved into ${planFolder}, so every one of them is back in ${plansFolder}: ${messageOf({ error: error51 })}`
-    };
-  }
-  if (failure !== void 0) {
-    for (const entry of moved) {
-      await rename7(join88(planFolder, entry), join88(plansFolder, entry)).catch(() => void 0);
-    }
-  } else if (retire) {
-    await rmdir(plansFolder).catch(() => void 0);
-    await rmdir(dirname16(plansFolder)).catch(() => void 0);
-  }
-  return failure;
-};
-
-// src/ticket/common/planSource/rewriteMovedPlanName.ts
-import { readdir as readdir16, readFile as readFile37, writeFile as writeFile16 } from "node:fs/promises";
-import { join as join89 } from "node:path";
-var movedRecordNames = ["decisions.json", "brainstorm-decisions.json"];
-var rewriteRecord = async ({ path, address }) => {
-  let sentence;
-  try {
-    const fields3 = JSON.parse(await readFile37(path, "utf8"));
-    await writeFile16(path, `${JSON.stringify({ ...fields3, planName: address }, void 0, "	")}
-`, "utf8");
-  } catch (error51) {
-    sentence = `${path} still names the folder its files came from rather than ${address}, and has to be pointed at the plan by hand: ${messageOf({ error: error51 })}`;
-  }
-  return sentence;
-};
-var rewriteMovedPlanName = async ({ planFolder, address }) => {
-  const present = await readdir16(planFolder).catch(() => []);
-  const sentences = [];
-  for (const name of movedRecordNames.filter((record3) => present.includes(record3))) {
-    const sentence = await rewriteRecord({ path: join89(planFolder, name), address });
-    if (sentence !== void 0) {
-      sentences.push(sentence);
-    }
-  }
-  return sentences.length === 0 ? void 0 : sentences.join(" ");
-};
-
-// src/ticket/common/planSource/fillPlanFolder.ts
-var fillPlanFolder = async ({ cwd, address, planId, source, retire }) => {
-  const planFolder = await planWorkspaceDir({ cwd, name: address });
-  await mkdir20(planFolder, { recursive: true });
-  if (source === void 0) {
-    return [];
-  }
-  const moved = await moveLooseFilesIntoPlan({ plansFolder: source.plansFolder, planFolder, entries: source.entries, retire });
-  const rewriteError = moved === void 0 ? await rewriteMovedPlanName({ planFolder, address }) : void 0;
-  return describeLooseFileNotice({
-    address,
-    planId,
-    hasDeliverable: source.hasDeliverable,
-    hasUnfinishedRun: source.hasUnfinishedRun,
-    moveError: moved?.error,
-    rewriteError
-  });
-};
-
-// src/ticket/common/planSource/resolvePlanSourceFolder.ts
-import { dirname as dirname17 } from "node:path";
-
-// src/ticket/common/planSource/findLiveRunRefusal.ts
-var findLiveRunRefusal = async ({ primaryCheckout, runs }) => {
-  const locks = await Promise.all(runs.map((manifest) => readRunProcessLock({ cwd: primaryCheckout, manifest })));
-  const live2 = runs.find((manifest, index) => isRunLive({ manifest, lock: locks[index] }));
-  return live2 === void 0 ? void 0 : `run ${live2.runId} is still building ${live2.plan}, and making a plan out of the folder would move the files out from under it \u2014 wait for that run to finish, or stop it, and run this again`;
-};
-
-// src/ticket/common/planSource/readLooseFileProgress.ts
-var readLooseFileProgress = ({ runs, hasDeliverable }) => {
-  const latest = runs.filter((manifest) => manifest.pipeline !== PipelineKind.Phases).sort((left, right) => left.createdAt < right.createdAt ? -1 : 1).at(-1);
-  let progress = hasDeliverable ? PlanProgress.Ready : PlanProgress.Planning;
-  if (latest !== void 0) {
-    progress = latest.status === RunStatus.Failed || latest.status === RunStatus.Escalated ? PlanProgress.Failed : PlanProgress.Implementing;
-  }
-  if (runs.some((manifest) => manifest.status === RunStatus.Passed)) {
-    progress = PlanProgress.Implemented;
-  }
-  return progress;
-};
-
-// src/ticket/common/planSource/readLooseFileRuns.ts
-var isFolderRun = ({ manifest, planName }) => manifest.parentRunId === void 0 && (manifest.pipeline === void 0 || manifest.pipeline === PipelineKind.Implement || manifest.pipeline === PipelineKind.Phases) && manifest.planName === planName;
-var readLooseFileRuns = async ({ primaryCheckout, planName }) => {
-  const runIds = await listRunIds({ cwd: primaryCheckout, ticketBranch: planName });
-  const manifests = await Promise.all(runIds.map((runId) => readRunManifest({ cwd: primaryCheckout, runId }).catch(() => void 0)));
-  return manifests.filter((manifest) => manifest !== void 0 && isFolderRun({ manifest, planName }));
-};
-
-// src/ticket/common/utils/listLoosePlanEntries.ts
-import { readdir as readdir17 } from "node:fs/promises";
-var isPlanFolder = ({ name }) => {
-  const setAside = /^(?<planId>.+)\.local-\d+$/.exec(name)?.groups?.planId;
-  return PlanId.safeParse(setAside ?? name).success;
-};
-var listLoosePlanEntries = async ({ plansFolder }) => {
-  const entries = await readdir17(plansFolder, { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => !(entry.isDirectory() && isPlanFolder({ name: entry.name }))).map((entry) => entry.name).sort();
-};
-
-// src/ticket/common/planSource/resolvePlanSourceFolder.ts
-var findSourceNameRefusal = ({ from }) => {
-  if (parsePlanAddress({ name: from }) !== void 0) {
-    return `--from names the folder a plan is made out of, and '${from}' is a plan's own address \u2014 name the folder holding the loose files instead`;
-  }
-  const bare = from !== "" && from !== "." && from !== ".." && !from.includes("/") && !from.includes("\\");
-  return bare ? void 0 : `--from takes a plan folder's bare name under the plans directory, and '${from}' is not one \u2014 a path is never one of them`;
-};
-var resolvePlanSourceFolder = async ({ cwd, from }) => {
-  const named = findSourceNameRefusal({ from });
-  if (named !== void 0) {
-    return { error: named };
-  }
-  const primaryCheckout = dirname17(await resolveSharedStateDir({ cwd }));
-  const plansFolder = await planWorkspaceDir({ cwd, name: from });
-  const entries = await listLoosePlanEntries({ plansFolder });
-  if (entries.length === 0) {
-    return { error: `the plan folder '${from}' holds no loose files at ${plansFolder}, so there is nothing here to make a plan out of` };
-  }
-  const runs = await readLooseFileRuns({ primaryCheckout, planName: from });
-  const live2 = await findLiveRunRefusal({ primaryCheckout, runs });
-  if (live2 !== void 0) {
-    return { error: live2 };
-  }
-  const hasDeliverable = (await resolvePlanDeliverable({ cwd: primaryCheckout, name: from })).error === void 0;
-  return {
-    plansFolder,
-    entries,
-    progress: readLooseFileProgress({ runs, hasDeliverable }),
-    hasDeliverable,
-    hasUnfinishedRun: runs.some((manifest) => manifest.status !== RunStatus.Passed)
-  };
-};
-
-// src/ticket/common/record/appendTicketEvent.ts
-var appendTicketEvent = ({ record: record3, kind, detail, at }) => ({
-  ...record3,
-  history: [...record3.history, { at, kind, detail }]
-});
-
-// src/ticket/common/record/buildTicketRecord.ts
-var buildTicketRecord = ({ ticketBranch, config: config2 }) => {
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      error: `ship.ticket-pattern is not a regular expression capturing a 'ticket' group, so no ticket id can be read out of the folder name '${ticketBranch}' \u2014 fix the key in lightsout.config.json`
-    };
-  }
-  const ticketRef = readTicketMatch({ branch: ticketBranch, ticketPattern: shipSettings.ticketPattern })?.ticket;
-  if (ticketRef === void 0) {
-    return {
-      error: `the plan folder '${ticketBranch}' carries no ticket id matching this repo's ship.ticket-pattern, and a ticket record is one ticket's record \u2014 name the folder after the ticket's branch`
-    };
-  }
-  return { schemaVersion: 1, ticketRef, branch: ticketBranch, mode: config2.plan?.["default-ticket-mode"] ?? TicketMode.SinglePlan, plans: [], history: [] };
-};
-
-// src/ticket/common/record/composePlanId.ts
-var composePlanId = ({ number: number4, slug }) => {
-  const parsed = PlanId.safeParse(`${String(number4).padStart(3, "0")}-${slug}`);
-  return parsed.success ? { id: parsed.data } : { error: `'${slug}' cannot be a plan slug: ${external_exports.prettifyError(parsed.error)}` };
-};
-
-// src/ticket/common/record/recordShipRequestWithdrawal.ts
-var recordShipRequestWithdrawal = ({ record: record3, detail, at }) => record3.shipRequest === void 0 ? record3 : appendTicketEvent({ record: { ...record3, shipRequest: void 0 }, kind: TicketEventKind.ShipRequestWithdrawn, detail, at });
-
-// src/common/utils/describeMissingTicketRecord.ts
-var describeMissingTicketRecord = ({ ticketBranch }) => `there is no ticket record for '${ticketBranch}' \u2014 start one with \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\`, adding \`--from ${ticketBranch}\` when that folder already holds the loose files the plan is to be made out of`;
-
-// src/ticket/common/record/requireTicketRecord.ts
-var requireTicketRecord = ({ record: record3, ticketBranch }) => {
-  if (record3 === void 0) {
-    return { error: describeMissingTicketRecord({ ticketBranch }) };
-  }
-  return record3.shipped === void 0 ? record3 : { error: `ticket ${ticketBranch} shipped as ${record3.shipped.mergeCommit}, and a shipped ticket's record is history that no longer changes` };
-};
-
-// src/ticket/common/constants/publishedButUnrecorded.ts
-var publishedButUnrecorded = "the ticket record was published, but this machine could not record that it was";
-
-// src/ticket/common/constants/ticketFileNames.ts
-var ticketFileNames = {
-  record: "ticket.json",
-  sync: "ticket-sync.json",
-  published: "ticket.published.json",
-  lock: "ticket.lock"
-};
-
-// src/ticket/common/utils/serializeTicketRecord.ts
-var serializeTicketRecord = ({ record: record3 }) => {
-  const sorted = JSON.parse(canonicalJson({ value: record3 }));
-  return Buffer.from(`${JSON.stringify(sorted, void 0, "	")}
-`, "utf8");
-};
-
-// src/ticket/common/utils/readPublishedTicketRecord.ts
-var readRecordText = ({ text, ticketBranch, ticketRef }) => {
-  let value;
-  let outcome;
-  try {
-    value = JSON.parse(text);
-  } catch (error51) {
-    outcome = {
-      error: `the ${ticketFileNames.record} on ${ticketRef} is not valid JSON (${messageOf({ error: error51 })}) \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`
-    };
-  }
-  if (outcome === void 0) {
-    const parsed = TicketRecord.safeParse(value);
-    if (!parsed.success) {
-      outcome = {
-        error: `the ${ticketFileNames.record} on ${ticketRef} does not match the ticket record contract (${external_exports.prettifyError(parsed.error)}) \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to replace it with this machine's record`
-      };
-    } else if (parsed.data.branch !== ticketBranch) {
-      outcome = {
-        error: `the ${ticketFileNames.record} on ${ticketRef} names branch '${parsed.data.branch}', not the '${ticketBranch}' ticket it was read for`
-      };
-    } else {
-      outcome = { published: { record: parsed.data, content: serializeTicketRecord({ record: parsed.data }) } };
-    }
-  }
-  return outcome;
-};
-var readPublishedTicketRecord = async ({
-  target,
-  ticketBranch
-}) => {
-  const { settings, ticketRef } = target;
-  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
-  if ("error" in attachments) {
-    return { error: `the ${ticketFileNames.record} on ${ticketRef} could not be read: ${attachments.error}` };
-  }
-  const carried = attachments.filter(({ title }) => title === ticketFileNames.record);
-  if (carried.length > 1) {
-    return {
-      error: `${ticketRef} carries more than one ${ticketFileNames.record} attachment, so no single published ticket record can be selected \u2014 remove the extra one on the ticket, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to publish this machine's record over them`
-    };
-  }
-  const attachment = carried[0];
-  if (attachment === void 0) {
-    return { published: void 0 };
-  }
-  const text = await readTicketAsset3({ settings, url: attachment.url });
-  return typeof text === "string" ? readRecordText({ text, ticketBranch, ticketRef }) : { error: `the ${ticketFileNames.record} on ${ticketRef} could not be read: ${text.error}` };
-};
-
-// src/ticket/common/utils/readTicketSyncState.ts
-import { join as join90 } from "node:path";
-var readTicketSyncState = async ({ ticketFolder }) => readJsonFile({ path: join90(ticketFolder, ticketFileNames.sync), schema: TicketSyncState });
-
-// src/ticket/common/utils/surfaceTicketDivergence.ts
-import { join as join91 } from "node:path";
-
-// src/ticket/common/utils/writeTicketFolderFile.ts
-import { mkdir as mkdir21, rename as rename8, writeFile as writeFile17 } from "node:fs/promises";
-import { dirname as dirname18 } from "node:path";
-var writeTicketFolderFile = async ({ path, content }) => {
-  const temporaryPath = `${path}.tmp`;
-  await mkdir21(dirname18(path), { recursive: true });
-  await writeFile17(temporaryPath, content);
-  await rename8(temporaryPath, path);
-};
-
-// src/ticket/common/utils/surfaceTicketDivergence.ts
-var surfaceTicketDivergence = async ({ ticketFolder, ticketBranch, ticketRef, content }) => {
-  const sync = `lightsout ticket sync --name ${ticketBranch}`;
-  let saved = `the published copy is saved beside it as ${ticketFileNames.published}`;
-  try {
-    await writeTicketFolderFile({ path: join91(ticketFolder, ticketFileNames.published), content });
-  } catch (error51) {
-    saved = `the published copy could not be saved as ${ticketFileNames.published} (${messageOf({ error: error51 })})`;
-  }
-  return `the ticket record for '${ticketBranch}' moved both here and on ${ticketRef} since this machine last synced \u2014 ${saved}; run \`${sync} --keep local\` to publish this machine's copy over it, or \`${sync} --keep published\` to take the ticket's copy instead`;
-};
-
-// src/ticket/common/utils/withTicketRecordLock.ts
-import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join92 } from "node:path";
-var LockHolder = external_exports.object({ pid: external_exports.number(), token: external_exports.string(), acquiredAt: external_exports.string() });
-var sleep3 = ({ ms }) => new Promise((resolve18) => setTimeout(resolve18, ms));
-var readHolder = ({ lockPath }) => {
-  let holder;
-  try {
-    holder = LockHolder.parse(JSON.parse(readFileSync3(lockPath, "utf8")));
-  } catch {
-    holder = void 0;
-  }
-  return holder;
-};
-var claimLeftover2 = ({ lockPath, token }) => {
-  const asidePath = `${lockPath}.claim-${process.pid}-${token}`;
-  let claimed = false;
-  try {
-    renameSync2(lockPath, asidePath);
-    claimed = true;
-  } catch {
-    claimed = false;
-  }
-  if (claimed) {
-    try {
-      unlinkSync2(asidePath);
-    } catch {
-    }
-  }
-  return claimed;
-};
-var createLock = ({ lockPath, token }) => {
-  let outcome;
-  try {
-    writeFileSync2(lockPath, `${JSON.stringify({ pid: process.pid, token, acquiredAt: (/* @__PURE__ */ new Date()).toISOString() })}
-`, { flag: "wx" });
-    outcome = { created: true };
-  } catch (error51) {
-    const present = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EEXIST";
-    outcome = present ? { present: true } : { failure: messageOf({ error: error51 }) };
-  }
-  return outcome;
-};
-var acquireLock = async ({ lockPath, token }) => {
-  const pollIntervalMs = 100;
-  const waitCeilingMs = 1e4;
-  const startedAt = Date.now();
-  let outcome;
-  let heldBy;
-  while (outcome === void 0) {
-    const holder = readHolder({ lockPath });
-    let retryAtOnce = false;
-    if (holder !== void 0) {
-      heldBy = holder.pid;
-      retryAtOnce = !isPidAlive({ pid: holder.pid }) && claimLeftover2({ lockPath, token });
-    } else {
-      const attempt = createLock({ lockPath, token });
-      if ("created" in attempt) {
-        outcome = { acquired: true };
-      } else if ("failure" in attempt) {
-        outcome = { error: `the ticket record lock ${lockPath} could not be taken: ${attempt.failure}` };
-      } else {
-        retryAtOnce = readHolder({ lockPath }) === void 0 ? claimLeftover2({ lockPath, token }) : true;
-      }
-    }
-    if (outcome === void 0 && !retryAtOnce) {
-      if (Date.now() - startedAt >= waitCeilingMs) {
-        outcome = {
-          error: `the ticket record lock ${lockPath} is held by process ${heldBy ?? "unknown"} and was still held after ${waitCeilingMs / 1e3} seconds \u2014 wait for that command to finish, or remove the lock file if that process is gone`
-        };
-      } else {
-        await sleep3({ ms: pollIntervalMs });
-      }
-    }
-  }
-  return outcome;
-};
-var releaseLock = ({ lockPath, token }) => {
-  if (readHolder({ lockPath })?.token !== token) {
-    return;
-  }
-  try {
-    unlinkSync2(lockPath);
-  } catch {
-  }
-};
-var withTicketRecordLock = async ({ ticketFolder, run }) => {
-  try {
-    mkdirSync2(ticketFolder, { recursive: true });
-  } catch (error51) {
-    return { error: `the ticket folder ${ticketFolder} could not be created: ${messageOf({ error: error51 })}` };
-  }
-  const lockPath = join92(ticketFolder, ticketFileNames.lock);
-  const token = randomUUID5();
-  const acquisition = await acquireLock({ lockPath, token });
-  if ("error" in acquisition) {
-    return acquisition;
-  }
-  try {
-    return await run();
-  } finally {
-    releaseLock({ lockPath, token });
-  }
-};
-
-// src/ticket/readTicketRecord.ts
-import { join as join93 } from "node:path";
-
-// src/ticket/common/utils/readTicketRecordFile.ts
-import { readFile as readFile38 } from "node:fs/promises";
-var readText = async ({ recordPath }) => {
-  let outcome;
-  try {
-    outcome = { text: await readFile38(recordPath, "utf8") };
-  } catch (error51) {
-    const missing = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
-    outcome = missing ? { missing: true } : { error: `the ticket record ${recordPath} could not be read: ${messageOf({ error: error51 })}` };
-  }
-  return outcome;
-};
-var readRecordText2 = ({ text, recordPath, ticketBranch }) => {
-  let value;
-  let outcome;
-  try {
-    value = JSON.parse(text);
-  } catch (error51) {
-    outcome = { error: `the ticket record ${recordPath} is not valid JSON: ${messageOf({ error: error51 })}` };
-  }
-  if (outcome === void 0) {
-    const parsed = TicketRecord.safeParse(value);
-    if (!parsed.success) {
-      outcome = { error: `the ticket record ${recordPath} does not match the ticket record contract: ${external_exports.prettifyError(parsed.error)}` };
-    } else if (parsed.data.branch !== ticketBranch) {
-      outcome = { error: `the ticket record ${recordPath} names branch '${parsed.data.branch}', not the '${ticketBranch}' folder it sits in` };
-    } else {
-      outcome = { record: parsed.data };
-    }
-  }
-  return outcome;
-};
-var readTicketRecordFile = async ({ recordPath, ticketBranch }) => {
-  const read = await readText({ recordPath });
-  let outcome;
-  if ("error" in read) {
-    outcome = read;
-  } else if ("missing" in read) {
-    outcome = { record: void 0 };
-  } else {
-    outcome = readRecordText2({ text: read.text, recordPath, ticketBranch });
-  }
-  return outcome;
-};
-
-// src/ticket/readTicketRecord.ts
-var readTicketRecord = async ({ cwd, ticketBranch }) => {
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  return readTicketRecordFile({ recordPath: join93(ticketFolder, ticketFileNames.record), ticketBranch });
-};
-
-// src/ticket/common/utils/attachTicketRecordIfUnmoved.ts
-var attachTicketRecord = async ({ target, content, onProgress }) => {
-  const { settings, ticketRef } = target;
-  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
-  if ("error" in tickets) {
-    return { error: `the ticket record could not be published: ${tickets.error}` };
-  }
-  const ticket = tickets.at(0);
-  if (ticket === void 0) {
-    return { error: `the ticket record could not be published: there is no ${ticketRef} on the configured ticket tracker` };
-  }
-  const failure = await setTicketAttachment3({ settings, ticketId: ticket.id, title: ticketFileNames.record, content, contentType: "application/json" });
-  if (failure !== void 0) {
-    return { error: `the ticket record could not be published: ${failure.error}` };
-  }
-  onProgress?.(`attached ${ticketFileNames.record} to ${ticketRef}`);
-  return void 0;
-};
-var attachTicketRecordIfUnmoved = async ({
-  cwd,
-  ticketBranch,
-  target,
-  expectedPublishedSha256,
-  onProgress
-}) => {
-  const published = await readPublishedTicketRecord({ target, ticketBranch });
-  if ("error" in published) {
-    return published;
-  }
-  const local = await readTicketRecord({ cwd, ticketBranch });
-  if ("error" in local) {
-    return local;
-  }
-  if (local.record === void 0) {
-    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine to publish` };
-  }
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const syncState = await readTicketSyncState({ ticketFolder });
-  const content = serializeTicketRecord({ record: local.record });
-  const attachedSha256 = sha256({ content });
-  const carried = published.published;
-  const publishedSha256 = carried === void 0 ? void 0 : sha256({ content: carried.content });
-  const moved = publishedSha256 !== expectedPublishedSha256 && publishedSha256 !== syncState?.recordSha256 && publishedSha256 !== attachedSha256;
-  if (carried !== void 0 && moved) {
-    const surfaced = await withTicketRecordLock({
-      ticketFolder,
-      run: () => surfaceTicketDivergence({ ticketFolder, ticketBranch, ticketRef: target.ticketRef, content: carried.content })
-    });
-    return { error: typeof surfaced === "string" ? surfaced : surfaced.error };
-  }
-  const failure = await attachTicketRecord({ target, content, onProgress });
-  return failure ?? { attachedSha256 };
-};
-
-// src/ticket/common/utils/recordTicketSyncState.ts
-import { rm as rm7 } from "node:fs/promises";
-import { join as join95 } from "node:path";
-
-// src/ticket/common/utils/updateTicketSyncState.ts
-import { join as join94 } from "node:path";
-var updateTicketSyncState = async ({ ticketFolder, recordSha256, planMarkers }) => {
-  const current = await readTicketSyncState({ ticketFolder });
-  const recorded = recordSha256 ?? current?.recordSha256;
-  const next = {
-    schemaVersion: 1,
-    planMarkers: { ...current?.planMarkers, ...planMarkers }
-  };
-  if (recorded !== void 0) {
-    next.recordSha256 = recorded;
-  }
-  await writeTicketFolderFile({
-    path: join94(ticketFolder, ticketFileNames.sync),
-    content: Buffer.from(`${JSON.stringify(next, void 0, "	")}
-`, "utf8")
-  });
-};
-
-// src/ticket/common/utils/recordTicketSyncState.ts
-var recordTicketSyncState = async ({
-  ticketFolder,
-  recordSha256,
-  planMarkers,
-  failure,
-  dropSurfacedCopy
-}) => {
-  const recorded = await withTicketRecordLock({
-    ticketFolder,
-    run: async () => {
-      try {
-        await updateTicketSyncState({ ticketFolder, recordSha256, planMarkers });
-        if (dropSurfacedCopy === true) {
-          await rm7(join95(ticketFolder, ticketFileNames.published), { force: true });
-        }
-        return void 0;
-      } catch (error51) {
-        return { error: `${failure}: ${messageOf({ error: error51 })}` };
-      }
-    }
-  });
-  return recorded;
-};
-
-// src/ticket/common/utils/resolveTicketTrackerTarget.ts
-var resolveTicketTrackerTarget = ({ config: config2, env, ticketBranch }) => {
-  if (config2["ticket-tracker"] === void 0) {
-    return {
-      localOnly: `the ticket record for '${ticketBranch}' is local only: lightsout.config.json has no \`ticket-tracker\` block naming a provider and its credentials`
-    };
-  }
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      localOnly: `the ticket record for '${ticketBranch}' is local only: ship.ticket-pattern is not a regular expression capturing a 'ticket' group, so no ticket id can be read out of the folder name`
-    };
-  }
-  const ticketRef = readPlanTicketRef({ name: ticketBranch, ticketPattern: shipSettings.ticketPattern });
-  if (ticketRef === void 0) {
-    return {
-      localOnly: `the ticket record for '${ticketBranch}' is local only: that folder name carries no ticket id matching this repo's ship.ticket-pattern`
-    };
-  }
-  const settings = resolveTrackerSettings({ config: config2, env });
-  return "error" in settings ? settings : { settings, ticketRef };
-};
-
-// src/ticket/pullTicketRecord.ts
-import { join as join96 } from "node:path";
-var takePublished = async ({
-  ticketFolder,
-  content,
-  record: record3,
-  ticketRef,
-  onProgress
-}) => {
-  let outcome;
-  try {
-    await writeTicketFolderFile({ path: join96(ticketFolder, ticketFileNames.record), content });
-    await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
-    outcome = { record: record3 };
-  } catch (error51) {
-    outcome = { error: `the ${ticketFileNames.record} published on ${ticketRef} could not be written into ${ticketFolder}: ${messageOf({ error: error51 })}` };
-  }
-  if ("record" in outcome) {
-    onProgress?.(`took the ticket record published on ${ticketRef}`);
-  }
-  return outcome;
-};
-var applyThreeWayRule = async ({
-  cwd,
-  ticketFolder,
-  ticketBranch,
-  ticketRef,
-  published,
-  onProgress
-}) => {
-  const local = await readTicketRecord({ cwd, ticketBranch });
-  if ("error" in local) {
-    return local;
-  }
-  if (published === void 0) {
-    return { record: local.record };
-  }
-  const syncState = await readTicketSyncState({ ticketFolder });
-  const publishedSha256 = sha256({ content: published.content });
-  const localSha256 = local.record === void 0 ? void 0 : sha256({ content: serializeTicketRecord({ record: local.record }) });
-  const take = () => takePublished({ ticketFolder, content: published.content, record: published.record, ticketRef, onProgress });
-  let outcome;
-  if (local.record === void 0 || localSha256 === syncState?.recordSha256) {
-    outcome = await take();
-  } else if (localSha256 === publishedSha256) {
-    outcome = syncState?.recordSha256 === publishedSha256 ? { record: local.record } : await take();
-  } else if (publishedSha256 === syncState?.recordSha256) {
-    outcome = { record: local.record };
-  } else {
-    outcome = { error: await surfaceTicketDivergence({ ticketFolder, ticketBranch, ticketRef, content: published.content }) };
-  }
-  return outcome;
-};
-var pullTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
-  if ("error" in target) {
-    return target;
-  }
-  if ("localOnly" in target) {
-    return readTicketRecord({ cwd, ticketBranch });
-  }
-  const published = await readPublishedTicketRecord({ target, ticketBranch });
-  if ("error" in published) {
-    return published;
-  }
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  return withTicketRecordLock({
-    ticketFolder,
-    run: () => applyThreeWayRule({ cwd, ticketFolder, ticketBranch, ticketRef: target.ticketRef, published: published.published, onProgress })
-  });
-};
-
-// src/ticket/updateLocalTicketRecord.ts
-import { randomUUID as randomUUID6 } from "node:crypto";
-import { rename as rename9, writeFile as writeFile18 } from "node:fs/promises";
-import { join as join97 } from "node:path";
-var findHistoryRefusal = ({ current, next }) => {
-  const recorded = current?.history ?? [];
-  const kept = next.history.slice(0, recorded.length);
-  const dropped = recorded.length > next.history.length;
-  const rewritten = recorded.some((event, index) => canonicalJson({ value: event }) !== canonicalJson({ value: kept[index] }));
-  return dropped || rewritten ? `a ticket record's history is append-only, and the change to ${next.branch} drops or rewrites one of the ${recorded.length} events already recorded` : void 0;
-};
-var writeChangedRecord = async ({
-  ticketFolder,
-  recordPath,
-  ticketBranch,
-  current,
-  changed
-}) => {
-  const parsed = TicketRecord.safeParse(changed);
-  let outcome;
-  if (!parsed.success) {
-    outcome = { error: `the changed ticket record for ${ticketBranch} does not match the ticket record contract: ${external_exports.prettifyError(parsed.error)}` };
-  } else if (parsed.data.branch !== ticketBranch) {
-    outcome = { error: `the changed ticket record names branch '${parsed.data.branch}', not the '${ticketBranch}' ticket it was asked for` };
-  } else {
-    outcome = { record: parsed.data };
-  }
-  if ("record" in outcome) {
-    const refusal = findHistoryRefusal({ current, next: outcome.record });
-    outcome = refusal === void 0 ? outcome : { error: refusal };
-  }
-  if ("record" in outcome) {
-    const temporaryPath = join97(ticketFolder, `${ticketFileNames.record}.${randomUUID6()}.tmp`);
-    try {
-      await writeFile18(temporaryPath, serializeTicketRecord({ record: outcome.record }));
-      await rename9(temporaryPath, recordPath);
-    } catch (error51) {
-      outcome = { error: `the ticket record ${recordPath} could not be written: ${messageOf({ error: error51 })}` };
-    }
-  }
-  return outcome;
-};
-var updateLocalTicketRecord = async ({ cwd, ticketBranch, change }) => {
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const recordPath = join97(ticketFolder, ticketFileNames.record);
-  return withTicketRecordLock({
-    ticketFolder,
-    run: async () => {
-      const read = await readTicketRecordFile({ recordPath, ticketBranch });
-      if ("error" in read) {
-        return read;
-      }
-      const changed = change(read.record);
-      return "error" in changed ? changed : writeChangedRecord({ ticketFolder, recordPath, ticketBranch, current: read.record, changed });
-    }
-  });
-};
-
-// src/ticket/updateSyncedTicketRecord.ts
-var updateSyncedTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  change,
-  onProgress
-}) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return pulled;
-  }
-  const updated = await updateLocalTicketRecord({ cwd, ticketBranch, change });
-  if ("error" in updated) {
-    return updated;
-  }
-  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
-  if ("error" in target || "localOnly" in target) {
-    return { record: updated.record };
-  }
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const syncState = await readTicketSyncState({ ticketFolder });
-  const attached = await attachTicketRecordIfUnmoved({
-    cwd,
-    ticketBranch,
-    target,
-    expectedPublishedSha256: syncState?.recordSha256,
-    onProgress
-  });
-  if ("error" in attached) {
-    return { record: updated.record, publishError: attached.error };
-  }
-  const recorded = await recordTicketSyncState({
-    ticketFolder,
-    recordSha256: attached.attachedSha256,
-    failure: publishedButUnrecorded
-  });
-  return recorded === void 0 ? { record: updated.record } : { record: updated.record, publishError: recorded.error };
-};
-
-// src/ticket/addTicketPlan.ts
-var maxPlanNumber = 999;
-var allocatePlanId = ({ record: record3, slug }) => {
-  const highest = record3.plans.reduce((top, plan) => Math.max(top, planNumberOf({ id: plan.id })), 0);
-  const next = highest + 1;
-  if (next > maxPlanNumber) {
-    return {
-      error: `ticket ${record3.branch} already holds plan ${String(highest).padStart(3, "0")}, and a plan's number never goes above ${maxPlanNumber} because no number is ever reused`
-    };
-  }
-  return composePlanId({ number: next, slug });
-};
-var addPlanToRecord = ({
-  current,
-  ticketBranch,
-  slug,
-  title,
-  from,
-  progress,
-  config: config2,
-  looseEntries,
-  at
-}) => {
-  const existing = current === void 0 ? void 0 : requireTicketRecord({ record: current, ticketBranch });
-  if (existing !== void 0 && "error" in existing) {
-    return existing;
-  }
-  if (looseEntries.length > 0) {
-    return {
-      error: existing === void 0 ? `the plan folder '${ticketBranch}' still holds loose files (${looseEntries.join(", ")}) \u2014 make them this ticket's next plan with \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug> --from ${ticketBranch}\`, or take them out of the folder first` : `the ticket folder '${ticketBranch}' holds ${looseEntries.join(", ")} beside its record, and a ticket's plan files live in that plan's own folder \u2014 move each of them into the plan folder it belongs to, or remove it, and run this again`
-    };
-  }
-  if (existing !== void 0 && existing.mode === TicketMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
-    return {
-      error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation \u2014 run \`lightsout ticket mode --set multiple-plan --name ${ticketBranch}\` before adding a second plan`
-    };
-  }
-  const base = existing ?? buildTicketRecord({ ticketBranch, config: config2 });
-  if ("error" in base) {
-    return base;
-  }
-  const allocated = allocatePlanId({ record: base, slug });
-  if ("error" in allocated) {
-    return allocated;
-  }
-  const outOf = from === void 0 ? "" : ` out of the loose files of '${from}'`;
-  const added = appendTicketEvent({
-    record: { ...base, plans: [...base.plans, { id: allocated.id, title: title ?? slug, progress, createdAt: at }] },
-    kind: from === void 0 ? TicketEventKind.PlanAdded : TicketEventKind.PlanAdopted,
-    detail: `plan ${allocated.id} was added to ticket ${ticketBranch}${outOf}`,
-    at
-  });
-  return {
-    record: recordShipRequestWithdrawal({
-      record: added,
-      detail: `plan ${allocated.id} was added, so the ship request naming ${base.shipRequest?.planIds.join(", ") ?? ""} no longer covers the ticket's work`,
-      at
-    }),
-    planId: allocated.id,
-    withdrew: base.shipRequest !== void 0
-  };
-};
-var addTicketPlan = async ({
-  cwd,
-  ticketBranch,
-  slug,
-  title,
-  from,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const resolved = from === void 0 ? void 0 : await resolvePlanSourceFolder({ cwd, from });
-  if (resolved !== void 0 && "error" in resolved) {
-    return resolved;
-  }
-  const source = resolved;
-  const looseEntries = from === ticketBranch ? [] : await listLoosePlanEntries({ plansFolder: await planWorkspaceDir({ cwd, name: ticketBranch }) });
-  let addition;
-  const updated = await updateSyncedTicketRecord({
-    cwd,
-    ticketBranch,
-    config: config2,
-    env,
-    onProgress,
-    change: (current) => {
-      const added = addPlanToRecord({
-        current,
-        ticketBranch,
-        slug,
-        title,
-        from,
-        progress: source?.progress ?? PlanProgress.Planning,
-        config: config2,
-        looseEntries,
-        at: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      if ("error" in added) {
-        return added;
-      }
-      addition = added;
-      return added.record;
-    }
-  });
-  if ("error" in updated) {
-    return updated;
-  }
-  if (addition === void 0) {
-    return { error: `the plan was not added to ticket ${ticketBranch}: the store reported no change` };
-  }
-  const address = formatPlanAddress({ ticketBranch, planId: addition.planId });
-  const sentences = [
-    ...addition.withdrew ? [
-      `the pending ship request was withdrawn because plan ${addition.planId} was added \u2014 ask again with \`lightsout ticket request-ship --name ${ticketBranch}\` once the ticket's work is settled`
-    ] : [],
-    ...await fillPlanFolder({ cwd, address, planId: addition.planId, source, retire: from !== ticketBranch })
-  ];
-  return {
-    address,
-    record: updated.record,
-    notice: sentences.length === 0 ? void 0 : sentences.join(" "),
-    publishError: updated.publishError
-  };
-};
-
-// src/ticket/common/constants/TicketSyncKeep.ts
-var TicketSyncKeep = {
-  Local: "local",
-  Published: "published"
-};
-
-// src/ticket/common/exclusion/applyExclusion.ts
-var applyExclusion = ({ record: record3, target, reason, implementationRemoved, verifiedCommit, at }) => {
-  const amending = target.exclusion !== void 0;
-  const exclusion = target.exclusion === void 0 ? { at, reason, implementationRemoved, ...verifiedCommit === void 0 ? {} : { verifiedCommit } } : { ...target.exclusion, implementationRemoved: true, verifiedCommit };
-  const excluded = appendTicketEvent({
-    record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, exclusion } : candidate) },
-    kind: TicketEventKind.PlanExcluded,
-    detail: amending ? `plan ${target.id}'s implementation was recorded as removed from ticket ${record3.branch}, verified at ${verifiedCommit}` : `plan ${target.id} was excluded from ticket ${record3.branch}: ${reason}`,
-    at
-  });
-  const named = record3.shipRequest?.planIds.includes(target.id) === true;
-  return {
-    record: named ? recordShipRequestWithdrawal({
-      record: excluded,
-      detail: `plan ${target.id} was excluded \u2014 ${reason} \u2014 so the ship request naming it no longer describes the ticket's work`,
-      at
-    }) : excluded,
-    withdrew: named
-  };
-};
-
-// src/ticket/common/record/isPlanImplementationStarted.ts
-var isPlanImplementationStarted = ({ plan }) => plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Implemented || plan.progress === PlanProgress.Failed;
-
-// src/ticket/common/exclusion/findExclusionRefusal.ts
-var findExclusionRefusal = ({ record: record3, target, implementationRemoved }) => {
-  const started = isPlanImplementationStarted({ plan: target });
-  if (record3.mode === TicketMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
-    return `plan ${target.id} is the whole implementation of single-plan ticket ${record3.branch}, so excluding it would leave the ticket nothing to ship \u2014 run \`lightsout ticket mode --name ${record3.branch} --set multiple-plan\` first if this ticket's work has moved on`;
-  }
-  if (implementationRemoved && !started) {
-    return `plan ${target.id} on ticket ${record3.branch} has no implementation to remove, because its own implementation never started \u2014 exclude it without --implementation-removed`;
-  }
-  return target.exclusion !== void 0 && !(implementationRemoved && started && !target.exclusion.implementationRemoved) ? `plan ${target.id} is already excluded from ticket ${record3.branch} \u2014 ${target.exclusion.reason} \u2014 and an exclusion is final; the one thing a recorded exclusion still takes is \`--implementation-removed\`, once that plan's implementation has been taken off the branch` : void 0;
-};
-
-// src/ticket/common/exclusion/verifyTicketBranch.ts
-var verifyTicketBranch = async ({ cwd, branch, onProgress }) => {
-  const checkout = await readBranchWorktree({ cwd, branch });
-  if (checkout === void 0) {
-    return {
-      error: `no checkout of this repository holds ${branch}, and excluding a plan whose implementation started means verifying that branch first \u2014 check it out, or cut its worktree, and run this again`
-    };
-  }
-  const holder = await readLiveRunLock({ cwd: checkout });
-  if (holder !== void 0) {
-    return {
-      error: `run ${holder.runId} is still working in ${checkout}, so the gates there would verify a tree that is still changing \u2014 wait for that run to finish, or stop it`
-    };
-  }
-  const changed = await readGitChangedFiles({ cwd: checkout });
-  if (changed === void 0 || changed.length > 0) {
-    return {
-      error: `${checkout} has ${changed === void 0 ? "no readable git status" : `${changed.length} uncommitted change(s)`}, so nothing there can be verified \u2014 commit or discard them and run this again`
-    };
-  }
-  const commit = await readGitHeadCommit({ cwd: checkout });
-  if (commit === void 0) {
-    return { error: `the commit ${checkout} stands on could not be read, so no verified commit could be recorded against the exclusion` };
-  }
-  const gates = await runGates({ cwd: checkout, config: await readConfig({ cwd: checkout }), coverage: true, includeRoot: true, onProgress });
-  return gates.error === void 0 ? { commit } : { error: `this repository's own gates are red on ${branch} at ${commit}, so it cannot be verified:
-${gates.error}` };
-};
-
-// src/ticket/common/record/changeExistingTicketRecord.ts
-var changeExistingTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  onProgress,
-  change
-}) => {
-  const updated = await updateSyncedTicketRecord({
-    cwd,
-    ticketBranch,
-    config: config2,
-    env,
-    onProgress,
-    change: (current) => {
-      const record3 = requireTicketRecord({ record: current, ticketBranch });
-      return "error" in record3 ? record3 : change(record3);
-    }
-  });
-  return "error" in updated ? updated : { record: updated.record, publishError: updated.publishError };
-};
-
-// src/ticket/common/record/resolveTicketPlan.ts
-var resolveTicketPlan = ({ record: record3, token }) => {
-  const numbered = /^\d{1,3}$/.test(token) ? record3.plans.find((plan2) => planNumberOf({ id: plan2.id }) === Number(token)) : void 0;
-  const plan = record3.plans.find((candidate) => candidate.id === token) ?? numbered;
-  const held = record3.plans.length === 0 ? "it holds no plans" : `it holds ${record3.plans.map((candidate) => candidate.id).join(", ")}`;
-  return plan ?? { error: `ticket ${record3.branch} holds no plan '${token}' \u2014 ${held}` };
-};
-
-// src/ticket/excludeTicketPlan.ts
-var recordExclusion = async ({
-  params,
-  verifiedCommit
-}) => {
-  const { cwd, ticketBranch, plan, reason, implementationRemoved, config: config2, env, onProgress } = params;
-  let withdrew = false;
-  const updated = await changeExistingTicketRecord({
-    cwd,
-    ticketBranch,
-    config: config2,
-    env,
-    onProgress,
-    change: (now) => {
-      const target = resolveTicketPlan({ record: now, token: plan });
-      if ("error" in target) {
-        return target;
-      }
-      const refusal = findExclusionRefusal({ record: now, target, implementationRemoved });
-      if (refusal !== void 0) {
-        return { error: refusal };
-      }
-      const applied = applyExclusion({ record: now, target, reason, implementationRemoved, verifiedCommit, at: (/* @__PURE__ */ new Date()).toISOString() });
-      withdrew = applied.withdrew;
-      return applied.record;
-    }
-  });
-  return "error" in updated ? updated : { ...updated, withdrew };
-};
-var excludeTicketPlan = async (params) => {
-  const { cwd, ticketBranch, plan, implementationRemoved, config: config2, env, onProgress } = params;
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return pulled;
-  }
-  const record3 = requireTicketRecord({ record: pulled.record, ticketBranch });
-  if ("error" in record3) {
-    return record3;
-  }
-  const target = resolveTicketPlan({ record: record3, token: plan });
-  if ("error" in target) {
-    return target;
-  }
-  const refusal = findExclusionRefusal({ record: record3, target, implementationRemoved });
-  if (refusal !== void 0) {
-    return { error: refusal };
-  }
-  const verification = isPlanImplementationStarted({ plan: target }) ? await verifyTicketBranch({ cwd, branch: record3.branch, onProgress }) : { commit: void 0 };
-  if ("error" in verification) {
-    return verification;
-  }
-  const written = await recordExclusion({ params, verifiedCommit: verification.commit });
-  if ("error" in written) {
-    return written;
-  }
-  return {
-    record: written.record,
-    notice: written.withdrew ? `the pending ship request was withdrawn because plan ${target.id} is no longer part of ticket ${ticketBranch}'s work \u2014 ask again with \`lightsout ticket request-ship --name ${ticketBranch}\`` : void 0,
-    publishError: written.publishError
-  };
-};
-
-// src/ticket/findBareTicketFolderRefusal.ts
-import { join as join98 } from "node:path";
-var findBareTicketFolderRefusal = async ({ cwd, name }) => {
-  if (parsePlanAddress({ name }) !== void 0) {
-    return void 0;
-  }
-  const recordPath = join98(await ticketFolderDir({ cwd, ticketBranch: name }), ticketFileNames.record);
-  if (!await pathExists({ path: recordPath })) {
-    return void 0;
-  }
-  const read = await readTicketRecord({ cwd, ticketBranch: name });
-  if ("error" in read) {
-    return read.error;
-  }
-  return read.record === void 0 ? void 0 : `the plan folder '${name}' belongs to a ticket record, so name a plan as '${name}/<plan-id>' \u2014 \`lightsout ticket show --name ${name}\` lists the plans it holds`;
-};
-
-// src/ticket/findNextPlanToPlan.ts
-var findNextPlanToPlan = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress === PlanProgress.Planning);
-
-// src/ticket/findPlanImplementationBlocker.ts
-var describeLowerPlanRemedy = ({ branch, plan }) => {
-  const finish = plan.implementation === void 0 ? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ ticketBranch: branch, planId: plan.id }) })}\`` : `\`lightsout resume --run ${plan.implementation.runId}\``;
-  return `${finish}, or take it out of the order with \`lightsout ticket exclude-plan --name ${branch} --plan ${plan.id}\``;
-};
-var findLowerPlanBlocker = ({ record: record3, planId }) => {
-  const number4 = planNumberOf({ id: planId });
-  const blocking = record3.plans.find(
-    (plan) => planNumberOf({ id: plan.id }) < number4 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented
-  );
-  return blocking === void 0 ? void 0 : `plan ${blocking.id} comes before ${planId} on ticket ${record3.branch} and its implementation has not finished, and a ticket's plans implement in numeric order \u2014 finish it with ${describeLowerPlanRemedy({ branch: record3.branch, plan: blocking })}`;
-};
-var findPlanImplementationBlocker = ({ record: record3, planId }) => {
-  const { branch } = record3;
-  const plan = record3.plans.find((candidate) => candidate.id === planId);
-  let blocker;
-  if (plan === void 0) {
-    blocker = `ticket ${branch} holds no plan ${planId} \u2014 \`lightsout ticket show --name ${branch}\` lists the plans it does hold`;
-  } else if (plan.exclusion !== void 0) {
-    blocker = `plan ${planId} is excluded from ticket ${branch} \u2014 ${plan.exclusion.reason} \u2014 and an exclusion is final; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
-  } else if (record3.mode === TicketMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
-    blocker = `ticket ${branch} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built \u2014 run \`lightsout ticket mode --name ${branch} --set multiple-plan\` to implement this ticket's plans in numeric order`;
-  } else if (plan.progress === PlanProgress.Implemented) {
-    blocker = `plan ${planId} is already implemented on ticket ${branch}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout ticket add-plan --name ${branch}\``;
-  } else {
-    blocker = findLowerPlanBlocker({ record: record3, planId });
-  }
-  return blocker;
-};
-
-// src/ticket/readTicketShipEligibility.ts
-var readSinglePlanEligibility = ({ record: record3 }) => {
-  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
-  let eligibility;
-  if (first === void 0) {
-    eligibility = { eligible: false, reason: `ticket ${record3.branch} is in single-plan mode and holds no plan 001, so nothing supplies its implementation` };
-  } else if (first.exclusion !== void 0) {
-    eligibility = {
-      eligible: false,
-      reason: `plan ${first.id} is excluded from ticket ${record3.branch} \u2014 ${first.exclusion.reason} \u2014 so a single-plan ticket has no implementation to ship`
-    };
-  } else if (first.progress !== PlanProgress.Implemented) {
-    eligibility = {
-      eligible: false,
-      reason: `the implementation of plan ${first.id} on ticket ${record3.branch} has not finished, and a single-plan ticket ships once plan 001 is implemented`
-    };
-  } else {
-    eligibility = { eligible: true };
-  }
-  return eligibility;
-};
-var describeRequestDrift = ({ missing, stale }) => {
-  const clauses = [
-    ...missing.length === 0 ? [] : [`it does not name ${missing.join(", ")}`],
-    ...stale.length === 0 ? [] : [`it names ${stale.join(", ")}, which the ticket no longer includes`]
-  ];
-  return clauses.join(", and ");
-};
-var readMultiplePlanEligibility = ({ record: record3 }) => {
-  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
-  const includedIds = included.map((plan) => plan.id);
-  const request = record3.shipRequest;
-  const askAgain = `\`lightsout ticket request-ship --name ${record3.branch} --plans ${includedIds.join(",")}\``;
-  let eligibility;
-  if (request === void 0) {
-    eligibility = { eligible: false, reason: `ticket ${record3.branch} is in multiple-plan mode and carries no ship request, so ask for one with ${askAgain}` };
-  } else {
-    const missing = includedIds.filter((id) => !request.planIds.includes(id));
-    const stale = request.planIds.filter((id) => !includedIds.includes(id));
-    const waiting = included.find((plan) => plan.progress !== PlanProgress.Implemented);
-    if (missing.length > 0 || stale.length > 0) {
-      eligibility = {
-        eligible: false,
-        reason: `the ship request on ticket ${record3.branch} no longer names the plans it holds \u2014 ${describeRequestDrift({ missing, stale })} \u2014 so request shipping again with ${askAgain}`
-      };
-    } else if (waiting !== void 0) {
-      eligibility = {
-        eligible: false,
-        reason: `the implementation of plan ${waiting.id} on ticket ${record3.branch} has not finished, and every plan its ship request names is implemented before the ticket ships`
-      };
-    } else {
-      eligibility = { eligible: true };
-    }
-  }
-  return eligibility;
-};
-var readTicketShipEligibility = ({ record: record3 }) => {
-  let eligibility;
-  if (record3.shipped !== void 0) {
-    eligibility = {
-      eligible: false,
-      reason: `ticket ${record3.branch} already shipped as ${record3.shipped.mergeCommit}, so its record no longer authorizes a merge`
-    };
-  } else if (record3.mode === TicketMode.SinglePlan) {
-    eligibility = readSinglePlanEligibility({ record: record3 });
-  } else {
-    eligibility = readMultiplePlanEligibility({ record: record3 });
-  }
-  return eligibility;
-};
-
-// src/ticket/implementRun/createTicketShipGuard.ts
-var createTicketShipGuard = ({ config: config2, env, onProgress }) => ({
-  authorize: async ({ cwd, branch }) => {
-    const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
-    if ("error" in pulled) {
-      const local = await readTicketRecord({ cwd, ticketBranch: branch });
-      return "error" in local || local.record !== void 0 ? pulled.error : void 0;
-    }
-    if (pulled.record === void 0) {
-      return void 0;
-    }
-    const eligibility = readTicketShipEligibility({ record: pulled.record });
-    return eligibility.eligible ? void 0 : eligibility.reason;
-  },
-  recordShipped: async ({ cwd, branch, mergeCommit }) => {
-    const read = await readTicketRecord({ cwd, ticketBranch: branch });
-    if ("error" in read) {
-      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${read.error}`);
-      return;
-    }
-    if (read.record === void 0) {
-      return;
-    }
-    const at = (/* @__PURE__ */ new Date()).toISOString();
-    const updated = await updateSyncedTicketRecord({
-      cwd,
-      ticketBranch: branch,
-      config: config2,
-      env,
-      onProgress,
-      change: (current) => {
-        if (current === void 0) {
-          return { error: `ticket ${branch} no longer has a record, so the merge ${mergeCommit} could not be recorded on it` };
-        }
-        const planIds = current.plans.filter((plan) => plan.exclusion === void 0).map((plan) => plan.id);
-        return appendTicketEvent({
-          record: { ...current, shipped: { at, planIds, mergeCommit } },
-          kind: TicketEventKind.Shipped,
-          detail: `ticket ${branch} shipped as ${mergeCommit} with ${planIds.join(", ")}`,
-          at
-        });
-      }
-    });
-    if ("error" in updated) {
-      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${updated.error}`);
-    } else if (updated.publishError !== void 0) {
-      onProgress?.(updated.publishError);
-    }
-  }
-});
-
-// src/ticket/implementRun/readTicketRunTerms.ts
-import { basename as basename39 } from "node:path";
-
-// src/ticket/common/utils/isWholePlanRun.ts
-import { basename as basename38 } from "node:path";
-var wholePlanFileNames = ["plan.md", "overview.md"];
-var isWholePlanRun = async ({ cwd, name, planPath, pipeline }) => {
-  if (pipeline === PipelineKind.Direct || planPath === void 0) {
-    return true;
-  }
-  const belongsToPlan = await planNameFromPath({ cwd, planPath }) === name;
-  return belongsToPlan && wholePlanFileNames.includes(basename38(planPath));
-};
-
-// src/ticket/implementRun/readTicketRunTerms.ts
-var readTicketRunTerms = async ({ cwd, name, planPath }) => {
-  if (name === void 0) {
-    return {};
-  }
-  const address = parsePlanAddress({ name });
-  if (address === void 0) {
-    return {};
-  }
-  const read = await readTicketRecord({ cwd, ticketBranch: address.ticketBranch });
-  if ("error" in read) {
-    return { refusal: read.error, shipRequest: { blocker: read.error } };
-  }
-  const { record: record3 } = read;
-  if (record3 === void 0) {
-    return {};
-  }
-  const { planId } = address;
-  const refusal = findPlanImplementationBlocker({ record: record3, planId });
-  let shipRequest;
-  if (planPath !== void 0 && !await isWholePlanRun({ cwd, name, planPath })) {
-    shipRequest = {
-      blocker: `this run covers ${basename39(planPath)} alone, and the implementation of plan ${planId} on ticket ${record3.branch} has not finished until the whole plan runs`
-    };
-  } else if (record3.mode === TicketMode.MultiplePlan) {
-    const eligibility = readTicketShipEligibility({
-      record: { ...record3, plans: record3.plans.map((plan) => plan.id === planId ? { ...plan, progress: PlanProgress.Implemented } : plan) }
-    });
-    shipRequest = { blocker: eligibility.eligible ? void 0 : eligibility.reason };
-  }
-  return { refusal, shipRequest };
-};
-
-// src/ticket/implementRun/runTicketPlanLifecycle.ts
-import { randomUUID as randomUUID7 } from "node:crypto";
-import { readFile as readFile39 } from "node:fs/promises";
-
-// src/ticket/common/utils/findDivergentPlanIds.ts
-var findDivergentPlanIds = ({ record: record3, syncState }) => record3.plans.filter((plan) => plan.publishedMarker !== void 0 && plan.publishedMarker !== syncState?.planMarkers[plan.id]).map((plan) => plan.id);
-
-// src/ticket/implementRun/runTicketPlanLifecycle.ts
-var readPlanSnapshot = async ({ cwd, name }) => {
-  const durable = await durablePlanFiles({ cwd, name });
-  const snapshot = [];
-  for (const file2 of durable.files) {
-    const content = await readFile39(file2.path).catch(() => void 0);
-    if (content !== void 0) {
-      snapshot.push({ name: file2.name, sha256: sha256({ content }) });
-    }
-  }
-  return snapshot;
-};
-var withPlan = ({ record: record3, plan }) => ({
-  ...record3,
-  plans: record3.plans.map((candidate) => candidate.id === plan.id ? plan : candidate)
-});
-var recordImplementing = ({
-  cwd,
-  ticketBranch,
-  planId,
-  runId,
-  headCommit
-}) => updateLocalTicketRecord({
-  cwd,
-  ticketBranch,
-  change: (current) => {
-    if (current === void 0) {
-      return { error: `ticket ${ticketBranch} no longer has a record, so plan ${planId} cannot be recorded as being implemented` };
-    }
-    const blocker = findPlanImplementationBlocker({ record: current, planId });
-    if (blocker !== void 0) {
-      return { error: blocker };
-    }
-    const plan = current.plans.find((candidate) => candidate.id === planId);
-    if (plan === void 0) {
-      return { error: `ticket ${ticketBranch} holds no plan ${planId}` };
-    }
-    const started = (plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Failed) && plan.implementation !== void 0 ? { startedAt: plan.implementation.startedAt, startCommit: plan.implementation.startCommit } : { startedAt: (/* @__PURE__ */ new Date()).toISOString(), startCommit: headCommit ?? "" };
-    return withPlan({ record: current, plan: { ...plan, progress: PlanProgress.Implementing, implementation: { runId, ...started } } });
-  }
-});
-var needsFreshStart = ({ plan }) => plan?.implementation === void 0 || plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed;
-var recordOutcome = async ({
-  cwd,
-  ticketBranch,
-  planId,
-  name,
-  result
-}) => {
-  const whole = await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline });
-  const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
-  if (!(result.ok && whole) && !failed) {
-    return void 0;
-  }
-  const snapshot = result.ok ? await readPlanSnapshot({ cwd, name }) : void 0;
-  const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
-  const updated = await updateLocalTicketRecord({
-    cwd,
-    ticketBranch,
-    change: (current) => {
-      const plan = current?.plans.find((candidate) => candidate.id === planId);
-      if (current === void 0 || plan === void 0) {
-        return { error: `ticket ${ticketBranch} no longer holds plan ${planId}, so the run's outcome could not be recorded against it` };
-      }
-      const implementation = plan.implementation ?? { runId: result.manifest.runId, startedAt: finishedAt, startCommit: "" };
-      return withPlan({
-        record: current,
-        plan: snapshot === void 0 ? { ...plan, progress: PlanProgress.Failed, implementation } : { ...plan, progress: PlanProgress.Implemented, implementation: { ...implementation, finishedAt, snapshot } }
-      });
-    }
-  });
-  return "error" in updated ? updated.error : void 0;
-};
-var runTicketPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
-  const address = name === void 0 ? void 0 : parsePlanAddress({ name });
-  if (name === void 0 || address === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
-  }
-  const { ticketBranch, planId } = address;
-  const read = await readTicketRecord({ cwd, ticketBranch });
-  if ("error" in read) {
-    return { refusal: read.error };
-  }
-  const { record: record3 } = read;
-  if (record3 === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
-  }
-  const blocker = findPlanImplementationBlocker({ record: record3, planId });
-  if (blocker !== void 0) {
-    return { refusal: blocker };
-  }
-  const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
-  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
-    return {
-      refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`
-    };
-  }
-  const plan = record3.plans.find((candidate) => candidate.id === planId);
-  const fresh = needsFreshStart({ plan });
-  const headCommit = fresh ? await readGitHeadCommit({ cwd }) : void 0;
-  if (fresh && headCommit === void 0) {
-    return {
-      refusal: `git could not name the commit ${cwd} is standing on, and the implementation of plan ${planId} on ticket ${ticketBranch} is recorded against the commit it starts from`
-    };
-  }
-  const runId = resumeRunId ?? randomUUID7();
-  const started = await recordImplementing({ cwd, ticketBranch, planId, runId, headCommit });
-  if ("error" in started) {
-    return { refusal: started.error };
-  }
-  const result = await run({ runId });
-  const recordError = await recordOutcome({ cwd, ticketBranch, planId, name, result });
-  const note = result.ok && !await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }) ? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on ticket ${ticketBranch} has not finished until the whole plan runs` : void 0;
-  return { result, recordError, note };
-};
-
-// src/ticket/common/utils/matchesImplementedSnapshot.ts
-import { readFile as readFile40 } from "node:fs/promises";
-var matchesImplementedSnapshot = async ({ cwd, address, snapshot }) => {
-  const durable = await durablePlanFiles({ cwd, name: address });
-  const named = new Set(snapshot.map(({ name }) => name));
-  const attachable = durable.files.filter(({ name }) => name !== brainstormNotesFileName);
-  let matches = durable.error === void 0 && attachable.every(({ name }) => named.has(name));
-  for (const entry of snapshot) {
-    const file2 = matches ? durable.files.find(({ name }) => name === entry.name) : void 0;
-    const content = file2 === void 0 ? void 0 : await readFile40(file2.path).catch(() => void 0);
-    matches = matches && content !== void 0 && sha256({ content }) === entry.sha256;
-  }
-  return matches;
-};
-
-// src/ticket/common/utils/findPlanPublishRefusal.ts
-var findPlanPublishRefusal = async ({ cwd, address, planId, ticketBranch, record: record3, syncState }) => {
-  const plan = record3?.plans.find((entry) => entry.id === planId);
-  if (record3 === void 0 || plan === void 0) {
-    return `the ticket record for '${ticketBranch}' does not hold plan ${planId} \u2014 run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` to add a plan before publishing it`;
-  }
-  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
-    return `plan ${planId} was published from another machine after this one last saw it, so publishing over it would lose that work \u2014 run \`lightsout ticket sync --name ${ticketBranch} --keep local\` to send this machine's copy, or \`--keep published\` to take the ticket's`;
-  }
-  const snapshot = plan.implementation?.snapshot;
-  if (plan.progress === PlanProgress.Implemented && snapshot !== void 0 && !await matchesImplementedSnapshot({ cwd, address, snapshot })) {
-    return `plan ${planId} is implemented and its files have changed since the run that implemented it, so it no longer describes what was built \u2014 run \`lightsout ticket add-plan --name ${ticketBranch} --slug <slug>\` and put the follow-up work in a plan of its own`;
-  }
-  return void 0;
-};
-
-// src/ticket/common/utils/publishBrainstormWhenNotesChanged.ts
-import { readFile as readFile41 } from "node:fs/promises";
-import { join as join99 } from "node:path";
-var readCommittedNotesHash = async ({
-  planId,
-  target
-}) => {
-  const { settings, ticketRef } = target;
-  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
-  if ("error" in attachments) {
-    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${attachments.error}` };
-  }
-  const scoped = scopeAttachments({ attachments, prefix: planId });
-  const markers = scoped.filter(({ title }) => title === brainstormAttachmentManifestName);
-  const marker = markers.length === 1 ? markers[0] : void 0;
-  if (marker === void 0) {
-    return { committed: void 0 };
-  }
-  const text = await readTicketAsset3({ settings, url: marker.url });
-  if (typeof text !== "string") {
-    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${text.error}` };
-  }
-  const parsed = parseAttachmentManifest({
-    text,
-    markerName: attachmentTitle({ prefix: planId, name: brainstormAttachmentManifestName }),
-    isAllowedName: ({ name }) => brainstormAttachmentFileNames.includes(name)
-  });
-  return { committed: "error" in parsed ? void 0 : parsed.manifest.files.find(({ name }) => name === brainstormNotesFileName)?.sha256 };
-};
-var publishBrainstormWhenNotesChanged = async ({
-  cwd,
-  address,
-  planId,
-  target,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const notesPath = join99(await planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
-  if (!await pathExists({ path: notesPath })) {
-    return { published: [] };
-  }
-  const committed = await readCommittedNotesHash({ planId, target });
-  if ("error" in committed) {
-    return committed;
-  }
-  const onDisk = sha256({ content: await readFile41(notesPath) });
-  if (committed.committed === onDisk) {
-    return { published: [] };
-  }
-  const report2 = await publishBrainstorm({ cwd, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
-  return report2.error === void 0 ? { published: report2.published } : { error: report2.error };
-};
-
-// src/ticket/publishTicketPlan.ts
-var recordPublishedPlan = ({ planId, markerSha256, ticketBranch }) => (current) => {
-  const plan = current?.plans.find((entry) => entry.id === planId);
-  if (current === void 0 || plan === void 0) {
-    return { error: `the ticket record for '${ticketBranch}' no longer holds plan ${planId}, so the publish could not be recorded` };
-  }
-  return {
-    ...current,
-    plans: current.plans.map(
-      (entry) => entry.id === planId ? { ...entry, publishedMarker: markerSha256, progress: entry.progress === PlanProgress.Planning ? PlanProgress.Ready : entry.progress } : entry
-    )
-  };
-};
-var recordMarkerLocally = async ({ cwd, ticketBranch, planId, markerSha256 }) => recordTicketSyncState({
-  ticketFolder: await ticketFolderDir({ cwd, ticketBranch }),
-  planMarkers: { [planId]: markerSha256 },
-  failure: `plan ${planId} was published, but this machine could not record which generation it sent`
-});
-var recordPlanPublish = async ({
-  cwd,
-  ticketBranch,
-  planId,
-  markerSha256,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const recorded = await updateSyncedTicketRecord({
-    cwd,
-    ticketBranch,
-    config: config2,
-    env,
-    change: recordPublishedPlan({ planId, markerSha256, ticketBranch }),
-    onProgress
-  });
-  if ("error" in recorded) {
-    return { published: [], recordError: recorded.error };
-  }
-  if (recorded.publishError !== void 0) {
-    return { published: [], recordError: recorded.publishError };
-  }
-  const remembered = await recordMarkerLocally({ cwd, ticketBranch, planId, markerSha256 });
-  const landed = [ticketFileNames.record];
-  return remembered === void 0 ? { published: landed } : { published: landed, recordError: remembered.error };
-};
-var publishGenerations = async ({
-  cwd,
-  address,
-  planId,
-  ticketBranch,
-  target,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const report2 = { ticketRef: target.ticketRef, published: [], stale: [] };
-  const brainstorm = await publishBrainstormWhenNotesChanged({ cwd, address, planId, target, config: config2, env, onProgress });
-  if ("error" in brainstorm) {
-    report2.error = brainstorm.error;
-  } else {
-    report2.published.push(...brainstorm.published);
-    const plan = await publishPlan({ cwd, name: address, config: config2, env, onProgress, titlePrefix: planId });
-    report2.published.push(...plan.published);
-    report2.stale = plan.stale;
-    if (plan.error !== void 0 || plan.markerSha256 === void 0) {
-      report2.error = plan.error ?? `plan ${planId} was published without a commit marker, so the ticket record cannot name the generation that landed`;
-    } else {
-      const recorded = await recordPlanPublish({ cwd, ticketBranch, planId, markerSha256: plan.markerSha256, config: config2, env, onProgress });
-      report2.published.push(...recorded.published);
-      if (recorded.recordError !== void 0) {
-        report2.recordError = recorded.recordError;
-      }
-    }
-  }
-  return report2;
-};
-var publishTicketPlan = async ({ cwd, address, config: config2, env, onProgress }) => {
-  const parsed = parsePlanAddress({ name: address });
-  if (parsed === void 0) {
-    return { published: [], stale: [], error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>'` };
-  }
-  const { ticketBranch, planId } = parsed;
-  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
-  if ("error" in target) {
-    return { published: [], stale: [], error: target.error };
-  }
-  if ("localOnly" in target) {
-    return { published: [], stale: [], error: `plan ${planId} cannot be published: ${target.localOnly}` };
-  }
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return { ticketRef: target.ticketRef, published: [], stale: [], error: pulled.error };
-  }
-  const syncState = await readTicketSyncState({ ticketFolder: await ticketFolderDir({ cwd, ticketBranch }) });
-  const refusal = await findPlanPublishRefusal({ cwd, address, planId, ticketBranch, record: pulled.record, syncState });
-  if (refusal !== void 0) {
-    return { ticketRef: target.ticketRef, published: [], stale: [], error: refusal };
-  }
-  return publishGenerations({ cwd, address, planId, ticketBranch, target, config: config2, env, onProgress });
-};
-
-// src/ticket/requestTicketShip.ts
-var resolveRequestedPlans = ({ record: record3, tokens }) => {
-  const named = [];
-  for (const token of tokens) {
-    const plan = resolveTicketPlan({ record: record3, token });
-    if ("error" in plan) {
-      return plan;
-    }
-    if (plan.exclusion !== void 0) {
-      return {
-        error: `plan ${plan.id} is excluded from ticket ${record3.branch} \u2014 ${plan.exclusion.reason} \u2014 so a ship request cannot name it; an exclusion is final and the plan's files stay where they are`
-      };
-    }
-    if (!named.some((candidate) => candidate.id === plan.id)) {
-      named.push(plan);
-    }
-  }
-  return named;
-};
-var findUncoveredPlansRefusal = ({ record: record3, named }) => {
-  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
-  const uncovered = included.filter((plan) => !named.some((candidate) => candidate.id === plan.id));
-  return uncovered.length === 0 ? void 0 : `the ship request for ticket ${record3.branch} does not name ${uncovered.map((plan) => plan.id).join(", ")}, and a request approves every plan the ticket still includes \u2014 name them too, or take one out of the ticket's work with \`lightsout ticket exclude-plan --name ${record3.branch} --plan <id> --reason <text>\``;
-};
-var requestTicketShip = ({ cwd, ticketBranch, plans, config: config2, env, onProgress }) => changeExistingTicketRecord({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  onProgress,
-  change: (record3) => {
-    if (record3.mode !== TicketMode.MultiplePlan) {
-      return {
-        error: `ticket ${ticketBranch} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply \u2014 switch with \`lightsout ticket mode --name ${ticketBranch} --set multiple-plan\` before asking for a ship request`
-      };
-    }
-    if (plans.length === 0) {
-      return { error: `a ship request names the plans it approves, and none was given \u2014 name every plan ticket ${ticketBranch} still includes` };
-    }
-    const named = resolveRequestedPlans({ record: record3, tokens: plans });
-    if ("error" in named) {
-      return named;
-    }
-    const uncovered = findUncoveredPlansRefusal({ record: record3, named });
-    if (uncovered !== void 0) {
-      return { error: uncovered };
-    }
-    const planIds = record3.plans.filter((plan) => named.some((candidate) => candidate.id === plan.id)).map((plan) => plan.id);
-    const at = (/* @__PURE__ */ new Date()).toISOString();
-    return appendTicketEvent({
-      record: { ...record3, shipRequest: { planIds, requestedAt: at } },
-      kind: TicketEventKind.ShipRequested,
-      detail: `ticket ${ticketBranch} is to ship once ${planIds.join(", ")} are implemented`,
-      at
-    });
-  }
-});
-
-// src/ticket/restoreTicketPlan.ts
-var recordMarker = async ({
-  recordCwd,
-  ticketBranch,
-  planId,
-  markerSha256,
-  onProgress
-}) => {
-  const recorded = await recordTicketSyncState({
-    ticketFolder: await ticketFolderDir({ cwd: recordCwd, ticketBranch }),
-    planMarkers: { [planId]: markerSha256 },
-    failure: `plan ${planId} was restored, but this machine could not record which generation it took`
-  });
-  if (recorded !== void 0) {
-    onProgress?.(recorded.error);
-  }
-};
-var restoreTicketPlan = async ({ cwd, address, config: config2, env, recordCwd, onProgress }) => {
-  const parsed = parsePlanAddress({ name: address });
-  if (parsed === void 0) {
-    return {
-      error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>', for example 'lo-140-multi/001-search-basics'`
-    };
-  }
-  const { ticketBranch, planId } = parsed;
-  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
-  if ("error" in target) {
-    return target;
-  }
-  if ("localOnly" in target) {
-    return { error: `plan ${planId} cannot be restored: ${target.localOnly}` };
-  }
-  const plan = await restorePlanWorkspace({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
-  if (plan.error !== void 0) {
-    return { error: plan.error };
-  }
-  if (plan.restored.length === 0) {
-    return { restored: [] };
-  }
-  const brainstorm = await restoreBrainstormFiles({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
-  if (brainstorm.error !== void 0) {
-    onProgress?.(`plan ${planId} was restored, but its brainstorm generation was not: ${brainstorm.error}`);
-  }
-  if (plan.markerSha256 !== void 0) {
-    await recordMarker({ recordCwd: recordCwd ?? cwd, ticketBranch, planId, markerSha256: plan.markerSha256, onProgress });
-  }
-  return { restored: [...plan.restored, ...brainstorm.restored].sort() };
-};
-
-// src/ticket/retitleTicketPlan.ts
-var retitleTicketPlan = ({ cwd, ticketBranch, plan, title, config: config2, env, onProgress }) => changeExistingTicketRecord({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  onProgress,
-  change: (record3) => {
-    if (title.trim() === "") {
-      return { error: `a plan's display title is what a human recognises it by, so it cannot be blank` };
-    }
-    const target = resolveTicketPlan({ record: record3, token: plan });
-    if ("error" in target) {
-      return target;
-    }
-    return appendTicketEvent({
-      record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, title } : candidate) },
-      kind: TicketEventKind.PlanRetitled,
-      detail: `plan ${target.id} on ticket ${ticketBranch} is now titled '${title}'`,
-      at: (/* @__PURE__ */ new Date()).toISOString()
-    });
-  }
-});
-
-// src/ticket/setTicketMode.ts
-var switchedToSinglePlan = "switched to single-plan mode";
-var laterPlansOf = ({ record: record3 }) => record3.plans.filter((plan) => planNumberOf({ id: plan.id }) !== 1);
-var isUnaccountedImplementation = ({ plan }) => isPlanImplementationStarted({ plan }) && !(plan.exclusion?.implementationRemoved === true && plan.exclusion.verifiedCommit !== void 0);
-var describeSwitchToSinglePlan = ({
-  record: record3,
-  first,
-  later,
-  afterImplement
-}) => {
-  const firstId = first.id;
-  const chaining = afterImplement ? `\`ship.after-implement\` is true in this repository, so a passed \`lightsout implement\` or \`lightsout resume\` run of plan ${firstId} chains straight into shipping` : `\`ship.after-implement\` is false in this repository, so the ticket ships only when you run \`lightsout ship\``;
-  const eligible = first.progress === PlanProgress.Implemented ? ` Plan ${firstId} is already implemented, so this ticket becomes eligible to ship as soon as the switch is approved: \`lightsout ship\`, or the queue's next drain, would ship it.` : "";
-  return `switching ticket ${record3.branch} to single-plan mode means plan ${firstId} alone determines this ticket's implementation and shipping, and ${later.map((plan) => plan.id).join(", ")} would be excluded from both \u2014 their files stay on disk, and an exclusion is final. ${chaining}, and the queue ships the branch once plan ${firstId} is implemented whatever that setting says.${eligible} Run the same command again with --approve to make the switch.`;
-};
-var excludeDroppedPlans = ({ record: record3, dropped, at }) => {
-  let carried = record3;
-  for (const plan of dropped) {
-    carried = appendTicketEvent({
-      record: {
-        ...carried,
-        plans: carried.plans.map(
-          (candidate) => candidate.id === plan.id ? { ...candidate, exclusion: { at, reason: switchedToSinglePlan, implementationRemoved: false } } : candidate
-        )
-      },
-      kind: TicketEventKind.PlanExcluded,
-      detail: `plan ${plan.id} was excluded from ticket ${record3.branch}: ${switchedToSinglePlan}`,
-      at
-    });
-  }
-  return carried;
-};
-var switchToSinglePlan = ({
-  record: record3,
-  afterImplement,
-  approve,
-  at
-}) => {
-  const later = laterPlansOf({ record: record3 });
-  const unaccounted = later.filter((plan) => isUnaccountedImplementation({ plan }));
-  if (unaccounted.length > 0) {
-    return {
-      error: `the implementation of ${unaccounted.map((plan) => plan.id).join(", ")} on ticket ${record3.branch} has started, so plan 001 does not alone supply this ticket's implementation \u2014 remove that implementation from the branch with the agent, then record it with \`lightsout ticket exclude-plan --implementation-removed\`, and try the switch again`
-    };
-  }
-  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
-  if (first === void 0 || first.exclusion !== void 0) {
-    return {
-      error: first === void 0 ? `ticket ${record3.branch} holds no plan 001, and single-plan mode is plan 001 supplying the whole implementation` : `plan ${first.id} is excluded from ticket ${record3.branch}, so single-plan mode would leave the ticket with no implementation at all`
-    };
-  }
-  const dropped = later.filter((plan) => plan.exclusion === void 0);
-  if (dropped.length > 0 && !approve) {
-    return { error: describeSwitchToSinglePlan({ record: record3, first, later: dropped, afterImplement }) };
-  }
-  const excluded = excludeDroppedPlans({ record: record3, dropped, at });
-  const withdrawn = recordShipRequestWithdrawal({
-    record: excluded,
-    detail: `ticket ${record3.branch} moved to single-plan mode, so the plans its ship request approved are no longer the ticket's work`,
-    at
-  });
-  return appendTicketEvent({
-    record: { ...withdrawn, mode: TicketMode.SinglePlan },
-    kind: TicketEventKind.ModeChanged,
-    detail: `ticket ${record3.branch} is now in single-plan mode`,
-    at
-  });
-};
-var setTicketMode = async ({ cwd, ticketBranch, mode, approve, config: config2, env, onProgress }) => {
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return { error: "ship.ticket-pattern is not a regular expression capturing a `ticket` group, so this repository cannot say what any branch would ship" };
-  }
-  const updated = await changeExistingTicketRecord({
-    cwd,
-    ticketBranch,
-    config: config2,
-    env,
-    onProgress,
-    change: (record3) => {
-      if (record3.mode === mode) {
-        return { error: `ticket ${ticketBranch} is already in ${mode} mode` };
-      }
-      const at = (/* @__PURE__ */ new Date()).toISOString();
-      return mode === TicketMode.SinglePlan ? switchToSinglePlan({ record: record3, afterImplement: shipSettings.afterImplement, approve, at }) : appendTicketEvent({
-        record: { ...record3, mode: TicketMode.MultiplePlan },
-        kind: TicketEventKind.ModeChanged,
-        detail: `ticket ${ticketBranch} is now in multiple-plan mode`,
-        at
-      });
-    }
-  });
-  if ("error" in updated) {
-    return updated;
-  }
-  return {
-    ...updated,
-    notice: mode === TicketMode.MultiplePlan ? `ticket ${ticketBranch} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it \u2014 say when it is finished with \`lightsout ticket request-ship --name ${ticketBranch} --plans <id,id>\`` : void 0
-  };
-};
-
-// src/ticket/divergence/mergeOneSidedPlans.ts
-var mergeOneSidedPlans = ({ kept, other, keptFrom, at }) => {
-  const source = keptFrom === TicketSyncKeep.Local ? TicketSyncKeep.Published : TicketSyncKeep.Local;
-  const held = new Map(kept.plans.map((plan) => [planNumberOf({ id: plan.id }), plan]));
-  const carried = [];
-  for (const plan of other.plans) {
-    const sameNumber = held.get(planNumberOf({ id: plan.id }));
-    if (sameNumber === void 0) {
-      carried.push(plan);
-    } else if (sameNumber.id !== plan.id) {
-      return {
-        error: `the local and published copies of the ticket record both use plan number ${plan.id.slice(0, 3)}, for '${keptFrom === TicketSyncKeep.Local ? sameNumber.id : plan.id}' here and for '${keptFrom === TicketSyncKeep.Local ? plan.id : sameNumber.id}' on the ticket \u2014 no kept record can hold both, so rename or remove one of them before syncing`
-      };
-    }
-  }
-  if (carried.length === 0) {
-    return kept;
-  }
-  return {
-    ...kept,
-    plans: [...kept.plans, ...carried].sort((left, right) => planNumberOf({ id: left.id }) - planNumberOf({ id: right.id })),
-    history: [
-      ...kept.history,
-      ...carried.map((plan) => ({
-        at,
-        kind: TicketEventKind.PlanAdded,
-        detail: `carried plan ${plan.id} over from the ${source} copy of the ticket record while keeping the ${keptFrom} copy`
-      }))
-    ]
-  };
-};
-
-// src/ticket/divergence/resolvePlanWorkingCheckout.ts
-import { dirname as dirname19 } from "node:path";
-var resolvePlanWorkingCheckout = async ({ cwd }) => {
-  return { checkout: dirname19(await resolveSharedStateDir({ cwd })), otherCopies: [] };
-};
-
-// src/ticket/divergence/keepLocalTicketRecord.ts
-var republishDivergentPlans = async ({
-  cwd,
-  ticketBranch,
-  ticketFolder,
-  carried,
-  kept,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const markers = { recorded: {}, published: {} };
-  if (carried === void 0) {
-    return markers;
-  }
-  const syncState = await readTicketSyncState({ ticketFolder });
-  const planIds = findDivergentPlanIds({ record: carried, syncState }).filter((planId) => kept.plans.some((plan) => plan.id === planId));
-  for (const planId of planIds) {
-    const address = formatPlanAddress({ ticketBranch, planId });
-    const { checkout } = await resolvePlanWorkingCheckout({ cwd, ticketBranch, planId });
-    const held = await pathExists({ path: await planWorkspaceDir({ cwd: checkout, name: address }) });
-    const publishedMarker = carried.plans.find((plan) => plan.id === planId)?.publishedMarker;
-    if (!held) {
-      onProgress?.(`plan ${planId} has no folder on this machine, so the ticket's own copy of it is left as it is and the kept record describes that copy`);
-      if (publishedMarker !== void 0) {
-        markers.recorded[planId] = publishedMarker;
-      }
-      continue;
-    }
-    const report2 = await publishPlan({ cwd: checkout, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
-    if (report2.error !== void 0) {
-      return { error: `plan ${planId} could not be published over the ticket's copy, so the ticket record was left alone: ${report2.error}` };
-    }
-    if (report2.markerSha256 !== void 0) {
-      markers.recorded[planId] = report2.markerSha256;
-      markers.published[planId] = report2.markerSha256;
-    }
-  }
-  return markers;
-};
-var withPlanMarkers = ({ record: record3, markers }) => ({
-  ...record3,
-  plans: record3.plans.map((plan) => markers[plan.id] === void 0 ? plan : { ...plan, publishedMarker: markers[plan.id] })
-});
-var readRecordsToKeep = async ({
-  cwd,
-  ticketBranch,
-  target
-}) => {
-  const local = await readTicketRecord({ cwd, ticketBranch });
-  if ("error" in local) {
-    return local;
-  }
-  if (local.record === void 0) {
-    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine, so there is no local ticket record to keep` };
-  }
-  const published = await readPublishedTicketRecord({ target, ticketBranch });
-  if ("error" in published) {
-    return published;
-  }
-  const carried = published.published;
-  const kept = carried === void 0 ? local.record : mergeOneSidedPlans({ kept: local.record, other: carried.record, keptFrom: TicketSyncKeep.Local, at: (/* @__PURE__ */ new Date()).toISOString() });
-  return "error" in kept ? kept : { kept, carried };
-};
-var keepLocalTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  target,
-  onProgress
-}) => {
-  const records = await readRecordsToKeep({ cwd, ticketBranch, target });
-  if ("error" in records) {
-    return records;
-  }
-  const { kept, carried } = records;
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const markers = await republishDivergentPlans({
-    cwd,
-    ticketBranch,
-    ticketFolder,
-    carried: carried?.record,
-    kept,
-    config: config2,
-    env,
-    onProgress
-  });
-  if ("error" in markers) {
-    return markers;
-  }
-  const applied = await updateLocalTicketRecord({ cwd, ticketBranch, change: () => withPlanMarkers({ record: kept, markers: markers.recorded }) });
-  if ("error" in applied) {
-    return applied;
-  }
-  const attached = await attachTicketRecordIfUnmoved({
-    cwd,
-    ticketBranch,
-    target,
-    expectedPublishedSha256: carried === void 0 ? void 0 : sha256({ content: carried.content }),
-    onProgress
-  });
-  if ("error" in attached) {
-    return attached;
-  }
-  const recorded = await recordTicketSyncState({
-    ticketFolder,
-    recordSha256: attached.attachedSha256,
-    planMarkers: markers.published,
-    failure: publishedButUnrecorded,
-    dropSurfacedCopy: true
-  });
-  return recorded === void 0 ? { record: applied.record } : recorded;
-};
-
-// src/ticket/divergence/keepPublishedTicketRecord.ts
-import { rename as rename10, rm as rm8 } from "node:fs/promises";
-import { join as join100 } from "node:path";
-var readPublishedPlanMarker = async ({
-  planId,
-  target
-}) => {
-  const { settings, ticketRef } = target;
-  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
-  if ("error" in attachments) {
-    return { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${attachments.error}` };
-  }
-  const markers = scopeAttachments({ attachments, prefix: planId }).filter(({ title }) => title === planAttachmentManifestName);
-  const marker = markers.length === 1 ? markers[0] : void 0;
-  if (marker === void 0) {
-    return { marker: void 0 };
-  }
-  const text = await readTicketAsset3({ settings, url: marker.url });
-  return typeof text === "string" ? { marker: sha256({ content: text }) } : { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${text.error}` };
-};
-var setPlanFolderAside = async ({
-  checkout,
-  ticketBranch,
-  planId,
-  onProgress
-}) => {
-  const name = formatPlanAddress({ ticketBranch, planId });
-  const dir = await planWorkspaceDir({ cwd: checkout, name });
-  if (!await pathExists({ path: dir })) {
-    return void 0;
-  }
-  let attempt = 1;
-  let aside = `${dir}.local-${attempt}`;
-  while (await pathExists({ path: aside })) {
-    attempt += 1;
-    aside = `${dir}.local-${attempt}`;
-  }
-  try {
-    await rename10(dir, aside);
-  } catch (error51) {
-    return { error: `the local copy of plan ${planId} at ${dir} could not be moved aside: ${messageOf({ error: error51 })}` };
-  }
-  onProgress?.(`moved ${dir} aside to ${aside} \u2014 nothing was deleted`);
-  return void 0;
-};
-var takePublishedPlan = async ({
-  cwd,
-  ticketBranch,
-  planId,
-  record: record3,
-  config: config2,
-  env,
-  target,
-  onProgress
-}) => {
-  const published = await readPublishedPlanMarker({ planId, target });
-  if ("error" in published) {
-    return published;
-  }
-  const claimed = record3.plans.find((plan) => plan.id === planId)?.publishedMarker;
-  if (published.marker === void 0 || published.marker !== claimed) {
-    return {
-      error: `${target.ticketRef}'s plan files and its ticket record disagree about plan ${planId}: the record names a commit marker the ticket does not carry, so nothing was moved \u2014 publish that plan again from the machine that holds it, or run \`lightsout ticket sync --name ${ticketBranch} --keep local\``
-    };
-  }
-  const { checkout, otherCopies } = await resolvePlanWorkingCheckout({ cwd, ticketBranch, planId });
-  for (const copy of [checkout, ...otherCopies]) {
-    const moved = await setPlanFolderAside({ checkout: copy, ticketBranch, planId, onProgress });
-    if (moved !== void 0) {
-      return moved;
-    }
-  }
-  const restored = await restoreTicketPlan({ cwd: checkout, address: formatPlanAddress({ ticketBranch, planId }), config: config2, env, recordCwd: cwd, onProgress });
-  if ("error" in restored) {
-    return restored;
-  }
-  return restored.restored.length === 0 ? {
-    error: `${target.ticketRef} carries no plan generation for ${planId}, so the published copy of that plan could not be restored \u2014 the local copy was moved aside and nothing was deleted`
-  } : void 0;
-};
-var writeKeptRecord = async ({ ticketFolder, record: record3 }) => {
-  const content = serializeTicketRecord({ record: record3 });
-  await writeTicketFolderFile({ path: join100(ticketFolder, ticketFileNames.record), content });
-  await updateTicketSyncState({ ticketFolder, recordSha256: sha256({ content }) });
-  await rm8(join100(ticketFolder, ticketFileNames.published), { force: true });
-};
-var keepPublishedTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  target,
-  onProgress
-}) => {
-  const published = await readPublishedTicketRecord({ target, ticketBranch });
-  if ("error" in published) {
-    return published;
-  }
-  if (published.published === void 0) {
-    return { error: `${target.ticketRef} carries no ${ticketFileNames.record}, so there is no published ticket record to keep` };
-  }
-  const local = await readTicketRecord({ cwd, ticketBranch });
-  if ("error" in local) {
-    return local;
-  }
-  const merged = local.record === void 0 ? published.published.record : mergeOneSidedPlans({ kept: published.published.record, other: local.record, keptFrom: TicketSyncKeep.Published, at: (/* @__PURE__ */ new Date()).toISOString() });
-  if ("error" in merged) {
-    return merged;
-  }
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const written = await withTicketRecordLock({
-    ticketFolder,
-    run: async () => {
-      try {
-        await writeKeptRecord({ ticketFolder, record: merged });
-        return void 0;
-      } catch (error51) {
-        return { error: `the published ticket record could not be written into ${ticketFolder}: ${messageOf({ error: error51 })}` };
-      }
-    }
-  });
-  if (written !== void 0) {
-    return written;
-  }
-  const syncState = await readTicketSyncState({ ticketFolder });
-  for (const planId of findDivergentPlanIds({ record: merged, syncState })) {
-    const taken = await takePublishedPlan({ cwd, ticketBranch, planId, record: merged, config: config2, env, target, onProgress });
-    if (taken !== void 0) {
-      return taken;
-    }
-  }
-  return { record: merged };
-};
-
-// src/ticket/syncTicketRecord.ts
-var catchUpTicketRecord = async ({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  target,
-  onProgress
-}) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env, onProgress });
-  if ("error" in pulled) {
-    return pulled;
-  }
-  if (pulled.record === void 0) {
-    return { error: `there is no ${ticketFileNames.record} for '${ticketBranch}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
-  }
-  const ticketFolder = await ticketFolderDir({ cwd, ticketBranch });
-  const syncState = await readTicketSyncState({ ticketFolder });
-  const localSha256 = sha256({ content: serializeTicketRecord({ record: pulled.record }) });
-  if (localSha256 === syncState?.recordSha256) {
-    onProgress?.(`the ticket record for '${ticketBranch}' already matches the copy on ${target.ticketRef}`);
-    return { record: pulled.record };
-  }
-  const attached = await attachTicketRecordIfUnmoved({ cwd, ticketBranch, target, expectedPublishedSha256: syncState?.recordSha256, onProgress });
-  if ("error" in attached) {
-    return attached;
-  }
-  const recorded = await recordTicketSyncState({ ticketFolder, recordSha256: attached.attachedSha256, failure: publishedButUnrecorded });
-  return recorded === void 0 ? { record: pulled.record } : recorded;
-};
-var syncTicketRecord = async ({ cwd, ticketBranch, config: config2, env, keep, onProgress }) => {
-  const target = resolveTicketTrackerTarget({ config: config2, env, ticketBranch });
-  if ("error" in target) {
-    return target;
-  }
-  if ("localOnly" in target) {
-    return { error: `${target.localOnly} \u2014 \`lightsout ticket sync\` needs a configured tracker to sync against` };
-  }
-  if (keep === TicketSyncKeep.Published) {
-    return keepPublishedTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
-  }
-  if (keep === TicketSyncKeep.Local) {
-    return keepLocalTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
-  }
-  return catchUpTicketRecord({ cwd, ticketBranch, config: config2, env, target, onProgress });
-};
-
-// src/ticket/withdrawTicketShipRequest.ts
-var withdrawTicketShipRequest = ({ cwd, ticketBranch, config: config2, env, onProgress }) => changeExistingTicketRecord({
-  cwd,
-  ticketBranch,
-  config: config2,
-  env,
-  onProgress,
-  change: (record3) => record3.shipRequest === void 0 ? { error: `ticket ${ticketBranch} carries no ship request, so there is nothing to withdraw` } : recordShipRequestWithdrawal({
-    record: record3,
-    detail: `the request to ship ${record3.shipRequest.planIds.join(", ")} was withdrawn by hand`,
-    at: (/* @__PURE__ */ new Date()).toISOString()
-  })
-});
 
 // src/ticketLifecycle/common/constants/TrackerStatusRole.ts
 var TrackerStatusRole = {
@@ -141885,6 +139831,2183 @@ var reconcileShippedTicket = async ({ config: config2, env, ticketRef, onProgres
   return void 0;
 };
 
+// src/workOrder/addWorkOrderPlan.ts
+import { mkdir as mkdir21 } from "node:fs/promises";
+
+// src/workOrder/common/record/appendWorkOrderEvent.ts
+var appendWorkOrderEvent = ({ record: record3, kind, detail, at }) => ({
+  ...record3,
+  history: [...record3.history, { at, kind, detail }]
+});
+
+// src/workOrder/common/record/composePlanId.ts
+var composePlanId = ({ number: number4, slug }) => {
+  const parsed = PlanId.safeParse(`${String(number4).padStart(3, "0")}-${slug}`);
+  return parsed.success ? { id: parsed.data } : { error: `'${slug}' cannot be a plan slug: ${external_exports.prettifyError(parsed.error)}` };
+};
+
+// src/workOrder/common/record/recordShipRequestWithdrawal.ts
+var recordShipRequestWithdrawal = ({ record: record3, detail, at }) => record3.shipRequest === void 0 ? record3 : appendWorkOrderEvent({ record: { ...record3, shipRequest: void 0 }, kind: WorkOrderEventKind.ShipRequestWithdrawn, detail, at });
+
+// src/common/utils/describeMissingWorkOrder.ts
+var describeMissingWorkOrder = ({ name }) => `there is no work order called '${name}' \u2014 start one with \`lightsout work-order add-plan --name ${name} --slug <slug>\``;
+
+// src/workOrder/common/record/requireWorkOrderState.ts
+var requireWorkOrderState = ({ record: record3, name }) => {
+  if (record3 === void 0) {
+    return { error: describeMissingWorkOrder({ name }) };
+  }
+  return record3.shipped === void 0 ? record3 : { error: `work order ${record3.name} shipped as ${record3.shipped.mergeCommit}, and a shipped work order's state is history that no longer changes` };
+};
+
+// src/workOrder/common/constants/publishedButUnrecorded.ts
+var publishedButUnrecorded = "the work order state was published, but this machine could not record that it was";
+
+// src/workOrder/common/constants/workOrderFileNames.ts
+var workOrderFileNames = {
+  record: workOrderStateFileName,
+  sync: "state-sync.json",
+  published: "state.published.json",
+  lock: "state.lock"
+};
+
+// src/workOrder/common/utils/serializeWorkOrderState.ts
+var serializeWorkOrderState = ({ record: record3 }) => {
+  const sorted = JSON.parse(canonicalJson({ value: record3 }));
+  return Buffer.from(`${JSON.stringify(sorted, void 0, "	")}
+`, "utf8");
+};
+
+// src/workOrder/common/utils/readPublishedWorkOrderState.ts
+var readRecordText = ({ text, name, ticketRef }) => {
+  let value;
+  let outcome;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    outcome = {
+      error: `the ${workOrderFileNames.record} on ${ticketRef} is not valid JSON (${messageOf({ error: error51 })}) \u2014 run \`lightsout work-order sync --name ${name} --keep local\` to replace it with this machine's record`
+    };
+  }
+  if (outcome === void 0) {
+    const parsed = WorkOrderState.safeParse(value);
+    if (!parsed.success) {
+      outcome = {
+        error: `the ${workOrderFileNames.record} on ${ticketRef} does not match the work order state contract (${external_exports.prettifyError(parsed.error)}) \u2014 run \`lightsout work-order sync --name ${name} --keep local\` to replace it with this machine's record`
+      };
+    } else if (parsed.data.name !== name) {
+      outcome = {
+        error: `the ${workOrderFileNames.record} on ${ticketRef} names work order '${parsed.data.name}', not the '${name}' work order it was read for`
+      };
+    } else {
+      outcome = { published: { record: parsed.data, content: serializeWorkOrderState({ record: parsed.data }) } };
+    }
+  }
+  return outcome;
+};
+var readPublishedWorkOrderState = async ({
+  target,
+  name
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the ${workOrderFileNames.record} on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const carried = attachments.filter(({ title }) => title === workOrderFileNames.record);
+  if (carried.length > 1) {
+    return {
+      error: `${ticketRef} carries more than one ${workOrderFileNames.record} attachment, so no single published work order state can be selected \u2014 remove the extra one on the ticket, or run \`lightsout work-order sync --name ${name} --keep local\` to publish this machine's record over them`
+    };
+  }
+  const attachment = carried[0];
+  if (attachment === void 0) {
+    return { published: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: attachment.url });
+  return typeof text === "string" ? readRecordText({ text, name, ticketRef }) : { error: `the ${workOrderFileNames.record} on ${ticketRef} could not be read: ${text.error}` };
+};
+
+// src/workOrder/common/utils/readWorkOrderSyncState.ts
+import { join as join90 } from "node:path";
+var readWorkOrderSyncState = async ({ workOrderFolder }) => readJsonFile({ path: join90(workOrderFolder, workOrderFileNames.sync), schema: WorkOrderSyncState });
+
+// src/workOrder/common/utils/surfaceWorkOrderDivergence.ts
+import { join as join91 } from "node:path";
+
+// src/workOrder/common/utils/writeWorkOrderFolderFile.ts
+import { mkdir as mkdir20, rename as rename7, writeFile as writeFile16 } from "node:fs/promises";
+import { dirname as dirname16 } from "node:path";
+var writeWorkOrderFolderFile = async ({ path, content }) => {
+  const temporaryPath = `${path}.tmp`;
+  await mkdir20(dirname16(path), { recursive: true });
+  await writeFile16(temporaryPath, content);
+  await rename7(temporaryPath, path);
+};
+
+// src/workOrder/common/utils/surfaceWorkOrderDivergence.ts
+var surfaceWorkOrderDivergence = async ({ workOrderFolder, name, ticketRef, content }) => {
+  const sync = `lightsout work-order sync --name ${name}`;
+  let saved = `the published copy is saved beside it as ${workOrderFileNames.published}`;
+  try {
+    await writeWorkOrderFolderFile({ path: join91(workOrderFolder, workOrderFileNames.published), content });
+  } catch (error51) {
+    saved = `the published copy could not be saved as ${workOrderFileNames.published} (${messageOf({ error: error51 })})`;
+  }
+  return `the work order state for '${name}' moved both here and on ${ticketRef} since this machine last synced \u2014 ${saved}; run \`${sync} --keep local\` to publish this machine's copy over it, or \`${sync} --keep published\` to take the ticket's copy instead`;
+};
+
+// src/workOrder/common/utils/withWorkOrderStateLock.ts
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { mkdirSync as mkdirSync2, readFileSync as readFileSync3, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join92 } from "node:path";
+var LockHolder = external_exports.object({ pid: external_exports.number(), token: external_exports.string(), acquiredAt: external_exports.string() });
+var sleep3 = ({ ms }) => new Promise((resolve18) => setTimeout(resolve18, ms));
+var readHolder = ({ lockPath }) => {
+  let holder;
+  try {
+    holder = LockHolder.parse(JSON.parse(readFileSync3(lockPath, "utf8")));
+  } catch {
+    holder = void 0;
+  }
+  return holder;
+};
+var claimLeftover2 = ({ lockPath, token }) => {
+  const asidePath = `${lockPath}.claim-${process.pid}-${token}`;
+  let claimed = false;
+  try {
+    renameSync2(lockPath, asidePath);
+    claimed = true;
+  } catch {
+    claimed = false;
+  }
+  if (claimed) {
+    try {
+      unlinkSync2(asidePath);
+    } catch {
+    }
+  }
+  return claimed;
+};
+var createLock = ({ lockPath, token }) => {
+  let outcome;
+  try {
+    writeFileSync2(lockPath, `${JSON.stringify({ pid: process.pid, token, acquiredAt: (/* @__PURE__ */ new Date()).toISOString() })}
+`, { flag: "wx" });
+    outcome = { created: true };
+  } catch (error51) {
+    const present = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "EEXIST";
+    outcome = present ? { present: true } : { failure: messageOf({ error: error51 }) };
+  }
+  return outcome;
+};
+var acquireLock = async ({ lockPath, token }) => {
+  const pollIntervalMs = 100;
+  const waitCeilingMs = 1e4;
+  const startedAt = Date.now();
+  let outcome;
+  let heldBy;
+  while (outcome === void 0) {
+    const holder = readHolder({ lockPath });
+    let retryAtOnce = false;
+    if (holder !== void 0) {
+      heldBy = holder.pid;
+      retryAtOnce = !isPidAlive({ pid: holder.pid }) && claimLeftover2({ lockPath, token });
+    } else {
+      const attempt = createLock({ lockPath, token });
+      if ("created" in attempt) {
+        outcome = { acquired: true };
+      } else if ("failure" in attempt) {
+        outcome = { error: `the work order state lock ${lockPath} could not be taken: ${attempt.failure}` };
+      } else {
+        retryAtOnce = readHolder({ lockPath }) === void 0 ? claimLeftover2({ lockPath, token }) : true;
+      }
+    }
+    if (outcome === void 0 && !retryAtOnce) {
+      if (Date.now() - startedAt >= waitCeilingMs) {
+        outcome = {
+          error: `the work order state lock ${lockPath} is held by process ${heldBy ?? "unknown"} and was still held after ${waitCeilingMs / 1e3} seconds \u2014 wait for that command to finish, or remove the lock file if that process is gone`
+        };
+      } else {
+        await sleep3({ ms: pollIntervalMs });
+      }
+    }
+  }
+  return outcome;
+};
+var releaseLock = ({ lockPath, token }) => {
+  if (readHolder({ lockPath })?.token !== token) {
+    return;
+  }
+  try {
+    unlinkSync2(lockPath);
+  } catch {
+  }
+};
+var withWorkOrderStateLock = async ({ workOrderFolder, run }) => {
+  try {
+    mkdirSync2(workOrderFolder, { recursive: true });
+  } catch (error51) {
+    return { error: `the work order folder ${workOrderFolder} could not be created: ${messageOf({ error: error51 })}` };
+  }
+  const lockPath = join92(workOrderFolder, workOrderFileNames.lock);
+  const token = randomUUID5();
+  const acquisition = await acquireLock({ lockPath, token });
+  if ("error" in acquisition) {
+    return acquisition;
+  }
+  try {
+    return await run();
+  } finally {
+    releaseLock({ lockPath, token });
+  }
+};
+
+// src/workOrder/readWorkOrderState.ts
+import { join as join93 } from "node:path";
+
+// src/workOrder/common/utils/readWorkOrderStateFile.ts
+import { readFile as readFile38 } from "node:fs/promises";
+var readText = async ({ statePath }) => {
+  let outcome;
+  try {
+    outcome = { text: await readFile38(statePath, "utf8") };
+  } catch (error51) {
+    const missing = typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
+    outcome = missing ? { missing: true } : { error: `the work order state ${statePath} could not be read: ${messageOf({ error: error51 })}` };
+  }
+  return outcome;
+};
+var readStateText = ({ text, statePath, name }) => {
+  let value;
+  let outcome;
+  try {
+    value = JSON.parse(text);
+  } catch (error51) {
+    outcome = { error: `the work order state ${statePath} is not valid JSON: ${messageOf({ error: error51 })}` };
+  }
+  if (outcome === void 0) {
+    const parsed = WorkOrderState.safeParse(value);
+    if (!parsed.success) {
+      outcome = { error: `the work order state ${statePath} does not match the work order state contract: ${external_exports.prettifyError(parsed.error)}` };
+    } else if (parsed.data.name !== name) {
+      outcome = { error: `the work order state ${statePath} names work order '${parsed.data.name}', not the '${name}' folder it sits in` };
+    } else {
+      outcome = { record: parsed.data };
+    }
+  }
+  return outcome;
+};
+var readWorkOrderStateFile = async ({ statePath, name }) => {
+  const read = await readText({ statePath });
+  let outcome;
+  if ("error" in read) {
+    outcome = read;
+  } else if ("missing" in read) {
+    outcome = { record: void 0 };
+  } else {
+    outcome = readStateText({ text: read.text, statePath, name });
+  }
+  return outcome;
+};
+
+// src/workOrder/readWorkOrderState.ts
+var readWorkOrderState = async ({ cwd, name }) => {
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  return readWorkOrderStateFile({ statePath: join93(workOrderFolder, workOrderFileNames.record), name });
+};
+
+// src/workOrder/common/utils/attachWorkOrderStateIfUnmoved.ts
+var attachTicketRecord = async ({ target, content, onProgress }) => {
+  const { settings, ticketRef } = target;
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
+  if ("error" in tickets) {
+    return { error: `the work order state could not be published: ${tickets.error}` };
+  }
+  const ticket = tickets.at(0);
+  if (ticket === void 0) {
+    return { error: `the work order state could not be published: there is no ${ticketRef} on the configured ticket tracker` };
+  }
+  const failure = await setTicketAttachment3({ settings, ticketId: ticket.id, title: workOrderFileNames.record, content, contentType: "application/json" });
+  if (failure !== void 0) {
+    return { error: `the work order state could not be published: ${failure.error}` };
+  }
+  onProgress?.(`attached ${workOrderFileNames.record} to ${ticketRef}`);
+  return void 0;
+};
+var attachWorkOrderStateIfUnmoved = async ({
+  cwd,
+  name,
+  target,
+  expectedPublishedSha256,
+  onProgress
+}) => {
+  const published = await readPublishedWorkOrderState({ target, name });
+  if ("error" in published) {
+    return published;
+  }
+  const local = await readWorkOrderState({ cwd, name });
+  if ("error" in local) {
+    return local;
+  }
+  if (local.record === void 0) {
+    return { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine to publish` };
+  }
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  const content = serializeWorkOrderState({ record: local.record });
+  const attachedSha256 = sha256({ content });
+  const carried = published.published;
+  const publishedSha256 = carried === void 0 ? void 0 : sha256({ content: carried.content });
+  const moved = publishedSha256 !== expectedPublishedSha256 && publishedSha256 !== syncState?.recordSha256 && publishedSha256 !== attachedSha256;
+  if (carried !== void 0 && moved) {
+    const surfaced = await withWorkOrderStateLock({
+      workOrderFolder,
+      run: () => surfaceWorkOrderDivergence({ workOrderFolder, name, ticketRef: target.ticketRef, content: carried.content })
+    });
+    return { error: typeof surfaced === "string" ? surfaced : surfaced.error };
+  }
+  const failure = await attachTicketRecord({ target, content, onProgress });
+  return failure ?? { attachedSha256 };
+};
+
+// src/workOrder/common/utils/recordWorkOrderSyncState.ts
+import { rm as rm7 } from "node:fs/promises";
+import { join as join95 } from "node:path";
+
+// src/workOrder/common/utils/updateWorkOrderSyncState.ts
+import { join as join94 } from "node:path";
+var updateWorkOrderSyncState = async ({ workOrderFolder, recordSha256, planMarkers }) => {
+  const current = await readWorkOrderSyncState({ workOrderFolder });
+  const recorded = recordSha256 ?? current?.recordSha256;
+  const next = {
+    schemaVersion: 1,
+    planMarkers: { ...current?.planMarkers, ...planMarkers }
+  };
+  if (recorded !== void 0) {
+    next.recordSha256 = recorded;
+  }
+  await writeWorkOrderFolderFile({
+    path: join94(workOrderFolder, workOrderFileNames.sync),
+    content: Buffer.from(`${JSON.stringify(next, void 0, "	")}
+`, "utf8")
+  });
+};
+
+// src/workOrder/common/utils/recordWorkOrderSyncState.ts
+var recordWorkOrderSyncState = async ({
+  workOrderFolder,
+  recordSha256,
+  planMarkers,
+  failure,
+  dropSurfacedCopy
+}) => {
+  const recorded = await withWorkOrderStateLock({
+    workOrderFolder,
+    run: async () => {
+      try {
+        await updateWorkOrderSyncState({ workOrderFolder, recordSha256, planMarkers });
+        if (dropSurfacedCopy === true) {
+          await rm7(join95(workOrderFolder, workOrderFileNames.published), { force: true });
+        }
+        return void 0;
+      } catch (error51) {
+        return { error: `${failure}: ${messageOf({ error: error51 })}` };
+      }
+    }
+  });
+  return recorded;
+};
+
+// src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts
+var resolveWorkOrderTrackerTarget = ({
+  config: config2,
+  env,
+  workOrderName,
+  ticketRef
+}) => {
+  if (config2["ticket-tracker"] === void 0) {
+    return {
+      localOnly: `the work order state for '${workOrderName}' is local only: lightsout.config.json has no \`ticket-tracker\` block naming a provider and its credentials`
+    };
+  }
+  if (ticketRef === void 0) {
+    return { localOnly: `the work order state for '${workOrderName}' is local only: its record carries no ticket reference, so it belongs to no ticket` };
+  }
+  const settings = resolveTrackerSettings({ config: config2, env });
+  return "error" in settings ? settings : { settings, ticketRef };
+};
+
+// src/workOrder/pullWorkOrderState.ts
+import { join as join96 } from "node:path";
+
+// src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts
+var readWorkOrderWithTrackerTarget = async ({
+  cwd,
+  name,
+  config: config2,
+  env
+}) => {
+  const held = await readWorkOrderState({ cwd, name });
+  if ("error" in held) {
+    return held;
+  }
+  const target = resolveWorkOrderTrackerTarget({ config: config2, env, workOrderName: name, ticketRef: held.record?.ticketRef });
+  return "error" in target ? target : { record: held.record, target };
+};
+
+// src/workOrder/pullWorkOrderState.ts
+var takePublished = async ({
+  workOrderFolder,
+  content,
+  record: record3,
+  ticketRef,
+  onProgress
+}) => {
+  let outcome;
+  try {
+    await writeWorkOrderFolderFile({ path: join96(workOrderFolder, workOrderFileNames.record), content });
+    await updateWorkOrderSyncState({ workOrderFolder, recordSha256: sha256({ content }) });
+    outcome = { record: record3 };
+  } catch (error51) {
+    outcome = { error: `the ${workOrderFileNames.record} published on ${ticketRef} could not be written into ${workOrderFolder}: ${messageOf({ error: error51 })}` };
+  }
+  if ("record" in outcome) {
+    onProgress?.(`took the work order state published on ${ticketRef}`);
+  }
+  return outcome;
+};
+var applyThreeWayRule = async ({
+  cwd,
+  workOrderFolder,
+  name,
+  ticketRef,
+  published,
+  onProgress
+}) => {
+  const local = await readWorkOrderState({ cwd, name });
+  if ("error" in local) {
+    return local;
+  }
+  if (published === void 0) {
+    return { record: local.record };
+  }
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  const publishedSha256 = sha256({ content: published.content });
+  const localSha256 = local.record === void 0 ? void 0 : sha256({ content: serializeWorkOrderState({ record: local.record }) });
+  const take = () => takePublished({ workOrderFolder, content: published.content, record: published.record, ticketRef, onProgress });
+  let outcome;
+  if (local.record === void 0 || localSha256 === syncState?.recordSha256) {
+    outcome = await take();
+  } else if (localSha256 === publishedSha256) {
+    outcome = syncState?.recordSha256 === publishedSha256 ? { record: local.record } : await take();
+  } else if (publishedSha256 === syncState?.recordSha256) {
+    outcome = { record: local.record };
+  } else {
+    outcome = { error: await surfaceWorkOrderDivergence({ workOrderFolder, name, ticketRef, content: published.content }) };
+  }
+  return outcome;
+};
+var pullWorkOrderState = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config: config2, env });
+  if ("error" in opened) {
+    return opened;
+  }
+  const { record: record3, target } = opened;
+  if ("localOnly" in target) {
+    return { record: record3 };
+  }
+  const published = await readPublishedWorkOrderState({ target, name });
+  if ("error" in published) {
+    return published;
+  }
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  return withWorkOrderStateLock({
+    workOrderFolder,
+    run: () => applyThreeWayRule({ cwd, workOrderFolder, name, ticketRef: target.ticketRef, published: published.published, onProgress })
+  });
+};
+
+// src/workOrder/updateLocalWorkOrderState.ts
+import { randomUUID as randomUUID6 } from "node:crypto";
+import { rename as rename8, writeFile as writeFile17 } from "node:fs/promises";
+import { join as join97 } from "node:path";
+var findHistoryRefusal = ({ current, next }) => {
+  const recorded = current?.history ?? [];
+  const kept = next.history.slice(0, recorded.length);
+  const dropped = recorded.length > next.history.length;
+  const rewritten = recorded.some((event, index) => canonicalJson({ value: event }) !== canonicalJson({ value: kept[index] }));
+  return dropped || rewritten ? `a work order state's history is append-only, and the change to ${next.name} drops or rewrites one of the ${recorded.length} events already recorded` : void 0;
+};
+var writeChangedRecord = async ({
+  workOrderFolder,
+  recordPath,
+  name,
+  current,
+  changed
+}) => {
+  const parsed = WorkOrderState.safeParse(changed);
+  let outcome;
+  if (!parsed.success) {
+    outcome = { error: `the changed work order state for ${name} does not match the work-order state contract: ${external_exports.prettifyError(parsed.error)}` };
+  } else if (parsed.data.name !== name) {
+    outcome = { error: `the changed work order state names work order '${parsed.data.name}', not the '${name}' one it was asked for` };
+  } else {
+    outcome = { record: parsed.data };
+  }
+  if ("record" in outcome) {
+    const refusal = findHistoryRefusal({ current, next: outcome.record });
+    outcome = refusal === void 0 ? outcome : { error: refusal };
+  }
+  if ("record" in outcome) {
+    const temporaryPath = join97(workOrderFolder, `${workOrderFileNames.record}.${randomUUID6()}.tmp`);
+    try {
+      await writeFile17(temporaryPath, serializeWorkOrderState({ record: outcome.record }));
+      await rename8(temporaryPath, recordPath);
+    } catch (error51) {
+      outcome = { error: `the work order state ${recordPath} could not be written: ${messageOf({ error: error51 })}` };
+    }
+  }
+  return outcome;
+};
+var updateLocalWorkOrderState = async ({ cwd, name, change }) => {
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const recordPath = join97(workOrderFolder, workOrderFileNames.record);
+  return withWorkOrderStateLock({
+    workOrderFolder,
+    run: async () => {
+      const read = await readWorkOrderStateFile({ statePath: recordPath, name });
+      if ("error" in read) {
+        return read;
+      }
+      const changed = change(read.record);
+      return "error" in changed ? changed : writeChangedRecord({ workOrderFolder, recordPath, name, current: read.record, changed });
+    }
+  });
+};
+
+// src/workOrder/updateSyncedWorkOrderState.ts
+var updateSyncedWorkOrderState = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  change,
+  onProgress
+}) => {
+  const pulled = await pullWorkOrderState({ cwd, name, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  const updated = await updateLocalWorkOrderState({ cwd, name, change });
+  if ("error" in updated) {
+    return updated;
+  }
+  const target = resolveWorkOrderTrackerTarget({ config: config2, env, workOrderName: name, ticketRef: updated.record.ticketRef });
+  if ("error" in target || "localOnly" in target) {
+    return { record: updated.record };
+  }
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  const attached = await attachWorkOrderStateIfUnmoved({
+    cwd,
+    name,
+    target,
+    expectedPublishedSha256: syncState?.recordSha256,
+    onProgress
+  });
+  if ("error" in attached) {
+    return { record: updated.record, publishError: attached.error };
+  }
+  const recorded = await recordWorkOrderSyncState({
+    workOrderFolder,
+    recordSha256: attached.attachedSha256,
+    failure: publishedButUnrecorded
+  });
+  return recorded === void 0 ? { record: updated.record } : { record: updated.record, publishError: recorded.error };
+};
+
+// src/workOrder/addWorkOrderPlan.ts
+var maxPlanNumber = 999;
+var allocatePlanId = ({ record: record3, slug }) => {
+  const highest = record3.plans.reduce((top, plan) => Math.max(top, planNumberOf({ id: plan.id })), 0);
+  const next = highest + 1;
+  if (next > maxPlanNumber) {
+    return {
+      error: `work order ${record3.name} already holds plan ${String(highest).padStart(3, "0")}, and a plan's number never goes above ${maxPlanNumber} because no number is ever reused`
+    };
+  }
+  return composePlanId({ number: next, slug });
+};
+var addPlanToRecord = ({
+  current,
+  name,
+  slug,
+  title,
+  at
+}) => {
+  if (current === void 0) {
+    return {
+      error: `no work order is named ${name} \u2014 create one with \`lightsout work-order new --ticket <ref>\` or \`lightsout work-order new --title <words>\` before adding a plan to it`
+    };
+  }
+  const existing = requireWorkOrderState({ record: current, name });
+  if ("error" in existing) {
+    return existing;
+  }
+  if (existing.mode === WorkOrderMode.SinglePlan && existing.plans.some((plan) => planNumberOf({ id: plan.id }) === 1)) {
+    return {
+      error: `work order ${name} is in single-plan mode, where plan 001 alone supplies the implementation \u2014 run \`lightsout work-order mode --set multiple-plan --name ${name}\` before adding a second plan`
+    };
+  }
+  const allocated = allocatePlanId({ record: existing, slug });
+  if ("error" in allocated) {
+    return allocated;
+  }
+  const added = appendWorkOrderEvent({
+    record: { ...existing, plans: [...existing.plans, { id: allocated.id, title: title ?? slug, progress: PlanProgress.Planning, createdAt: at }] },
+    kind: WorkOrderEventKind.PlanAdded,
+    detail: `plan ${allocated.id} was added to work order ${name}`,
+    at
+  });
+  return {
+    record: recordShipRequestWithdrawal({
+      record: added,
+      detail: `plan ${allocated.id} was added, so the ship request naming ${existing.shipRequest?.planIds.join(", ") ?? ""} no longer covers the ticket's work`,
+      at
+    }),
+    planId: allocated.id,
+    withdrew: existing.shipRequest !== void 0
+  };
+};
+var addWorkOrderPlan = async ({
+  cwd,
+  name,
+  slug,
+  title,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  let addition;
+  const updated = await updateSyncedWorkOrderState({
+    cwd,
+    name,
+    config: config2,
+    env,
+    onProgress,
+    change: (current) => {
+      const added = addPlanToRecord({ current, name, slug, title, at: (/* @__PURE__ */ new Date()).toISOString() });
+      if ("error" in added) {
+        return added;
+      }
+      addition = added;
+      return added.record;
+    }
+  });
+  if ("error" in updated) {
+    return updated;
+  }
+  if (addition === void 0) {
+    return { error: `the plan was not added to work order ${name}: the store reported no change` };
+  }
+  const address = formatPlanAddress({ workOrderName: name, planId: addition.planId });
+  await mkdir21(await planWorkspaceDir({ cwd, name: address }), { recursive: true });
+  return {
+    address,
+    record: updated.record,
+    notice: addition.withdrew ? `the pending ship request was withdrawn because plan ${addition.planId} was added \u2014 ask again with \`lightsout work-order request-ship --name ${name}\` once the ticket's work is settled` : void 0,
+    publishError: updated.publishError
+  };
+};
+
+// src/workOrder/common/constants/WorkOrderSyncKeep.ts
+var WorkOrderSyncKeep = {
+  Local: "local",
+  Published: "published"
+};
+
+// src/common/utils/toBranchSlug.ts
+var toBranchSlug = ({ text }) => {
+  const maxSlugLength2 = 40;
+  const dashed = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
+  let slug = dashed;
+  if (dashed.length > maxSlugLength2) {
+    const cut = dashed.slice(0, maxSlugLength2);
+    const lastDash = cut.lastIndexOf("-");
+    slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
+  }
+  return slug.replaceAll(/-+$/g, "");
+};
+
+// src/common/utils/renderBranchTemplate.ts
+var separator = "[-_/.]";
+var dropTicketToken = ({ template }) => template.replaceAll(new RegExp(`\\{ticket\\}${separator}?`, "gu"), "").replaceAll(new RegExp(`^${separator}+|${separator}+$`, "gu"), "");
+var renderBranchTemplate = ({ template, ticketRef, title }) => {
+  const slugged = template.replaceAll("{slug}", toBranchSlug({ text: title }));
+  return ticketRef === void 0 ? dropTicketToken({ template: slugged }) : slugged.replaceAll("{ticket}", ticketRef.toLowerCase());
+};
+
+// src/workOrder/common/record/buildWorkOrderState.ts
+var buildWorkOrderState = ({ name, branch, ticketRef, config: config2 }) => ({
+  schemaVersion: 1,
+  name,
+  branch,
+  ...ticketRef === void 0 ? {} : { ticketRef },
+  mode: config2.plan?.["default-work-order-mode"] ?? WorkOrderMode.SinglePlan,
+  plans: [],
+  history: []
+});
+
+// src/workOrder/common/utils/composeWorkOrderName.ts
+var composeWorkOrderName = ({ ticketRef, words }) => {
+  const slugged = toBranchSlug({ text: words });
+  if (slugged === "") {
+    return { error: `'${words}' holds nothing a work order can be named after: a label is lowercase letter-and-digit words joined by single hyphens` };
+  }
+  const reference = ticketRef === void 0 ? "" : toBranchSlug({ text: ticketRef });
+  return { name: [reference, slugged].filter((segment) => segment !== "").join("-") };
+};
+
+// src/workOrder/common/utils/readTicketTitle.ts
+var readTicketTitle = async ({ ticketRef, config: config2, env }) => {
+  const settings = resolveTrackerSettings({ config: config2, env });
+  if ("error" in settings) {
+    return { error: `${settings.error} \u2014 or name this work yourself with \`--title <words>\`, which needs no tracker at all` };
+  }
+  const tickets = await getTicketsByIdentifiers3({ settings, identifiers: [ticketRef] });
+  if ("error" in tickets) {
+    return { error: `the tracker could not be asked about ${ticketRef}: ${tickets.error}` };
+  }
+  const ticket = tickets[0];
+  return ticket === void 0 ? { error: `the tracker holds no ticket ${ticketRef} \u2014 check the reference, or name this work yourself with \`--title <words>\`` } : { ticketRef: ticket.identifier, title: ticket.title };
+};
+
+// src/workOrder/common/utils/summarizeWorkOrderName.ts
+var readSummary = async ({
+  cwd,
+  ticketRef,
+  title,
+  config: config2,
+  driver
+}) => {
+  const timeoutMs = 12e4;
+  try {
+    return await invokeAgentWithContract({
+      driver: driver ?? getDriver({ name: config2.harness ?? "claude-code" }),
+      cwd,
+      invocation: buildWorkOrderNameInvocation({ ticketRef, title }),
+      contract: WorkOrderName,
+      model: config2.model,
+      effort: config2.effort,
+      permissions: Permissions.ReadOnly,
+      timeoutMs
+    });
+  } catch (error51) {
+    return { ok: false, failure: messageOf({ error: error51 }) };
+  }
+};
+var summarizeWorkOrderName = async ({ cwd, ticketRef, title, config: config2, driver, onProgress }) => {
+  onProgress?.(`summarising the title of ${ticketRef} into a work order name`);
+  const outcome = await readSummary({ cwd, ticketRef, title, config: config2, driver });
+  let words = toBranchSlug({ text: title });
+  if (outcome.ok) {
+    words = outcome.report.words;
+  } else {
+    onProgress?.(`the harness did not name this work (${outcome.failure}) \u2014 using '${words}', cut mechanically from the ticket's title`);
+  }
+  return words;
+};
+
+// src/workOrder/listWorkOrders.ts
+import { readdir as readdir17 } from "node:fs/promises";
+import { join as join98 } from "node:path";
+var listWorkOrders = async ({ cwd }) => {
+  const folder = await workOrdersDir({ cwd });
+  const entries = await readdir17(folder, { withFileTypes: true }).catch(() => []);
+  const found = [];
+  const unreadable2 = [];
+  for (const entry of entries.filter((candidate) => candidate.isDirectory())) {
+    const read = await readWorkOrderStateFile({ statePath: join98(folder, entry.name, workOrderFileNames.record), name: entry.name });
+    if ("error" in read || read.record === void 0) {
+      unreadable2.push(entry.name);
+    } else {
+      found.push({ name: entry.name, record: read.record });
+    }
+  }
+  return {
+    found: found.sort((first, second) => first.name.localeCompare(second.name)),
+    unreadable: unreadable2.sort((first, second) => first.localeCompare(second))
+  };
+};
+
+// src/workOrder/findWorkOrderByTicketRef.ts
+var findWorkOrderByTicketRef = async ({ cwd, ticketRef }) => {
+  const { found } = await listWorkOrders({ cwd });
+  const wanted = ticketRef.toLowerCase();
+  return found.find((entry) => entry.record.ticketRef?.toLowerCase() === wanted);
+};
+
+// src/workOrder/createWorkOrder.ts
+var namingFlagsRefusal = "`lightsout work-order new` names the work exactly once, so give exactly one of --ticket <ref> and --title <words>: --ticket reads the ticket\u2019s title from the tracker and summarises it, and --title takes the words you type.";
+var takenRefusal = ({ name }) => `${name} already names a work order \u2014 pass --title <words> to name this one differently, or add a plan to the existing one with \`lightsout work-order add-plan --name ${name}\``;
+var resolveNaming = async ({
+  cwd,
+  ticketRef,
+  title,
+  config: config2,
+  env,
+  driver,
+  onProgress
+}) => {
+  if (title !== void 0) {
+    return ticketRef === void 0 ? { words: title } : { error: namingFlagsRefusal };
+  }
+  if (ticketRef === void 0) {
+    return { error: namingFlagsRefusal };
+  }
+  const read = await readTicketTitle({ ticketRef, config: config2, env });
+  if ("error" in read) {
+    return read;
+  }
+  const existing = await findWorkOrderByTicketRef({ cwd, ticketRef: read.ticketRef });
+  if (existing !== void 0) {
+    return {
+      error: `work order ${existing.name} already carries ticket ${read.ticketRef} \u2014 add a plan to it with \`lightsout work-order add-plan --name ${existing.name}\`, or name genuinely separate work on the same ticket with --title <words>`
+    };
+  }
+  return { ticketRef: read.ticketRef, words: await summarizeWorkOrderName({ cwd, ticketRef: read.ticketRef, title: read.title, config: config2, driver, onProgress }) };
+};
+var findAllocationRefusal = ({ listing, name }) => {
+  if (listing.unreadable.length > 0) {
+    return `these work-order folders could not be read: ${listing.unreadable.join(", ")} \u2014 repair or remove them before creating another work order, because a folder the engine cannot read is a work order it cannot see`;
+  }
+  return listing.found.some((entry) => entry.name === name) ? takenRefusal({ name }) : void 0;
+};
+var createWorkOrder = async ({
+  cwd,
+  ticketRef,
+  title,
+  config: config2,
+  env,
+  driver,
+  onProgress
+}) => {
+  const naming = await resolveNaming({ cwd, ticketRef, title, config: config2, env, driver, onProgress });
+  if ("error" in naming) {
+    return naming;
+  }
+  const composed = composeWorkOrderName({ ticketRef: naming.ticketRef, words: naming.words });
+  if ("error" in composed) {
+    return composed;
+  }
+  const branch = renderBranchTemplate({ template: config2.queue?.["branch-template"] ?? "{ticket}-{slug}", ticketRef: naming.ticketRef, title: naming.words });
+  const refusal = findAllocationRefusal({ listing: await listWorkOrders({ cwd }), name: composed.name });
+  if (refusal !== void 0) {
+    return { error: refusal };
+  }
+  const written = await updateLocalWorkOrderState({
+    cwd,
+    name: composed.name,
+    change: (current) => current === void 0 ? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, config: config2 }) : { error: takenRefusal({ name: composed.name }) }
+  });
+  return "error" in written ? written : { name: composed.name, branch, record: written.record };
+};
+
+// src/workOrder/common/exclusion/applyExclusion.ts
+var applyExclusion = ({
+  record: record3,
+  target,
+  reason,
+  implementationRemoved,
+  verifiedCommit,
+  at
+}) => {
+  const amending = target.exclusion !== void 0;
+  const exclusion = target.exclusion === void 0 ? { at, reason, implementationRemoved, ...verifiedCommit === void 0 ? {} : { verifiedCommit } } : { ...target.exclusion, implementationRemoved: true, verifiedCommit };
+  const excluded = appendWorkOrderEvent({
+    record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, exclusion } : candidate) },
+    kind: WorkOrderEventKind.PlanExcluded,
+    detail: amending ? `plan ${target.id}'s implementation was recorded as removed from work order ${record3.name}, verified at ${verifiedCommit}` : `plan ${target.id} was excluded from work order ${record3.name}: ${reason}`,
+    at
+  });
+  const named = record3.shipRequest?.planIds.includes(target.id) === true;
+  return {
+    record: named ? recordShipRequestWithdrawal({
+      record: excluded,
+      detail: `plan ${target.id} was excluded \u2014 ${reason} \u2014 so the ship request naming it no longer describes the ticket's work`,
+      at
+    }) : excluded,
+    withdrew: named
+  };
+};
+
+// src/workOrder/common/record/isPlanImplementationStarted.ts
+var isPlanImplementationStarted = ({ plan }) => plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Implemented || plan.progress === PlanProgress.Failed;
+
+// src/workOrder/common/exclusion/findExclusionRefusal.ts
+var findExclusionRefusal = ({ record: record3, target, implementationRemoved }) => {
+  const started = isPlanImplementationStarted({ plan: target });
+  if (record3.mode === WorkOrderMode.SinglePlan && planNumberOf({ id: target.id }) === 1) {
+    return `plan ${target.id} is the whole implementation of single-plan work order ${record3.name}, so excluding it would leave the ticket nothing to ship \u2014 run \`lightsout work-order mode --name ${record3.name} --set multiple-plan\` first if this ticket's work has moved on`;
+  }
+  if (implementationRemoved && !started) {
+    return `plan ${target.id} on work order ${record3.name} has no implementation to remove, because its own implementation never started \u2014 exclude it without --implementation-removed`;
+  }
+  return target.exclusion !== void 0 && !(implementationRemoved && started && !target.exclusion.implementationRemoved) ? `plan ${target.id} is already excluded from work order ${record3.name} \u2014 ${target.exclusion.reason} \u2014 and an exclusion is final; the one thing a recorded exclusion still takes is \`--implementation-removed\`, once that plan's implementation has been taken off the branch` : void 0;
+};
+
+// src/workOrder/common/exclusion/verifyWorkOrderBranch.ts
+var verifyWorkOrderBranch = async ({ cwd, branch, onProgress }) => {
+  const checkout = await readBranchWorktree({ cwd, branch });
+  if (checkout === void 0) {
+    return {
+      error: `no checkout of this repository holds ${branch}, and excluding a plan whose implementation started means verifying that branch first \u2014 check it out, or cut its worktree, and run this again`
+    };
+  }
+  const holder = await readLiveRunLock({ cwd: checkout });
+  if (holder !== void 0) {
+    return {
+      error: `run ${holder.runId} is still working in ${checkout}, so the gates there would verify a tree that is still changing \u2014 wait for that run to finish, or stop it`
+    };
+  }
+  const changed = await readGitChangedFiles({ cwd: checkout });
+  if (changed === void 0 || changed.length > 0) {
+    return {
+      error: `${checkout} has ${changed === void 0 ? "no readable git status" : `${changed.length} uncommitted change(s)`}, so nothing there can be verified \u2014 commit or discard them and run this again`
+    };
+  }
+  const commit = await readGitHeadCommit({ cwd: checkout });
+  if (commit === void 0) {
+    return { error: `the commit ${checkout} stands on could not be read, so no verified commit could be recorded against the exclusion` };
+  }
+  const gates = await runGates({ cwd: checkout, config: await readConfig({ cwd: checkout }), coverage: true, includeRoot: true, onProgress });
+  return gates.error === void 0 ? { commit } : { error: `this repository's own gates are red on ${branch} at ${commit}, so it cannot be verified:
+${gates.error}` };
+};
+
+// src/workOrder/common/record/changeExistingWorkOrderState.ts
+var changeExistingWorkOrderState = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  onProgress,
+  change
+}) => {
+  const updated = await updateSyncedWorkOrderState({
+    cwd,
+    name,
+    config: config2,
+    env,
+    onProgress,
+    change: (current) => {
+      const record3 = requireWorkOrderState({ record: current, name });
+      return "error" in record3 ? record3 : change(record3);
+    }
+  });
+  return "error" in updated ? updated : { record: updated.record, publishError: updated.publishError };
+};
+
+// src/workOrder/common/record/resolveWorkOrderPlan.ts
+var resolveWorkOrderPlan = ({ record: record3, token }) => {
+  const numbered = /^\d{1,3}$/.test(token) ? record3.plans.find((plan2) => planNumberOf({ id: plan2.id }) === Number(token)) : void 0;
+  const plan = record3.plans.find((candidate) => candidate.id === token) ?? numbered;
+  const held = record3.plans.length === 0 ? "it holds no plans" : `it holds ${record3.plans.map((candidate) => candidate.id).join(", ")}`;
+  return plan ?? { error: `work order ${record3.name} holds no plan '${token}' \u2014 ${held}` };
+};
+
+// src/workOrder/excludeWorkOrderPlan.ts
+var recordExclusion = async ({
+  params,
+  verifiedCommit
+}) => {
+  const { cwd, name, plan, reason, implementationRemoved, config: config2, env, onProgress } = params;
+  let withdrew = false;
+  const updated = await changeExistingWorkOrderState({
+    cwd,
+    name,
+    config: config2,
+    env,
+    onProgress,
+    change: (now) => {
+      const target = resolveWorkOrderPlan({ record: now, token: plan });
+      if ("error" in target) {
+        return target;
+      }
+      const refusal = findExclusionRefusal({ record: now, target, implementationRemoved });
+      if (refusal !== void 0) {
+        return { error: refusal };
+      }
+      const applied = applyExclusion({ record: now, target, reason, implementationRemoved, verifiedCommit, at: (/* @__PURE__ */ new Date()).toISOString() });
+      withdrew = applied.withdrew;
+      return applied.record;
+    }
+  });
+  return "error" in updated ? updated : { ...updated, withdrew };
+};
+var excludeWorkOrderPlan = async (params) => {
+  const { cwd, name, plan, implementationRemoved, config: config2, env, onProgress } = params;
+  const pulled = await pullWorkOrderState({ cwd, name, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  const record3 = requireWorkOrderState({ record: pulled.record, name });
+  if ("error" in record3) {
+    return record3;
+  }
+  const target = resolveWorkOrderPlan({ record: record3, token: plan });
+  if ("error" in target) {
+    return target;
+  }
+  const refusal = findExclusionRefusal({ record: record3, target, implementationRemoved });
+  if (refusal !== void 0) {
+    return { error: refusal };
+  }
+  const verification = isPlanImplementationStarted({ plan: target }) ? await verifyWorkOrderBranch({ cwd, branch: record3.branch, onProgress }) : { commit: void 0 };
+  if ("error" in verification) {
+    return verification;
+  }
+  const written = await recordExclusion({ params, verifiedCommit: verification.commit });
+  if ("error" in written) {
+    return written;
+  }
+  return {
+    record: written.record,
+    notice: written.withdrew ? `the pending ship request was withdrawn because plan ${target.id} is no longer part of work order ${name}'s work \u2014 ask again with \`lightsout work-order request-ship --name ${name}\`` : void 0,
+    publishError: written.publishError
+  };
+};
+
+// src/workOrder/findNextPlanToPlan.ts
+var findNextPlanToPlan = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress === PlanProgress.Planning);
+
+// src/workOrder/findPlanImplementationBlocker.ts
+var describeLowerPlanRemedy = ({ name, plan }) => {
+  const finish = plan.implementation === void 0 ? `\`lightsout implement --plan ${planWorkspacePath({ name: formatPlanAddress({ workOrderName: name, planId: plan.id }) })}\`` : `\`lightsout resume --run ${plan.implementation.runId}\``;
+  return `${finish}, or take it out of the order with \`lightsout work-order exclude-plan --name ${name} --plan ${plan.id}\``;
+};
+var findLowerPlanBlocker = ({ record: record3, planId }) => {
+  const number4 = planNumberOf({ id: planId });
+  const blocking = record3.plans.find(
+    (plan) => planNumberOf({ id: plan.id }) < number4 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented
+  );
+  return blocking === void 0 ? void 0 : `plan ${blocking.id} comes before ${planId} on work order ${record3.name} and its implementation has not finished, and a work order's plans implement in numeric order \u2014 finish it with ${describeLowerPlanRemedy({ name: record3.name, plan: blocking })}`;
+};
+var findPlanImplementationBlocker = ({ record: record3, planId }) => {
+  const { name } = record3;
+  const plan = record3.plans.find((candidate) => candidate.id === planId);
+  let blocker;
+  if (plan === void 0) {
+    blocker = `work order ${name} holds no plan ${planId} \u2014 \`lightsout work-order show --name ${name}\` lists the plans it does hold`;
+  } else if (plan.exclusion !== void 0) {
+    blocker = `plan ${planId} is excluded from work order ${name} \u2014 ${plan.exclusion.reason} \u2014 and an exclusion is final; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${name}\``;
+  } else if (record3.mode === WorkOrderMode.SinglePlan && planNumberOf({ id: planId }) !== 1) {
+    blocker = `work order ${name} is in single-plan mode, where plan 001 alone supplies the implementation, so plan ${planId} is not built \u2014 run \`lightsout work-order mode --name ${name} --set multiple-plan\` to implement this ticket's plans in numeric order`;
+  } else if (plan.progress === PlanProgress.Implemented) {
+    blocker = `plan ${planId} is already implemented on work order ${name}, and an implemented plan is the scope the ticket ships on; add follow-up work as a new plan with \`lightsout work-order add-plan --name ${name}\``;
+  } else {
+    blocker = findLowerPlanBlocker({ record: record3, planId });
+  }
+  return blocker;
+};
+
+// src/workOrder/readWorkOrderShipEligibility.ts
+var readSinglePlanEligibility = ({ record: record3 }) => {
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
+  let eligibility;
+  if (first === void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `work order ${record3.name} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`
+    };
+  } else if (first.exclusion !== void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `plan ${first.id} is excluded from work order ${record3.name} \u2014 ${first.exclusion.reason} \u2014 so a single-plan ticket has no implementation to ship`
+    };
+  } else if (first.progress !== PlanProgress.Implemented) {
+    eligibility = {
+      eligible: false,
+      reason: `the implementation of plan ${first.id} on work order ${record3.name} has not finished, and a single-plan ticket ships once plan 001 is implemented`
+    };
+  } else {
+    eligibility = { eligible: true };
+  }
+  return eligibility;
+};
+var describeRequestDrift = ({ missing, stale }) => {
+  const clauses = [
+    ...missing.length === 0 ? [] : [`it does not name ${missing.join(", ")}`],
+    ...stale.length === 0 ? [] : [`it names ${stale.join(", ")}, which the ticket no longer includes`]
+  ];
+  return clauses.join(", and ");
+};
+var readMultiplePlanEligibility = ({ record: record3 }) => {
+  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
+  const includedIds = included.map((plan) => plan.id);
+  const request = record3.shipRequest;
+  const askAgain = `\`lightsout work-order request-ship --name ${record3.name} --plans ${includedIds.join(",")}\``;
+  let eligibility;
+  if (request === void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `work order ${record3.name} is in multiple-plan mode and carries no ship request, so ask for one with ${askAgain}`
+    };
+  } else {
+    const missing = includedIds.filter((id) => !request.planIds.includes(id));
+    const stale = request.planIds.filter((id) => !includedIds.includes(id));
+    const waiting = included.find((plan) => plan.progress !== PlanProgress.Implemented);
+    if (missing.length > 0 || stale.length > 0) {
+      eligibility = {
+        eligible: false,
+        reason: `the ship request on work order ${record3.name} no longer names the plans it holds \u2014 ${describeRequestDrift({ missing, stale })} \u2014 so request shipping again with ${askAgain}`
+      };
+    } else if (waiting !== void 0) {
+      eligibility = {
+        eligible: false,
+        reason: `the implementation of plan ${waiting.id} on work order ${record3.name} has not finished, and every plan its ship request names is implemented before the ticket ships`
+      };
+    } else {
+      eligibility = { eligible: true };
+    }
+  }
+  return eligibility;
+};
+var readWorkOrderShipEligibility = ({ record: record3 }) => {
+  let eligibility;
+  if (record3.shipped !== void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `work order ${record3.name} already shipped as ${record3.shipped.mergeCommit}, so its record no longer authorizes a merge`
+    };
+  } else if (record3.mode === WorkOrderMode.SinglePlan) {
+    eligibility = readSinglePlanEligibility({ record: record3 });
+  } else {
+    eligibility = readMultiplePlanEligibility({ record: record3 });
+  }
+  return eligibility;
+};
+
+// src/workOrder/implementRun/createWorkOrderShipGuard.ts
+var createWorkOrderShipGuard = ({ config: config2, env, onProgress }) => ({
+  authorize: async ({ cwd, branch }) => {
+    const pulled = await pullWorkOrderState({ cwd, name: branch, config: config2, env, onProgress });
+    if ("error" in pulled) {
+      const local = await readWorkOrderState({ cwd, name: branch });
+      return "error" in local || local.record !== void 0 ? pulled.error : void 0;
+    }
+    if (pulled.record === void 0) {
+      return void 0;
+    }
+    const eligibility = readWorkOrderShipEligibility({ record: pulled.record });
+    return eligibility.eligible ? void 0 : eligibility.reason;
+  },
+  recordShipped: async ({ cwd, branch, mergeCommit }) => {
+    const read = await readWorkOrderState({ cwd, name: branch });
+    if ("error" in read) {
+      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${read.error}`);
+      return;
+    }
+    if (read.record === void 0) {
+      return;
+    }
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    const updated = await updateSyncedWorkOrderState({
+      cwd,
+      name: branch,
+      config: config2,
+      env,
+      onProgress,
+      change: (current) => {
+        if (current === void 0) {
+          return { error: `work order ${branch} no longer has a record, so the merge ${mergeCommit} could not be recorded on it` };
+        }
+        const planIds = current.plans.filter((plan) => plan.exclusion === void 0).map((plan) => plan.id);
+        return appendWorkOrderEvent({
+          record: { ...current, shipped: { at, planIds, mergeCommit } },
+          kind: WorkOrderEventKind.Shipped,
+          detail: `work order ${branch} shipped as ${mergeCommit} with ${planIds.join(", ")}`,
+          at
+        });
+      }
+    });
+    if ("error" in updated) {
+      onProgress?.(`the merge ${mergeCommit} could not be recorded on the ticket: ${updated.error}`);
+    } else if (updated.publishError !== void 0) {
+      onProgress?.(updated.publishError);
+    }
+  }
+});
+
+// src/workOrder/implementRun/readWorkOrderRunTerms.ts
+import { basename as basename39 } from "node:path";
+
+// src/workOrder/common/utils/isWholePlanRun.ts
+import { basename as basename38 } from "node:path";
+var wholePlanFileNames = ["plan.md", "overview.md"];
+var isWholePlanRun = async ({ cwd, name, planPath, pipeline }) => {
+  if (pipeline === PipelineKind.Direct || planPath === void 0) {
+    return true;
+  }
+  const belongsToPlan = await planNameFromPath({ cwd, planPath }) === name;
+  return belongsToPlan && wholePlanFileNames.includes(basename38(planPath));
+};
+
+// src/workOrder/implementRun/readWorkOrderRunTerms.ts
+var readWorkOrderRunTerms = async ({ cwd, name, planPath }) => {
+  if (name === void 0) {
+    return {};
+  }
+  const address = parsePlanAddress({ name });
+  if (address === void 0) {
+    return {};
+  }
+  const read = await readWorkOrderState({ cwd, name: address.workOrderName });
+  if ("error" in read) {
+    return { refusal: read.error, shipRequest: { blocker: read.error } };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0) {
+    return {};
+  }
+  const { planId } = address;
+  const refusal = findPlanImplementationBlocker({ record: record3, planId });
+  let shipRequest;
+  if (planPath !== void 0 && !await isWholePlanRun({ cwd, name, planPath })) {
+    shipRequest = {
+      blocker: `this run covers ${basename39(planPath)} alone, and the implementation of plan ${planId} on work order ${record3.name} has not finished until the whole plan runs`
+    };
+  } else if (record3.mode === WorkOrderMode.MultiplePlan) {
+    const eligibility = readWorkOrderShipEligibility({
+      record: { ...record3, plans: record3.plans.map((plan) => plan.id === planId ? { ...plan, progress: PlanProgress.Implemented } : plan) }
+    });
+    shipRequest = { blocker: eligibility.eligible ? void 0 : eligibility.reason };
+  }
+  return { refusal, shipRequest };
+};
+
+// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+import { randomUUID as randomUUID7 } from "node:crypto";
+import { readFile as readFile39 } from "node:fs/promises";
+
+// src/workOrder/common/utils/findDivergentPlanIds.ts
+var findDivergentPlanIds = ({ record: record3, syncState }) => record3.plans.filter((plan) => plan.publishedMarker !== void 0 && plan.publishedMarker !== syncState?.planMarkers[plan.id]).map((plan) => plan.id);
+
+// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+var readPlanSnapshot = async ({ cwd, name }) => {
+  const durable = await durablePlanFiles({ cwd, name });
+  const snapshot = [];
+  for (const file2 of durable.files) {
+    const content = await readFile39(file2.path).catch(() => void 0);
+    if (content !== void 0) {
+      snapshot.push({ name: file2.name, sha256: sha256({ content }) });
+    }
+  }
+  return snapshot;
+};
+var withPlan = ({ record: record3, plan }) => ({
+  ...record3,
+  plans: record3.plans.map((candidate) => candidate.id === plan.id ? plan : candidate)
+});
+var recordImplementing = ({
+  cwd,
+  workOrderName,
+  planId,
+  runId,
+  headCommit
+}) => updateLocalWorkOrderState({
+  cwd,
+  name: workOrderName,
+  change: (current) => {
+    if (current === void 0) {
+      return { error: `work order ${workOrderName} no longer has a record, so plan ${planId} cannot be recorded as being implemented` };
+    }
+    const blocker = findPlanImplementationBlocker({ record: current, planId });
+    if (blocker !== void 0) {
+      return { error: blocker };
+    }
+    const plan = current.plans.find((candidate) => candidate.id === planId);
+    if (plan === void 0) {
+      return { error: `work order ${workOrderName} holds no plan ${planId}` };
+    }
+    const started = (plan.progress === PlanProgress.Implementing || plan.progress === PlanProgress.Failed) && plan.implementation !== void 0 ? { startedAt: plan.implementation.startedAt, startCommit: plan.implementation.startCommit } : { startedAt: (/* @__PURE__ */ new Date()).toISOString(), startCommit: headCommit ?? "" };
+    return withPlan({ record: current, plan: { ...plan, progress: PlanProgress.Implementing, implementation: { runId, ...started } } });
+  }
+});
+var needsFreshStart = ({ plan }) => plan?.implementation === void 0 || plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed;
+var recordOutcome = async ({
+  cwd,
+  workOrderName,
+  planId,
+  name,
+  result
+}) => {
+  const whole = await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline });
+  const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
+  if (!(result.ok && whole) && !failed) {
+    return void 0;
+  }
+  const snapshot = result.ok ? await readPlanSnapshot({ cwd, name }) : void 0;
+  const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const updated = await updateLocalWorkOrderState({
+    cwd,
+    name: workOrderName,
+    change: (current) => {
+      const plan = current?.plans.find((candidate) => candidate.id === planId);
+      if (current === void 0 || plan === void 0) {
+        return { error: `work order ${workOrderName} no longer holds plan ${planId}, so the run's outcome could not be recorded against it` };
+      }
+      const implementation = plan.implementation ?? { runId: result.manifest.runId, startedAt: finishedAt, startCommit: "" };
+      return withPlan({
+        record: current,
+        plan: snapshot === void 0 ? { ...plan, progress: PlanProgress.Failed, implementation } : { ...plan, progress: PlanProgress.Implemented, implementation: { ...implementation, finishedAt, snapshot } }
+      });
+    }
+  });
+  return "error" in updated ? updated.error : void 0;
+};
+var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
+  const address = name === void 0 ? void 0 : parsePlanAddress({ name });
+  if (name === void 0 || address === void 0) {
+    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+  }
+  const { workOrderName, planId } = address;
+  const read = await readWorkOrderState({ cwd, name: workOrderName });
+  if ("error" in read) {
+    return { refusal: read.error };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0) {
+    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+  }
+  const blocker = findPlanImplementationBlocker({ record: record3, planId });
+  if (blocker !== void 0) {
+    return { refusal: blocker };
+  }
+  const syncState = await readWorkOrderSyncState({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderName }) });
+  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
+    return {
+      refusal: `plan ${planId} was published from another machine after this one last saw it, so the copy here may not be what the ticket carries \u2014 run \`lightsout work-order sync --name ${workOrderName} --keep published\` to take the ticket's copy, or \`--keep local\` to publish this machine's over it`
+    };
+  }
+  const plan = record3.plans.find((candidate) => candidate.id === planId);
+  const fresh = needsFreshStart({ plan });
+  const headCommit = fresh ? await readGitHeadCommit({ cwd }) : void 0;
+  if (fresh && headCommit === void 0) {
+    return {
+      refusal: `git could not name the commit ${cwd} is standing on, and the implementation of plan ${planId} on work order ${workOrderName} is recorded against the commit it starts from`
+    };
+  }
+  const runId = resumeRunId ?? randomUUID7();
+  const started = await recordImplementing({ cwd, workOrderName, planId, runId, headCommit });
+  if ("error" in started) {
+    return { refusal: started.error };
+  }
+  const result = await run({ runId });
+  const recordError = await recordOutcome({ cwd, workOrderName, planId, name, result });
+  const note = result.ok && !await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }) ? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on work order ${workOrderName} has not finished until the whole plan runs` : void 0;
+  return { result, recordError, note };
+};
+
+// src/workOrder/common/utils/matchesImplementedSnapshot.ts
+import { readFile as readFile40 } from "node:fs/promises";
+var matchesImplementedSnapshot = async ({ cwd, address, snapshot }) => {
+  const durable = await durablePlanFiles({ cwd, name: address });
+  const named = new Set(snapshot.map(({ name }) => name));
+  const attachable = durable.files.filter(({ name }) => name !== brainstormNotesFileName);
+  let matches = durable.error === void 0 && attachable.every(({ name }) => named.has(name));
+  for (const entry of snapshot) {
+    const file2 = matches ? durable.files.find(({ name }) => name === entry.name) : void 0;
+    const content = file2 === void 0 ? void 0 : await readFile40(file2.path).catch(() => void 0);
+    matches = matches && content !== void 0 && sha256({ content }) === entry.sha256;
+  }
+  return matches;
+};
+
+// src/workOrder/common/utils/findPlanPublishRefusal.ts
+var findPlanPublishRefusal = async ({ cwd, address, planId, name, record: record3, syncState }) => {
+  const plan = record3?.plans.find((entry) => entry.id === planId);
+  if (record3 === void 0 || plan === void 0) {
+    return `the work order state for '${name}' does not hold plan ${planId} \u2014 run \`lightsout work-order add-plan --name ${name} --slug <slug>\` to add a plan before publishing it`;
+  }
+  if (findDivergentPlanIds({ record: record3, syncState }).includes(planId)) {
+    return `plan ${planId} was published from another machine after this one last saw it, so publishing over it would lose that work \u2014 run \`lightsout work-order sync --name ${name} --keep local\` to send this machine's copy, or \`--keep published\` to take the ticket's`;
+  }
+  const snapshot = plan.implementation?.snapshot;
+  if (plan.progress === PlanProgress.Implemented && snapshot !== void 0 && !await matchesImplementedSnapshot({ cwd, address, snapshot })) {
+    return `plan ${planId} is implemented and its files have changed since the run that implemented it, so it no longer describes what was built \u2014 run \`lightsout work-order add-plan --name ${name} --slug <slug>\` and put the follow-up work in a plan of its own`;
+  }
+  return void 0;
+};
+
+// src/workOrder/common/utils/publishBrainstormWhenNotesChanged.ts
+import { readFile as readFile41 } from "node:fs/promises";
+import { join as join99 } from "node:path";
+var readCommittedNotesHash = async ({
+  planId,
+  target
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const scoped = scopeAttachments({ attachments, prefix: planId });
+  const markers = scoped.filter(({ title }) => title === brainstormAttachmentManifestName);
+  const marker = markers.length === 1 ? markers[0] : void 0;
+  if (marker === void 0) {
+    return { committed: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: marker.url });
+  if (typeof text !== "string") {
+    return { error: `the brainstorm generation on ${ticketRef} could not be read: ${text.error}` };
+  }
+  const parsed = parseAttachmentManifest({
+    text,
+    markerName: attachmentTitle({ prefix: planId, name: brainstormAttachmentManifestName }),
+    isAllowedName: ({ name }) => brainstormAttachmentFileNames.includes(name)
+  });
+  return { committed: "error" in parsed ? void 0 : parsed.manifest.files.find(({ name }) => name === brainstormNotesFileName)?.sha256 };
+};
+var publishBrainstormWhenNotesChanged = async ({
+  cwd,
+  address,
+  planId,
+  target,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const notesPath = join99(await planWorkspaceDir({ cwd, name: address }), brainstormNotesFileName);
+  if (!await pathExists({ path: notesPath })) {
+    return { published: [] };
+  }
+  const committed = await readCommittedNotesHash({ planId, target });
+  if ("error" in committed) {
+    return committed;
+  }
+  const onDisk = sha256({ content: await readFile41(notesPath) });
+  if (committed.committed === onDisk) {
+    return { published: [] };
+  }
+  const report2 = await publishBrainstorm({ cwd, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
+  return report2.error === void 0 ? { published: report2.published } : { error: report2.error };
+};
+
+// src/workOrder/publishWorkOrderPlan.ts
+var recordPublishedPlan = ({ planId, markerSha256, name }) => (current) => {
+  const plan = current?.plans.find((entry) => entry.id === planId);
+  if (current === void 0 || plan === void 0) {
+    return { error: `the work order state for '${name}' no longer holds plan ${planId}, so the publish could not be recorded` };
+  }
+  return {
+    ...current,
+    plans: current.plans.map(
+      (entry) => entry.id === planId ? { ...entry, publishedMarker: markerSha256, progress: entry.progress === PlanProgress.Planning ? PlanProgress.Ready : entry.progress } : entry
+    )
+  };
+};
+var recordMarkerLocally = async ({ cwd, name, planId, markerSha256 }) => recordWorkOrderSyncState({
+  workOrderFolder: await workOrderFolderDir({ cwd, name }),
+  planMarkers: { [planId]: markerSha256 },
+  failure: `plan ${planId} was published, but this machine could not record which generation it sent`
+});
+var recordPlanPublish = async ({
+  cwd,
+  name,
+  planId,
+  markerSha256,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const recorded = await updateSyncedWorkOrderState({
+    cwd,
+    name,
+    config: config2,
+    env,
+    change: recordPublishedPlan({ planId, markerSha256, name }),
+    onProgress
+  });
+  if ("error" in recorded) {
+    return { published: [], recordError: recorded.error };
+  }
+  if (recorded.publishError !== void 0) {
+    return { published: [], recordError: recorded.publishError };
+  }
+  const remembered = await recordMarkerLocally({ cwd, name, planId, markerSha256 });
+  const landed = [workOrderFileNames.record];
+  return remembered === void 0 ? { published: landed } : { published: landed, recordError: remembered.error };
+};
+var publishGenerations = async ({
+  cwd,
+  address,
+  planId,
+  name,
+  target,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const report2 = { ticketRef: target.ticketRef, published: [], stale: [] };
+  const brainstorm = await publishBrainstormWhenNotesChanged({ cwd, address, planId, target, config: config2, env, onProgress });
+  if ("error" in brainstorm) {
+    report2.error = brainstorm.error;
+  } else {
+    report2.published.push(...brainstorm.published);
+    const plan = await publishPlan({ cwd, name: address, config: config2, env, onProgress, titlePrefix: planId });
+    report2.published.push(...plan.published);
+    report2.stale = plan.stale;
+    if (plan.error !== void 0 || plan.markerSha256 === void 0) {
+      report2.error = plan.error ?? `plan ${planId} was published without a commit marker, so the work order state cannot name the generation that landed`;
+    } else {
+      const recorded = await recordPlanPublish({ cwd, name, planId, markerSha256: plan.markerSha256, config: config2, env, onProgress });
+      report2.published.push(...recorded.published);
+      if (recorded.recordError !== void 0) {
+        report2.recordError = recorded.recordError;
+      }
+    }
+  }
+  return report2;
+};
+var publishWorkOrderPlan = async ({ cwd, address, config: config2, env, onProgress }) => {
+  const parsed = parsePlanAddress({ name: address });
+  if (parsed === void 0) {
+    return { published: [], stale: [], error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>'` };
+  }
+  const { workOrderName: name, planId } = parsed;
+  const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config: config2, env });
+  if ("error" in opened) {
+    return { published: [], stale: [], error: opened.error };
+  }
+  const { target } = opened;
+  if ("localOnly" in target) {
+    return { published: [], stale: [], error: `plan ${planId} cannot be published: ${target.localOnly}` };
+  }
+  const pulled = await pullWorkOrderState({ cwd, name, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return { ticketRef: target.ticketRef, published: [], stale: [], error: pulled.error };
+  }
+  const syncState = await readWorkOrderSyncState({ workOrderFolder: await workOrderFolderDir({ cwd, name }) });
+  const refusal = await findPlanPublishRefusal({ cwd, address, planId, name, record: pulled.record, syncState });
+  if (refusal !== void 0) {
+    return { ticketRef: target.ticketRef, published: [], stale: [], error: refusal };
+  }
+  return publishGenerations({ cwd, address, planId, name, target, config: config2, env, onProgress });
+};
+
+// src/workOrder/readWorkOrderTicketRef.ts
+var readWorkOrderTicketRef = async ({ cwd }) => {
+  const branch = await readGitCurrentBranch({ cwd });
+  if (branch === void 0) {
+    return void 0;
+  }
+  return (await findWorkOrderForBranch({ cwd, branch }))?.record.ticketRef;
+};
+
+// src/workOrder/requestWorkOrderShip.ts
+var resolveRequestedPlans = ({ record: record3, tokens }) => {
+  const named = [];
+  for (const token of tokens) {
+    const plan = resolveWorkOrderPlan({ record: record3, token });
+    if ("error" in plan) {
+      return plan;
+    }
+    if (plan.exclusion !== void 0) {
+      return {
+        error: `plan ${plan.id} is excluded from work order ${record3.name} \u2014 ${plan.exclusion.reason} \u2014 so a ship request cannot name it; an exclusion is final and the plan's files stay where they are`
+      };
+    }
+    if (!named.some((candidate) => candidate.id === plan.id)) {
+      named.push(plan);
+    }
+  }
+  return named;
+};
+var findUncoveredPlansRefusal = ({ record: record3, named }) => {
+  const included = record3.plans.filter((plan) => plan.exclusion === void 0);
+  const uncovered = included.filter((plan) => !named.some((candidate) => candidate.id === plan.id));
+  return uncovered.length === 0 ? void 0 : `the ship request for work order ${record3.name} does not name ${uncovered.map((plan) => plan.id).join(", ")}, and a request approves every plan the ticket still includes \u2014 name them too, or take one out of the ticket's work with \`lightsout work-order exclude-plan --name ${record3.name} --plan <id> --reason <text>\``;
+};
+var requestWorkOrderShip = ({ cwd, name, plans, config: config2, env, onProgress }) => changeExistingWorkOrderState({
+  cwd,
+  name,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => {
+    if (record3.mode !== WorkOrderMode.MultiplePlan) {
+      return {
+        error: `work order ${name} is in single-plan mode, where plan 001 alone supplies the implementation and this repository's own shipping settings apply \u2014 switch with \`lightsout work-order mode --name ${name} --set multiple-plan\` before asking for a ship request`
+      };
+    }
+    if (plans.length === 0) {
+      return { error: `a ship request names the plans it approves, and none was given \u2014 name every plan work order ${name} still includes` };
+    }
+    const named = resolveRequestedPlans({ record: record3, tokens: plans });
+    if ("error" in named) {
+      return named;
+    }
+    const uncovered = findUncoveredPlansRefusal({ record: record3, named });
+    if (uncovered !== void 0) {
+      return { error: uncovered };
+    }
+    const planIds = record3.plans.filter((plan) => named.some((candidate) => candidate.id === plan.id)).map((plan) => plan.id);
+    const at = (/* @__PURE__ */ new Date()).toISOString();
+    return appendWorkOrderEvent({
+      record: { ...record3, shipRequest: { planIds, requestedAt: at } },
+      kind: WorkOrderEventKind.ShipRequested,
+      detail: `work order ${name} is to ship once ${planIds.join(", ")} are implemented`,
+      at
+    });
+  }
+});
+
+// src/workOrder/restoreWorkOrderPlan.ts
+var recordMarker = async ({
+  recordCwd,
+  name,
+  planId,
+  markerSha256,
+  onProgress
+}) => {
+  const recorded = await recordWorkOrderSyncState({
+    workOrderFolder: await workOrderFolderDir({ cwd: recordCwd, name }),
+    planMarkers: { [planId]: markerSha256 },
+    failure: `plan ${planId} was restored, but this machine could not record which generation it took`
+  });
+  if (recorded !== void 0) {
+    onProgress?.(recorded.error);
+  }
+};
+var restoreWorkOrderPlan = async ({
+  cwd,
+  address,
+  config: config2,
+  env,
+  recordCwd,
+  onProgress
+}) => {
+  const parsed = parsePlanAddress({ name: address });
+  if (parsed === void 0) {
+    return {
+      error: `'${address}' is not a plan address \u2014 a plan of a ticket is named as '<ticket-branch>/<plan-id>', for example 'lo-140-multi/001-search-basics'`
+    };
+  }
+  const { workOrderName: name, planId } = parsed;
+  const opened = await readWorkOrderWithTrackerTarget({ cwd: recordCwd ?? cwd, name, config: config2, env });
+  if ("error" in opened) {
+    return opened;
+  }
+  const { target } = opened;
+  if ("localOnly" in target) {
+    return { error: `plan ${planId} cannot be restored: ${target.localOnly}` };
+  }
+  const plan = await restorePlanWorkspace({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+  if (plan.error !== void 0) {
+    return { error: plan.error };
+  }
+  if (plan.restored.length === 0) {
+    return { restored: [] };
+  }
+  const brainstorm = await restoreBrainstormFiles({ cwd, name: address, identifier: target.ticketRef, settings: target.settings, titlePrefix: planId });
+  if (brainstorm.error !== void 0) {
+    onProgress?.(`plan ${planId} was restored, but its brainstorm generation was not: ${brainstorm.error}`);
+  }
+  if (plan.markerSha256 !== void 0) {
+    await recordMarker({ recordCwd: recordCwd ?? cwd, name, planId, markerSha256: plan.markerSha256, onProgress });
+  }
+  return { restored: [...plan.restored, ...brainstorm.restored].sort() };
+};
+
+// src/workOrder/retitleWorkOrderPlan.ts
+var retitleWorkOrderPlan = ({ cwd, name, plan, title, config: config2, env, onProgress }) => changeExistingWorkOrderState({
+  cwd,
+  name,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => {
+    if (title.trim() === "") {
+      return { error: `a plan's display title is what a human recognises it by, so it cannot be blank` };
+    }
+    const target = resolveWorkOrderPlan({ record: record3, token: plan });
+    if ("error" in target) {
+      return target;
+    }
+    return appendWorkOrderEvent({
+      record: { ...record3, plans: record3.plans.map((candidate) => candidate.id === target.id ? { ...candidate, title } : candidate) },
+      kind: WorkOrderEventKind.PlanRetitled,
+      detail: `plan ${target.id} on work order ${name} is now titled '${title}'`,
+      at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+});
+
+// src/workOrder/setWorkOrderMode.ts
+var switchedToSinglePlan = "switched to single-plan mode";
+var laterPlansOf = ({ record: record3 }) => record3.plans.filter((plan) => planNumberOf({ id: plan.id }) !== 1);
+var isUnaccountedImplementation = ({ plan }) => isPlanImplementationStarted({ plan }) && !(plan.exclusion?.implementationRemoved === true && plan.exclusion.verifiedCommit !== void 0);
+var describeSwitchToSinglePlan = ({
+  record: record3,
+  first,
+  later,
+  afterImplement
+}) => {
+  const firstId = first.id;
+  const chaining = afterImplement ? `\`ship.after-implement\` is true in this repository, so a passed \`lightsout implement\` or \`lightsout resume\` run of plan ${firstId} chains straight into shipping` : `\`ship.after-implement\` is false in this repository, so the ticket ships only when you run \`lightsout ship\``;
+  const eligible = first.progress === PlanProgress.Implemented ? ` Plan ${firstId} is already implemented, so this ticket becomes eligible to ship as soon as the switch is approved: \`lightsout ship\`, or the queue's next drain, would ship it.` : "";
+  return `switching work order ${record3.name} to single-plan mode means plan ${firstId} alone determines this ticket's implementation and shipping, and ${later.map((plan) => plan.id).join(", ")} would be excluded from both \u2014 their files stay on disk, and an exclusion is final. ${chaining}, and the queue ships the branch once plan ${firstId} is implemented whatever that setting says.${eligible} Run the same command again with --approve to make the switch.`;
+};
+var excludeDroppedPlans = ({ record: record3, dropped, at }) => {
+  let carried = record3;
+  for (const plan of dropped) {
+    carried = appendWorkOrderEvent({
+      record: {
+        ...carried,
+        plans: carried.plans.map(
+          (candidate) => candidate.id === plan.id ? { ...candidate, exclusion: { at, reason: switchedToSinglePlan, implementationRemoved: false } } : candidate
+        )
+      },
+      kind: WorkOrderEventKind.PlanExcluded,
+      detail: `plan ${plan.id} was excluded from work order ${record3.name}: ${switchedToSinglePlan}`,
+      at
+    });
+  }
+  return carried;
+};
+var switchToSinglePlan = ({
+  record: record3,
+  afterImplement,
+  approve,
+  at
+}) => {
+  const later = laterPlansOf({ record: record3 });
+  const unaccounted = later.filter((plan) => isUnaccountedImplementation({ plan }));
+  if (unaccounted.length > 0) {
+    return {
+      error: `the implementation of ${unaccounted.map((plan) => plan.id).join(", ")} on work order ${record3.name} has started, so plan 001 does not alone supply this ticket's implementation \u2014 remove that implementation from the branch with the agent, then record it with \`lightsout work-order exclude-plan --implementation-removed\`, and try the switch again`
+    };
+  }
+  const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
+  if (first === void 0 || first.exclusion !== void 0) {
+    return {
+      error: first === void 0 ? `work order ${record3.name} holds no plan 001, and single-plan mode is plan 001 supplying the whole implementation` : `plan ${first.id} is excluded from work order ${record3.name}, so single-plan mode would leave the ticket with no implementation at all`
+    };
+  }
+  const dropped = later.filter((plan) => plan.exclusion === void 0);
+  if (dropped.length > 0 && !approve) {
+    return { error: describeSwitchToSinglePlan({ record: record3, first, later: dropped, afterImplement }) };
+  }
+  const excluded = excludeDroppedPlans({ record: record3, dropped, at });
+  const withdrawn = recordShipRequestWithdrawal({
+    record: excluded,
+    detail: `work order ${record3.name} moved to single-plan mode, so the plans its ship request approved are no longer the ticket's work`,
+    at
+  });
+  return appendWorkOrderEvent({
+    record: { ...withdrawn, mode: WorkOrderMode.SinglePlan },
+    kind: WorkOrderEventKind.ModeChanged,
+    detail: `work order ${record3.name} is now in single-plan mode`,
+    at
+  });
+};
+var setWorkOrderMode = async ({ cwd, name, mode, approve, config: config2, env, onProgress }) => {
+  const shipSettings = resolveShipSettings({ config: config2 });
+  if (shipSettings === void 0) {
+    return { error: "ship.ticket-pattern is not a regular expression capturing a `ticket` group, so this repository cannot say what any branch would ship" };
+  }
+  const updated = await changeExistingWorkOrderState({
+    cwd,
+    name,
+    config: config2,
+    env,
+    onProgress,
+    change: (record3) => {
+      if (record3.mode === mode) {
+        return { error: `work order ${name} is already in ${mode} mode` };
+      }
+      const at = (/* @__PURE__ */ new Date()).toISOString();
+      return mode === WorkOrderMode.SinglePlan ? switchToSinglePlan({ record: record3, afterImplement: shipSettings.afterImplement, approve, at }) : appendWorkOrderEvent({
+        record: { ...record3, mode: WorkOrderMode.MultiplePlan },
+        kind: WorkOrderEventKind.ModeChanged,
+        detail: `work order ${name} is now in multiple-plan mode`,
+        at
+      });
+    }
+  });
+  if ("error" in updated) {
+    return updated;
+  }
+  return {
+    ...updated,
+    notice: mode === WorkOrderMode.MultiplePlan ? `work order ${name} now implements its plans in numeric order, and this repository's automatic shipping no longer applies to it \u2014 say when it is finished with \`lightsout work-order request-ship --name ${name} --plans <id,id>\`` : void 0
+  };
+};
+
+// src/workOrder/divergence/mergeOneSidedPlans.ts
+var mergeOneSidedPlans = ({ kept, other, keptFrom, at }) => {
+  const source = keptFrom === WorkOrderSyncKeep.Local ? WorkOrderSyncKeep.Published : WorkOrderSyncKeep.Local;
+  const held = new Map(kept.plans.map((plan) => [planNumberOf({ id: plan.id }), plan]));
+  const carried = [];
+  for (const plan of other.plans) {
+    const sameNumber = held.get(planNumberOf({ id: plan.id }));
+    if (sameNumber === void 0) {
+      carried.push(plan);
+    } else if (sameNumber.id !== plan.id) {
+      return {
+        error: `the local and published copies of the work order state both use plan number ${plan.id.slice(0, 3)}, for '${keptFrom === WorkOrderSyncKeep.Local ? sameNumber.id : plan.id}' here and for '${keptFrom === WorkOrderSyncKeep.Local ? plan.id : sameNumber.id}' on the ticket \u2014 no kept record can hold both, so rename or remove one of them before syncing`
+      };
+    }
+  }
+  if (carried.length === 0) {
+    return kept;
+  }
+  return {
+    ...kept,
+    plans: [...kept.plans, ...carried].sort((left, right) => planNumberOf({ id: left.id }) - planNumberOf({ id: right.id })),
+    history: [
+      ...kept.history,
+      ...carried.map((plan) => ({
+        at,
+        kind: WorkOrderEventKind.PlanAdded,
+        detail: `carried plan ${plan.id} over from the ${source} copy of the work order state while keeping the ${keptFrom} copy`
+      }))
+    ]
+  };
+};
+
+// src/workOrder/divergence/resolvePlanWorkingCheckout.ts
+import { dirname as dirname17 } from "node:path";
+var resolvePlanWorkingCheckout = async ({ cwd }) => {
+  return { checkout: dirname17(await resolveSharedStateDir({ cwd })), otherCopies: [] };
+};
+
+// src/workOrder/divergence/keepLocalWorkOrderState.ts
+var republishDivergentPlans = async ({
+  cwd,
+  name,
+  workOrderFolder,
+  carried,
+  kept,
+  config: config2,
+  env,
+  onProgress
+}) => {
+  const markers = { recorded: {}, published: {} };
+  if (carried === void 0) {
+    return markers;
+  }
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  const planIds = findDivergentPlanIds({ record: carried, syncState }).filter((planId) => kept.plans.some((plan) => plan.id === planId));
+  for (const planId of planIds) {
+    const address = formatPlanAddress({ workOrderName: name, planId });
+    const { checkout } = await resolvePlanWorkingCheckout({ cwd, name, planId });
+    const held = await pathExists({ path: await planWorkspaceDir({ cwd: checkout, name: address }) });
+    const publishedMarker = carried.plans.find((plan) => plan.id === planId)?.publishedMarker;
+    if (!held) {
+      onProgress?.(`plan ${planId} has no folder on this machine, so the ticket's own copy of it is left as it is and the kept record describes that copy`);
+      if (publishedMarker !== void 0) {
+        markers.recorded[planId] = publishedMarker;
+      }
+      continue;
+    }
+    const report2 = await publishPlan({ cwd: checkout, name: address, config: config2, env, onProgress: onProgress ?? (() => void 0), titlePrefix: planId });
+    if (report2.error !== void 0) {
+      return { error: `plan ${planId} could not be published over the ticket's copy, so the work order state was left alone: ${report2.error}` };
+    }
+    if (report2.markerSha256 !== void 0) {
+      markers.recorded[planId] = report2.markerSha256;
+      markers.published[planId] = report2.markerSha256;
+    }
+  }
+  return markers;
+};
+var withPlanMarkers = ({ record: record3, markers }) => ({
+  ...record3,
+  plans: record3.plans.map((plan) => markers[plan.id] === void 0 ? plan : { ...plan, publishedMarker: markers[plan.id] })
+});
+var readRecordsToKeep = async ({
+  cwd,
+  name,
+  target
+}) => {
+  const local = await readWorkOrderState({ cwd, name });
+  if ("error" in local) {
+    return local;
+  }
+  if (local.record === void 0) {
+    return { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine, so there is no local work order state to keep` };
+  }
+  const published = await readPublishedWorkOrderState({ target, name });
+  if ("error" in published) {
+    return published;
+  }
+  const carried = published.published;
+  const kept = carried === void 0 ? local.record : mergeOneSidedPlans({ kept: local.record, other: carried.record, keptFrom: WorkOrderSyncKeep.Local, at: (/* @__PURE__ */ new Date()).toISOString() });
+  return "error" in kept ? kept : { kept, carried };
+};
+var keepLocalWorkOrderState = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const records = await readRecordsToKeep({ cwd, name, target });
+  if ("error" in records) {
+    return records;
+  }
+  const { kept, carried } = records;
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const markers = await republishDivergentPlans({
+    cwd,
+    name,
+    workOrderFolder,
+    carried: carried?.record,
+    kept,
+    config: config2,
+    env,
+    onProgress
+  });
+  if ("error" in markers) {
+    return markers;
+  }
+  const applied = await updateLocalWorkOrderState({ cwd, name, change: () => withPlanMarkers({ record: kept, markers: markers.recorded }) });
+  if ("error" in applied) {
+    return applied;
+  }
+  const attached = await attachWorkOrderStateIfUnmoved({
+    cwd,
+    name,
+    target,
+    expectedPublishedSha256: carried === void 0 ? void 0 : sha256({ content: carried.content }),
+    onProgress
+  });
+  if ("error" in attached) {
+    return attached;
+  }
+  const recorded = await recordWorkOrderSyncState({
+    workOrderFolder,
+    recordSha256: attached.attachedSha256,
+    planMarkers: markers.published,
+    failure: publishedButUnrecorded,
+    dropSurfacedCopy: true
+  });
+  return recorded === void 0 ? { record: applied.record } : recorded;
+};
+
+// src/workOrder/divergence/keepPublishedWorkOrderState.ts
+import { rename as rename9, rm as rm8 } from "node:fs/promises";
+import { join as join100 } from "node:path";
+var readPublishedPlanMarker = async ({
+  planId,
+  target
+}) => {
+  const { settings, ticketRef } = target;
+  const attachments = await getTicketAttachments3({ settings, identifier: ticketRef });
+  if ("error" in attachments) {
+    return { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${attachments.error}` };
+  }
+  const markers = scopeAttachments({ attachments, prefix: planId }).filter(({ title }) => title === planAttachmentManifestName);
+  const marker = markers.length === 1 ? markers[0] : void 0;
+  if (marker === void 0) {
+    return { marker: void 0 };
+  }
+  const text = await readTicketAsset3({ settings, url: marker.url });
+  return typeof text === "string" ? { marker: sha256({ content: text }) } : { error: `the plan generation for ${planId} on ${ticketRef} could not be read: ${text.error}` };
+};
+var setPlanFolderAside = async ({
+  checkout,
+  name,
+  planId,
+  onProgress
+}) => {
+  const address = formatPlanAddress({ workOrderName: name, planId });
+  const dir = await planWorkspaceDir({ cwd: checkout, name: address });
+  if (!await pathExists({ path: dir })) {
+    return void 0;
+  }
+  let attempt = 1;
+  let aside = `${dir}.local-${attempt}`;
+  while (await pathExists({ path: aside })) {
+    attempt += 1;
+    aside = `${dir}.local-${attempt}`;
+  }
+  try {
+    await rename9(dir, aside);
+  } catch (error51) {
+    return { error: `the local copy of plan ${planId} at ${dir} could not be moved aside: ${messageOf({ error: error51 })}` };
+  }
+  onProgress?.(`moved ${dir} aside to ${aside} \u2014 nothing was deleted`);
+  return void 0;
+};
+var takePublishedPlan = async ({
+  cwd,
+  name,
+  planId,
+  record: record3,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const published = await readPublishedPlanMarker({ planId, target });
+  if ("error" in published) {
+    return published;
+  }
+  const claimed = record3.plans.find((plan) => plan.id === planId)?.publishedMarker;
+  if (published.marker === void 0 || published.marker !== claimed) {
+    return {
+      error: `${target.ticketRef}'s plan files and its work order state disagree about plan ${planId}: the record names a commit marker the ticket does not carry, so nothing was moved \u2014 publish that plan again from the machine that holds it, or run \`lightsout work-order sync --name ${name} --keep local\``
+    };
+  }
+  const { checkout, otherCopies } = await resolvePlanWorkingCheckout({ cwd, name, planId });
+  for (const copy of [checkout, ...otherCopies]) {
+    const moved = await setPlanFolderAside({ checkout: copy, name, planId, onProgress });
+    if (moved !== void 0) {
+      return moved;
+    }
+  }
+  const restored = await restoreWorkOrderPlan({
+    cwd: checkout,
+    address: formatPlanAddress({ workOrderName: name, planId }),
+    config: config2,
+    env,
+    recordCwd: cwd,
+    onProgress
+  });
+  if ("error" in restored) {
+    return restored;
+  }
+  return restored.restored.length === 0 ? {
+    error: `${target.ticketRef} carries no plan generation for ${planId}, so the published copy of that plan could not be restored \u2014 the local copy was moved aside and nothing was deleted`
+  } : void 0;
+};
+var writeKeptRecord = async ({ workOrderFolder, record: record3 }) => {
+  const content = serializeWorkOrderState({ record: record3 });
+  await writeWorkOrderFolderFile({ path: join100(workOrderFolder, workOrderFileNames.record), content });
+  await updateWorkOrderSyncState({ workOrderFolder, recordSha256: sha256({ content }) });
+  await rm8(join100(workOrderFolder, workOrderFileNames.published), { force: true });
+};
+var keepPublishedWorkOrderState = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const published = await readPublishedWorkOrderState({ target, name });
+  if ("error" in published) {
+    return published;
+  }
+  if (published.published === void 0) {
+    return { error: `${target.ticketRef} carries no ${workOrderFileNames.record}, so there is no published work order state to keep` };
+  }
+  const local = await readWorkOrderState({ cwd, name });
+  if ("error" in local) {
+    return local;
+  }
+  const merged = local.record === void 0 ? published.published.record : mergeOneSidedPlans({ kept: published.published.record, other: local.record, keptFrom: WorkOrderSyncKeep.Published, at: (/* @__PURE__ */ new Date()).toISOString() });
+  if ("error" in merged) {
+    return merged;
+  }
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const written = await withWorkOrderStateLock({
+    workOrderFolder,
+    run: async () => {
+      try {
+        await writeKeptRecord({ workOrderFolder, record: merged });
+        return void 0;
+      } catch (error51) {
+        return { error: `the published work order state could not be written into ${workOrderFolder}: ${messageOf({ error: error51 })}` };
+      }
+    }
+  });
+  if (written !== void 0) {
+    return written;
+  }
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  for (const planId of findDivergentPlanIds({ record: merged, syncState })) {
+    const taken = await takePublishedPlan({ cwd, name, planId, record: merged, config: config2, env, target, onProgress });
+    if (taken !== void 0) {
+      return taken;
+    }
+  }
+  return { record: merged };
+};
+
+// src/workOrder/syncWorkOrderState.ts
+var catchUpTicketRecord = async ({
+  cwd,
+  name,
+  config: config2,
+  env,
+  target,
+  onProgress
+}) => {
+  const pulled = await pullWorkOrderState({ cwd, name, config: config2, env, onProgress });
+  if ("error" in pulled) {
+    return pulled;
+  }
+  if (pulled.record === void 0) {
+    return { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine or on ${target.ticketRef}, so there is nothing to sync` };
+  }
+  const workOrderFolder = await workOrderFolderDir({ cwd, name });
+  const syncState = await readWorkOrderSyncState({ workOrderFolder });
+  const localSha256 = sha256({ content: serializeWorkOrderState({ record: pulled.record }) });
+  if (localSha256 === syncState?.recordSha256) {
+    onProgress?.(`the work order state for '${name}' already matches the copy on ${target.ticketRef}`);
+    return { record: pulled.record };
+  }
+  const attached = await attachWorkOrderStateIfUnmoved({ cwd, name, target, expectedPublishedSha256: syncState?.recordSha256, onProgress });
+  if ("error" in attached) {
+    return attached;
+  }
+  const recorded = await recordWorkOrderSyncState({ workOrderFolder, recordSha256: attached.attachedSha256, failure: publishedButUnrecorded });
+  return recorded === void 0 ? { record: pulled.record } : recorded;
+};
+var syncWorkOrderState = async ({ cwd, name, config: config2, env, keep, onProgress }) => {
+  const opened = await readWorkOrderWithTrackerTarget({ cwd, name, config: config2, env });
+  if ("error" in opened) {
+    return opened;
+  }
+  const { record: record3, target } = opened;
+  if ("localOnly" in target) {
+    return record3 === void 0 ? { error: `there is no ${workOrderFileNames.record} for '${name}' on this machine, so there is nothing to sync` } : { error: `${target.localOnly} \u2014 \`lightsout work-order sync\` needs a configured tracker to sync against` };
+  }
+  if (keep === WorkOrderSyncKeep.Published) {
+    return keepPublishedWorkOrderState({ cwd, name, config: config2, env, target, onProgress });
+  }
+  if (keep === WorkOrderSyncKeep.Local) {
+    return keepLocalWorkOrderState({ cwd, name, config: config2, env, target, onProgress });
+  }
+  return catchUpTicketRecord({ cwd, name, config: config2, env, target, onProgress });
+};
+
+// src/workOrder/withdrawWorkOrderShipRequest.ts
+var withdrawWorkOrderShipRequest = ({ cwd, name, config: config2, env, onProgress }) => changeExistingWorkOrderState({
+  cwd,
+  name,
+  config: config2,
+  env,
+  onProgress,
+  change: (record3) => record3.shipRequest === void 0 ? { error: `work order ${name} carries no ship request, so there is nothing to withdraw` } : recordShipRequestWithdrawal({
+    record: record3,
+    detail: `the request to ship ${record3.shipRequest.planIds.join(", ")} was withdrawn by hand`,
+    at: (/* @__PURE__ */ new Date()).toISOString()
+  })
+});
+
 // src/ticketLifecycle/requireImplementLifecycle.ts
 var toPreImplementationPlanningStatus = ({ labels, lifecycle }) => {
   const byLabel = new Map(Object.values(PlanningStatus).map((status) => [lifecycle.planningStatusLabels[status], status]));
@@ -141899,7 +142022,7 @@ var requireImplementLifecycle = async ({ cwd, config: config2, env, ticketRef, o
   if (config2["ticket-tracker"] === void 0) {
     return void 0;
   }
-  const reference = ticketRef ?? await readBranchTicketRef({ config: config2, cwd });
+  const reference = ticketRef ?? await readWorkOrderTicketRef({ cwd });
   if (reference === void 0) {
     return void 0;
   }
@@ -141945,7 +142068,7 @@ var requireImplementLifecycle = async ({ cwd, config: config2, env, ticketRef, o
 
 // src/cli/common/utils/exitAfterImplement.ts
 var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag, noShipFlag, env }) => {
-  const terms = await readTicketRunTerms({
+  const terms = await readWorkOrderRunTerms({
     cwd,
     name: await planNameFromPath({ cwd, planPath: result.manifest.plan }),
     planPath: result.manifest.pipeline === PipelineKind.Direct ? void 0 : result.manifest.plan
@@ -141976,7 +142099,7 @@ var exitAfterImplement = async ({ config: config2, cwd, result, shipFlag, noShip
     cwd: workCwd,
     settings: intent.settings,
     integration: { config: effectiveConfig, driver },
-    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress: createProgressPrinter() }),
+    workOrderGuard: createWorkOrderShipGuard({ config: config2, env, onProgress: createProgressPrinter() }),
     onProgress: createProgressPrinter()
   });
   if (shipped.status === ShipStatus.Blocked) {
@@ -142005,11 +142128,11 @@ var finishImplementRun = async ({ config: config2, cwd, result, flags }) => {
 
 // src/cli/common/implementRun/copyRunInputs.ts
 import { cp, mkdir as mkdir22 } from "node:fs/promises";
-import { basename as basename40, dirname as dirname20, join as join101, relative as relative11, resolve as resolve9 } from "node:path";
+import { basename as basename40, dirname as dirname18, join as join101, relative as relative11, resolve as resolve9 } from "node:path";
 var copyLooseInput = async ({ sourceCwd, workspace, inputPath }) => {
   const source = resolve9(sourceCwd, inputPath);
   const destination = join101(workspace, ".lightsout", "inputs", basename40(source));
-  await mkdir22(dirname20(destination), { recursive: true });
+  await mkdir22(dirname18(destination), { recursive: true });
   await cp(source, destination);
   return relative11(workspace, destination);
 };
@@ -142067,44 +142190,24 @@ var resolveWorktreeIsolation = ({ flags, configured }) => {
 };
 
 // src/cli/common/implementRun/resolveRunBranch.ts
-import { basename as basename41, extname } from "node:path";
-
-// src/common/utils/headingOf.ts
-var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
-
-// src/common/utils/toBranchSlug.ts
-var toBranchSlug = ({ text }) => {
-  const maxSlugLength2 = 40;
-  const dashed = text.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-+|-+$/g, "");
-  let slug = dashed;
-  if (dashed.length > maxSlugLength2) {
-    const cut = dashed.slice(0, maxSlugLength2);
-    const lastDash = cut.lastIndexOf("-");
-    slug = lastDash === -1 ? cut : cut.slice(0, lastDash);
+var branchOfPlan = async ({ cwd, planPath }) => {
+  const planName = await planNameFromPath({ cwd, planPath });
+  if (planName === void 0) {
+    return void 0;
   }
-  return slug.replaceAll(/-+$/g, "");
+  const record3 = await readWorkOrderRecordFile({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderNameOf({ name: planName }) }) });
+  return record3?.branch;
 };
-
-// src/common/utils/renderBranchTemplate.ts
-var renderBranchTemplate = ({ template, ticketRef, title }) => template.replaceAll("{ticket}", ticketRef.toLowerCase()).replaceAll("{slug}", toBranchSlug({ text: title }));
-
-// src/cli/common/implementRun/resolveRunBranch.ts
-var stemOf = ({ path }) => basename41(path, extname(path));
-var resolveRunBranch = async ({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody }) => {
-  const planName = planPath === void 0 ? void 0 : await planNameFromPath({ cwd, planPath });
-  const template = config2.queue?.["branch-template"] ?? "{ticket}-{slug}";
-  const input = planPath ?? ticketPath;
-  let branch = "";
-  if (planName !== void 0) {
-    branch = ticketFolderOf({ name: planName });
+var resolveRunBranch = async ({ cwd, planPath, ticketPath, ticketRef }) => {
+  let branch;
+  if (planPath !== void 0) {
+    branch = await branchOfPlan({ cwd, planPath });
   } else if (ticketRef !== void 0) {
-    branch = renderBranchTemplate({ template, ticketRef, title: headingOf({ text: ticketBody ?? "" }) });
-  } else if (input !== void 0) {
-    branch = toBranchSlug({ text: stemOf({ path: input }) });
+    branch = (await findWorkOrderByTicketRef({ cwd, ticketRef }))?.record.branch;
   }
-  const named = input ?? "--ref";
-  return branch === "" ? {
-    error: `no branch could be derived from '${named}' \u2014 it names no branch-safe word, so pass --no-worktree to build in the checkout this was launched from`
+  const named = planPath ?? ticketPath ?? ticketRef ?? "--ref";
+  return branch === void 0 ? {
+    error: `no branch could be resolved from '${named}' \u2014 it names no work order, and only a work order's record says which branch its work implements on, so pass --no-worktree to build in the checkout this was launched from`
   } : branch;
 };
 
@@ -142136,7 +142239,7 @@ var cutWorkspace = async ({
   addressed,
   onProgress
 }) => {
-  const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: void 0 };
+  const prepared = addressed ? await prepareWorkOrderBranch({ cwd, branch }) : { startPoint: void 0 };
   if ("error" in prepared) {
     return prepared;
   }
@@ -142175,7 +142278,6 @@ var resolveRunWorkspace = async ({
   planPath,
   ticketPath,
   ticketRef,
-  ticketBody,
   onProgress
 }) => {
   const isolated = resolveWorktreeIsolation({ flags, configured: config2.implement?.worktree });
@@ -142185,7 +142287,7 @@ var resolveRunWorkspace = async ({
   if (!isolated) {
     return { cwd, isolated: false, created: false };
   }
-  const branch = await resolveRunBranch({ cwd, config: config2, planPath, ticketPath, ticketRef, ticketBody });
+  const branch = await resolveRunBranch({ cwd, planPath, ticketPath, ticketRef });
   if (typeof branch !== "string") {
     return branch;
   }
@@ -142247,8 +142349,8 @@ var openImplementWorkspace = async ({
   return "error" in target ? { error: target.error } : { workspace, target };
 };
 
-// src/cli/common/implementRun/reportTicketPlanOutcome.ts
-var reportTicketPlanOutcome = ({ outcome }) => {
+// src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts
+var reportWorkOrderPlanOutcome = ({ outcome }) => {
   if ("refusal" in outcome) {
     console.error(outcome.refusal);
     return void 0;
@@ -142272,16 +142374,10 @@ var readTicketSource = async ({ cwd, name, dir }) => {
   if ("error" in settings) {
     return { error: `no plan at ${dir}, and no plan could be fetched from the ticket: ${settings.error}` };
   }
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if (shipSettings === void 0) {
-    return {
-      error: `no plan at ${dir}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`
-    };
-  }
-  const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+  const identifier = await readPlanWorkOrderRef({ cwd, name });
   return identifier === void 0 ? {
-    error: `no plan at ${dir}, and no plan could be fetched from a ticket: the plan folder name '${name}' carries no ticket id matching this repo's ship.ticket-pattern`
-  } : { config: config2, settings, identifier };
+    error: `no plan at ${dir}, and no plan could be fetched from a ticket: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`
+  } : { config: config2, identifier };
 };
 var fetchTicketPlan = async ({
   cwd,
@@ -142292,12 +142388,12 @@ var fetchTicketPlan = async ({
   config: config2,
   write
 }) => {
-  const ticketBranch = ticketFolderOf({ name });
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, onProgress: write });
+  const workOrderName = workOrderNameOf({ name });
+  const pulled = await pullWorkOrderState({ cwd, name: workOrderName, config: config2, env: process.env, onProgress: write });
   if ("error" in pulled) {
-    return { error: `no plan at ${dir}, and the ticket record for '${ticketBranch}' could not be settled: ${pulled.error}` };
+    return { error: `no plan at ${dir}, and the ticket record for '${workOrderName}' could not be settled: ${pulled.error}` };
   }
-  const restored = await restoreTicketPlan({ cwd, address: name, config: config2, env: process.env, onProgress: write });
+  const restored = await restoreWorkOrderPlan({ cwd, address: name, config: config2, env: process.env, onProgress: write });
   if ("error" in restored) {
     return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${restored.error}` };
   }
@@ -142314,33 +142410,19 @@ var ensurePlanWorkspace = async ({ cwd, planPath, write = console.log }) => {
   if (name === void 0) {
     return void 0;
   }
-  const bare = await findBareTicketFolderRefusal({ cwd, name });
-  if (bare !== void 0) {
-    return { error: bare };
-  }
   const dir = await planWorkspaceDir({ cwd, name });
   if (await pathExists({ path: dir })) {
+    return void 0;
+  }
+  if (parsePlanAddress({ name }) === void 0) {
     return void 0;
   }
   const source = await readTicketSource({ cwd, name, dir });
   if ("error" in source) {
     return source;
   }
-  const { config: config2, settings, identifier } = source;
-  if (parsePlanAddress({ name }) !== void 0) {
-    return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: ticketFolderOf({ name }) }), identifier, config: config2, write });
-  }
-  const { restored, error: error51 } = await restorePlanWorkspace({ cwd, name, identifier, settings });
-  if (error51 !== void 0) {
-    return { error: `no plan at ${dir}, and the plan attachments on ticket ${identifier} could not be restored: ${error51}` };
-  }
-  if (restored.length === 0) {
-    return {
-      error: `no plan at ${dir}, and ticket ${identifier} carries no plan attachment \u2014 run \`lightsout plan publish --name ${name}\` from the machine that has the plan`
-    };
-  }
-  write(`lightsout: fetched ${restored.length} plan file(s) from ticket ${identifier} into ${dir}`);
-  return void 0;
+  const { config: config2, identifier } = source;
+  return fetchTicketPlan({ cwd, name, dir, tree: await resolveWorktreePath({ cwd, branch: workOrderNameOf({ name }) }), identifier, config: config2, write });
 };
 
 // src/cli/common/implementRun/resolveImplementInputs.ts
@@ -142379,29 +142461,11 @@ var resolveImplementInputs = async ({
     return { error: "--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase" };
   }
   const planName = await planNameFromPath({ cwd, planPath });
-  const terms = await readTicketRunTerms({ cwd, name: planName, planPath: "overviewPath" in target ? target.overviewPath : target.planPath });
+  const terms = await readWorkOrderRunTerms({ cwd, name: planName, planPath: "overviewPath" in target ? target.overviewPath : target.planPath });
   if (terms.refusal !== void 0) {
     return { error: terms.refusal };
   }
   return { planPath, overviewPath, packages, startPhase, planName, shipRequest: terms.shipRequest };
-};
-
-// src/cli/common/render/printPlanTicketWarning.ts
-var printPlanTicketWarning = async ({ cwd, name, write = console.log }) => {
-  const config2 = await readOptionalConfig({ cwd }).catch(() => void 0);
-  if (config2?.["ticket-tracker"] === void 0) {
-    return;
-  }
-  const settings = resolveShipSettings({ config: config2 });
-  if (settings === void 0) {
-    return;
-  }
-  if (readPlanTicketRef({ name, ticketPattern: settings.ticketPattern }) !== void 0) {
-    return;
-  }
-  write(
-    `${yellow("\u26A0")} plan folder '${name}' carries no ticket id \u2014 name a plan folder after its ticket's branch, matching this repo's ship.ticket-pattern. Continuing from the folder path.`
-  );
 };
 
 // src/common/constants/defaultSupervisorTimeoutMinutes.ts
@@ -142498,7 +142562,7 @@ var findUnfinishedSequence = async ({ cwd, planName }) => {
 
 // src/phases/initializeSequence.ts
 import { access, readFile as readFile42 } from "node:fs/promises";
-import { dirname as dirname21, join as join103 } from "node:path";
+import { dirname as dirname19, join as join103 } from "node:path";
 var getPhaseFiles = async ({ cwd, overview }) => {
   const overviewFullPath = await resolveRecordedPlanPath({ cwd, path: overview });
   const overviewContent = await readFile42(overviewFullPath, "utf8").catch(() => void 0);
@@ -142518,7 +142582,7 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join103(dirname21(overview), file2);
+    const phasePath = join103(dirname19(overview), file2);
     const present = await access(await resolveRecordedPlanPath({ cwd, path: phasePath })).then(
       () => true,
       () => false
@@ -142575,7 +142639,7 @@ var initializeSequence = async ({
 };
 
 // src/phases/runPhase.ts
-import { dirname as dirname29, join as join138 } from "node:path";
+import { dirname as dirname27, join as join138 } from "node:path";
 
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
@@ -142612,8 +142676,8 @@ var buildRunCommitMessage = ({ subject, runId }) => `${subject}
 lightsout run ${runId}
 `;
 
-// src/commit/commitTicketWork.ts
-import { mkdir as mkdir23, writeFile as writeFile19 } from "node:fs/promises";
+// src/commit/commitWorkOrderWork.ts
+import { mkdir as mkdir23, writeFile as writeFile18 } from "node:fs/promises";
 import { join as join104 } from "node:path";
 
 // src/common/sourceFiles/isGeneratedPath.ts
@@ -142622,7 +142686,7 @@ var isGeneratedPath = ({ path, generated }) => generated.some((entry) => {
   return path === prefix || path.startsWith(`${prefix}/`);
 });
 
-// src/commit/commitTicketWork.ts
+// src/commit/commitWorkOrderWork.ts
 var toLiteralPathspec = ({ path }) => `':(literal)${path.replaceAll("'", String.raw`'\''`)}'`;
 var toPathspecs = ({ paths }) => paths.map((path) => toLiteralPathspec({ path })).join(" ");
 var discardGeneratedChanges = async ({ cwd, paths }) => {
@@ -142649,7 +142713,7 @@ var discardGeneratedChanges = async ({ cwd, paths }) => {
   }
   return void 0;
 };
-var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
+var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
   const changed = await readGitChangedFiles({ cwd });
   if (changed === void 0) {
     return { error: `git could not read the tree at ${cwd}` };
@@ -142668,7 +142732,7 @@ var commitTicketWork = async ({ cwd, message, runDir, generated = [], onProgress
   }
   const messagePath = join104(runDir, "commit-message.txt");
   await mkdir23(runDir, { recursive: true });
-  await writeFile19(messagePath, message.endsWith("\n") ? message : `${message}
+  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
 `, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A -- .", cwd });
   if (stageFailure !== void 0) {
@@ -142693,42 +142757,42 @@ var describeUnownedEdits = async ({ cwd, manifest, generated }) => {
 };
 
 // src/commit/common/utils/readRunCommitSubject.ts
-import { basename as basename42, extname as extname2 } from "node:path";
+import { basename as basename41, extname } from "node:path";
 
 // src/common/utils/readRunLabel.ts
-var readRunLabel = async ({ cwd, config: config2 }) => await readBranchTicketRef({ config: config2, cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "ticket";
+var readRunLabel = async ({ cwd }) => await readWorkOrderTicketRef({ cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "work";
 
 // src/commit/common/utils/readRunCommitSubject.ts
 var readUnit = async ({ cwd, plan, planName }) => {
   const name = planName ?? await planNameFromPath({ cwd, planPath: plan });
-  const stem = basename42(plan, extname2(plan));
+  const stem = basename41(plan, extname(plan));
   if (name === void 0) {
     return { unit: stem };
   }
   const address = parsePlanAddress({ name });
   const base = address?.planId ?? name;
-  return { unit: stem === "plan" ? base : `${base}/${stem}`, ticketBranch: address?.ticketBranch ?? name, planId: address?.planId };
+  return { unit: stem === "plan" ? base : `${base}/${stem}`, workOrderName: address?.workOrderName ?? name, planId: address?.planId };
 };
 var readTicketFacts = async ({
   cwd,
-  ticketBranch,
+  workOrderName,
   planId,
   onProgress
 }) => {
-  if (ticketBranch === void 0) {
+  if (workOrderName === void 0) {
     return {};
   }
-  const read = await readTicketRecord({ cwd, ticketBranch });
+  const read = await readWorkOrderState({ cwd, name: workOrderName });
   if ("error" in read) {
-    onProgress(`the ticket record for ${ticketBranch} could not be read, so this commit is addressed from the branch instead \u2014 ${read.error}`);
+    onProgress(`the work order state for ${workOrderName} could not be read, so this commit is addressed from the branch instead \u2014 ${read.error}`);
     return {};
   }
   return { ticketRef: read.record?.ticketRef, title: read.record?.plans.find((plan) => plan.id === planId)?.title };
 };
-var readRunCommitSubject = async ({ cwd, manifest, config: config2, onProgress }) => {
-  const { unit, ticketBranch, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
-  const { ticketRef, title } = await readTicketFacts({ cwd, ticketBranch, planId, onProgress });
-  const reference = ticketRef ?? await readRunLabel({ cwd, config: config2 });
+var readRunCommitSubject = async ({ cwd, manifest, onProgress }) => {
+  const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
+  const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
+  const reference = ticketRef ?? await readRunLabel({ cwd });
   return title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
 };
 
@@ -142748,7 +142812,7 @@ var commitRunWork = async ({ run, subject, resumed }) => {
     return `${run.cwd} could not be read, so this run's records could not be found \u2014 nothing was committed`;
   }
   const line = subject ?? await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) });
-  const committed = await commitTicketWork({
+  const committed = await commitWorkOrderWork({
     cwd: run.cwd,
     message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
     runDir,
@@ -142775,8 +142839,8 @@ var commitRunWork = async ({ run, subject, resumed }) => {
 };
 
 // src/pipeline/approvedTests/approveTestFiles.ts
-import { mkdir as mkdir24, readFile as readFile43, rm as rm9, writeFile as writeFile20 } from "node:fs/promises";
-import { dirname as dirname22, join as join107 } from "node:path";
+import { mkdir as mkdir24, readFile as readFile43, rm as rm9, writeFile as writeFile19 } from "node:fs/promises";
+import { dirname as dirname20, join as join107 } from "node:path";
 
 // src/pipeline/approvedTests/approvedTestPath.ts
 import { join as join106 } from "node:path";
@@ -142804,8 +142868,8 @@ var approveTestFiles = async ({ run, paths }) => {
       records.push({ path, removed: true });
       continue;
     }
-    await mkdir24(dirname22(copy), { recursive: true });
-    await writeFile20(copy, content);
+    await mkdir24(dirname20(copy), { recursive: true });
+    await writeFile19(copy, content);
     records.push({ path, sha256: sha256({ content }), removed: false });
   }
   return [...approvedTests.filter((record3) => !paths.includes(record3.path)), ...records];
@@ -142915,8 +142979,8 @@ var applyTestDispositions = async ({
 };
 
 // src/pipeline/approvedTests/collectTestChanges.ts
-import { mkdir as mkdir25, readFile as readFile46, rm as rm11, writeFile as writeFile21 } from "node:fs/promises";
-import { dirname as dirname23, join as join109, relative as relative12 } from "node:path";
+import { mkdir as mkdir25, readFile as readFile46, rm as rm11, writeFile as writeFile20 } from "node:fs/promises";
+import { dirname as dirname21, join as join109, relative as relative12 } from "node:path";
 
 // src/pipeline/approvedTests/common/constants/TestChangeKind.ts
 var TestChangeKind = {
@@ -142940,8 +143004,8 @@ var kindOf = ({ live: live2, approved }) => {
 var diffOf = async ({ cwd, path, kind, approved, scratch }) => {
   const before = join109(scratch, path);
   if (approved !== void 0) {
-    await mkdir25(dirname23(before), { recursive: true });
-    await writeFile21(before, approved, "utf8");
+    await mkdir25(dirname21(before), { recursive: true });
+    await writeFile20(before, approved, "utf8");
   }
   const left = approved === void 0 ? emptySide : relative12(cwd, before);
   const right = kind === TestChangeKind.Removed ? emptySide : path;
@@ -142958,7 +143022,7 @@ var collectTestChanges = async ({ run }) => {
   if (candidates.length === 0) {
     return [];
   }
-  const scratch = join109(dirname23(await approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
+  const scratch = join109(dirname21(await approvedTestsDir({ cwd: run.cwd, runId: manifest.runId })), "approved-scratch");
   await rm11(scratch, { recursive: true, force: true });
   await mkdir25(scratch, { recursive: true });
   const changes = [];
@@ -143416,7 +143480,7 @@ var runSteps = async ({ run, steps }) => {
 };
 
 // src/pipeline/PipelineRun.ts
-import { mkdir as mkdir26, writeFile as writeFile22 } from "node:fs/promises";
+import { mkdir as mkdir26, writeFile as writeFile21 } from "node:fs/promises";
 import { join as join114 } from "node:path";
 
 // src/common/selfCheck/buildSelfCheckCommand.ts
@@ -143608,7 +143672,7 @@ var PipelineRun = class {
       const dir = join114(await resolveRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
       const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
       await mkdir26(dir, { recursive: true });
-      await writeFile22(join114(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+      await writeFile21(join114(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
@@ -143730,7 +143794,7 @@ var describeGateCoordinationStop = ({ stepId: stepId2, coordination }) => [
 // src/pipeline/common/utils/stopOnGateCoordination.ts
 var stopOnGateCoordination = async ({ run, stepId: stepId2, record: record3, coordination, error: error51 }) => {
   run.progress(`step ${stepId2}: the gates never started \u2014 another run holds this machine, and no fix was attempted`);
-  const ticketRef = await readBranchTicketRef({ config: run.config, cwd: run.cwd });
+  const ticketRef = await readWorkOrderTicketRef({ cwd: run.cwd });
   const holdFailure = ticketRef === void 0 ? void 0 : await takeGateHold({
     cwd: run.cwd,
     config: run.config,
@@ -144097,7 +144161,7 @@ var isCoverageCollectedFile = ({ absolutePath, collection }) => {
 };
 
 // src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts
-import { dirname as dirname24, resolve as resolve12 } from "node:path";
+import { dirname as dirname22, resolve as resolve12 } from "node:path";
 var defaultIgnorePatterns = ["/node_modules/"];
 var JestConfigShape = external_exports.looseObject({
   rootDir: external_exports.string().optional().catch(void 0),
@@ -144112,7 +144176,7 @@ var readCoverageCollection = ({ loaded }) => {
   if (!parsed.success) {
     return void 0;
   }
-  const configDir = dirname24(loaded.configPath);
+  const configDir = dirname22(loaded.configPath);
   return {
     rootDir: parsed.data.rootDir === void 0 ? configDir : resolve12(configDir, parsed.data.rootDir),
     collectCoverageFrom: parsed.data.collectCoverageFrom,
@@ -144144,7 +144208,7 @@ var selectCollectedFiles = async ({ cwd, config: config2, files }) => {
 
 // src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts
 import { readFile as readFile54 } from "node:fs/promises";
-import { dirname as dirname26, join as join121 } from "node:path";
+import { dirname as dirname24, join as join121 } from "node:path";
 
 // src/common/sourceFiles/isUnloadableSourceFile.ts
 var hasModuleScopeAwait = ({ node, compiler }) => {
@@ -144163,13 +144227,13 @@ var isUnloadableSourceFile = ({ path, content, compiler }) => {
 };
 
 // src/coverage/selectUnloadableFiles/common/utils/isEsmSourceFile.ts
-import { extname as extname3 } from "node:path";
+import { extname as extname2 } from "node:path";
 var manifestDecidedExtensions = [".js", ".jsx"];
 var isEsmSourceFile = ({ path, moduleMode, packageType }) => {
   if (moduleMode === void 0) {
     return false;
   }
-  const extension = extname3(path);
+  const extension = extname2(path);
   return moduleMode.esmExtensions.includes(extension) || packageType === "module" && manifestDecidedExtensions.includes(extension);
 };
 
@@ -144228,7 +144292,7 @@ var readJestModuleMode = ({ loaded }) => {
 
 // src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts
 import { readFile as readFile53 } from "node:fs/promises";
-import { dirname as dirname25, join as join120, relative as relative14, sep as sep3 } from "node:path";
+import { dirname as dirname23, join as join120, relative as relative14, sep as sep3 } from "node:path";
 var withinScope = ({ directory, scopeRoot }) => {
   const path = relative14(scopeRoot, directory);
   return path === "" || !(path === ".." || path.startsWith(`..${sep3}`));
@@ -144247,7 +144311,7 @@ var readNearestPackageType = async ({ fileDir, scopeRoot }) => {
   let type;
   while (type === void 0 && withinScope({ directory, scopeRoot })) {
     type = await readManifestType({ manifestPath: join120(directory, "package.json") });
-    const parent = dirname25(directory);
+    const parent = dirname23(directory);
     if (parent === directory) {
       break;
     }
@@ -144281,7 +144345,7 @@ var selectUnloadableFiles = async ({ cwd, config: config2, files, compiler }) =>
     if (!modes.has(scope.scope)) {
       modes.set(scope.scope, readJestModuleMode({ loaded: await loadScopeJestConfig({ scopeRoot, command: scope.command }) }));
     }
-    const fileDir = dirname26(join121(root, file2));
+    const fileDir = dirname24(join121(root, file2));
     if (!packageTypes.has(fileDir)) {
       packageTypes.set(fileDir, await readNearestPackageType({ fileDir, scopeRoot }));
     }
@@ -144349,7 +144413,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
 };
 
 // src/coverage/initializeCoverageRun.ts
-import { readFile as readFile57, writeFile as writeFile23 } from "node:fs/promises";
+import { readFile as readFile57, writeFile as writeFile22 } from "node:fs/promises";
 import { join as join124 } from "node:path";
 
 // src/coverage/runCoverageCheck.ts
@@ -144454,7 +144518,7 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
   const worklistPath = join124(await resolveNewRunDir({ cwd, pipeline: PipelineKind.Coverage, runId }), "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: PipelineKind.Coverage, driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile23(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile22(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -144546,7 +144610,7 @@ var CoverageRun = class {
 };
 
 // src/coverage/batch/invokeCoverageAgent.ts
-import { mkdir as mkdir27, writeFile as writeFile24 } from "node:fs/promises";
+import { mkdir as mkdir27, writeFile as writeFile23 } from "node:fs/promises";
 import { join as join125 } from "node:path";
 var invokeCoverageAgent = async ({
   cwd,
@@ -144578,7 +144642,7 @@ var invokeCoverageAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile24(join125(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile23(join125(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}${label2 ? ` ${label2}` : ""}`, usage: outcome.usage });
@@ -144596,7 +144660,7 @@ var invokeCoverageAgent = async ({
 };
 
 // src/coverage/batch/checkTestsOnly.ts
-import { dirname as dirname27 } from "node:path";
+import { dirname as dirname25 } from "node:path";
 
 // src/common/utils/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
@@ -144619,7 +144683,7 @@ var checkTestsOnly = async ({
   reportedFiles,
   attributedFiles
 }) => {
-  const coverageDir = dirname27(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const coverageDir = dirname25(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
     (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
@@ -145580,7 +145644,7 @@ var readPriorCleanup = ({ run }) => {
 };
 
 // src/standardsCheck/applyStandardsBaseline.ts
-import { readFile as readFile60, writeFile as writeFile25 } from "node:fs/promises";
+import { readFile as readFile60, writeFile as writeFile24 } from "node:fs/promises";
 import { join as join128 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
@@ -145606,7 +145670,7 @@ var applyStandardsBaseline = async ({
   const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
   if (writeBaseline) {
     const siteKeys = [...new Set(findings.map((finding2) => finding2.siteKey))];
-    await writeFile25(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
+    await writeFile24(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
 `, "utf8");
     notes.push(
       `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
@@ -157735,15 +157799,15 @@ var buildTestFileInput = async ({ cwd, tests, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts
-import { dirname as dirname28, join as join133, resolve as resolve13 } from "node:path";
+import { dirname as dirname26, join as join133, resolve as resolve13 } from "node:path";
 var findNearestConfig = ({ cwd, path, compiler }) => {
-  let folder = dirname28(resolve13(cwd, path));
+  let folder = dirname26(resolve13(cwd, path));
   while (folder.startsWith(cwd)) {
     const candidate = join133(folder, "tsconfig.json");
     if (compiler.sys.fileExists(candidate)) {
       return candidate;
     }
-    folder = dirname28(folder);
+    folder = dirname26(folder);
   }
   return void 0;
 };
@@ -157754,7 +157818,7 @@ var buildPrograms = ({ configPaths, compiler }) => {
     if (read.error !== void 0) {
       continue;
     }
-    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname28(configPath));
+    const parsed = compiler.parseJsonConfigFileContent(read.config, compiler.sys, dirname26(configPath));
     programs.set(configPath, compiler.createProgram({ rootNames: parsed.fileNames, options: parsed.options }));
   }
   return programs;
@@ -157988,7 +158052,7 @@ var runPackageChecks = async ({
 };
 
 // src/standardsCheck/writeStandardsSnapshot.ts
-import { mkdir as mkdir28, writeFile as writeFile26 } from "node:fs/promises";
+import { mkdir as mkdir28, writeFile as writeFile25 } from "node:fs/promises";
 import { join as join134 } from "node:path";
 var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const body = `${JSON.stringify(snapshot, void 0, "	")}
@@ -157996,8 +158060,8 @@ var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const snapshotsDir = getStandardsSnapshotsDir({ cwd });
   const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
   await mkdir28(snapshotsDir, { recursive: true });
-  await writeFile26(getStandardsCheckPath({ cwd }), body, "utf8");
-  await writeFile26(join134(snapshotsDir, fileName), body, "utf8");
+  await writeFile25(getStandardsCheckPath({ cwd }), body, "utf8");
+  await writeFile25(join134(snapshotsDir, fileName), body, "utf8");
 };
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -159384,7 +159448,7 @@ var runPhase = async ({
       cwd,
       driver,
       config: config2,
-      planPath: join138(dirname29(current.plan), step.id),
+      planPath: join138(dirname27(current.plan), step.id),
       overviewPath: current.plan,
       parentRunId: current.runId,
       existing: childManifest,
@@ -159561,11 +159625,8 @@ var implementCommand = async ({ flags, cwd }) => {
     console.error(refused);
     return exitCli({ code: 1 });
   }
-  if (planName !== void 0) {
-    await printPlanTicketWarning({ cwd, name: planName });
-  }
   printRunStart({ target, overviewPath, packages, startPhase, config: config2, driver, cwd: workspace.cwd });
-  const outcome = await runTicketPlanLifecycle({
+  const outcome = await runWorkOrderPlanLifecycle({
     cwd: workspace.cwd,
     name: planName,
     run: ({ runId }) => runResolvedPipeline({
@@ -159583,7 +159644,7 @@ var implementCommand = async ({ flags, cwd }) => {
       willShip: shipIntent.willShip
     })
   });
-  const result = reportTicketPlanOutcome({ outcome });
+  const result = reportWorkOrderPlanOutcome({ outcome });
   if (result === void 0) {
     return exitCli({ code: 1 });
   }
@@ -159600,7 +159661,6 @@ var openDirectWorkspace = async ({
   config: config2,
   flags,
   ticketPath,
-  ticketBody,
   flaggedRef
 }) => {
   const workspace = await resolveRunWorkspace({
@@ -159609,7 +159669,6 @@ var openDirectWorkspace = async ({
     flags,
     ticketPath,
     ticketRef: flaggedRef,
-    ticketBody,
     onProgress: createProgressPrinter()
   });
   if ("error" in workspace) {
@@ -159628,24 +159687,24 @@ var readBodyBuildPlanName = async ({ cwd, branch }) => {
   if (branch === void 0) {
     return void 0;
   }
-  const read = await readTicketRecord({ cwd, ticketBranch: branch });
+  const read = await readWorkOrderState({ cwd, name: branch });
   if ("error" in read) {
     return { error: read.error };
   }
   const record3 = read.record;
-  if (record3 === void 0 || record3.mode !== TicketMode.SinglePlan) {
+  if (record3 === void 0 || record3.mode !== WorkOrderMode.SinglePlan) {
     return void 0;
   }
   const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1 && plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
-  return first === void 0 ? void 0 : formatPlanAddress({ ticketBranch: branch, planId: first.id });
+  return first === void 0 ? void 0 : formatPlanAddress({ workOrderName: branch, planId: first.id });
 };
 
 // src/direct/common/utils/createDirectRun.ts
-import { writeFile as writeFile27 } from "node:fs/promises";
+import { writeFile as writeFile26 } from "node:fs/promises";
 import { join as join139 } from "node:path";
 var createDirectRun = async ({ cwd, runId, ticketBody, ticketRef, driverName, config: config2, willShip }) => {
-  const ticketBranch = await readGitCurrentBranch({ cwd });
-  const ticketPath = join139(await resolveNewRunDir({ cwd, ticketBranch, pipeline: PipelineKind.Direct, runId }), "ticket.md");
+  const workOrderName = await readGitCurrentBranch({ cwd });
+  const ticketPath = join139(await resolveNewRunDir({ cwd, workOrderName, pipeline: PipelineKind.Direct, runId }), "ticket.md");
   const manifest = await createRun({
     cwd,
     runId,
@@ -159657,10 +159716,13 @@ var createDirectRun = async ({ cwd, runId, ticketBody, ticketRef, driverName, co
     baselineDirtyFiles: await readGitChangedFiles({ cwd }),
     willShip
   });
-  await writeFile27(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
+  await writeFile26(ticketPath, ticketBody.endsWith("\n") ? ticketBody : `${ticketBody}
 `, "utf8");
   return manifest;
 };
+
+// src/common/utils/headingOf.ts
+var headingOf = ({ text }) => text.split("\n")[0].replace(/^#+\s*/, "").trim();
 
 // src/direct/common/utils/nextStepRecord.ts
 var nextStepRecord = ({ run, id }) => ({
@@ -159874,7 +159936,7 @@ var runDirectBuild = async ({
   willShip
 }) => {
   const build = (runId) => runDirectWork({ cwd, ticketBody, ticketRef, runId, driver, driverName, config: config2, willShip, onProgress: createProgressPrinter() });
-  const outcome = planName === void 0 ? { result: await build() } : await runTicketPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
+  const outcome = planName === void 0 ? { result: await build() } : await runWorkOrderPlanLifecycle({ cwd, name: planName, run: ({ runId }) => build(runId) });
   if ("refusal" in outcome) {
     return { refusal: outcome.refusal };
   }
@@ -159887,7 +159949,7 @@ var prepareDirectRun = async ({
   loaded,
   flaggedRef
 }) => {
-  const ticketRef = flaggedRef ?? await readRunLabel({ cwd: workspace.cwd, config: loaded });
+  const ticketRef = flaggedRef ?? await readRunLabel({ cwd: workspace.cwd });
   const { config: config2, driver, driverName } = resolveEffectiveConfigAndDriver({ config: loaded, command: "implement" });
   const refused = await requireImplementLifecycle({
     cwd: workspace.cwd,
@@ -159919,7 +159981,7 @@ var implementDirectCommand = async ({ flags, cwd }) => {
     return exitCli({ code: 1 });
   }
   const flaggedRef = getStringFlag({ flags, name: "ref" });
-  const opened = await openDirectWorkspace({ cwd, config: loaded, flags, ticketPath: namedTicketPath, ticketBody, flaggedRef });
+  const opened = await openDirectWorkspace({ cwd, config: loaded, flags, ticketPath: namedTicketPath, flaggedRef });
   if ("error" in opened) {
     console.error(opened.error);
     return exitCli({ code: 1 });
@@ -160089,12 +160151,19 @@ var resolvePlanWorktree = async ({ cwd, config: config2, flags, name, onProgress
     return { cwd, isolated: false, created: false };
   }
   const addressed = parsePlanAddress({ name }) !== void 0;
-  const branch = ticketFolderOf({ name });
+  const workOrderName = workOrderNameOf({ name });
+  const record3 = await readWorkOrderRecordFile({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderName }) });
+  if (record3 === void 0) {
+    return {
+      error: `no work order is named '${workOrderName}', so there is no branch to plan on \u2014 create one with \`lightsout work-order new\`, or ${noWorktreeRemedy}`
+    };
+  }
+  const branch = record3.branch;
   const treePath = await resolveWorktreePath({ cwd, branch });
   if (await isSamePath({ path: cwd, otherPath: treePath })) {
     return { cwd: treePath, branch, isolated: true, created: false };
   }
-  const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: void 0 };
+  const prepared = addressed ? await prepareWorkOrderBranch({ cwd, branch }) : { startPoint: void 0 };
   if ("error" in prepared) {
     return prepared;
   }
@@ -160386,7 +160455,6 @@ ${bold(`plan lint ${name}`)} \u2014 ${headline}${note} (${planPaths.length} file
 var planPublishCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const config2 = await readConfig({ cwd });
-  const address = parsePlanAddress({ name });
   const statusOf = ({ result }) => result.error === void 0 && result.recordError === void 0 ? RunStatus.Passed : RunStatus.Failed;
   const report2 = await recordPlanCommandRun({
     cwd,
@@ -160397,7 +160465,7 @@ var planPublishCommand = async ({ flags, cwd }) => {
       cwd,
       name,
       step: PlanningStep.Publish,
-      work: () => address === void 0 ? publishPlan({ cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() }) : publishTicketPlan({ cwd, address: name, config: config2, env: process.env, onProgress: createProgressPrinter() }),
+      work: () => publishWorkOrderPlan({ cwd, address: name, config: config2, env: process.env, onProgress: createProgressPrinter() }),
       statusOf
     })
   });
@@ -160424,7 +160492,7 @@ ${report2.recordError}`);
 };
 
 // src/cli/plan/planSyncDecisionsCommand.ts
-import { basename as basename43 } from "node:path";
+import { basename as basename42 } from "node:path";
 var planSyncDecisionsCommand = async ({ flags, cwd }) => {
   const name = await getRequiredFlag({ flags, name: "name" });
   const result = await syncPlanDecisions({ cwd, name });
@@ -160436,7 +160504,7 @@ ${result.error}`);
   console.log(`
 ${bold(`plan sync-decisions ${name}`)} \u2014 ${result.files.length} file(s)`);
   for (const file2 of result.files) {
-    console.log(`  ${basename43(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
+    console.log(`  ${basename42(file2.path)} \u2014 ${file2.updated ? "updated" : "unchanged"}`);
   }
   return exitCli({ code: 0 });
 };
@@ -160462,11 +160530,10 @@ var ensureBrainstormFiles = async ({ cwd, name, write = console.log }) => {
     return;
   }
   const trackerSettings = resolveTrackerSettings({ config: config2, env: process.env });
-  const shipSettings = resolveShipSettings({ config: config2 });
-  if ("error" in trackerSettings || shipSettings === void 0) {
+  if ("error" in trackerSettings) {
     return;
   }
-  const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+  const identifier = await readPlanWorkOrderRef({ cwd, name });
   if (identifier === void 0) {
     return;
   }
@@ -160555,9 +160622,8 @@ var openDispatchCheckout = async ({ cwd, flags, subcommand }) => {
   if (name === void 0 || !["workspace", "draft", "dedup", "grade", "lint", "publish", "sync-decisions", "verify-facts"].includes(subcommand ?? "")) {
     return { cwd, worktree: void 0 };
   }
-  const bare = await findBareTicketFolderRefusal({ cwd, name });
-  if (bare !== void 0) {
-    console.error(bare);
+  if (parsePlanAddress({ name }) === void 0) {
+    console.error(describeMissingPlanAddress({ name, missing: "plan to act on" }));
     return exitCli({ code: 1 });
   }
   const opened = await openPlanWorktree({ cwd, config: await readOptionalConfig({ cwd }), flags, name });
@@ -160565,7 +160631,6 @@ var openDispatchCheckout = async ({ cwd, flags, subcommand }) => {
     console.error(opened.error);
     return exitCli({ code: 1 });
   }
-  await printPlanTicketWarning({ cwd: opened.worktree.cwd, name });
   return { cwd: opened.worktree.cwd, worktree: opened.worktree };
 };
 var planCommand = async ({ flags, rest, cwd: launchingCwd }) => {
@@ -160672,11 +160737,11 @@ var toRow = ({ cells }) => `| ${cells.join(" | ")} |`;
 var renderQueueBoard = ({ tickets, state, at }) => {
   const lanes = Object.values(QueueLane);
   const header = toRow({ cells: lanes.map((lane) => laneLabels[lane]) });
-  const separator = toRow({ cells: lanes.map(() => "---") });
+  const separator2 = toRow({ cells: lanes.map(() => "---") });
   const columns = lanes.map((lane) => tickets.filter((ticket) => ticket.lane === lane).map((ticket) => toCell3({ ticket })));
   const depth = Math.max(1, ...columns.map((cells) => cells.length));
   const body = Array.from({ length: depth }, (_, row) => toRow({ cells: columns.map((cells) => cells[row] ?? (row === 0 ? "\u2014" : "")) }));
-  return [toHeading({ state, at }), "", header, separator, ...body];
+  return [toHeading({ state, at }), "", header, separator2, ...body];
 };
 
 // src/queue/board/BoardQuestionRelay.ts
@@ -160715,8 +160780,8 @@ var getQueueBoardPath = async ({ cwd, runId }) => {
 };
 
 // src/queue/board/QueueBoardRecorder.ts
-import { mkdir as mkdir29, rename as rename11 } from "node:fs/promises";
-import { dirname as dirname30 } from "node:path";
+import { mkdir as mkdir29, rename as rename10 } from "node:fs/promises";
+import { dirname as dirname28 } from "node:path";
 
 // src/queue/board/toQueueBoardTickets.ts
 import { join as join143 } from "node:path";
@@ -160731,23 +160796,17 @@ var QueueWorker = {
   AutoPlan: "auto-plan"
 };
 
-// src/queue/toTicketBranch.ts
-var toTicketBranch = ({ ticket, template }) => renderBranchTemplate({ template, ticketRef: ticket.identifier, title: ticket.title });
-
 // src/queue/board/toQueueBoardTickets.ts
-var describeWork = ({ ticket, branch, worktreePath }) => ({
+var describeWork = ({ ticket, name, branch, worktreePath }) => ({
   identifier: ticket.identifier,
   title: ticket.title,
   url: ticket.url,
   worker: ticket.worker,
-  planName: ticket.worker === QueueWorker.AutoPlan ? branch : void 0,
+  planName: ticket.worker === QueueWorker.AutoPlan ? name : void 0,
   branch,
   worktreePath
 });
-var describeUnbuilt = ({ ticket, live: live2 }) => {
-  const branch = toTicketBranch({ ticket, template: live2.branchTemplate });
-  return describeWork({ ticket, branch, worktreePath: join143(live2.worktreesRoot, branch) });
-};
+var describeUnbuilt = ({ workOrder, live: live2 }) => describeWork({ ticket: workOrder.ticket, name: workOrder.name, branch: workOrder.branch, worktreePath: join143(live2.worktreesRoot, workOrder.name) });
 var placeLeftBehind = ({ entry, lane, reason }) => ({
   identifier: entry.identifier,
   title: entry.title,
@@ -160756,8 +160815,8 @@ var placeLeftBehind = ({ entry, lane, reason }) => ({
   reason
 });
 var placeBuild = ({ build, live: live2 }) => {
-  const question = live2.questions.get(build.ticket.identifier.toLowerCase());
-  const work = { ...describeUnbuilt({ ticket: build.ticket, live: live2 }), buildStartedAt: build.startedAt };
+  const question = live2.questions.get(build.workOrder.ticket.identifier.toLowerCase());
+  const work = { ...describeUnbuilt({ workOrder: build.workOrder, live: live2 }), buildStartedAt: build.startedAt };
   return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
 var placeOutcome = ({ outcome }) => {
@@ -160776,7 +160835,7 @@ var placeLive = ({ live: live2 }) => [
   ...live2.shipping === void 0 ? [] : [{ ...describeWork(live2.shipping), lane: QueueLane.ShippingNow }],
   ...live2.readyToShip.map((outcome) => ({ ...describeWork(outcome), lane: QueueLane.ShipQueue })),
   ...live2.building.map((build) => placeBuild({ build, live: live2 })),
-  ...live2.pending.map((ticket) => ({ ...describeUnbuilt({ ticket, live: live2 }), lane: QueueLane.BuildQueue })),
+  ...live2.pending.map((workOrder) => ({ ...describeUnbuilt({ workOrder, live: live2 }), lane: QueueLane.BuildQueue })),
   ...live2.blocked.map((entry) => placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason }))
 ];
 var toEnteredAt = ({ ticket, live: live2, at }) => {
@@ -160814,7 +160873,6 @@ var copySnapshot = ({ settled: settled2, lanes }) => ({
 var QueueBoardRecorder = class {
   cwd;
   runId;
-  branchTemplate;
   onProgress;
   questions = /* @__PURE__ */ new Map();
   entered = /* @__PURE__ */ new Map();
@@ -160822,10 +160880,9 @@ var QueueBoardRecorder = class {
   worktreesRoot;
   // Each write awaits its predecessor, so an older snapshot never lands over a newer one.
   chain = Promise.resolve();
-  constructor({ cwd, runId, branchTemplate, onProgress }) {
+  constructor({ cwd, runId, onProgress }) {
     this.cwd = cwd;
     this.runId = runId;
-    this.branchTemplate = branchTemplate;
     this.onProgress = onProgress;
   }
   /** Rewrite the board from the drain's ledger as it stands now. */
@@ -160866,14 +160923,14 @@ var QueueBoardRecorder = class {
       this.worktreesRoot ??= await resolveWorktreesRoot({ cwd: this.cwd });
       const tickets = toQueueBoardTickets({
         settled: snapshot.settled,
-        live: { ...snapshot.lanes, questions, entered: this.entered, branchTemplate: this.branchTemplate, worktreesRoot: this.worktreesRoot },
+        live: { ...snapshot.lanes, questions, entered: this.entered, worktreesRoot: this.worktreesRoot },
         at: takenAt
       });
       const board = { coordinatorRunId: this.runId, updatedAt: takenAt, tickets };
       this.entered = new Map(tickets.map((ticket) => [ticket.identifier.toLowerCase(), { lane: ticket.lane, at: ticket.enteredAt }]));
-      await mkdir29(dirname30(path), { recursive: true });
+      await mkdir29(dirname28(path), { recursive: true });
       await writeJsonFile({ path: `${path}.tmp`, value: board });
-      await rename11(`${path}.tmp`, path);
+      await rename10(`${path}.tmp`, path);
     } catch (error51) {
       this.onProgress?.(`the queue board ${path ?? `of run ${this.runId}`} could not be written: ${messageOf({ error: error51 })}`);
     }
@@ -160888,24 +160945,30 @@ var readQueueBoard = async ({ cwd, runId }) => {
 // src/queue/branchState/common/utils/getBranchStatePath.ts
 import { join as join144 } from "node:path";
 var getBranchStatePath = async ({ cwd, branch }) => {
-  return join144(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), "branch-state.json");
+  const folder = await resolveBranchRecordDir({ cwd, branch });
+  return folder === void 0 ? void 0 : join144(folder, "branch-state.json");
 };
 
 // src/queue/branchState/readBranchState.ts
 var readBranchState = async ({ cwd, branch }) => {
-  return readJsonFile({ path: await getBranchStatePath({ cwd, branch }), schema: BranchState });
+  const path = await getBranchStatePath({ cwd, branch });
+  return path === void 0 ? void 0 : readJsonFile({ path, schema: BranchState });
 };
 
 // src/queue/branchState/writeBranchState.ts
-import { mkdir as mkdir30, rename as rename12 } from "node:fs/promises";
-import { dirname as dirname31 } from "node:path";
+import { mkdir as mkdir30, rename as rename11 } from "node:fs/promises";
+import { dirname as dirname29 } from "node:path";
 var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
   const record3 = { branch, phase, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
   try {
     const statePath = await getBranchStatePath({ cwd, branch });
-    await mkdir30(dirname31(statePath), { recursive: true });
+    if (statePath === void 0) {
+      onProgress?.(`the branch state for ${branch} was not recorded as '${phase}': no work order's record stores that branch, so it keeps no local record`);
+      return;
+    }
+    await mkdir30(dirname29(statePath), { recursive: true });
     await writeJsonFile({ path: `${statePath}.tmp`, value: record3 });
-    await rename12(`${statePath}.tmp`, statePath);
+    await rename11(`${statePath}.tmp`, statePath);
   } catch (error51) {
     const message = error51 instanceof Error ? error51.message : String(error51);
     onProgress?.(`the branch state for ${branch} could not be recorded as '${phase}': ${message}`);
@@ -160914,6 +160977,39 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
 
 // src/queue/common/utils/isParkedOutcome.ts
 var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
+
+// src/queue/nameWaveWorkOrders.ts
+var nameOne = async ({ cwd, config: config2, env, driver, ticket, onProgress }) => {
+  const existing = await findWorkOrderByTicketRef({ cwd, ticketRef: ticket.identifier });
+  if (existing !== void 0) {
+    return { name: existing.name, branch: existing.record.branch };
+  }
+  const created = await createWorkOrder({ cwd, ticketRef: ticket.identifier, config: config2, env, driver, onProgress }).catch((thrown) => ({
+    error: `no work order could be created for ${ticket.identifier}: ${messageOf({ error: thrown })}`
+  }));
+  return "error" in created ? created : { name: created.name, branch: created.branch };
+};
+var nameWaveWorkOrders = async ({
+  cwd,
+  config: config2,
+  env,
+  driver,
+  tickets,
+  onProgress
+}) => {
+  const named = [];
+  const leftBehind = [];
+  for (const ticket of tickets) {
+    const settled2 = await nameOne({ cwd, config: config2, env, driver, ticket, onProgress });
+    if ("error" in settled2) {
+      onProgress?.(`${ticket.identifier} \xB7 ${settled2.error}`);
+      leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason: settled2.error });
+    } else {
+      named.push({ ticket, name: settled2.name, branch: settled2.branch });
+    }
+  }
+  return { named, leftBehind };
+};
 
 // src/queue/relay/emptyRelayMailbox.ts
 import { mkdir as mkdir31, readdir as readdir22, rm as rm12 } from "node:fs/promises";
@@ -160925,7 +161021,7 @@ var emptyRelayMailbox = async ({ directory }) => {
 };
 
 // src/queue/relay/FileQuestionRelay.ts
-import { readFile as readFile66, rename as rename13, rm as rm13 } from "node:fs/promises";
+import { readFile as readFile66, rename as rename12, rm as rm13 } from "node:fs/promises";
 import { join as join147 } from "node:path";
 
 // src/queue/relay/recordRelayedAnswer.ts
@@ -161052,7 +161148,7 @@ var FileQuestionRelay = class {
     const entry = RelayQuestion.parse({ ticket: ticket.identifier, title: ticket.title, question, askedAt: (/* @__PURE__ */ new Date()).toISOString() });
     const temporaryPath = join147(this.directory, `${stem}.tmp`);
     await writeJsonFile({ path: temporaryPath, value: entry });
-    await rename13(temporaryPath, questionPath);
+    await rename12(temporaryPath, questionPath);
     this.createProgressSink({ ticket })(`waiting for an answer in ${questionPath}`);
   }
   /**
@@ -161282,22 +161378,22 @@ var settleMergedTrees = async ({ cwd, config: config2, env, settings, trackerSet
 };
 
 // src/queue/drainLanes/common/utils/admitSelection.ts
-var admitSelection = ({ state, selection }) => {
+var admitSelection = ({ state, workOrders, blocked, skipped }) => {
   const admitted = [];
-  for (const ticket of selection.runnable) {
-    const identifier = ticket.identifier.toLowerCase();
+  for (const workOrder of workOrders) {
+    const identifier = workOrder.ticket.identifier.toLowerCase();
     if (!state.attempted.has(identifier)) {
       state.attempted.add(identifier);
       state.blockedByIdentifier.delete(identifier);
-      state.pending.push(ticket);
-      state.queued.push(ticket);
-      admitted.push(ticket);
+      state.pending.push(workOrder);
+      state.queued.push(workOrder);
+      admitted.push(workOrder);
     }
   }
-  for (const entry of selection.blocked) {
+  for (const entry of blocked) {
     state.blockedByIdentifier.set(entry.identifier.toLowerCase(), entry);
   }
-  for (const entry of selection.skipped) {
+  for (const entry of skipped) {
     state.attempted.add(entry.identifier.toLowerCase());
     state.blockedByIdentifier.delete(entry.identifier.toLowerCase());
     state.leftBehind.push(entry);
@@ -161430,17 +161526,16 @@ var reconcileMergedTickets = async ({
   cwd,
   config: config2,
   env,
-  settings,
   tickets,
   onProgress
 }) => {
   const kept = [];
   const leftBehind = [];
-  for (const ticket of tickets) {
-    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+  for (const workOrder of tickets) {
+    const { ticket, branch } = workOrder;
     const evidence = await establishBranchMerge({ cwd, branch, onProgress });
     if (evidence === void 0) {
-      kept.push(ticket);
+      kept.push(workOrder);
       continue;
     }
     const reconciliationFailure = await reconcileShippedTicket({ config: config2, env, ticketRef: ticket.identifier, onProgress });
@@ -161464,18 +161559,35 @@ var reconcileMergedTickets = async ({
 };
 
 // src/queue/drainLanes/common/utils/settleMergedSelection.ts
-var settleMergedSelection = async ({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress }) => {
+var settleMergedSelection = async ({
+  cwd,
+  config: config2,
+  env,
+  workOrders,
+  skipped,
+  serializeMainCheckout,
+  onProgress
+}) => {
   const reconciled = await serializeMainCheckout({
-    task: () => reconcileMergedTickets({ cwd, config: config2, env, settings, tickets: selection.runnable, onProgress })
+    task: () => reconcileMergedTickets({ cwd, config: config2, env, tickets: workOrders, onProgress })
   });
-  return { ...selection, runnable: reconciled.kept, skipped: [...selection.skipped, ...reconciled.leftBehind] };
+  return { workOrders: reconciled.kept, skipped: [...skipped, ...reconciled.leftBehind] };
 };
 
 // src/queue/drainLanes/common/utils/admitScanned.ts
 var admitScanned = async ({ context, state, selection }) => {
-  const { cwd, config: config2, env, settings, serializeMainCheckout, onProgress } = context;
-  const settled2 = await settleMergedSelection({ cwd, config: config2, env, settings, selection, serializeMainCheckout, onProgress });
-  const admitted = admitSelection({ state, selection: settled2 });
+  const { cwd, config: config2, env, driver, serializeMainCheckout, onProgress } = context;
+  const wave = await nameWaveWorkOrders({ cwd, config: config2, env, driver, tickets: selection.runnable, onProgress });
+  const settled2 = await settleMergedSelection({
+    cwd,
+    config: config2,
+    env,
+    workOrders: wave.named,
+    skipped: [...selection.skipped, ...wave.leftBehind],
+    serializeMainCheckout,
+    onProgress
+  });
+  const admitted = admitSelection({ state, workOrders: settled2.workOrders, blocked: selection.blocked, skipped: settled2.skipped });
   if (admitted.length > 0) {
     state.idleScanSpent = false;
   }
@@ -161493,13 +161605,17 @@ var trackTask = ({ flight, run }) => {
 };
 
 // src/queue/drainLanes/common/utils/startBuilds.ts
-var parkedBuild = async ({ context, ticket, thrown }) => {
-  const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
+var parkedBuild = async ({
+  context,
+  workOrder,
+  thrown
+}) => {
+  const { ticket, name, branch } = workOrder;
   const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
-  return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
+  return { ticket, name, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
-var settleBuild = ({ state, ticket, outcome }) => {
-  state.building.delete(ticket.identifier.toLowerCase());
+var settleBuild = ({ state, workOrder, outcome }) => {
+  state.building.delete(workOrder.ticket.identifier.toLowerCase());
   if (outcome.unanswered === true) {
     state.retired += 1;
   }
@@ -161509,25 +161625,25 @@ var settleBuild = ({ state, ticket, outcome }) => {
     state.outcomes.push(outcome);
   }
 };
-var buildTicket = async ({ context, state, ticket }) => {
+var buildWorkOrder = async ({ context, state, workOrder }) => {
   try {
-    settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
+    settleBuild({ state, workOrder, outcome: await context.runWorkOrder({ workOrder }) });
   } catch (thrown) {
-    settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
+    settleBuild({ state, workOrder, outcome: await parkedBuild({ context, workOrder, thrown }) });
   }
 };
 var startBuilds = ({ context, state, flight }) => {
   while (state.pending.length > 0 && flight.builds + flight.ships + state.retired < context.settings.maxParallel) {
-    const ticket = state.pending.shift();
-    if (ticket === void 0) {
+    const workOrder = state.pending.shift();
+    if (workOrder === void 0) {
       break;
     }
     flight.builds += 1;
-    state.building.set(ticket.identifier.toLowerCase(), { ticket, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    state.building.set(workOrder.ticket.identifier.toLowerCase(), { workOrder, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
     trackTask({
       flight,
       run: async () => {
-        await buildTicket({ context, state, ticket });
+        await buildWorkOrder({ context, state, workOrder });
         flight.builds -= 1;
       }
     });
@@ -161535,15 +161651,14 @@ var startBuilds = ({ context, state, flight }) => {
 };
 
 // src/queue/drainLanes/common/utils/writeQueuePlan.ts
-import { writeFile as writeFile28 } from "node:fs/promises";
+import { writeFile as writeFile27 } from "node:fs/promises";
 import { join as join149 } from "node:path";
-var writeQueuePlan = async ({ path, cwd, settings, queued }) => {
+var writeQueuePlan = async ({ path, cwd, queued }) => {
   const root = await resolveWorktreesRoot({ cwd });
-  const lines = queued.map((ticket) => {
-    const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-    return `- ${ticket.identifier} \xB7 ${ticket.worker} \xB7 ${branch} \xB7 ${join149(root, branch)}`;
-  });
-  await writeFile28(path, `# queue drain
+  const lines = queued.map(
+    (workOrder) => `- ${workOrder.ticket.identifier} \xB7 ${workOrder.ticket.worker} \xB7 ${workOrder.branch} \xB7 ${join149(root, workOrder.name)}`
+  );
+  await writeFile27(path, `# queue drain
 
 ${lines.join("\n")}
 `, "utf8");
@@ -161560,8 +161675,8 @@ var runScan = async ({ context, state }) => {
   } else {
     const admitted = await admitScanned({ context, state, selection: next });
     if (admitted.length > 0) {
-      onProgress?.(`${admitted.map((ticket) => ticket.identifier).join(", ")} \xB7 joined the run already in flight`);
-      await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings, queued: state.queued });
+      onProgress?.(`${admitted.map((order) => order.ticket.identifier).join(", ")} \xB7 joined the run already in flight`);
+      await writeQueuePlan({ path: context.planPath, cwd: context.cwd, queued: state.queued });
     }
   }
 };
@@ -161622,7 +161737,7 @@ var shipOneBranch = async ({
     cwd: outcome.worktreePath,
     settings: shipSettings,
     integration,
-    ticketGuard: createTicketShipGuard({ config: config2, env, onProgress }),
+    workOrderGuard: createWorkOrderShipGuard({ config: config2, env, onProgress }),
     onProgress
   });
   if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.IntegrationGatesUnavailable) {
@@ -161639,7 +161754,7 @@ var shipOneBranch = async ({
     });
     return park({ error: holdFailure === void 0 ? coordination : `${coordination} ${holdFailure}` });
   }
-  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.TicketNotAuthorized) {
+  if (shipped.status === ShipStatus.Blocked && shipped.reason === ShipBlockReason.WorkOrderNotAuthorized) {
     const waiting = shipped.detail ?? "the branch\u2019s ticket record does not authorize shipping it";
     onProgress?.(`${outcome.ticket.identifier} \xB7 left open: ${waiting}`);
     await writeBranchState({ cwd, branch: outcome.branch, phase: BranchPhase.Open, onProgress });
@@ -161723,7 +161838,7 @@ var seedState = ({
   scansStopped: false
 });
 var finishDrain = ({ context, state }) => {
-  for (const ticket of state.pending) {
+  for (const { ticket } of state.pending) {
     const reason = "not started: every slot was retired by a ticket parked on an unanswered question";
     state.leftBehind.push({ identifier: ticket.identifier, title: ticket.title, url: ticket.url, reason });
     context.onProgress?.(`${ticket.identifier} \xB7 ${reason}`);
@@ -161749,7 +161864,7 @@ var runDrainLanes = async ({ first, carried, carriedLeftBehind, attempted, ...co
   const state = seedState({ attempted, carried, carriedLeftBehind });
   const flight = { tasks: /* @__PURE__ */ new Map(), builds: 0, ships: 0, scans: 0, nextKey: 0 };
   await admitScanned({ context, state, selection: first });
-  await writeQueuePlan({ path: context.planPath, cwd: context.cwd, settings: context.settings, queued: state.queued });
+  await writeQueuePlan({ path: context.planPath, cwd: context.cwd, queued: state.queued });
   for (; ; ) {
     startShip({ context, state, flight });
     startBuilds({ context, state, flight });
@@ -161779,13 +161894,14 @@ var drainQueue = async ({
   trackerSettings,
   shipSettings,
   shipIntegration,
+  driver,
   config: config2,
   env,
   defaultBranch,
   planPath,
   first,
   parked,
-  runTicket,
+  runWorkOrder,
   serializeMainCheckout,
   board,
   onProgress
@@ -161802,6 +161918,7 @@ var drainQueue = async ({
     trackerSettings,
     shipSettings,
     shipIntegration,
+    driver,
     defaultBranch,
     env,
     planPath,
@@ -161809,14 +161926,14 @@ var drainQueue = async ({
     carried: parked.outcomes,
     carriedLeftBehind: leftBehind,
     attempted,
-    runTicket,
+    runWorkOrder,
     serializeMainCheckout,
     board,
     onProgress
   });
 };
 
-// src/queue/runQueueTicket.ts
+// src/queue/runQueueWorkOrder.ts
 import { join as join151 } from "node:path";
 
 // src/common/git/readGitCommitsAhead.ts
@@ -161836,7 +161953,7 @@ var settleWorkerOutcome = async ({
   branch,
   defaultBranch,
   ticket,
-  ticketRunDir,
+  workOrderRunDir,
   generated,
   worked,
   onProgress
@@ -161848,10 +161965,10 @@ var settleWorkerOutcome = async ({
     await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
     return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
   }
-  const committed = await commitTicketWork({
+  const committed = await commitWorkOrderWork({
     cwd: worktreePath,
     message: `${ticket.identifier} ${ticket.title}`,
-    runDir: ticketRunDir,
+    runDir: workOrderRunDir,
     generated,
     onProgress
   });
@@ -161885,9 +162002,9 @@ var buildFromTicketBody = async ({ step }) => {
   const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
   onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
   return toBuildOutcome({
-    outcome: await runTicketPlanLifecycle({
+    outcome: await runWorkOrderPlanLifecycle({
       cwd,
-      name: formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id }),
+      name: formatPlanAddress({ workOrderName: record3.name, planId: plan.id }),
       run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
     })
   });
@@ -161899,22 +162016,22 @@ var findStalledPlanRefusal = ({ record: record3, plan }) => {
     return void 0;
   }
   const finish = plan.implementation === void 0 ? "" : `finish it with \`lightsout resume --run ${plan.implementation.runId}\`, or `;
-  return `the implementation of plan ${plan.id} on ticket ${record3.branch} has not finished, and a ticket's plans implement in numeric order \u2014 ${finish}take it out of the order with \`lightsout ticket exclude-plan --name ${record3.branch} --plan ${plan.id}\``;
+  return `the implementation of plan ${plan.id} on work order ${record3.name} has not finished, and a work order's plans implement in numeric order \u2014 ${finish}take it out of the order with \`lightsout work-order exclude-plan --name ${record3.name} --plan ${plan.id}\``;
 };
 
 // src/queue/workers/common/utils/commitPlanWork.ts
 var commitPlanWork = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, ticketRunDir, config: config2, onProgress } = step;
+  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, onProgress } = step;
   const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
   const runId = plan.implementation?.runId;
-  const committed = await commitTicketWork({
+  const committed = await commitWorkOrderWork({
     cwd,
     message: runId === void 0 ? subject : buildRunCommitMessage({ subject, runId }),
-    runDir: ticketRunDir,
+    runDir: workOrderRunDir,
     generated: config2.generated,
     onProgress
   });
-  return "error" in committed ? `plan ${plan.id} on ticket ${record3.branch} was built, but its work could not be committed: ${committed.error}` : void 0;
+  return "error" in committed ? `plan ${plan.id} on work order ${record3.name} was built, but its work could not be committed: ${committed.error}` : void 0;
 };
 
 // src/queue/workers/common/utils/settleLeftoverWork.ts
@@ -161924,7 +162041,7 @@ var settleLeftoverWork = async ({ step, leftover }) => {
     return void 0;
   }
   const owner = record3.plans.filter((plan) => plan.progress === PlanProgress.Implemented && plan.implementation?.finishedAt !== void 0).sort((first, second) => Date.parse(second.implementation?.finishedAt ?? "") - Date.parse(first.implementation?.finishedAt ?? "")).at(0);
-  return owner === void 0 ? `the worktree ${cwd} holds changes no implemented plan of ticket ${record3.branch} accounts for, so the queue cannot say which plan they belong to` : commitPlanWork({ step: { ...step, plan: owner } });
+  return owner === void 0 ? `the worktree ${cwd} holds changes no implemented plan of work order ${record3.name} accounts for, so the queue cannot say which plan they belong to` : commitPlanWork({ step: { ...step, plan: owner } });
 };
 
 // src/queue/workers/runPlanFolderPipeline.ts
@@ -161933,7 +162050,7 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
   const folder = await planWorkspaceDir({ cwd, name });
   const overviewPath = join150(folder, "overview.md");
   const phased = await pathExists({ path: overviewPath });
-  const outcome = await runTicketPlanLifecycle({
+  const outcome = await runWorkOrderPlanLifecycle({
     cwd,
     name,
     run: ({ runId }) => recordPlanCommandRun({
@@ -161955,7 +162072,7 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
   return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
 };
 
-// src/queue/workers/buildTicketPlans.ts
+// src/queue/workers/buildWorkOrderPlans.ts
 var readLeftoverWork = async ({ cwd, config: config2 }) => {
   const changed = await readGitChangedFiles({ cwd }) ?? [];
   return changed.filter((path) => !isGeneratedPath({ path, generated: config2.generated ?? [] }));
@@ -161963,61 +162080,62 @@ var readLeftoverWork = async ({ cwd, config: config2 }) => {
 var findNextPlanToBuild = ({ record: record3 }) => record3.plans.find((plan) => plan.exclusion === void 0 && plan.progress !== PlanProgress.Implemented);
 var takePlanBeingPlanned = ({ step, allowTicketBodyBuild }) => {
   const { record: record3, plan } = step;
-  if (record3.mode !== TicketMode.SinglePlan) {
-    return { open: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket stays open until that plan is ready to implement` };
+  if (record3.mode !== WorkOrderMode.SinglePlan) {
+    return { open: `plan ${plan.id} on work order ${record3.name} is still being planned, so the work order stays open until that plan is ready to implement` };
   }
   if (!allowTicketBodyBuild || planNumberOf({ id: plan.id }) !== 1) {
     return {
-      error: `plan ${plan.id} on ticket ${record3.branch} is still being planned, so the ticket has nothing ready to implement \u2014 plan it with \`lightsout plan --name ${formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id })}\``
+      error: `plan ${plan.id} on work order ${record3.name} is still being planned, so the work order has nothing ready to implement \u2014 plan it with \`lightsout plan --name ${formatPlanAddress({ workOrderName: record3.name, planId: plan.id })}\``
     };
   }
   return buildFromTicketBody({ step });
 };
 var buildReadyPlan = async ({ step }) => {
   const { cwd, record: record3, plan, config: config2, env, driver, onProgress } = step;
-  const address = formatPlanAddress({ ticketBranch: record3.branch, planId: plan.id });
+  const address = formatPlanAddress({ workOrderName: record3.name, planId: plan.id });
   if (!await pathExists({ path: await planWorkspaceDir({ cwd, name: address }) })) {
-    const restored = await restoreTicketPlan({ cwd, address, config: config2, env, onProgress });
+    const restored = await restoreWorkOrderPlan({ cwd, address, config: config2, env, onProgress });
     if ("error" in restored) {
       return { error: restored.error };
     }
     if (restored.restored.length === 0) {
-      return { error: `plan ${plan.id} is ready to implement on ticket ${record3.branch}, but ${record3.ticketRef} carries no published files for it` };
+      const carrier = record3.ticketRef === void 0 ? "" : ` on ${record3.ticketRef}`;
+      return { error: `plan ${plan.id} is ready to implement on work order ${record3.name}, but nothing${carrier} carries published files for it` };
     }
   }
   return runPlanFolderPipeline({ cwd, name: address, config: config2, driver, onProgress });
 };
-var confirmPlanImplemented = async ({ step, branch }) => {
+var confirmPlanImplemented = async ({ step, workOrderName }) => {
   const { cwd, plan } = step;
-  const reread = await readTicketRecord({ cwd, ticketBranch: branch });
+  const reread = await readWorkOrderState({ cwd, name: workOrderName });
   if ("error" in reread) {
     return reread;
   }
   const { record: record3 } = reread;
   if (record3?.plans.find((candidate) => candidate.id === plan.id)?.progress !== PlanProgress.Implemented) {
     return {
-      error: `plan ${plan.id} on ticket ${branch} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`
+      error: `plan ${plan.id} on work order ${workOrderName} was built and passed, but its implementation is not recorded as finished, so the queue stopped rather than build it again`
     };
   }
   return { record: record3 };
 };
 var decideTicketOutcome = ({ record: record3 }) => {
-  const eligibility = readTicketShipEligibility({ record: record3 });
+  const eligibility = readWorkOrderShipEligibility({ record: record3 });
   if (eligibility.eligible) {
     return {};
   }
-  return record3.mode === TicketMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+  return record3.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
 };
-var buildTicketPlans = async ({
+var buildWorkOrderPlans = async ({
   cwd,
-  branch,
+  workOrderName,
   ticket,
   record: record3,
   config: config2,
   env,
   driver,
   driverName,
-  ticketRunDir,
+  workOrderRunDir,
   allowTicketBodyBuild,
   onProgress
 }) => {
@@ -162029,7 +162147,7 @@ var buildTicketPlans = async ({
     if (plan === void 0) {
       return decideTicketOutcome({ record: current });
     }
-    const step = { cwd, record: current, plan, ticket, config: config2, env, driver, driverName, ticketRunDir, onProgress };
+    const step = { cwd, record: current, plan, ticket, config: config2, env, driver, driverName, workOrderRunDir, onProgress };
     const stalled = findStalledPlanRefusal({ record: current, plan });
     if (stalled !== void 0) {
       return { error: stalled };
@@ -162045,7 +162163,7 @@ var buildTicketPlans = async ({
     if (built.error !== void 0 || built.open !== void 0) {
       return built;
     }
-    const confirmed = await confirmPlanImplemented({ step, branch });
+    const confirmed = await confirmPlanImplemented({ step, workOrderName });
     if ("error" in confirmed) {
       return { error: confirmed.error };
     }
@@ -162058,39 +162176,41 @@ var toFirstPlanSlug = ({ title }) => {
   const words = toBranchSlug({ text: title }).split("-").filter(Boolean).slice(0, 3);
   return words.length === 0 ? "plan" : words.join("-");
 };
-var chooseAutoPlanTarget = async ({
-  cwd,
-  branch,
-  ticket,
-  config: config2,
-  env,
-  onProgress
-}) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+var addFirstPlan = async ({ cwd, workOrderName, ticket, config: config2, env, onProgress }) => {
+  const added = await addWorkOrderPlan({
+    cwd,
+    name: workOrderName,
+    slug: toFirstPlanSlug({ title: ticket.title }),
+    title: ticket.title,
+    config: config2,
+    env,
+    onProgress
+  });
+  if ("error" in added) {
+    return added;
+  }
+  for (const message of [added.notice, added.publishError].filter((entry) => entry !== void 0)) {
+    onProgress?.(message);
+  }
+  return { record: added.record, address: added.address };
+};
+var chooseAutoPlanTarget = async (params) => {
+  const { cwd, workOrderName, config: config2, env, onProgress } = params;
+  const pulled = await pullWorkOrderState({ cwd, name: workOrderName, config: config2, env, onProgress });
   if ("error" in pulled) {
     return pulled;
   }
   if (pulled.record === void 0) {
-    const added = await addTicketPlan({
-      cwd,
-      ticketBranch: branch,
-      slug: toFirstPlanSlug({ title: ticket.title }),
-      title: ticket.title,
-      config: config2,
-      env,
-      onProgress
-    });
-    if ("error" in added) {
-      return added;
-    }
-    for (const message of [added.notice, added.publishError].filter((entry) => entry !== void 0)) {
-      onProgress?.(message);
-    }
-    return { record: added.record, address: added.address };
+    return {
+      error: `no work order is named ${workOrderName}, so there is no record to plan against \u2014 create one with \`lightsout work-order new --ticket <ref>\``
+    };
   }
   const { record: record3 } = pulled;
+  if (record3.plans.length === 0) {
+    return addFirstPlan(params);
+  }
   const waiting = findNextPlanToPlan({ record: record3 });
-  return waiting === void 0 ? { record: record3 } : { record: record3, address: formatPlanAddress({ ticketBranch: branch, planId: waiting.id }) };
+  return waiting === void 0 ? { record: record3 } : { record: record3, address: formatPlanAddress({ workOrderName, planId: waiting.id }) };
 };
 
 // src/queue/workers/runAutoPlanWorker.ts
@@ -162144,21 +162264,21 @@ var runPlanningSession = async ({
 var runAutoPlanWorker = async ({
   cwd,
   ticket,
-  branch,
+  workOrderName,
   config: config2,
   driver,
   driverName,
   settings,
   env,
-  ticketRunDir,
+  workOrderRunDir,
   answeredQuestion,
   onProgress
 }) => {
-  const chosen = await chooseAutoPlanTarget({ cwd, branch, ticket, config: config2, env, onProgress });
+  const chosen = await chooseAutoPlanTarget({ cwd, workOrderName, ticket, config: config2, env, onProgress });
   if ("error" in chosen) {
     return { error: chosen.error };
   }
-  const build = ({ record: record3 }) => buildTicketPlans({ cwd, branch, ticket, record: record3, config: config2, env, driver, driverName, ticketRunDir, allowTicketBodyBuild: false, onProgress });
+  const build = ({ record: record3 }) => buildWorkOrderPlans({ cwd, workOrderName, ticket, record: record3, config: config2, env, driver, driverName, workOrderRunDir, allowTicketBodyBuild: false, onProgress });
   if (chosen.address === void 0) {
     const built = await build({ record: chosen.record });
     return built.open === void 0 ? built : { open: `no plan is waiting to be planned on ${ticket.identifier}: ${built.open}` };
@@ -162168,12 +162288,12 @@ var runAutoPlanWorker = async ({
   if (stopped !== void 0) {
     return stopped;
   }
-  const planned = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  const planned = await pullWorkOrderState({ cwd, name: workOrderName, config: config2, env, onProgress });
   if ("error" in planned) {
     return { error: planned.error };
   }
   if (planned.record === void 0) {
-    return { error: `ticket ${branch} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
+    return { error: `work order ${workOrderName} no longer has a record, so the plan ${planAddress} the session wrote could not be built` };
   }
   return build({ record: planned.record });
 };
@@ -162207,37 +162327,37 @@ var runDirectWorker = async ({
 var runPlanWorker = async ({
   cwd,
   ticket,
-  branch,
+  workOrderName,
   config: config2,
   driver,
   driverName,
   trackerSettings,
   env,
-  ticketRunDir,
+  workOrderRunDir,
   onProgress
 }) => {
-  const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config: config2, env, onProgress });
+  const pulled = await pullWorkOrderState({ cwd, name: workOrderName, config: config2, env, onProgress });
   if ("error" in pulled) {
     return { error: pulled.error };
   }
   if (pulled.record !== void 0) {
-    return buildTicketPlans({
+    return buildWorkOrderPlans({
       cwd,
-      branch,
+      workOrderName,
       ticket,
       record: pulled.record,
       config: config2,
       env,
       driver,
       driverName,
-      ticketRunDir,
+      workOrderRunDir,
       allowTicketBodyBuild: true,
       onProgress
     });
   }
-  const folder = await planWorkspaceDir({ cwd, name: branch });
+  const folder = await planWorkspaceDir({ cwd, name: workOrderName });
   if (!await pathExists({ path: folder })) {
-    const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
+    const restored = await restorePlanWorkspace({ cwd, name: workOrderName, identifier: ticket.identifier, settings: trackerSettings });
     if (restored.error !== void 0) {
       return { error: `the plan published to ${ticket.identifier} could not be fetched: ${restored.error}` };
     }
@@ -162246,11 +162366,11 @@ var runPlanWorker = async ({
       return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
     }
   }
-  return runPlanFolderPipeline({ cwd, name: branch, config: config2, driver, onProgress });
+  return runPlanFolderPipeline({ cwd, name: workOrderName, config: config2, driver, onProgress });
 };
 var runWorkerWithRelay = async ({
   worktreePath,
-  branch,
+  workOrderName,
   ticket,
   config: config2,
   driver,
@@ -162260,7 +162380,7 @@ var runWorkerWithRelay = async ({
   relay,
   coordinatorRunId,
   coordinatorRunDir,
-  ticketRunDir,
+  workOrderRunDir,
   env,
   onProgress
 }) => {
@@ -162269,8 +162389,20 @@ var runWorkerWithRelay = async ({
   for (let turn = 0; ; turn += 1) {
     const workers = {
       [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
-      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
-      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config: config2, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress })
+      [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, workOrderName, config: config2, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
+      [QueueWorker.AutoPlan]: () => runAutoPlanWorker({
+        cwd: worktreePath,
+        ticket,
+        workOrderName,
+        config: config2,
+        driver,
+        driverName,
+        settings,
+        env,
+        workOrderRunDir,
+        answeredQuestion,
+        onProgress
+      })
     };
     const outcome = await workers[ticket.worker]();
     if (outcome.question === void 0) {
@@ -162287,7 +162419,7 @@ var runWorkerWithRelay = async ({
   }
 };
 
-// src/queue/runQueueTicket.ts
+// src/queue/runQueueWorkOrder.ts
 var recordPickup = async ({ cwd, branch, onProgress }) => {
   if (await readBranchState({ cwd, branch }) === void 0) {
     await writeBranchState({ cwd, branch, phase: BranchPhase.Building, onProgress });
@@ -162314,11 +162446,11 @@ var claimOwnership = async ({ settings, trackerSettings, ticket }) => {
   });
   return moved === void 0 ? void 0 : `the ticket status could not be moved to '${inProgress}', so no source work began: ${moved.error}`;
 };
-var runQueueTicket = async ({
+var runQueueWorkOrder = async ({
   cwd,
   settings,
   trackerSettings,
-  ticket,
+  workOrder,
   config: config2,
   driver,
   driverName,
@@ -162330,22 +162462,22 @@ var runQueueTicket = async ({
   coordinatorRunDir,
   onProgress
 }) => {
-  const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-  const ticketRunDir = join151(coordinatorRunDir, "tickets", ticket.identifier);
+  const { ticket, name, branch } = workOrder;
+  const workOrderRunDir = join151(coordinatorRunDir, "work-orders", ticket.identifier);
   const created = await createTicketWorktree({ cwd, branch, defaultBranch, setup: settings.setup, serializeWorktreeAdd, onProgress });
   if (typeof created !== "string") {
-    return { ticket, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
+    return { ticket, name, branch, worktreePath: await resolveWorktreePath({ cwd, branch }), ready: false, error: created.error };
   }
   const worktreePath = created;
   await recordPickup({ cwd, branch, onProgress });
   const unclaimed = await claimOwnership({ settings, trackerSettings, ticket });
   if (unclaimed !== void 0) {
-    return { ticket, branch, worktreePath, ready: false, error: unclaimed };
+    return { ticket, name, branch, worktreePath, ready: false, error: unclaimed };
   }
   const worked = await runWorkerWithRelay({
     worktreePath,
     ticket,
-    branch,
+    workOrderName: name,
     config: config2,
     driver,
     driverName,
@@ -162354,7 +162486,7 @@ var runQueueTicket = async ({
     relay,
     coordinatorRunId,
     coordinatorRunDir,
-    ticketRunDir,
+    workOrderRunDir,
     env,
     onProgress
   });
@@ -162364,12 +162496,12 @@ var runQueueTicket = async ({
     branch,
     defaultBranch,
     ticket,
-    ticketRunDir,
+    workOrderRunDir,
     generated: config2.generated,
     worked,
     onProgress
   });
-  return { ticket, branch, worktreePath, ...settled2 };
+  return { ticket, name, branch, worktreePath, ...settled2 };
 };
 
 // src/queue/settleParkedLabels.ts
@@ -162391,6 +162523,9 @@ var settleParkedLabels = async ({ settings, trackerSettings, outcomes, onProgres
     })
   );
 };
+
+// src/queue/renderWorkOrderBranch.ts
+var renderWorkOrderBranch = ({ ticket, template }) => renderBranchTemplate({ template, ticketRef: ticket.identifier, title: ticket.title });
 
 // src/queue/startup/checkPlanningStatusLabels.ts
 var describeFix = ({ provider, missing }) => provider === "linear" ? `create ${missing.length === 1 ? "it" : "them"} on the team` : (
@@ -162440,8 +162575,8 @@ var checkQueueStartup = async ({ cwd, settings, trackerSettings, shipSettings })
     finished: false,
     unfinishedBlockers: []
   };
-  const rendered = toTicketBranch({ ticket: sample, template: settings.branchTemplate });
-  if (readTicketMatch({ branch: rendered, ticketPattern: shipSettings.ticketPattern }) === void 0) {
+  const rendered = renderWorkOrderBranch({ ticket: sample, template: settings.branchTemplate });
+  if (!matchesTicketPattern({ branch: rendered, ticketPattern: shipSettings.ticketPattern })) {
     return {
       error: `\`queue.branch-template\` renders '${rendered}', which \`ship.ticket-pattern\` does not match \u2014 every queued branch would be unshippable`
     };
@@ -162558,6 +162693,7 @@ var settleUnmergedTree = async ({
   }
   return {
     ticket,
+    name: tree.name,
     branch: tree.branch,
     worktreePath: tree.path,
     ready: bucket === ParkedTreeBucket.Ship,
@@ -162574,7 +162710,7 @@ var toQueuePath = ({ path, root, realRoot }) => {
   }
   return void 0;
 };
-var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
+var listQueueWorktrees = async ({ cwd, onProgress }) => {
   const listed = await runCommand({ command: "git worktree list --porcelain", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
   const root = await resolveWorktreesRoot({ cwd });
   const realRoot = await realpath2(root).catch(() => root);
@@ -162586,9 +162722,14 @@ var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
     if (path === void 0 || branch === void 0) {
       continue;
     }
-    const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
+    const listing = await findWorkOrderForBranch({ cwd, branch });
+    if (listing === void 0) {
+      onProgress?.(`leaving ${path} alone \u2014 no work order's record stores its branch ${branch}`);
+      continue;
+    }
+    const identifier = listing.record.ticketRef;
     if (identifier === void 0) {
-      onProgress?.(`leaving ${path} alone \u2014 its branch carries no ticket the configured pattern matches`);
+      onProgress?.(`leaving ${path} alone \u2014 its work order ${listing.name} belongs to no ticket`);
       continue;
     }
     const record3 = await readWorktreeRecord({ cwd, branch });
@@ -162596,7 +162737,7 @@ var listQueueWorktrees = async ({ cwd, shipSettings, onProgress }) => {
       onProgress?.(`leaving ${path} alone \u2014 it belongs to a '${record3.owner}' run rather than the queue`);
       continue;
     }
-    trees.push({ path, branch, identifier });
+    trees.push({ path, branch, identifier, name: listing.name });
   }
   return trees;
 };
@@ -162618,16 +162759,8 @@ var describeLeftBehind = ({
   }
   return reason;
 };
-var scanParkedWorktrees = async ({
-  cwd,
-  defaultBranch,
-  settings,
-  trackerSettings,
-  shipSettings,
-  holds,
-  onProgress
-}) => {
-  const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
+var scanParkedWorktrees = async ({ cwd, defaultBranch, settings, trackerSettings, holds, onProgress }) => {
+  const trees = await listQueueWorktrees({ cwd, onProgress });
   if (trees.length === 0) {
     return { resumed: [], outcomes: [], leftBehind: [], merged: [] };
   }
@@ -162696,7 +162829,7 @@ var drainAndShip = async ({
 }) => {
   const { coordinatorRunDir, planPath, manifest } = await startCoordinatorRun({ cwd, runId, driverName, config: config2 });
   const serializeMainCheckout = createMainCheckoutSerializer();
-  const board = new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate, onProgress });
+  const board = new QueueBoardRecorder({ cwd, runId, onProgress });
   const boardRelay = new BoardQuestionRelay({ relay, board });
   const drained = await drainQueue({
     cwd,
@@ -162709,6 +162842,9 @@ var drainAndShip = async ({
     // config and `driver` the resolved harness, so the merge lane's integration
     // step recovers with exactly what the builders were given.
     shipIntegration: { config: config2, driver },
+    // The same harness the builders get, threaded so the wave's naming step
+    // summarises a ticket's title exactly as `work-order new` does.
+    driver,
     config: config2,
     env,
     defaultBranch,
@@ -162718,11 +162854,11 @@ var drainAndShip = async ({
     serializeMainCheckout,
     board,
     onProgress,
-    runTicket: ({ ticket }) => runQueueTicket({
+    runWorkOrder: ({ workOrder }) => runQueueWorkOrder({
       cwd,
       settings,
       trackerSettings,
-      ticket,
+      workOrder,
       config: config2,
       driver,
       driverName,
@@ -162732,7 +162868,7 @@ var drainAndShip = async ({
       serializeWorktreeAdd: serializeMainCheckout,
       coordinatorRunId: runId,
       coordinatorRunDir,
-      onProgress: relay.createProgressSink({ ticket })
+      onProgress: relay.createProgressSink({ ticket: workOrder.ticket })
     })
   });
   const status = toCoordinatorStatus({ drained });
@@ -162763,7 +162899,7 @@ var runQueue = async ({
     return eligible;
   }
   const holds = await syncGateHolds({ cwd, settings: trackerSettings, onProgress });
-  const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, shipSettings, holds, onProgress });
+  const parked = await scanParkedWorktrees({ cwd, defaultBranch, settings, trackerSettings, holds, onProgress });
   if ("error" in parked) {
     return parked;
   }
@@ -163028,7 +163164,7 @@ var findIntroducedFindings = ({ frozen, live: live2, severity }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile67, writeFile as writeFile31 } from "node:fs/promises";
+import { readFile as readFile67, writeFile as writeFile30 } from "node:fs/promises";
 import { join as join155 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
@@ -163372,7 +163508,7 @@ var createSiteChecker = ({ cwd, checkPath, checkAll }) => {
 };
 
 // src/refactor/batch/invokeBatchAgent.ts
-import { mkdir as mkdir32, writeFile as writeFile29 } from "node:fs/promises";
+import { mkdir as mkdir32, writeFile as writeFile28 } from "node:fs/promises";
 import { join as join153 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
@@ -163406,7 +163542,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile29(join153(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile28(join153(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
@@ -163431,7 +163567,7 @@ var invokeBatchAgent = async ({
 };
 
 // src/refactor/batch/superviseBatch.ts
-import { mkdir as mkdir33, writeFile as writeFile30 } from "node:fs/promises";
+import { mkdir as mkdir33, writeFile as writeFile29 } from "node:fs/promises";
 import { join as join154 } from "node:path";
 var consultBatchSupervisor = async ({
   cwd,
@@ -163456,7 +163592,7 @@ var consultBatchSupervisor = async ({
     attempts,
     onEvent: createEventFileSink({ path: join154(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile30(join154(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile29(join154(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -163809,7 +163945,7 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
   const worklistPath = join155(await resolveNewRunDir({ cwd, pipeline: PipelineKind.Refactor, runId }), "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: PipelineKind.Refactor, driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile31(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile30(worklistPath, `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -164235,8 +164371,8 @@ var printTicketRow = ({ target, plans, pricing }) => {
     console.log(line);
   }
 };
-var printActivityReport = ({ target, ticketFolder, plans, pricing }) => {
-  if (ticketFolder) {
+var printActivityReport = ({ target, workOrderFolder, plans, pricing }) => {
+  if (workOrderFolder) {
     printSectionHeading({ title: target, subtitle: `${plans.length} plans` });
     printTicketRow({ target, plans, pricing });
   }
@@ -164262,8 +164398,8 @@ var resolveReportTargets = async ({ cwd, name }) => {
   if (children === void 0) {
     return { error: `no plan folder named '${name}' under ${folder}` };
   }
-  const plans = children.filter((child) => child.isDirectory()).map((child) => formatPlanAddress({ ticketBranch: name, planId: child.name })).filter((address) => parsePlanAddress({ name: address }) !== void 0).sort();
-  return parsePlanAddress({ name }) !== void 0 || plans.length === 0 ? { names: [name], ticketFolder: false } : { names: plans, ticketFolder: true };
+  const plans = children.filter((child) => child.isDirectory()).map((child) => formatPlanAddress({ workOrderName: name, planId: child.name })).filter((address) => parsePlanAddress({ name: address }) !== void 0).sort();
+  return parsePlanAddress({ name }) !== void 0 || plans.length === 0 ? { names: [name], workOrderFolder: false } : { names: plans, workOrderFolder: true };
 };
 
 // src/views/common/utils/toStandardsPackRuleListing.ts
@@ -164283,7 +164419,7 @@ var toStandardsPackRuleListing = ({ rule, fixtureCounts }) => ({
 var DeclaredConfig = external_exports.object({ timeouts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() }).catchall(external_exports.unknown());
 
 // src/views/common/utils/getRunTitle.ts
-import { basename as basename44, dirname as dirname32 } from "node:path";
+import { basename as basename43, dirname as dirname30 } from "node:path";
 var namedRuleLimit = 3;
 var describeRules = ({ rules }) => {
   const distinct = [...new Set(rules)];
@@ -164292,9 +164428,9 @@ var describeRules = ({ rules }) => {
   return rest > 0 ? `${named} +${rest} more` : named;
 };
 var getRunTitle = ({ plan, worklist }) => {
-  const name = basename44(plan);
+  const name = basename43(plan);
   const stem = name.replace(/\.md$/, "");
-  const folder = basename44(dirname32(plan));
+  const folder = basename43(dirname30(plan));
   const rules = worklist?.kind === PipelineKind.Refactor ? worklist.worklist?.batches.map((batch) => batch.rule) ?? [] : [];
   let title;
   if (worklist?.kind === PipelineKind.Coverage) {
@@ -164360,9 +164496,9 @@ var readRunListing = async ({ cwd, manifest, lock, worklist }) => {
 };
 
 // src/views/listRuns.ts
-var listRuns = async ({ cwd, ticketBranch }) => {
+var listRuns = async ({ cwd, workOrderName }) => {
   const listings = [];
-  for (const runId of await listRunIds({ cwd, ticketBranch })) {
+  for (const runId of await listRunIds({ cwd, workOrderName })) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
     if (manifest === void 0) {
       continue;
@@ -164595,7 +164731,7 @@ var reportCommand = async ({ cwd, flags }) => {
       JSON.stringify(
         {
           target: name,
-          ticketFolder: resolved.ticketFolder,
+          workOrderFolder: resolved.workOrderFolder,
           plans: plans.map((plan) => ({ name: plan.name, report: plan.report, estimatedCostUsd: estimateOf({ plan, pricing }) }))
         },
         null,
@@ -164604,7 +164740,7 @@ var reportCommand = async ({ cwd, flags }) => {
     );
     return exitCli({ code: 0 });
   }
-  printActivityReport({ target: name, ticketFolder: resolved.ticketFolder, plans, pricing });
+  printActivityReport({ target: name, workOrderFolder: resolved.workOrderFolder, plans, pricing });
   return exitCli({ code: 0 });
 };
 
@@ -164637,12 +164773,12 @@ var readResumedPlanName = async ({ cwd, manifest }) => {
   if (fromPath !== void 0 || manifest.branch === void 0) {
     return fromPath;
   }
-  const read = await readTicketRecord({ cwd, ticketBranch: manifest.branch });
+  const read = await readWorkOrderState({ cwd, name: manifest.branch });
   if ("error" in read || read.record === void 0) {
     return void 0;
   }
   const plan = read.record.plans.find((candidate) => candidate.implementation?.runId === manifest.runId);
-  return plan === void 0 ? void 0 : formatPlanAddress({ ticketBranch: manifest.branch, planId: plan.id });
+  return plan === void 0 ? void 0 : formatPlanAddress({ workOrderName: manifest.branch, planId: plan.id });
 };
 
 // src/cli/common/implementRun/readResumeClearance.ts
@@ -164653,7 +164789,7 @@ var readResumeClearance = async ({
   flags
 }) => {
   const name = await readResumedPlanName({ cwd: workspace, manifest });
-  const terms = await readTicketRunTerms({
+  const terms = await readWorkOrderRunTerms({
     cwd: workspace,
     name,
     planPath: manifest.pipeline === PipelineKind.Direct ? void 0 : manifest.plan
@@ -164754,7 +164890,7 @@ var resumeCommand = async ({ flags, cwd }) => {
   const { resumable, config: config2, driver } = await prepareResumedRun({ cwd, manifest, loaded, willShip: shipIntent.willShip });
   console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
   printRunHeader({ config: config2, driver, cwd });
-  const outcome = await runTicketPlanLifecycle({
+  const outcome = await runWorkOrderPlanLifecycle({
     cwd: workspace,
     name,
     resumeRunId: manifest.runId,
@@ -164776,7 +164912,7 @@ var resumeCommand = async ({ flags, cwd }) => {
       })
     })
   });
-  const result = reportTicketPlanOutcome({ outcome });
+  const result = reportWorkOrderPlanOutcome({ outcome });
   if (result === void 0) {
     return exitCli({ code: 1 });
   }
@@ -164897,7 +165033,7 @@ var shipCommand = async ({ cwd }) => {
     integration: { config: effectiveConfig, driver },
     // The branch's own ticket record has the last word on the merge, here as
     // much as in the queue: a standalone ship is not a way around it.
-    ticketGuard: createTicketShipGuard({ config: config2, env: process.env, onProgress: createProgressPrinter() }),
+    workOrderGuard: createWorkOrderShipGuard({ config: config2, env: process.env, onProgress: createProgressPrinter() }),
     onProgress: createProgressPrinter()
   });
   if (result.status === ShipStatus.Shipped) {
@@ -165407,6 +165543,9 @@ var noLiveProcessLine = ({ progress }) => {
 var loadShippingProgressBlock = async ({ cwd, branch }) => {
   const nowMs = Date.now();
   const { path, exists: exists3, progress } = await readShippingProgress({ cwd, branch });
+  if (path === void 0) {
+    return [`${branch} keeps no local shipping record \u2014 no work order's record stores that branch`];
+  }
   if (exists3 && progress === void 0) {
     return [`the shipping record ${path} could not be read`];
   }
@@ -165530,7 +165669,7 @@ var findBuildRun = async ({ ticket, worktreePath }) => {
   return locked ?? candidates[0];
 };
 var loadPlanningBlock = async ({ worktreePath, planName }) => {
-  const read = await readTicketRecord({ cwd: worktreePath, ticketBranch: planName });
+  const read = await readWorkOrderState({ cwd: worktreePath, name: planName });
   if ("error" in read) {
     return [read.error];
   }
@@ -165539,7 +165678,7 @@ var loadPlanningBlock = async ({ worktreePath, planName }) => {
     return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
   }
   const waiting = findNextPlanToPlan({ record: record3 });
-  return waiting === void 0 ? [`no plan in ${planName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ ticketBranch: planName, planId: waiting.id }) });
+  return waiting === void 0 ? [`no plan in ${planName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName: planName, planId: waiting.id }) });
 };
 var loadBuildBlock = async ({ ticket, worktreePath }) => {
   const run = await findBuildRun({ ticket, worktreePath });
@@ -165811,7 +165950,7 @@ var printShippingStatus = async ({ cwd, flags }) => {
   }
   return exitCli({ code: 0 });
 };
-var resolveTypedRunId = ({ cwd, runId }) => resolveRunId2({ cwd, runId }).catch((error51) => {
+var resolveTypedRunId = ({ cwd, runId }) => resolveRunId({ cwd, runId }).catch((error51) => {
   if (error51 instanceof RunNotFoundError) {
     console.error(error51.message);
     return exitCli({ code: 1 });
@@ -165913,234 +166052,6 @@ var testCoverageToThresholdCommand = ({ flags, cwd }) => runBatchedCommand({
   run: ({ config: config2, driver, maxBatches, existing }) => runCoveragePipeline({ cwd, driver, config: config2, maxBatches, allowDirty: flags.get("allow-dirty") === true, existing, onProgress: createProgressPrinter() })
 });
 
-// src/cli/ticket/common/utils/describePlanProgress.ts
-var planProgressWording = {
-  [PlanProgress.Planning]: "being planned",
-  [PlanProgress.Ready]: "ready to implement",
-  [PlanProgress.Implementing]: "its implementation has not finished",
-  [PlanProgress.Implemented]: "implemented",
-  [PlanProgress.Failed]: "its implementation failed"
-};
-var describePlanProgress = ({ progress }) => planProgressWording[progress];
-
-// src/cli/ticket/common/utils/finishTicketChange.ts
-var finishTicketChange = async ({ ticketBranch, outcome, describe: describe3 }) => {
-  if ("error" in outcome) {
-    console.error(outcome.error);
-    return exitCli({ code: 1 });
-  }
-  const change = outcome;
-  if (change.notice !== void 0) {
-    console.log(change.notice);
-  }
-  for (const line of describe3(change)) {
-    console.log(line);
-  }
-  if (change.publishError !== void 0) {
-    console.error(
-      `${change.publishError}
-the change is on this machine but not on the ticket \u2014 send it with \`lightsout ticket sync --name ${ticketBranch}\``
-    );
-    return exitCli({ code: 1 });
-  }
-  return exitCli({ code: 0 });
-};
-
-// src/cli/ticket/ticketAddPlanCommand.ts
-var ticketAddPlanCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const slug = await getRequiredFlag({ flags, name: "slug" });
-  const from = getStringFlag({ flags, name: "from" });
-  const config2 = await readConfig({ cwd });
-  const outcome = await addTicketPlan({
-    cwd,
-    ticketBranch,
-    slug,
-    title: getStringFlag({ flags, name: "title" }),
-    from,
-    config: config2,
-    env: process.env,
-    onProgress: createProgressPrinter()
-  });
-  await finishTicketChange({
-    ticketBranch,
-    outcome,
-    describe: ({ address, record: record3 }) => {
-      const progress = record3.plans.at(-1)?.progress ?? PlanProgress.Planning;
-      return [
-        from === void 0 ? `ticket ${ticketBranch} now holds ${record3.plans.length} plan(s), the newest of them:` : `the loose files of '${from}' are now this ticket's newest plan, ${describePlanProgress({ progress })}:`,
-        address
-      ];
-    }
-  });
-};
-
-// src/cli/ticket/ticketExcludePlanCommand.ts
-var ticketExcludePlanCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const plan = await getRequiredFlag({ flags, name: "plan" });
-  const reason = await getRequiredFlag({ flags, name: "reason" });
-  const config2 = await readConfig({ cwd });
-  const outcome = await excludeTicketPlan({
-    cwd,
-    ticketBranch,
-    plan,
-    reason,
-    implementationRemoved: flags.get("implementation-removed") === true,
-    config: config2,
-    env: process.env,
-    onProgress: createProgressPrinter()
-  });
-  await finishTicketChange({
-    ticketBranch,
-    outcome,
-    describe: ({ record: record3 }) => [
-      `ticket ${ticketBranch} now includes ${record3.plans.filter((candidate) => candidate.exclusion === void 0).length} plan(s); the excluded plan's files stay on disk`
-    ]
-  });
-};
-
-// src/cli/ticket/ticketModeCommand.ts
-var ticketModeCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const asked = await getRequiredFlag({ flags, name: "set" });
-  const mode = Object.values(TicketMode).find((candidate) => candidate === asked);
-  if (mode === void 0) {
-    console.error(`--set takes ${Object.values(TicketMode).join(" or ")}, and '${asked}' is neither`);
-    return exitCli({ code: 1 });
-  }
-  const config2 = await readConfig({ cwd });
-  const outcome = await setTicketMode({
-    cwd,
-    ticketBranch,
-    mode,
-    approve: flags.get("approve") === true,
-    config: config2,
-    env: process.env,
-    onProgress: createProgressPrinter()
-  });
-  await finishTicketChange({
-    ticketBranch,
-    outcome,
-    describe: ({ record: record3 }) => {
-      const excluded = record3.plans.filter((plan) => plan.exclusion !== void 0).map((plan) => plan.id);
-      return [
-        `ticket ${ticketBranch} is now in ${record3.mode} mode`,
-        ...excluded.length === 0 ? [] : [`excluded from its implementation and its shipping: ${excluded.join(", ")} \u2014 their files stay on disk`]
-      ];
-    }
-  });
-};
-
-// src/cli/ticket/ticketRequestShipCommand.ts
-var ticketRequestShipCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const plans = getListFlag({ flags, name: "plans" });
-  const withdraw = flags.get("withdraw") === true;
-  if (plans !== void 0 === withdraw) {
-    console.error(
-      "`lightsout ticket request-ship` takes exactly one of --plans <id,id> and --withdraw: the first records a request, the second takes one back"
-    );
-    return exitCli({ code: 1 });
-  }
-  const config2 = await readConfig({ cwd });
-  const shared = { cwd, ticketBranch, config: config2, env: process.env, onProgress: createProgressPrinter() };
-  const outcome = plans === void 0 ? await withdrawTicketShipRequest(shared) : await requestTicketShip({ ...shared, plans });
-  await finishTicketChange({
-    ticketBranch,
-    outcome,
-    describe: ({ record: record3 }) => [
-      record3.shipRequest === void 0 ? `ticket ${ticketBranch} carries no ship request, so it stays open` : `ticket ${ticketBranch} is to ship once ${record3.shipRequest.planIds.join(", ")} are implemented`
-    ]
-  });
-};
-
-// src/cli/ticket/ticketRetitlePlanCommand.ts
-var ticketRetitlePlanCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const plan = await getRequiredFlag({ flags, name: "plan" });
-  const title = await getRequiredFlag({ flags, name: "title" });
-  const config2 = await readConfig({ cwd });
-  const outcome = await retitleTicketPlan({ cwd, ticketBranch, plan, title, config: config2, env: process.env, onProgress: createProgressPrinter() });
-  await finishTicketChange({ ticketBranch, outcome, describe: () => [`the plan is now titled '${title}' on ticket ${ticketBranch}`] });
-};
-
-// src/cli/ticket/ticketShowCommand.ts
-var renderTicketRecord = ({ record: record3 }) => [
-  `ticket ${record3.ticketRef} on branch ${record3.branch} \u2014 ${record3.mode} mode`,
-  ...record3.plans.map((plan) => {
-    const excluded = plan.exclusion === void 0 ? "" : ` \u2014 excluded: ${plan.exclusion.reason}`;
-    return `  ${plan.id} \u2014 ${plan.title} \u2014 ${describePlanProgress({ progress: plan.progress })}${excluded}`;
-  }),
-  record3.shipRequest === void 0 ? "no ship request is pending, so this ticket stays open" : `ship request: ${record3.shipRequest.planIds.join(", ")} \u2014 the ticket ships once every one of them is implemented`,
-  ...record3.shipped === void 0 ? [] : [`shipped as ${record3.shipped.mergeCommit}`]
-];
-var ticketShowCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const config2 = await readConfig({ cwd });
-  const pulled = await pullTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, onProgress: createProgressPrinter() });
-  if ("error" in pulled) {
-    console.error(pulled.error);
-    return exitCli({ code: 1 });
-  }
-  if (pulled.record === void 0) {
-    console.error(describeMissingTicketRecord({ ticketBranch }));
-    return exitCli({ code: 1 });
-  }
-  for (const line of renderTicketRecord({ record: pulled.record })) {
-    console.log(line);
-  }
-  return exitCli({ code: 0 });
-};
-
-// src/cli/ticket/ticketSyncCommand.ts
-var ticketSyncCommand = async ({ flags, cwd }) => {
-  const ticketBranch = await getRequiredFlag({ flags, name: "name" });
-  const asked = getStringFlag({ flags, name: "keep" });
-  const keep = Object.values(TicketSyncKeep).find((candidate) => candidate === asked);
-  if (asked !== void 0 && keep === void 0) {
-    console.error(`--keep takes ${Object.values(TicketSyncKeep).join(" or ")}, and '${asked}' is neither`);
-    return exitCli({ code: 1 });
-  }
-  const config2 = await readConfig({ cwd });
-  const synced = await syncTicketRecord({ cwd, ticketBranch, config: config2, env: process.env, keep, onProgress: createProgressPrinter() });
-  if ("error" in synced) {
-    console.error(synced.error);
-    return exitCli({ code: 1 });
-  }
-  console.log(
-    keep === void 0 ? `the ticket record for ${ticketBranch} and the copy on ${synced.record.ticketRef} are in sync` : `the ${keep} copy of ${ticketBranch}'s record is now the one on both sides`
-  );
-  return exitCli({ code: 0 });
-};
-
-// src/cli/ticket/ticketCommand.ts
-var ticketSubcommands = {
-  "add-plan": ticketAddPlanCommand,
-  mode: ticketModeCommand,
-  "request-ship": ticketRequestShipCommand,
-  "exclude-plan": ticketExcludePlanCommand,
-  "retitle-plan": ticketRetitlePlanCommand,
-  show: ticketShowCommand,
-  sync: ticketSyncCommand
-};
-var ticketCommand = async ({ flags, rest, cwd }) => {
-  const word = getPositionals({ args: rest })[0] ?? "";
-  const subcommand = ticketSubcommands[word];
-  if (subcommand === void 0) {
-    console.error(usage);
-    return exitCli({ code: 1 });
-  }
-  const name = getStringFlag({ flags, name: "name" });
-  if (name !== void 0 && parsePlanAddress({ name }) !== void 0) {
-    console.error(
-      `\`lightsout ticket ${word}\` acts on a whole ticket, so --name takes the ticket's branch rather than one plan's address \u2014 name ${ticketFolderOf({ name })} instead`
-    );
-    return exitCli({ code: 1 });
-  }
-  await subcommand({ flags, rest, cwd });
-};
-
 // src/cli/ticketStateCommand.ts
 var writableStatusRoles = [TrackerStatusRole.Ready, TrackerStatusRole.InProgress];
 var parsePlanningStatus = ({ value }) => {
@@ -166224,8 +166135,8 @@ var getStreamText = async ({ stream }) => {
 };
 
 // src/voice/createVoiceMarker.ts
-import { mkdir as mkdir34, writeFile as writeFile32 } from "node:fs/promises";
-import { dirname as dirname33 } from "node:path";
+import { mkdir as mkdir34, writeFile as writeFile31 } from "node:fs/promises";
+import { dirname as dirname31 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
 import { join as join159 } from "node:path";
@@ -166236,8 +166147,8 @@ var getVoiceMarkerPath = ({ cwd }) => {
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir34(dirname33(markerPath), { recursive: true });
-  await writeFile32(markerPath, "", "utf8");
+  await mkdir34(dirname31(markerPath), { recursive: true });
+  await writeFile31(markerPath, "", "utf8");
 };
 
 // src/voice/deleteVoiceMarker.ts
@@ -166374,7 +166285,7 @@ var isVoiceOn = async ({ cwd }) => {
 
 // src/voice/speakText.ts
 import { spawn as spawn3 } from "node:child_process";
-import { writeFile as writeFile33 } from "node:fs/promises";
+import { writeFile as writeFile32 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
 import { join as join160 } from "node:path";
@@ -166409,7 +166320,7 @@ var speakText = async ({ cwd, text }) => {
   child.stdin?.write(text);
   child.stdin?.end();
   if (child.pid !== void 0) {
-    await writeFile33(getVoicePidPath({ cwd }), String(child.pid), "utf8");
+    await writeFile32(getVoicePidPath({ cwd }), String(child.pid), "utf8");
   }
   child.unref();
 };
@@ -166543,6 +166454,248 @@ var voiceCommand = async ({ rest, cwd }) => {
   return exitCli({ code: 1 });
 };
 
+// src/cli/workOrder/common/utils/finishWorkOrderChange.ts
+var finishWorkOrderChange = async ({ name, outcome, describe: describe3 }) => {
+  if ("error" in outcome) {
+    console.error(outcome.error);
+    return exitCli({ code: 1 });
+  }
+  const change = outcome;
+  if (change.notice !== void 0) {
+    console.log(change.notice);
+  }
+  for (const line of describe3(change)) {
+    console.log(line);
+  }
+  if (change.publishError !== void 0) {
+    console.error(`${change.publishError}
+the change is on this machine but not on the ticket \u2014 send it with \`lightsout work-order sync --name ${name}\``);
+    return exitCli({ code: 1 });
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/workOrder/workOrderAddPlanCommand.ts
+var workOrderAddPlanCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const slug = await getRequiredFlag({ flags, name: "slug" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await addWorkOrderPlan({
+    cwd,
+    name,
+    slug,
+    title: getStringFlag({ flags, name: "title" }),
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishWorkOrderChange({
+    name,
+    outcome,
+    describe: ({ address, record: record3 }) => [`work order ${name} now holds ${record3.plans.length} plan(s), the newest of them:`, address]
+  });
+};
+
+// src/cli/workOrder/workOrderExcludePlanCommand.ts
+var workOrderExcludePlanCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const plan = await getRequiredFlag({ flags, name: "plan" });
+  const reason = await getRequiredFlag({ flags, name: "reason" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await excludeWorkOrderPlan({
+    cwd,
+    name,
+    plan,
+    reason,
+    implementationRemoved: flags.get("implementation-removed") === true,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishWorkOrderChange({
+    name,
+    outcome,
+    describe: ({ record: record3 }) => [
+      `ticket ${name} now includes ${record3.plans.filter((candidate) => candidate.exclusion === void 0).length} plan(s); the excluded plan's files stay on disk`
+    ]
+  });
+};
+
+// src/cli/workOrder/workOrderModeCommand.ts
+var workOrderModeCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const asked = await getRequiredFlag({ flags, name: "set" });
+  const mode = Object.values(WorkOrderMode).find((candidate) => candidate === asked);
+  if (mode === void 0) {
+    console.error(`--set takes ${Object.values(WorkOrderMode).join(" or ")}, and '${asked}' is neither`);
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const outcome = await setWorkOrderMode({
+    cwd,
+    name,
+    mode,
+    approve: flags.get("approve") === true,
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  await finishWorkOrderChange({
+    name,
+    outcome,
+    describe: ({ record: record3 }) => {
+      const excluded = record3.plans.filter((plan) => plan.exclusion !== void 0).map((plan) => plan.id);
+      return [
+        `ticket ${name} is now in ${record3.mode} mode`,
+        ...excluded.length === 0 ? [] : [`excluded from its implementation and its shipping: ${excluded.join(", ")} \u2014 their files stay on disk`]
+      ];
+    }
+  });
+};
+
+// src/cli/workOrder/workOrderNewCommand.ts
+var workOrderNewCommand = async ({ flags, cwd }) => {
+  const config2 = await readConfig({ cwd });
+  const created = await createWorkOrder({
+    cwd,
+    ticketRef: getStringFlag({ flags, name: "ticket" }),
+    title: getStringFlag({ flags, name: "title" }),
+    config: config2,
+    env: process.env,
+    onProgress: createProgressPrinter()
+  });
+  if ("error" in created) {
+    console.error(created.error);
+    return exitCli({ code: 1 });
+  }
+  console.log(`work order ${created.name} implements on branch ${created.branch}`);
+  console.log(created.name);
+  return exitCli({ code: 0 });
+};
+
+// src/cli/workOrder/workOrderRequestShipCommand.ts
+var workOrderRequestShipCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const plans = getListFlag({ flags, name: "plans" });
+  const withdraw = flags.get("withdraw") === true;
+  if (plans !== void 0 === withdraw) {
+    console.error(
+      "`lightsout work-order request-ship` takes exactly one of --plans <id,id> and --withdraw: the first records a request, the second takes one back"
+    );
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const shared = { cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() };
+  const outcome = plans === void 0 ? await withdrawWorkOrderShipRequest(shared) : await requestWorkOrderShip({ ...shared, plans });
+  await finishWorkOrderChange({
+    name,
+    outcome,
+    describe: ({ record: record3 }) => [
+      record3.shipRequest === void 0 ? `ticket ${name} carries no ship request, so it stays open` : `ticket ${name} is to ship once ${record3.shipRequest.planIds.join(", ")} are implemented`
+    ]
+  });
+};
+
+// src/cli/workOrder/workOrderRetitlePlanCommand.ts
+var workOrderRetitlePlanCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const plan = await getRequiredFlag({ flags, name: "plan" });
+  const title = await getRequiredFlag({ flags, name: "title" });
+  const config2 = await readConfig({ cwd });
+  const outcome = await retitleWorkOrderPlan({ cwd, name, plan, title, config: config2, env: process.env, onProgress: createProgressPrinter() });
+  await finishWorkOrderChange({ name, outcome, describe: () => [`the plan is now titled '${title}' on ticket ${name}`] });
+};
+
+// src/cli/workOrder/common/utils/describePlanProgress.ts
+var planProgressWording = {
+  [PlanProgress.Planning]: "being planned",
+  [PlanProgress.Ready]: "ready to implement",
+  [PlanProgress.Implementing]: "its implementation has not finished",
+  [PlanProgress.Implemented]: "implemented",
+  [PlanProgress.Failed]: "its implementation failed"
+};
+var describePlanProgress = ({ progress }) => planProgressWording[progress];
+
+// src/cli/workOrder/workOrderShowCommand.ts
+var renderWorkOrderState = ({ record: record3 }) => [
+  // The label leads, because it is what every other subcommand is typed with;
+  // the branch follows, because a prefixed one cannot be read off the label.
+  `work order ${record3.name} on branch ${record3.branch} \u2014 ${record3.mode} mode${record3.ticketRef === void 0 ? "" : ` \u2014 ${record3.ticketRef}`}`,
+  ...record3.plans.map((plan) => {
+    const excluded = plan.exclusion === void 0 ? "" : ` \u2014 excluded: ${plan.exclusion.reason}`;
+    return `  ${plan.id} \u2014 ${plan.title} \u2014 ${describePlanProgress({ progress: plan.progress })}${excluded}`;
+  }),
+  record3.shipRequest === void 0 ? "no ship request is pending, so this work order stays open" : `ship request: ${record3.shipRequest.planIds.join(", ")} \u2014 the work order ships once every one of them is implemented`,
+  ...record3.shipped === void 0 ? [] : [`shipped as ${record3.shipped.mergeCommit}`]
+];
+var workOrderShowCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const config2 = await readConfig({ cwd });
+  const pulled = await pullWorkOrderState({ cwd, name, config: config2, env: process.env, onProgress: createProgressPrinter() });
+  if ("error" in pulled) {
+    console.error(pulled.error);
+    return exitCli({ code: 1 });
+  }
+  if (pulled.record === void 0) {
+    console.error(describeMissingWorkOrder({ name }));
+    return exitCli({ code: 1 });
+  }
+  for (const line of renderWorkOrderState({ record: pulled.record })) {
+    console.log(line);
+  }
+  return exitCli({ code: 0 });
+};
+
+// src/cli/workOrder/workOrderSyncCommand.ts
+var workOrderSyncCommand = async ({ flags, cwd }) => {
+  const name = await getRequiredFlag({ flags, name: "name" });
+  const asked = getStringFlag({ flags, name: "keep" });
+  const keep = Object.values(WorkOrderSyncKeep).find((candidate) => candidate === asked);
+  if (asked !== void 0 && keep === void 0) {
+    console.error(`--keep takes ${Object.values(WorkOrderSyncKeep).join(" or ")}, and '${asked}' is neither`);
+    return exitCli({ code: 1 });
+  }
+  const config2 = await readConfig({ cwd });
+  const synced = await syncWorkOrderState({ cwd, name, config: config2, env: process.env, keep, onProgress: createProgressPrinter() });
+  if ("error" in synced) {
+    console.error(synced.error);
+    return exitCli({ code: 1 });
+  }
+  const carrier = synced.record.ticketRef === void 0 ? "" : ` on ${synced.record.ticketRef}`;
+  console.log(
+    keep === void 0 ? `the record for work order ${synced.record.name} and the copy${carrier} are in sync` : `the ${keep} copy of ${name}'s record is now the one on both sides`
+  );
+  return exitCli({ code: 0 });
+};
+
+// src/cli/workOrder/workOrderCommand.ts
+var workOrderSubcommands = {
+  new: workOrderNewCommand,
+  "add-plan": workOrderAddPlanCommand,
+  mode: workOrderModeCommand,
+  "request-ship": workOrderRequestShipCommand,
+  "exclude-plan": workOrderExcludePlanCommand,
+  "retitle-plan": workOrderRetitlePlanCommand,
+  show: workOrderShowCommand,
+  sync: workOrderSyncCommand
+};
+var workOrderCommand = async ({ flags, rest, cwd }) => {
+  const word = getPositionals({ args: rest })[0] ?? "";
+  const subcommand = workOrderSubcommands[word];
+  if (subcommand === void 0) {
+    console.error(usage);
+    return exitCli({ code: 1 });
+  }
+  const name = getStringFlag({ flags, name: "name" });
+  if (name !== void 0 && parsePlanAddress({ name }) !== void 0) {
+    console.error(
+      `\`lightsout work-order ${word}\` acts on a whole ticket, so --name takes the ticket's branch rather than one plan's address \u2014 name ${workOrderNameOf({ name })} instead`
+    );
+    return exitCli({ code: 1 });
+  }
+  await subcommand({ flags, rest, cwd });
+};
+
 // src/main.ts
 var commands = {
   implement: implementCommand,
@@ -166551,8 +166704,8 @@ var commands = {
   resume: resumeCommand,
   ship: shipCommand,
   "self-check": selfCheckCommand,
-  ticket: ticketCommand,
   "ticket-state": ticketStateCommand,
+  "work-order": workOrderCommand,
   status: statusCommand,
   doctor: doctorCommand,
   report: reportCommand,
