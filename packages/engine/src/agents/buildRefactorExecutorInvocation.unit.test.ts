@@ -235,15 +235,23 @@ test('buildRefactorExecutorInvocation: the command ban names what is banned and 
 	expect(prose).not.toContain('Do not run shell commands');
 });
 
-test('buildRefactorExecutorInvocation: a feature scope forbids the files outside its list, a standalone scope allows what a fix needs', () => {
+test('buildRefactorExecutorInvocation: both scopes let one fix reach the files it needs, and only a feature scope refuses a folder-level remedy', () => {
 	const feature = buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: ['src/widget.ts'] });
 	const standalone = buildRefactorExecutorInvocation({ scope: RefactorScope.Standalone, planContent, changedFiles: ['src/widget.ts'] });
 
-	// the fence, stated only to the caller whose branch a reviewer reads as a feature
-	expect(feature.systemPrompt.includes('Never refactor a file outside the listed set.')).toBeTruthy();
-	expect(standalone.systemPrompt.includes('Never refactor a file outside the listed set.')).toBeFalsy();
+	// the permission both callers need: a repair whose remedy sits partly outside
+	// the list is finished, not declined. Silence here is what made two agents in
+	// one run read the same instruction and reach opposite answers.
+	expect(feature.systemPrompt.includes('cannot be finished without it')).toBeTruthy();
+	expect(standalone.systemPrompt.includes('cannot be finished without')).toBeTruthy();
 
-	// and the permission, stated only to the caller invoked to reorganize
+	// the limit that is left, stated only to the caller whose branch a reviewer
+	// reads as a feature: a folder cap is cleared by moving files the feature
+	// never touched, which is the reorganization that branch did not sign up for
+	expect(feature.systemPrompt.includes('A folder-level finding (`crowded-folder`) is REPORTED')).toBeTruthy();
+	expect(standalone.systemPrompt.includes('A folder-level finding')).toBeFalsy();
+
+	// and the licence to reorganize, stated only to the caller invoked to do it
 	expect(standalone.systemPrompt.includes('They are not a fence.')).toBeTruthy();
 	expect(feature.systemPrompt.includes('They are not a fence.')).toBeFalsy();
 
