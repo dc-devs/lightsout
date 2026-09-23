@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { WorktreeOwner } from '#src/contracts/index.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
 import { createWorktree, readWorktreeRecord } from '#src/worktree/index.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** A main checkout with one real worktree on a ticket branch, cut from the default branch. */
@@ -12,6 +13,9 @@ const setupWorktree = async ({ branch }: { branch: string }) => {
 	const { cwd } = setupBranchRepo();
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
+	// A tree's ownership record is filed in the work order whose record stores
+	// its branch, so the work order comes before the tree.
+	seedWorkOrderRecord({ cwd, name: branch });
 
 	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 

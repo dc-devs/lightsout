@@ -1,11 +1,10 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
 import { trackTask } from '#src/queue/drainLanes/common/utils/trackTask.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
 interface Params {
@@ -15,16 +14,24 @@ interface Params {
 }
 
 /** A build that threw: parked carrying the message, and never `unanswered` — a crash holds no human, so its slot refills. */
-const parkedBuild = async ({ context, ticket, thrown }: { context: LaneContext; ticket: RunnableTicket; thrown: unknown }): Promise<TicketRunOutcome> => {
-	const branch = toTicketBranch({ ticket, template: context.settings.branchTemplate });
+const parkedBuild = async ({
+	context,
+	workOrder,
+	thrown,
+}: {
+	context: LaneContext;
+	workOrder: NamedWorkOrder;
+	thrown: unknown;
+}): Promise<WorkOrderRunOutcome> => {
+	const { ticket, name, branch } = workOrder;
 	const worktreePath = await resolveWorktreePath({ cwd: context.cwd, branch });
 
-	return { ticket, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
+	return { ticket, name, branch, worktreePath, ready: false, error: messageOf({ error: thrown }) };
 };
 
 /** The build leaves `building` in the same step its outcome joins a lane, so no snapshot shows it in two or in none. */
-const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: RunnableTicket; outcome: TicketRunOutcome }) => {
-	state.building.delete(ticket.identifier.toLowerCase());
+const settleBuild = ({ state, workOrder, outcome }: { state: LaneState; workOrder: NamedWorkOrder; outcome: WorkOrderRunOutcome }) => {
+	state.building.delete(workOrder.ticket.identifier.toLowerCase());
 
 	if (outcome.unanswered === true) {
 		state.retired += 1;
@@ -37,12 +44,12 @@ const settleBuild = ({ state, ticket, outcome }: { state: LaneState; ticket: Run
 	}
 };
 
-/** One ticket built and settled — never rejecting, for the reason the ship lane never does. */
-const buildTicket = async ({ context, state, ticket }: { context: LaneContext; state: LaneState; ticket: RunnableTicket }) => {
+/** One work order built and settled — never rejecting, for the reason the ship lane never does. */
+const buildWorkOrder = async ({ context, state, workOrder }: { context: LaneContext; state: LaneState; workOrder: NamedWorkOrder }) => {
 	try {
-		settleBuild({ state, ticket, outcome: await context.runTicket({ ticket }) });
+		settleBuild({ state, workOrder, outcome: await context.runWorkOrder({ workOrder }) });
 	} catch (thrown) {
-		settleBuild({ state, ticket, outcome: await parkedBuild({ context, ticket, thrown }) });
+		settleBuild({ state, workOrder, outcome: await parkedBuild({ context, workOrder, thrown }) });
 	}
 };
 
@@ -56,18 +63,18 @@ const buildTicket = async ({ context, state, ticket }: { context: LaneContext; s
  */
 export const startBuilds = ({ context, state, flight }: Params): void => {
 	while (state.pending.length > 0 && flight.builds + flight.ships + state.retired < context.settings.maxParallel) {
-		const ticket = state.pending.shift();
+		const workOrder = state.pending.shift();
 
-		if (ticket === undefined) {
+		if (workOrder === undefined) {
 			break;
 		}
 
 		flight.builds += 1;
-		state.building.set(ticket.identifier.toLowerCase(), { ticket, startedAt: new Date().toISOString() });
+		state.building.set(workOrder.ticket.identifier.toLowerCase(), { workOrder, startedAt: new Date().toISOString() });
 		trackTask({
 			flight,
 			run: async () => {
-				await buildTicket({ context, state, ticket });
+				await buildWorkOrder({ context, state, workOrder });
 				flight.builds -= 1;
 			},
 		});

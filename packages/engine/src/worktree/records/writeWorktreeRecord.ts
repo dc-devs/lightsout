@@ -20,8 +20,9 @@ interface Params {
  * from the step that just made it true.
  *
  * A failed write is a progress line and nothing more, exactly as
- * `writeBranchState`'s is: the tree exists either way, and refusing to create
- * it because a JSON write failed would be the worse outcome.
+ * `writeBranchState`'s is, and so is a branch no work order claims: the tree
+ * exists either way, and refusing to create it because a JSON write was
+ * impossible would be the worse outcome.
  */
 export const writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, startPoint, onProgress }: Params): Promise<void> => {
 	const record: WorktreeRecord = { branch, owner, worktreePath, createdAt: new Date().toISOString(), ...(startPoint === undefined ? {} : { startPoint }) };
@@ -30,6 +31,12 @@ export const writeWorktreeRecord = async ({ cwd, branch, owner, worktreePath, st
 		// Resolved inside the try, so a checkout that cannot be resolved is reported
 		// as the same progress line a refused write is rather than thrown at the run.
 		const recordPath = await getWorktreeRecordPath({ cwd, branch });
+
+		if (recordPath === undefined) {
+			onProgress?.(`the worktree for ${branch} was not recorded as '${owner}': no work order's record stores that branch, so it keeps no local record`);
+
+			return;
+		}
 
 		await mkdir(dirname(recordPath), { recursive: true });
 		await writeJsonFile({ path: `${recordPath}.tmp`, value: record });

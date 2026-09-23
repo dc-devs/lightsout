@@ -1,12 +1,12 @@
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { TicketRecord } from '#src/contracts/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import type { WorkOrderState } from '#src/contracts/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The record to write, whose `branch` names the ticket folder it lands in. */
-	record: TicketRecord;
+	record: WorkOrderState;
 }
 
 /**
@@ -20,7 +20,7 @@ interface Params {
 export const canonicalTicketRecordText = async ({ record }: Params): Promise<string> => {
 	const scratch = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-bytes-'));
 
-	await updateLocalTicketRecord({ cwd: scratch, ticketBranch: record.branch, change: () => record });
+	await updateLocalWorkOrderState({ cwd: scratch, name: record.branch, change: () => record });
 
-	return readFileSync(join(scratch, '.lightsout', 'tickets', record.branch, 'ticket.json'), 'utf8');
+	return readFileSync(join(scratch, '.lightsout', 'work-orders', record.branch, 'state.json'), 'utf8');
 };

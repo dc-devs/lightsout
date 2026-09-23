@@ -13,8 +13,6 @@ interface Params {
 	flags: CommandContext['flags'];
 	/** `--ticket` exactly as the user typed it. */
 	ticketPath: string;
-	/** The ticket file's contents, already read from the launching checkout. */
-	ticketBody: string;
 	/** `--ref` exactly as the user typed it, when one was typed. */
 	flaggedRef: string | undefined;
 }
@@ -32,7 +30,6 @@ export const openDirectWorkspace = async ({
 	config,
 	flags,
 	ticketPath,
-	ticketBody,
 	flaggedRef,
 }: Params): Promise<{ workspace: RunWorkspace; ticketPath: string } | { error: string }> => {
 	const workspace = await resolveRunWorkspace({
@@ -41,7 +38,6 @@ export const openDirectWorkspace = async ({
 		flags,
 		ticketPath,
 		ticketRef: flaggedRef,
-		ticketBody,
 		onProgress: createProgressPrinter(),
 	});
 

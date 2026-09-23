@@ -3,12 +3,14 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -69,6 +71,24 @@ const seedCwd = async ({ config = { 'ticket-tracker': ticketTrackerConfigBlock }
 	return seedConfiguredCwd({ config });
 };
 
+/**
+ * A repo whose work order belongs to a ticket its own label does not spell, so
+ * a fetch that read the ticket out of the folder name would ask for nothing at
+ * all. The record is written by hand, because the look-up is what is under test.
+ */
+const setupRecordedWorkOrder = async ({ workOrderName, ticketRef }: { workOrderName: string; ticketRef: string }) => {
+	const cwd = await seedCwd();
+	const folder = join(cwd, '.lightsout', 'work-orders', workOrderName);
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(
+		join(folder, 'state.json'),
+		JSON.stringify({ schemaVersion: 1, name: workOrderName, branch: workOrderName, ticketRef, mode: 'multiple-plan', plans: [], history: [] }),
+	);
+
+	return { cwd };
+};
+
 const planNotesBody = '# the brainstorm write-up for plan 001-a\n';
 const planDecisionsBody = '{"planName":"lo-9-x/001-a","decisions":[]}\n';
 
@@ -104,6 +124,17 @@ const seedTicketCwd = async ({ generations }: { generations: { prefix?: string; 
 };
 
 const ensure = ({ cwd, planName = name }: { cwd: string; planName?: string }) => {
+	// Which ticket a plan's brainstorm comes from is the work order record's
+	// answer. A case whose label spells a ticket id gets the record that label
+	// used to stand in for; a case that wrote its own record keeps it, because a
+	// label spelling nothing seeds nothing.
+	const label = workOrderNameOf({ name: planName });
+	const spelled = /^[a-z]+-\d+/u.exec(label)?.[0];
+
+	if (spelled !== undefined) {
+		seedWorkOrderRecord({ cwd, name: label, ticketRef: spelled });
+	}
+
 	const printed: string[] = [];
 
 	return ensureBrainstormFiles({ cwd, name: planName, write: (line) => printed.push(line) }).then(() => printed);
@@ -147,7 +178,7 @@ describe('ensureBrainstormFiles', () => {
 				{ notes: notesBody, decisions: decisionsBody },
 			],
 		});
-		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+		const dir = join(cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
 
 		const printed = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 
@@ -158,8 +189,8 @@ describe('ensureBrainstormFiles', () => {
 
 	test('ensureBrainstormFiles: plan 001 falls back to a bare-title brainstorm generation and no later plan does', async () => {
 		const cwd = await seedTicketCwd({ generations: [{ notes: notesBody, decisions: decisionsBody }] });
-		const firstDir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
-		const laterDir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '002-b');
+		const firstDir = join(cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
+		const laterDir = join(cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '002-b');
 
 		const printedForFirst = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 		const printedForLater = await ensure({ cwd, planName: 'lo-9-x/002-b' });
@@ -173,7 +204,7 @@ describe('ensureBrainstormFiles', () => {
 
 	test("ensureBrainstormFiles: plan 001 prints one warning when the ticket's bare-title generation cannot be fetched", async () => {
 		const cwd = await seedTicketCwd({ generations: [{ notes: notesBody, decisions: decisionsBody, marker: false }] });
-		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+		const dir = join(cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
 
 		const printed = await ensure({ cwd, planName: 'lo-9-x/001-a' });
 
@@ -185,7 +216,7 @@ describe('ensureBrainstormFiles', () => {
 
 	test('ensureBrainstormFiles: for a plan address, keeps a brainstorm file already in the plan folder and reports it kept', async () => {
 		const cwd = await seedTicketCwd({ generations: [{ prefix: '001-a', notes: planNotesBody, decisions: planDecisionsBody }] });
-		const dir = join(cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+		const dir = join(cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
 		const mine = '# the write-up I am still editing\n';
 
 		mkdirSync(dir, { recursive: true });
@@ -199,5 +230,18 @@ describe('ensureBrainstormFiles', () => {
 			`lightsout: fetched 1 brainstorm file(s) from ticket lo-9 into ${dir}`,
 			'lightsout: kept the local brainstorm-notes.md — ticket lo-9 also carries it',
 		]);
+	});
+
+	test("restores from the ticket the work order's record names", async () => {
+		const workOrderName = 'brainstorm-decides-its-outcome';
+		const { cwd } = await setupRecordedWorkOrder({ workOrderName, ticketRef: 'lo-117' });
+		const dir = planWorkspaceFolder({ cwd: cwd, name: workOrderName });
+
+		const printed = await ensure({ cwd, planName: workOrderName });
+
+		expect(mockGetTicketAttachments).toHaveBeenCalledWith(expect.objectContaining({ identifier: 'lo-117' }));
+		expect(readFileSync(join(dir, 'brainstorm-notes.md'), 'utf8')).toBe(notesBody);
+		expect(readFileSync(join(dir, 'brainstorm-decisions.json'), 'utf8')).toBe(decisionsBody);
+		expect(printed).toStrictEqual([`lightsout: fetched 2 brainstorm file(s) from ticket lo-117 into ${dir}`]);
 	});
 });

@@ -101,7 +101,7 @@ test("plan grade: the findings a phased plan's readers return reach one judge pe
 	// a seam finding cannot be settled from one side, so a phased plan's judge is
 	// told the folder its neighbours sit in rather than handed their text
 	expect(
-		judges.every(({ prompt }) => prompt.includes(`The plan's other phase files are in \`${join('.lightsout', 'tickets', 'phased-judged', 'plans')}\``)),
+		judges.every(({ prompt }) => prompt.includes(`The plan's other phase files are in \`${join('.lightsout', 'work-orders', 'phased-judged', 'plans')}\``)),
 	).toBe(true);
 	// the overview rides the judge's cached system prompt, exactly as it rides the reader's
 	expect(judges.every(({ systemPrompt }) => (systemPrompt ?? '').includes(overviewMarker))).toBe(true);

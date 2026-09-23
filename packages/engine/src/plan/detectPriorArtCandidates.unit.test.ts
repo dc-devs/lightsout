@@ -26,7 +26,7 @@ const setup = ({
 		writeFileSync(abs, 'export const x = 1;\n');
 	}
 
-	const dir = join(cwd, '.lightsout', 'tickets', 'p', 'plans');
+	const dir = join(cwd, '.lightsout', 'work-orders', 'p', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 
@@ -55,7 +55,7 @@ test('detectPriorArtCandidates: a synonym name-collision is a candidate', async 
 
 test('detectPriorArtCandidates: a phased plan tags each candidate with the phase file that declared it', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts', 'src/fetchOrder.ts'], creates: ['src/getUser.ts'] });
-	const second = join(cwd, '.lightsout', 'tickets', 'p', 'plans', 'phase2-orders.md');
+	const second = join(cwd, '.lightsout', 'work-orders', 'p', 'plans', 'phase2-orders.md');
 
 	writeFileSync(second, '# Plan\n\n## Files to Create\n\n### `src/getOrder.ts`\n\nnew.\n');
 
@@ -106,7 +106,7 @@ test('detectPriorArtCandidates: collisions against a test file or index.* are ex
 
 test('detectPriorArtCandidates: a plan path that cannot be read is skipped, not fatal', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
-	const ghost = join(cwd, '.lightsout', 'tickets', 'ghost', 'plans', 'plan.md');
+	const ghost = join(cwd, '.lightsout', 'work-orders', 'ghost', 'plans', 'plan.md');
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths: [ghost, ...planPaths] });
 
@@ -235,7 +235,7 @@ test('detectPriorArtCandidates: a collision the plan neither deletes nor moves i
 
 test('detectPriorArtCandidates: a delete in one plan file empties the path for a symbol planned in another', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/legacy/getUser.ts'], creates: ['src/getUser.ts'] });
-	const second = join(cwd, '.lightsout', 'tickets', 'p', 'plans', 'phase2-cleanup.md');
+	const second = join(cwd, '.lightsout', 'work-orders', 'p', 'plans', 'phase2-cleanup.md');
 
 	writeFileSync(second, '# Phase 2\n\n## Files to Delete\n\n### `src/legacy/getUser.ts`\n\ngone.\n');
 

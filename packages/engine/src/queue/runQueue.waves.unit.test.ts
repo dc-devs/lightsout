@@ -1,11 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
@@ -21,8 +24,8 @@ import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 // the tracker stub answering a DIFFERENT eligible list on the next call.
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
-const mockShipOneBranch = jest.fn<(params: { outcome: TicketRunOutcome }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { workOrder: NamedWorkOrder }) => Promise<WorkOrderRunOutcome>>();
+const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 type LabelParams = { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean };
 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
@@ -35,8 +38,18 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: TicketRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
+// -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
 // -------------------------
 
 /**
@@ -49,7 +62,7 @@ jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outc
 const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; parked?: ParkedWork } = {}) => {
 	mockListEligibleTickets.mockResolvedValue(eligible);
 	mockScanParkedWorktrees.mockResolvedValue(parked ?? { resumed: [], outcomes: [], leftBehind: [], merged: [] });
-	mockRunQueueTicket.mockImplementation(({ ticket }) => Promise.resolve(outcomeOf({ ticket })));
+	mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) => Promise.resolve(outcomeOf({ ticket })));
 	mockShipOneBranch.mockImplementation(({ outcome }) => Promise.resolve(outcome));
 	mockSetTicketLabel.mockResolvedValue(undefined);
 
@@ -57,7 +70,7 @@ const setupDrain = ({ eligible = [], parked }: { eligible?: TicketSummary[]; par
 };
 
 /** The identifiers handed to a worker, in the order the waves picked them up. */
-const pickedUp = () => mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier);
+const pickedUp = () => mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier);
 
 /** The identifiers the serial merge lane took, in the order it merged them. Flat, because the lane now takes one branch per call. */
 const merged = () => mockShipOneBranch.mock.calls.map((call) => call[0].outcome.ticket.identifier);
@@ -81,12 +94,12 @@ const setupHeldBuild = ({ hold }: { hold: string }) => {
 	const drainSetup = setupDrain();
 	let releaseHeld: (() => void) | undefined;
 
-	mockRunQueueTicket.mockImplementation(({ ticket }) => {
+	mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) => {
 		if (ticket.identifier !== hold) {
 			return Promise.resolve(outcomeOf({ ticket }));
 		}
 
-		return new Promise<TicketRunOutcome>((resolve) => {
+		return new Promise<WorkOrderRunOutcome>((resolve) => {
 			releaseHeld = () => resolve(outcomeOf({ ticket }));
 		});
 	});
@@ -262,7 +275,7 @@ describe('runQueue', () => {
 		mockListEligibleTickets.mockResolvedValueOnce(firstScan);
 		// LO-70 parks on an unanswered question — the one outcome that retires a
 		// slot; a plain failure would free it and LO-71 would run after all.
-		mockRunQueueTicket.mockImplementation(({ ticket }) =>
+		mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) =>
 			Promise.resolve(outcomeOf({ ticket, ready: ticket.identifier !== 'LO-70', unanswered: ticket.identifier === 'LO-70' ? true : undefined })),
 		);
 

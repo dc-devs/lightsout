@@ -22,18 +22,17 @@ jest.mock('#src/gates/index.ts', () => ({
 	takeGateHold: (params: HoldParams) => mockTakeGateHold(params),
 }));
 // -------------------------
-// Which ticket the checkout's branch carries is ship's answer, read through the
-// repository's own ticket pattern — handed here directly rather than by making
-// a git checkout for it.
-interface BranchParams {
-	config: LightsoutConfig;
+// Which ticket the checkout's branch carries is the work order's answer, read
+// out of the record whose stored branch matches — handed here directly rather
+// than by making a git checkout and a record for it.
+interface WorkOrderTicketRefParams {
 	cwd: string;
 }
 
-const mockReadBranchTicketRef = jest.fn<(params: BranchParams) => Promise<string | undefined>>();
+const mockReadWorkOrderTicketRef = jest.fn<(params: WorkOrderTicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	readBranchTicketRef: (params: BranchParams) => mockReadBranchTicketRef(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params),
 }));
 // -------------------------
 
@@ -47,14 +46,14 @@ const worktreePath = '/tmp/lightsout-worktrees/lo-118';
  * rather than performed. `order` records the hold and the stop as they happen,
  * which is how the "hold first" half of the contract is observed.
  */
-const setupCoordinationStop = ({ ticketRef }: { ticketRef: string | undefined }) => {
+const setupCoordinationStop = ({ ticketRef, holdFailure }: { ticketRef: string | undefined; holdFailure?: string }) => {
 	const order: string[] = [];
 
-	mockReadBranchTicketRef.mockResolvedValue(ticketRef);
+	mockReadWorkOrderTicketRef.mockResolvedValue(ticketRef);
 	mockTakeGateHold.mockImplementation(async () => {
 		order.push('hold');
 
-		return undefined;
+		return holdFailure;
 	});
 
 	const manifest = {
@@ -128,5 +127,35 @@ describe('stopOnGateCoordination', () => {
 		expect(ticketed.order).toEqual(['hold', 'stop']);
 		expect(ticketedResult).toEqual(expect.objectContaining({ ok: false, error: expect.stringContaining(coordination) }));
 		expect(ticketed.steps()).toEqual([expect.objectContaining({ id: 'verify', status: RunStatus.Escalated })]);
+	});
+
+	test("names the work order's ticket reference in the stop", async () => {
+		const claimed = setupCoordinationStop({ ticketRef: 'LO-158', holdFailure: 'the tracker refused the gate-hold label for LO-158' });
+
+		const claimedResult = await stopOnGateCoordination({
+			run: claimed.run,
+			stepId: 'verify',
+			record: claimed.record,
+			coordination,
+			error: 'no gate output',
+		});
+
+		expect(mockReadWorkOrderTicketRef).toHaveBeenCalledWith({ cwd: worktreePath });
+		expect(mockTakeGateHold).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-158' }));
+		expect(claimedResult).toEqual(expect.objectContaining({ ok: false, error: expect.stringContaining('the tracker refused the gate-hold label for LO-158') }));
+
+		const unclaimed = setupCoordinationStop({ ticketRef: undefined, holdFailure: 'the tracker refused the gate-hold label for LO-158' });
+
+		const unclaimedResult = await stopOnGateCoordination({
+			run: unclaimed.run,
+			stepId: 'verify',
+			record: unclaimed.record,
+			coordination,
+			error: 'no gate output',
+		});
+
+		expect(mockTakeGateHold).toHaveBeenCalledTimes(1);
+		expect(unclaimedResult).toEqual(expect.objectContaining({ ok: false, error: expect.not.stringContaining('LO-158') }));
+		expect(unclaimed.order).toEqual(['stop']);
 	});
 });

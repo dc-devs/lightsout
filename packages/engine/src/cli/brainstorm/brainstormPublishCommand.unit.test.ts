@@ -56,9 +56,21 @@ const setupPublish = ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
+/**
+ * The same arrangement with no `lightsout.config.json` written into the cwd.
+ * `readConfig` throws for a missing one, so a command that ends at
+ * `process.exit` from this cwd has provably refused before reading any config.
+ */
+const setupUnconfiguredPublish = ({ args }: { args: string[] }) => {
+	const captured = captureCommandOutput();
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-publish-command-'));
+
+	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
+};
+
 describe('brainstormPublishCommand', () => {
 	test('brainstormPublishCommand: prints the ticket and each attached file, then exits 0', async () => {
-		const { context, cwd, logged, errors, exitCodes } = setupPublish({ args: ['--name', 'lo-117-brainstorm-outcome'] });
+		const { context, cwd, logged, errors, exitCodes } = setupPublish({ args: ['--name', 'lo-117-brainstorm-outcome/001-outcome'] });
 
 		await expect(brainstormPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -66,14 +78,14 @@ describe('brainstormPublishCommand', () => {
 		// it the action can resolve no tracker to attach to
 		expect(mockPublishBrainstorm.mock.calls[0]?.[0]).toMatchObject({
 			cwd,
-			name: 'lo-117-brainstorm-outcome',
+			name: 'lo-117-brainstorm-outcome/001-outcome',
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
 			onProgress: expect.any(Function),
 		});
 		// the process environment is handed over rather than read inside the action,
 		// which is what keeps the API key out of a second reader
 		expect(mockPublishBrainstorm.mock.calls[0]?.[0]?.env).toBe(process.env);
-		expect(logged[0]).toBe('\nbrainstorm publish lo-117-brainstorm-outcome — 3 file(s) attached to LO-117');
+		expect(logged[0]).toBe('\nbrainstorm publish lo-117-brainstorm-outcome/001-outcome — 3 file(s) attached to LO-117');
 		expect(logged.slice(1, 4)).toStrictEqual(['  brainstorm-notes.md', '  brainstorm-decisions.json', '  brainstorm-attachments.json']);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -81,7 +93,7 @@ describe('brainstormPublishCommand', () => {
 
 	test('brainstormPublishCommand: prints the refusal to stderr and exits 1', async () => {
 		const { context, logged, errors, exitCodes } = setupPublish({
-			args: ['--name', 'demo'],
+			args: ['--name', 'demo/001-demo'],
 			report: { published: [], error: "nothing to publish for 'demo': brainstorm-decisions.json not found — run the brainstorm skill first" },
 		});
 
@@ -93,19 +105,33 @@ describe('brainstormPublishCommand', () => {
 	});
 
 	test('brainstormPublishCommand: for a plan address, publishes under the plan id prefix', async () => {
-		// One plan of a ticket owns its own attachment namespace, so the plan id of
-		// the address it is named by is what the action must namespace its titles
-		// under; a legacy single folder keeps bare titles and so gets no prefix.
+		// One plan of a work order owns its own attachment namespace, so the plan
+		// id of the address it is named by is what the action must namespace its
+		// titles under — and every plan is addressed that way, so a prefix is
+		// always passed.
 		const { context: addressed } = setupPublish({ args: ['--name', 'lo-9-x/001-a'] });
 
 		await expect(brainstormPublishCommand(addressed)).rejects.toThrow(/process\.exit/);
 
 		expect(mockPublishBrainstorm.mock.calls[0]?.[0]).toMatchObject({ name: 'lo-9-x/001-a', titlePrefix: '001-a' });
+	});
 
-		const { context: legacy } = setupPublish({ args: ['--name', 'lo-9-x'] });
+	test('refuses a name that is not a plan address', async () => {
+		// A bare folder name is no longer a plan of its own: every plan lives at
+		// <work-order>/<plan-id>, so a name the address reader does not read is
+		// refused before the config is read and nothing is ever published under
+		// bare titles.
+		const { context, logged, errors, exitCodes } = setupUnconfiguredPublish({ args: ['--name', 'lo-9-x'] });
 
-		await expect(brainstormPublishCommand(legacy)).rejects.toThrow(/process\.exit/);
+		await expect(brainstormPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockPublishBrainstorm.mock.calls[1]?.[0]?.titlePrefix).toBeUndefined();
+		expect(mockPublishBrainstorm).not.toHaveBeenCalled();
+		// the name is carried back as given, and the sentence names the address
+		// shape and the work order whose plans hold it
+		expect(errors[0]).toEqual(expect.stringContaining('lo-9-x'));
+		expect(errors[0]).toMatch(/work order/i);
+		expect(errors[0]).toMatch(/plan/i);
+		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
 	});
 });

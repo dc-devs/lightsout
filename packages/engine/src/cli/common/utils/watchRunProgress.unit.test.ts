@@ -5,6 +5,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
 import { type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -75,8 +76,9 @@ const setupWatch = ({ onFrame }: { onFrame?: (frame: number) => void } = {}) => 
 	const lock = ({ runId, pid }: { runId: string; pid: number }) =>
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid, runId, startedAt: '2026-01-01T00:00:00.000Z' }), 'utf8');
 	const shipResult = ({ branch, status }: { branch: string; status: ShipStatus }) => {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
+		// The ship result is filed in the work order whose record stores the branch.
+		seedWorkOrderRecord({ cwd, name: branch });
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'), JSON.stringify({ status, branch, failingChecks: [] }), 'utf8');
 	};
 
 	return { cwd, lines, write, lock, shipResult, frameCount: () => frames };

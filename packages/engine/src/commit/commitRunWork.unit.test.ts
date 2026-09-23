@@ -125,6 +125,9 @@ describe('commitRunWork', () => {
 		const { cwd, run } = await setup({
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n', 'notes/stray.md': '# left by an earlier step\n' },
 			changedFiles: ['src/thing.ts'],
+			// A tree's ownership record is filed with the work order whose record
+			// stores the branch, so the branch has to have one for it to exist.
+			record: 'valid',
 			owner: WorktreeOwner.Queue,
 		});
 

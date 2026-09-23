@@ -49,7 +49,7 @@ test('plan dedup: a missing deliverable fails with the plan workspace already cr
 	expectStatus(result, 'failed');
 	// the resolve error propagates
 	expect('error' in result && /no plan found for 'ghost'/.test(result.error)).toBeTruthy();
-	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'tickets', 'ghost', 'plans'));
+	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'work-orders', 'ghost', 'plans'));
 	// the workspace is created before the resolve, so a failure still has
 	// somewhere to report from
 	expect(existsSync(result.workspaceDir)).toBeTruthy();

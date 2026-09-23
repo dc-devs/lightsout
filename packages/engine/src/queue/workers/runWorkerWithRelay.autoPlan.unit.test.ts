@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -41,15 +41,15 @@ jest.mock('#src/invoke/index.ts', () => ({
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;
-	branch: string;
-	record: TicketRecord;
+	workOrderName: string;
+	record: WorkOrderState;
 	allowTicketBodyBuild: boolean;
 }
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
-	buildTicketPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------
 // Only the two ticket operations that leave the machine are stubbed. The rule
@@ -57,17 +57,17 @@ jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
 // is pinned here rather than arranged.
 interface PullParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 }
 
-type PullResult = { record: TicketRecord | undefined } | { error: string };
+type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	slug: string;
 	title?: string;
 	config: LightsoutConfig;
@@ -75,15 +75,15 @@ interface AddPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type AddPlanResult = { address: string; record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type AddPlanResult = { address: string; record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	pullTicketRecord: (params: PullParams) => mockPullTicketRecord(params),
-	addTicketPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
+	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
 }));
 // -------------------------
 
@@ -107,8 +107,9 @@ const ticket: RunnableTicket = {
 	unfinishedBlockers: [],
 };
 
-const recordWith = ({ plans }: { plans: TicketRecord['plans'] }): TicketRecord => ({
+const recordWith = ({ plans }: { plans: WorkOrderState['plans'] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-70',
 	branch,
 	mode: 'multiple-plan',
@@ -165,7 +166,7 @@ const reportOf = (overrides: Partial<WorkReport> = {}): WorkReport => ({
 const setupAutoPlanTicket = ({
 	chosenPull = { record: recordBeforePlanning },
 	plannedPull = { record: recordAfterPlanning },
-	added = { error: 'addTicketPlan was not expected to run' },
+	added = { error: 'addWorkOrderPlan was not expected to run' },
 	planFolder = `${branch}/003-drain-order`,
 }: {
 	chosenPull?: PullResult;
@@ -191,7 +192,7 @@ const setupAutoPlanTicket = ({
 		worktreePath,
 		params: {
 			worktreePath,
-			branch,
+			workOrderName: branch,
 			ticket,
 			config,
 			driver,
@@ -201,7 +202,7 @@ const setupAutoPlanTicket = ({
 			relay: relayThatIsNeverAsked(),
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' } as NodeJS.ProcessEnv,
 			onProgress: (message: string) => progress.push(message),
 		},
@@ -220,16 +221,18 @@ describe('runWorkerWithRelay', () => {
 		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/003-drain-order`);
 		expect(mockAddTicketPlan).not.toHaveBeenCalled();
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd: worktreePath, branch, record: recordAfterPlanning, allowTicketBodyBuild: false }),
+			expect.objectContaining({ cwd: worktreePath, workOrderName: branch, record: recordAfterPlanning, allowTicketBodyBuild: false }),
 		);
 	});
 
-	test('runWorkerWithRelay: an auto-plan ticket with no record yet has plan 001 created and every notice announced', async () => {
+	test('runWorkerWithRelay: an auto-plan ticket whose record holds no plans yet has plan 001 created and every notice announced', async () => {
 		const firstPlan = recordWith({
 			plans: [{ id: '001-drain-the-backlog', title: 'Drain the backlog', progress: 'planning', createdAt: '2026-01-01T00:00:00.000Z' }],
 		});
+		// A record holding no plans is the state every work order `work-order new`
+		// writes is in; a work order with no record at all is now a refusal.
 		const { params, progress } = setupAutoPlanTicket({
-			chosenPull: { record: undefined },
+			chosenPull: { record: recordWith({ plans: [] }) },
 			added: {
 				address: `${branch}/001-drain-the-backlog`,
 				record: firstPlan,
@@ -242,13 +245,13 @@ describe('runWorkerWithRelay', () => {
 		const outcome = await runWorkerWithRelay(params);
 
 		expect(outcome).toStrictEqual({});
-		expect(mockAddTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ ticketBranch: branch, slug: 'drain-the-backlog', title: 'Drain the backlog' }));
+		expect(mockAddTicketPlan).toHaveBeenCalledWith(expect.objectContaining({ name: branch, slug: 'drain-the-backlog', title: 'Drain the backlog' }));
 		expect(progress).toEqual(expect.arrayContaining([expect.stringContaining('ship request was withdrawn'), expect.stringContaining('tracker refused it')]));
 		expect(mockInvokeAgentWithContract.mock.calls[0]?.[0].invocation.prompt).toContain(`${branch}/001-drain-the-backlog`);
 	});
 
 	test('runWorkerWithRelay: an auto-plan ticket whose record pull after the session fails builds nothing', async () => {
-		const diverged = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout ticket sync --name lo-70-drain';
+		const diverged = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout work-order sync --name lo-70-drain';
 		const { params } = setupAutoPlanTicket({ plannedPull: { error: diverged } });
 
 		const outcome = await runWorkerWithRelay(params);

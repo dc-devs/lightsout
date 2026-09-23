@@ -15,7 +15,7 @@ const decisionLogPointer = decisionLogReference();
 /** A consumer repo holding the given plan files, handed to the lint in the order they are written. */
 const setupDeliverable = ({ files }: { files: Record<string, string> }) => {
 	const cwd = setupConsumerRepo();
-	const dir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const dir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(dir, { recursive: true });
 

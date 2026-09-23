@@ -11,7 +11,7 @@ interface Params {
 	noShipFlag: boolean;
 	/** The process environment, read for the queue's own suppression variable. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
-	/** The ticket's own terms for this run, from `readTicketRunTerms`. Present only when the branch's ticket record decides the shipping rather than the flags. */
+	/** The ticket's own terms for this run, from `readWorkOrderRunTerms`. Present only when the branch's ticket record decides the shipping rather than the flags. */
 	shipRequest?: ShipRequestTerms;
 }
 
@@ -34,7 +34,7 @@ interface Params {
  * message that names the key.
  *
  * A `shipRequest` takes the decision away from `--ship` and
- * `ship.after-implement` entirely: a multiple-plan ticket ships when the human's
+ * `ship.after-implement` entirely: a multiple-plan work order ships when the human's
  * explicit request is satisfied by this run and at no other time, which is what
  * "switching to multiple-plan mode disables automatic shipping" means in
  * practice. The two rules above still beat it, and a run they stopped carries no

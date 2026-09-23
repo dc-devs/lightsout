@@ -15,9 +15,9 @@ const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding 
 
 /** The workspace reference paths the repairer Reads on demand. */
 const setupRepair = () => ({
-	decisionsPath: '/tmp/.lightsout/tickets/widget-flag/plans/decisions.json',
-	brainstormDecisionsPath: '/tmp/.lightsout/tickets/widget-flag/plans/brainstorm-decisions.json',
-	factsPath: '/tmp/.lightsout/tickets/widget-flag/plans/facts.json',
+	decisionsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/decisions.json',
+	brainstormDecisionsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/brainstorm-decisions.json',
+	factsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/facts.json',
 });
 
 test('buildPlanRepairInvocation: the prompt opens with the repair marker and every section the role prompt promises', () => {

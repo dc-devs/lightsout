@@ -11,7 +11,7 @@ interface Params {
  *
  * This is the one reader of the address shape, paired with `formatPlanAddress`
  * as its one writer, so the separator and the segment rules are spelled in
- * exactly this pair. Everything else asks here — or asks `ticketFolderOf` —
+ * exactly this pair. Everything else asks here — or asks `workOrderNameOf` —
  * rather than splitting a name of its own.
  *
  * Undefined is the legacy answer, not a failure: a folder named for its branch
@@ -20,15 +20,15 @@ interface Params {
  * because it would resolve outside the plans directory.
  */
 export const parsePlanAddress = ({ name }: Params): PlanAddress | undefined => {
-	const [ticketBranch, planId, ...beyond] = name.split('/');
+	const [workOrderName, planId, ...beyond] = name.split('/');
 	const addressed =
 		beyond.length === 0 &&
-		ticketBranch !== undefined &&
+		workOrderName !== undefined &&
 		planId !== undefined &&
-		ticketBranch !== '' &&
-		ticketBranch !== '.' &&
-		ticketBranch !== '..' &&
+		workOrderName !== '' &&
+		workOrderName !== '.' &&
+		workOrderName !== '..' &&
 		PlanId.safeParse(planId).success;
 
-	return addressed ? { ticketBranch, planId } : undefined;
+	return addressed ? { workOrderName, planId } : undefined;
 };

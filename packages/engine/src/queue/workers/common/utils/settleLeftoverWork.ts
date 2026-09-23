@@ -1,10 +1,10 @@
 import { PlanProgress } from '#src/contracts/index.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 
 interface Params {
 	/** The turn of the loop that is about to take a plan. Its `plan` is not what the leftovers are committed under. */
-	step: TicketPlanStep;
+	step: WorkOrderPlanStep;
 	/** The source paths already changed in the worktree before the loop built anything. */
 	leftover: string[];
 }
@@ -34,6 +34,6 @@ export const settleLeftoverWork = async ({ step, leftover }: Params): Promise<st
 		.at(0);
 
 	return owner === undefined
-		? `the worktree ${cwd} holds changes no implemented plan of ticket ${record.branch} accounts for, so the queue cannot say which plan they belong to`
+		? `the worktree ${cwd} holds changes no implemented plan of work order ${record.name} accounts for, so the queue cannot say which plan they belong to`
 		: commitPlanWork({ step: { ...step, plan: owner } });
 };

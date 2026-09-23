@@ -4,7 +4,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
-import { readTicketRunTerms, type TicketRunTerms } from '#src/ticket/index.ts';
+import { readWorkOrderRunTerms, type WorkOrderRunTerms } from '#src/workOrder/index.ts';
 
 interface Params {
 	flags: CommandContext['flags'];
@@ -40,7 +40,7 @@ export const resolveImplementInputs = async ({
 			packages: string[] | undefined;
 			startPhase: number | undefined;
 			planName: string | undefined;
-			shipRequest: TicketRunTerms['shipRequest'];
+			shipRequest: WorkOrderRunTerms['shipRequest'];
 	  }
 > => {
 	const planPath = getStringFlag({ flags, name: 'plan' });
@@ -93,7 +93,7 @@ export const resolveImplementInputs = async ({
 	}
 
 	const planName = await planNameFromPath({ cwd, planPath });
-	const terms = await readTicketRunTerms({ cwd, name: planName, planPath: 'overviewPath' in target ? target.overviewPath : target.planPath });
+	const terms = await readWorkOrderRunTerms({ cwd, name: planName, planPath: 'overviewPath' in target ? target.overviewPath : target.planPath });
 
 	if (terms.refusal !== undefined) {
 		return { error: terms.refusal };

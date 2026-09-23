@@ -1,7 +1,7 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
-import { readTicketRecord } from '#src/ticket/index.ts';
+import { readWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The checkout the run builds in, whose primary checkout holds the ticket record. */
@@ -29,7 +29,7 @@ export const readResumedPlanName = async ({ cwd, manifest }: Params): Promise<st
 		return fromPath;
 	}
 
-	const read = await readTicketRecord({ cwd, ticketBranch: manifest.branch });
+	const read = await readWorkOrderState({ cwd, name: manifest.branch });
 
 	if ('error' in read || read.record === undefined) {
 		return undefined;
@@ -37,5 +37,5 @@ export const readResumedPlanName = async ({ cwd, manifest }: Params): Promise<st
 
 	const plan = read.record.plans.find((candidate) => candidate.implementation?.runId === manifest.runId);
 
-	return plan === undefined ? undefined : formatPlanAddress({ ticketBranch: manifest.branch, planId: plan.id });
+	return plan === undefined ? undefined : formatPlanAddress({ workOrderName: manifest.branch, planId: plan.id });
 };

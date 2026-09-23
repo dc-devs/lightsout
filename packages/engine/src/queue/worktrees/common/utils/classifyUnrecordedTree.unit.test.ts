@@ -19,7 +19,7 @@ jest.mock('#src/queue/branchState/index.ts', () => ({
 }));
 // -------------------------
 
-const tree: ParkedTree = { path: '/repo-worktrees/lo-78-drain', branch: 'lo-78-drain', identifier: 'LO-78' };
+const tree: ParkedTree = { path: '/repo-worktrees/lo-78-drain', branch: 'lo-78-drain', identifier: 'LO-78', name: 'lo-78-drain' };
 
 /** What `git rev-list --count` answered: commits ahead, none ahead, or no answer at all. */
 const countFor = { ahead: 3, none: 0, unreadable: undefined };

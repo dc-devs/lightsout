@@ -31,5 +31,5 @@ export const implementDirectCatalogEntry: CommandCatalogEntry = {
 	],
 	steps: [],
 	records: CommandRecordKind.Runs,
-	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'queue', 'resume', 'ship', 'ticket', 'ticket-state', 'self-check'],
+	related: ['auto-plan', 'brainstorm', 'plan', 'implement', 'queue', 'resume', 'ship', 'work-order', 'ticket-state', 'self-check'],
 };

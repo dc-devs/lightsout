@@ -7,8 +7,8 @@ import { queueCatalogEntry } from '#src/commands/common/constants/build/queueCat
 import { resumeCatalogEntry } from '#src/commands/common/constants/build/resumeCatalogEntry.ts';
 import { selfCheckCatalogEntry } from '#src/commands/common/constants/build/selfCheckCatalogEntry.ts';
 import { shipCatalogEntry } from '#src/commands/common/constants/build/shipCatalogEntry.ts';
-import { ticketCatalogEntry } from '#src/commands/common/constants/build/ticketCatalogEntry.ts';
 import { ticketStateCatalogEntry } from '#src/commands/common/constants/build/ticketStateCatalogEntry.ts';
+import { workOrderCatalogEntry } from '#src/commands/common/constants/build/workOrderCatalogEntry.ts';
 import { refactorCatalogEntry } from '#src/commands/common/constants/burnDown/refactorCatalogEntry.ts';
 import { testCoverageToThresholdCatalogEntry } from '#src/commands/common/constants/burnDown/testCoverageToThresholdCatalogEntry.ts';
 import { doctorCatalogEntry } from '#src/commands/common/constants/housekeeping/doctorCatalogEntry.ts';
@@ -53,7 +53,7 @@ export const commandCatalog: CommandCatalogEntry[] = [
 	resumeCatalogEntry,
 	shipCatalogEntry,
 	queueCatalogEntry,
-	ticketCatalogEntry,
+	workOrderCatalogEntry,
 	ticketStateCatalogEntry,
 	selfCheckCatalogEntry,
 	refactorCatalogEntry,

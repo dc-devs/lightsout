@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig, TicketPlan, TicketRecord } from '#src/contracts/index.ts';
+import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
+import type { LightsoutConfig, WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
 
@@ -13,17 +14,17 @@ import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts
 // one, so the order it applies is pinned here rather than stubbed.
 interface PullParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 }
 
-type PullResult = { record: TicketRecord | undefined } | { error: string };
+type PullResult = { record: WorkOrderState | undefined } | { error: string };
 
 interface AddPlanParams {
 	cwd: string;
-	ticketBranch: string;
+	name: string;
 	slug: string;
 	title?: string;
 	config: LightsoutConfig;
@@ -31,15 +32,15 @@ interface AddPlanParams {
 	onProgress?: (message: string) => void;
 }
 
-type AddPlanResult = { address: string; record: TicketRecord; notice?: string; publishError?: string } | { error: string };
+type AddPlanResult = { address: string; record: WorkOrderState; notice?: string; publishError?: string } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	pullTicketRecord: (params: PullParams) => mockPullTicketRecord(params),
-	addTicketPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
-	findNextPlanToPlan: jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts').findNextPlanToPlan,
+jest.mock('#src/workOrder/index.ts', () => ({
+	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
+	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
+	findNextPlanToPlan: jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts').findNextPlanToPlan,
 }));
 // -------------------------
 
@@ -47,7 +48,7 @@ const branch = 'lo-140-multi';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const planWith = ({ id, progress, exclusion }: { id: string; progress: TicketPlan['progress']; exclusion?: TicketPlan['exclusion'] }): TicketPlan => ({
+const planWith = ({ id, progress, exclusion }: { id: string; progress: WorkOrderPlan['progress']; exclusion?: WorkOrderPlan['exclusion'] }): WorkOrderPlan => ({
 	id,
 	title: `Plan ${id}`,
 	progress,
@@ -55,8 +56,9 @@ const planWith = ({ id, progress, exclusion }: { id: string; progress: TicketPla
 	...(exclusion ? { exclusion } : {}),
 });
 
-const recordWith = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
+const recordWith = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-140',
 	branch,
 	mode: 'multiple-plan',
@@ -65,8 +67,8 @@ const recordWith = ({ plans }: { plans: TicketPlan[] }): TicketRecord => ({
 });
 
 /** Two refusals the choice only passes along: one from the record pull, one from the plan creation. */
-const divergenceError = 'the ticket record moved here and on LO-140: run lightsout ticket sync --name lo-140-multi';
-const looseFilesError = 'lo-140-multi still holds loose files: run lightsout ticket add-plan --name lo-140-multi --slug <slug> --from lo-140-multi';
+const divergenceError = 'the ticket record moved here and on LO-140: run lightsout work-order sync --name lo-140-multi';
+const looseFilesError = 'lo-140-multi still holds loose files: run lightsout work-order add-plan --name lo-140-multi --slug <slug> --from lo-140-multi';
 
 const ticketWith = ({ title }: { title: string }): TicketSummary => ({
 	id: 'id-140',
@@ -88,8 +90,8 @@ const ticketWith = ({ title }: { title: string }): TicketSummary => ({
  * plan creation gives when the choice reaches for it.
  */
 const setupChoice = ({
-	pulled = { record: undefined },
-	added = { error: 'addTicketPlan was not expected to run' },
+	pulled = { record: recordWith({ plans: [] }) },
+	added = { error: 'addWorkOrderPlan was not expected to run' },
 	title = 'Support multiple plans per ticket',
 }: {
 	pulled?: PullResult;
@@ -104,7 +106,56 @@ const setupChoice = ({
 	return {
 		params: {
 			cwd: '/repo',
-			branch,
+			workOrderName: branch,
+			ticket: ticketWith({ title }),
+			config,
+			env: { LINEAR_API_KEY: 'key' } as NodeJS.ProcessEnv,
+			onProgress: (message: string) => progress.push(message),
+		},
+	};
+};
+
+/**
+ * A work order whose record stores a prefixed branch, so the label and the
+ * branch are never the same string: every address built from the label parses,
+ * and one built from the branch could not.
+ */
+const workOrderName = 'lo-140-multi-plan';
+
+const prefixedBranch = 'feature/lo-140-multi-plan';
+
+const labelledRecordWith = ({ plans }: { plans: WorkOrderPlan[] }): WorkOrderState => ({
+	schemaVersion: 1,
+	name: workOrderName,
+	ticketRef: 'LO-140',
+	branch: prefixedBranch,
+	mode: 'multiple-plan',
+	plans,
+	history: [],
+});
+
+/**
+ * The choice as it is asked for by label: the record the pull answers, and the
+ * answer the plan creation gives when the choice reaches for it.
+ */
+const setupLabelledChoice = ({
+	pulled,
+	added = { error: 'addWorkOrderPlan was not expected to run' },
+	title = 'Support multiple plans per ticket',
+}: {
+	pulled: PullResult;
+	added?: AddPlanResult;
+	title?: string;
+}) => {
+	mockPullTicketRecord.mockResolvedValue(pulled);
+	mockAddTicketPlan.mockResolvedValue(added);
+
+	const progress: string[] = [];
+
+	return {
+		params: {
+			cwd: '/repo',
+			workOrderName,
 			ticket: ticketWith({ title }),
 			config,
 			env: { LINEAR_API_KEY: 'key' } as NodeJS.ProcessEnv,
@@ -114,7 +165,7 @@ const setupChoice = ({
 };
 
 describe('chooseAutoPlanTarget', () => {
-	test('chooseAutoPlanTarget: a ticket with no record gets plan 001 slugged from the first three title words', async () => {
+	test('chooseAutoPlanTarget: a record holding no plans gets plan 001 slugged from the first three title words', async () => {
 		const record = recordWith({ plans: [planWith({ id: '001-support-multiple-plans', progress: 'planning' })] });
 		const { params } = setupChoice({ added: { address: `${branch}/001-support-multiple-plans`, record } });
 
@@ -122,7 +173,7 @@ describe('chooseAutoPlanTarget', () => {
 
 		expect(answer).toEqual({ address: `${branch}/001-support-multiple-plans`, record });
 		expect(mockAddTicketPlan).toHaveBeenCalledWith(
-			expect.objectContaining({ ticketBranch: branch, slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
+			expect.objectContaining({ name: branch, slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
 		);
 	});
 
@@ -181,5 +232,41 @@ describe('chooseAutoPlanTarget', () => {
 		const addAnswer = await chooseAutoPlanTarget(refused.params);
 
 		expect(addAnswer).toStrictEqual({ error: looseFilesError });
+	});
+
+	test('builds the plan address from the label, never from a prefixed branch', async () => {
+		const record = labelledRecordWith({ plans: [planWith({ id: '003-queue-order', progress: 'planning' })] });
+		const { params } = setupLabelledChoice({ pulled: { record } });
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		const address = 'address' in answer ? answer.address : undefined;
+
+		expect(answer).toEqual({ record, address: 'lo-140-multi-plan/003-queue-order' });
+		expect(parsePlanAddress({ name: address ?? '' })).toEqual({ workOrderName: 'lo-140-multi-plan', planId: '003-queue-order' });
+	});
+
+	test('adds the first plan to a record that holds none, and answers its address', async () => {
+		const planned = labelledRecordWith({ plans: [planWith({ id: '001-support-multiple-plans', progress: 'planning' })] });
+		const { params } = setupLabelledChoice({
+			pulled: { record: labelledRecordWith({ plans: [] }) },
+			added: { address: 'lo-140-multi-plan/001-support-multiple-plans', record: planned },
+		});
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		expect(answer).toEqual({ record: planned, address: 'lo-140-multi-plan/001-support-multiple-plans' });
+		expect(mockAddTicketPlan).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'lo-140-multi-plan', slug: 'support-multiple-plans', title: 'Support multiple plans per ticket' }),
+		);
+	});
+
+	test('refuses a work order that has no record', async () => {
+		const { params } = setupLabelledChoice({ pulled: { record: undefined } });
+
+		const answer = await chooseAutoPlanTarget(params);
+
+		expect(answer).toEqual({ error: expect.stringContaining('lo-140-multi-plan') });
+		expect(mockAddTicketPlan).not.toHaveBeenCalled();
 	});
 });

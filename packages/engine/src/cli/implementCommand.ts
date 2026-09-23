@@ -1,8 +1,7 @@
 import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
 import { openImplementWorkspace } from '#src/cli/common/implementRun/openImplementWorkspace.ts';
-import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
+import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
 import { resolveImplementInputs } from '#src/cli/common/implementRun/resolveImplementInputs.ts';
-import { printPlanTicketWarning } from '#src/cli/common/render/printPlanTicketWarning.ts';
 import { printRunStart } from '#src/cli/common/render/printRunStart.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
@@ -17,8 +16,8 @@ import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { recordPlanCommandRun } from '#src/plan/index.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 /**
  * The pipeline the resolved plan target asks for — every phase of a folder
@@ -132,16 +131,12 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		return exitCli({ code: 1 });
 	}
 
-	if (planName !== undefined) {
-		await printPlanTicketWarning({ cwd, name: planName });
-	}
-
 	printRunStart({ target, overviewPath, packages, startPhase, config, driver, cwd: workspace.cwd });
 
 	// The record's own bookkeeping around the run: the plan is marked implementing
 	// under the id the pipeline is handed, and the outcome is recorded against it.
 	// A legacy folder and a ticket with no record run exactly as they always have.
-	const outcome = await runTicketPlanLifecycle({
+	const outcome = await runWorkOrderPlanLifecycle({
 		cwd: workspace.cwd,
 		name: planName,
 		run: ({ runId }) =>
@@ -161,7 +156,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 			}),
 	});
 
-	const result = reportTicketPlanOutcome({ outcome });
+	const result = reportWorkOrderPlanOutcome({ outcome });
 
 	if (result === undefined) {
 		return exitCli({ code: 1 });

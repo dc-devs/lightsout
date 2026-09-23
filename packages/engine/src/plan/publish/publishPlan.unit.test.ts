@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
@@ -9,6 +10,7 @@ import { publishPlan } from '#src/plan/publish/publishPlan.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -65,6 +67,7 @@ const setupPlan = ({
 	tickets = [{ id: 'id-54', identifier: 'LO-54' }],
 	attachments = [],
 	uploadFailures = {},
+	ticketRef = 'lo-54',
 }: {
 	folder?: string;
 	files: Record<string, string>;
@@ -75,6 +78,8 @@ const setupPlan = ({
 	attachments?: Attachment[] | TrackerFailure;
 	/** Each attachment title the tracker refuses, and the sentence it refuses with. */
 	uploadFailures?: Record<string, string>;
+	/** The ticket the plan's work order belongs to, as its record carries it. `null` names a work order that belongs to none. */
+	ticketRef?: string | null;
 }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-plan-'));
 	const dir = planWorkspaceFolder({ cwd: cwd, name: folder });
@@ -89,6 +94,9 @@ const setupPlan = ({
 	});
 
 	mkdirSync(dir, { recursive: true });
+	// Which ticket a plan publishes to is the work order record's answer, so the
+	// record is what a case varies rather than the folder's own name.
+	seedWorkOrderRecord({ cwd, name: workOrderNameOf({ name: folder }), ticketRef: ticketRef ?? undefined });
 
 	for (const [name, text] of Object.entries(files)) {
 		writeFileSync(join(dir, name), text);
@@ -101,6 +109,41 @@ const setupPlan = ({
 			cwd,
 			name: folder,
 			config: config ?? { gates, 'ticket-tracker': trackerBlock },
+			env,
+			onProgress: (message: string) => progress.push(message),
+		},
+	};
+};
+
+/**
+ * A work order named from words alone: its record carries no ticket reference,
+ * so the plan inside it has nowhere to publish to. The tracker is fully
+ * configured, which is what makes the refusal the record's own answer rather
+ * than a missing config block's.
+ */
+const setupLocalOnlyWorkOrder = ({ workOrder = 'rate-limit-banner', plan = '001-portable-plan' }: { workOrder?: string; plan?: string } = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-publish-plan-'));
+	const name = `${workOrder}/${plan}`;
+	const dir = planWorkspaceFolder({ cwd, name });
+	const progress: string[] = [];
+
+	mockGetTicketsByIdentifiers.mockResolvedValue([{ id: 'id-54', identifier: 'LO-54' }]);
+	mockGetTicketAttachments.mockResolvedValue([]);
+	mockSetTicketAttachment.mockResolvedValue(undefined);
+
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, 'plan.md'), '# plan');
+	writeFileSync(
+		join(cwd, '.lightsout', 'work-orders', workOrder, 'state.json'),
+		JSON.stringify({ schemaVersion: 1, name: workOrder, branch: workOrder, mode: 'single-plan', plans: [], history: [] }),
+	);
+
+	return {
+		progress,
+		params: {
+			cwd,
+			name,
+			config: { gates, 'ticket-tracker': trackerBlock },
 			env,
 			onProgress: (message: string) => progress.push(message),
 		},
@@ -187,7 +230,7 @@ describe('publishPlan', () => {
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
 
-	test('an unusable ship.ticket-pattern is named by key, rather than blamed on the folder', async () => {
+	test('an unusable ship.ticket-pattern reaches the publish not at all, because the record answers which ticket this is', async () => {
 		const { params } = setupPlan({
 			files: { 'plan.md': '# plan' },
 			config: { gates, ship: { 'ticket-pattern': '^(unclosed' }, 'ticket-tracker': trackerBlock },
@@ -195,19 +238,17 @@ describe('publishPlan', () => {
 
 		const report = await publishPlan(params);
 
-		expect(report.error).toBe(
-			"ship.ticket-pattern is not a usable regular expression with a (?<ticket>) group, so publish cannot read a ticket id out of plan folder 'lo-54-portable-plan'",
-		);
-		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(report.ticketRef).toBe('lo-54');
+		expect(report.error).toBeUndefined();
 	});
 
-	test('a folder carrying no ticket id refuses before a tracker is resolved, because there is nothing to attach to', async () => {
-		const { params } = setupPlan({ folder: 'rate-limit-banner', files: { 'plan.md': '# plan' } });
+	test('a work order carrying no ticket reference refuses before a tracker is resolved, because there is nothing to attach to', async () => {
+		const { params } = setupPlan({ folder: 'rate-limit-banner', files: { 'plan.md': '# plan' }, ticketRef: null });
 
 		const report = await publishPlan(params);
 
 		expect(report.error).toBe(
-			"plan folder 'rate-limit-banner' carries no ticket id — name a plan folder after its ticket's branch so publish knows which ticket to attach to",
+			"plan 'rate-limit-banner' cannot be published: work order 'rate-limit-banner' carries no ticket reference in its record, so it belongs to no ticket",
 		);
 		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
 	});
@@ -338,5 +379,17 @@ describe('publishPlan', () => {
 
 		expect(report).toStrictEqual({ ticketRef: 'lo-54', published: ['plan.md', planAttachmentManifestName], stale: [] });
 		expect(progress.at(-1)).toBe("could not read lo-54's attachment list back: the tracker did not answer");
+	});
+
+	test('refuses to publish a plan whose work order belongs to no ticket', async () => {
+		const { params } = setupLocalOnlyWorkOrder();
+
+		const report = await publishPlan(params);
+
+		expect(report.error ?? '').toMatch(/rate-limit-banner/);
+		expect(report.error ?? '').toMatch(/001-portable-plan/);
+		expect({ published: report.published, stale: report.stale }).toStrictEqual({ published: [], stale: [] });
+		expect(mockGetTicketsByIdentifiers).not.toHaveBeenCalled();
+		expect(mockSetTicketAttachment).not.toHaveBeenCalled();
 	});
 });

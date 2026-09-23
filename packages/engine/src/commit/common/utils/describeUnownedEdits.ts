@@ -28,7 +28,7 @@ interface Params {
  * chose is the hazard.
  *
  * Generated paths are dropped from the stray set before the verdict. This runs
- * BEFORE `commitTicketWork`, which is the only code that takes build output
+ * BEFORE `commitWorkOrderWork`, which is the only code that takes build output
  * back out of the tree, so without the exclusion a run whose own gates
  * regenerated a tracked file would be refused over it.
  */

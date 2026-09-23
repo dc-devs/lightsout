@@ -8,6 +8,7 @@ import { implementCommand } from '#src/cli/implementCommand.ts';
 import type { WorktreeOwner } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -91,7 +92,7 @@ jest.mock('#src/cli/common/render/printResult.ts', () => ({
 // -------------------------
 
 /** The plan folder every case points `--plan` at, and the branch its name yields. */
-const planFolder = join('.lightsout', 'tickets', 'lo-42-add-widgets', 'plans');
+const planFolder = join('.lightsout', 'work-orders', 'lo-42-add-widgets', 'plans');
 const branch = 'lo-42-add-widgets';
 
 /** What the plan says when the run starts. */
@@ -125,11 +126,14 @@ const setupImplementWorktree = ({
 	args,
 	fetchFailure,
 	phased = false,
+	storedBranch = branch,
 }: {
 	args: string[];
 	fetchFailure?: string;
 	/** A plan folder holding an overview.md, so the run is every phase of one plan rather than a single one. */
 	phased?: boolean;
+	/** The branch the work order's record stores. Equal to its label by default, and a different string under a prefixed template. */
+	storedBranch?: string;
 }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ plan: loosePlanBody });
@@ -138,6 +142,9 @@ const setupImplementWorktree = ({
 
 	execSync(`git worktree add -q --detach "${workspace}"`, { cwd, stdio: 'ignore' });
 
+	// The branch an isolated run builds on is the work order record's answer, so
+	// the record for this plan's work order stands on disk before the command runs.
+	seedWorkOrderRecord({ cwd, name: 'lo-42-add-widgets', branch: storedBranch, ticketRef: 'lo-42' });
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, phased ? 'overview.md' : 'plan.md'), planBody);
 
@@ -187,16 +194,30 @@ describe('implementCommand worktree isolation', () => {
 		expect(existsSync(join(workspace, planFolder))).toBe(false);
 	});
 
-	test('copies a plan file outside the plans directory into the workspace and runs the copy', async () => {
-		const { context, workspace } = setupImplementWorktree({ args: ['--plan', 'plan.md'] });
+	test('refuses to isolate a plan file outside the plans directory, because it names no work order', async () => {
+		const { context, errors, exitCodes } = setupImplementWorktree({ args: ['--plan', 'plan.md'] });
+
+		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// A loose file is nobody's plan folder, so no work order's record says which
+		// branch it implements on — and deriving one from the file's stem is exactly
+		// the second author of a branch a record exists to remove.
+		expect(errors.join('\n')).toContain("no branch could be resolved from 'plan.md'");
+		expect(errors.join('\n')).toContain('--no-worktree');
+		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('builds on the branch the work order’s record stores, not on the plan address’s first segment', async () => {
+		const { context, printedBeforeLifecycle } = setupImplementWorktree({ args: ['--plan', planFolder], storedBranch: 'feature/lo-42-add-widgets' });
 
 		await implementCommand(context);
 
-		// a loose file is nobody's plan folder: it is still copied in, and the copy
-		// is still read against the workspace rather than looked for in the
-		// launching checkout the way a plans-directory path now is
-		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join('.lightsout', 'inputs', 'plan.md') }));
-		expect(readFileSync(join(workspace, '.lightsout', 'inputs', 'plan.md'), 'utf8')).toBe(loosePlanBody);
+		// Under a prefixed branch template the label and the branch are different
+		// strings, and only the record says which is which: the address names the
+		// work order, the record names the branch its plans implement on.
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'feature/lo-42-add-widgets' }));
+		expect(printedBeforeLifecycle.join('\n')).toContain('feature/lo-42-add-widgets');
 	});
 
 	test('builds in the launching checkout when the run opts out', async () => {

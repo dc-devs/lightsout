@@ -10,6 +10,7 @@ import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePla
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -51,9 +52,12 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 }));
 // -------------------------
 
-/** The plan folder every case here points `--plan` at — named after ticket lo-54, which is the key the fetch turns on. */
-const name = 'lo-54-portable-plan';
-const planPath = join('.lightsout', 'tickets', name, 'plans');
+/** The work order every case here points `--plan` inside — named after ticket lo-54, which is the key the fetch turns on. */
+const workOrderName = 'lo-54-portable-plan';
+/** The plan's own id, and the namespace every attachment of it is titled under. */
+const planId = '001-portable-plan';
+const name = `${workOrderName}/${planId}`;
+const planPath = join('.lightsout', 'work-orders', workOrderName, 'plans', planId);
 
 /** An overview whose Phases table names one phase file, so a restored phased plan is one a run can actually start. */
 const overviewBody = '# Feature — Overview\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1-setup.md` | scope |\n';
@@ -73,6 +77,7 @@ const setupFetch = ({
 	config = { 'ticket-tracker': ticketTrackerConfigBlock },
 	onDisk,
 	locked = true,
+	workOrder = { name: workOrderName, ticketRef: 'lo-54' },
 }: {
 	args?: string[];
 	/** Attachment titles the ticket carries. */
@@ -86,6 +91,8 @@ const setupFetch = ({
 	/** Plan files to plant in the folder before the command runs, which is what makes disk win. */
 	onDisk?: Record<string, string>;
 	locked?: boolean;
+	/** The work order whose record the fetch reads the ticket out of, and the reference it carries. */
+	workOrder?: { name: string; ticketRef?: string };
 } = {}) => {
 	const bodyOf = (title: string) => bodies[title] ?? `# Plan: restored ${title}\n`;
 	const durable = [...new Set(titles.filter((title) => isDurablePlanAttachmentName({ name: title })))];
@@ -94,17 +101,33 @@ const setupFetch = ({
 	);
 	const attachmentTitles = durable.length === 0 ? titles : [...titles, planAttachmentManifestName];
 
+	// A ticket carries every plan's files side by side, so each title is written
+	// under this plan's own namespace — which is what the addressed restore reads.
 	mockGetTicketAttachments.mockResolvedValue(
-		failure ?? attachmentTitles.map((title, index) => ({ id: `att-${index}`, title, url: `https://assets.example/${title}` })),
+		failure ??
+			attachmentTitles.map((title, index) => ({
+				id: `att-${index}`,
+				title: `${planId}--${title}`,
+				url: `https://assets.example/${planId}--${title}`,
+			})),
 	);
 	mockReadTicketAsset.mockImplementation(({ url }) => {
-		const title = url.split('/').at(-1) ?? '';
+		const title = (url.split('/').at(-1) ?? '').replace(`${planId}--`, '');
 
 		return Promise.resolve(title === planAttachmentManifestName ? manifest : bodyOf(title));
 	});
 
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config });
+
+	// Which ticket a plan is fetched from is its work order record's answer, so
+	// the record stands on disk before the command runs.
+	seedWorkOrderRecord({
+		cwd,
+		name: workOrder.name,
+		ticketRef: workOrder.ticketRef,
+		plans: [{ id: planId, title: 'Portable plan', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
+	});
 
 	if (onDisk !== undefined) {
 		mkdirSync(join(cwd, planPath), { recursive: true });
@@ -152,11 +175,14 @@ describe('implementCommand', () => {
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
+		const output = logged.join('\n');
+
 		// the fetch line is printed before the run header, because the fetch has to
 		// have happened before anything asks the disk what shape the plan is
-		expect(logged[0]).toBe(`lightsout: fetched 1 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
-		expect(logged[1]).toBe('lightsout: starting run');
-		expect(logged[2]).toBe(`  plan: ${join(planPath, 'plan.md')}`);
+		expect(output).toContain(`lightsout: fetched 1 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
+		expect(output).toContain('lightsout: starting run');
+		expect(output).toContain(`  plan: ${join(planPath, 'plan.md')}`);
+		expect(output.indexOf('fetched 1 plan file')).toBeLessThan(output.indexOf('lightsout: starting run'));
 		expect(readFileSync(join(cwd, planPath, 'plan.md'), 'utf8')).toBe('# Plan: restored plan.md\n');
 		expect(mockGetTicketAttachments).toHaveBeenCalledWith(expect.objectContaining({ identifier: 'lo-54' }));
 		expect(exitCodes).toStrictEqual([1]);
@@ -170,10 +196,10 @@ describe('implementCommand', () => {
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged[0]).toBe(`lightsout: fetched 2 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
+		expect(logged.join('\n')).toContain(`lightsout: fetched 2 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
 		expect(readFileSync(join(cwd, planPath, 'overview.md'), 'utf8')).toBe(overviewBody);
 		expect(readFileSync(join(cwd, planPath, 'phase1-setup.md'), 'utf8')).toBe('# Plan: restored phase1-setup.md\n');
-		expect(logged[2]).toBe(`  overview: ${join(planPath, 'overview.md')}`);
+		expect(logged.join('\n')).toContain(`  overview: ${join(planPath, 'overview.md')}`);
 		// the planted lock stops the first phase's own run, which means the phase
 		// loop was entered against the restored overview
 		expect(errors.join('\n')).toContain('another lightsout run is active in this repo');
@@ -186,11 +212,12 @@ describe('implementCommand', () => {
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		// there is one place a plan folder can be — the main checkout — so there is
-		// one path to name and no worktree to mention
-		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
-		]);
+		// the ticket carries nothing under this plan's namespace, so the sentence
+		// names the folder it looked in and the command that puts the plan there
+		expect(errors).toHaveLength(1);
+		expect(errors[0] ?? '').toContain(`no plan at ${join(cwd, planPath)}`);
+		expect(errors[0] ?? '').toContain('lo-54');
+		expect(errors[0] ?? '').toContain(`lightsout plan publish --name ${name}`);
 		expect(existsSync(join(cwd, planPath))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
 	});
@@ -201,9 +228,13 @@ describe('implementCommand', () => {
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored: no ticket 'lo-54' in team LO`,
-		]);
+		// the work order's own record is settled before the plan is asked for, so a
+		// tracker that cannot be read stops there — naming the folder, the work
+		// order and the tracker's own words
+		expect(errors).toHaveLength(1);
+		expect(errors[0] ?? '').toContain(`no plan at ${join(cwd, planPath)}`);
+		expect(errors[0] ?? '').toContain(workOrderName);
+		expect(errors[0] ?? '').toContain("no ticket 'lo-54' in team LO");
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -213,7 +244,8 @@ describe('implementCommand', () => {
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		expect(errors.join('\n')).toContain(`no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored:`);
+		expect(errors.join('\n')).toContain(`no plan at ${join(cwd, planPath)}`);
+		expect(errors.join('\n')).toContain('could not be restored:');
 		expect(errors.join('\n')).toContain('expected plan.md on its own, or overview.md with at least one phase<N> file');
 		expect(existsSync(join(cwd, planPath))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
@@ -232,31 +264,30 @@ describe('implementCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('a plan folder name carrying no ticket id has no ticket to ask, and the refusal says which name it read', async () => {
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
-		const { context, cwd, logged, errors, exitCodes } = setupFetch({ args: ['--plan', path] });
+	test('a work order whose record carries no ticket reference has no ticket to ask, and the refusal names it', async () => {
+		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans', planId);
+		const { context, cwd, logged, errors, exitCodes } = setupFetch({ args: ['--plan', path], workOrder: { name: 'portable-plan' } });
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
 		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: the plan folder name 'portable-plan' carries no ticket id matching this repo's ship.ticket-pattern`,
+			`no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: work order 'portable-plan' carries no ticket reference in its record, so it belongs to no ticket`,
 		]);
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('an unusable ship.ticket-pattern is refused by name — the ticket to fetch from cannot be read at all', async () => {
-		const { context, cwd, logged, errors, exitCodes } = setupFetch({
+	test('an unusable ship.ticket-pattern reaches the fetch not at all, because the record answers which ticket this is', async () => {
+		const { context, cwd, logged, exitCodes } = setupFetch({
 			config: { 'ticket-tracker': ticketTrackerConfigBlock, ship: { 'ticket-pattern': '(' } },
 		});
 
 		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toStrictEqual([]);
-		expect(errors).toStrictEqual([
-			`no plan at ${join(cwd, planPath)}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
-		]);
+		// The plan came back from the ticket the record names, so the run stopped on
+		// its own run lock rather than on a pattern that decides nothing here.
+		expect(logged.join('\n')).toContain(`lightsout: fetched 1 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

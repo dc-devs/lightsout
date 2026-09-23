@@ -12,7 +12,7 @@ import { freshCwd } from '#tests/helpers/freshCwd.ts';
  */
 const setupPlansDir = async () => {
 	const cwd = await freshCwd();
-	const tickets = join(cwd, '.lightsout', 'tickets');
+	const tickets = join(cwd, '.lightsout', 'work-orders');
 
 	for (const planId of ['003-ship-it', '001-search-basics', '002-queue-order']) {
 		await mkdir(join(tickets, 'lo-150-observability', 'plans', planId), { recursive: true });
@@ -28,12 +28,12 @@ test('resolveReportTargets: an address resolves to one plan, and a ticket folder
 	const { cwd } = await setupPlansDir();
 
 	const address = await resolveReportTargets({ cwd, name: 'lo-150-observability/002-queue-order' });
-	const ticketFolder = await resolveReportTargets({ cwd, name: 'lo-150-observability' });
+	const workOrderFolder = await resolveReportTargets({ cwd, name: 'lo-150-observability' });
 
-	expect(address).toStrictEqual({ names: ['lo-150-observability/002-queue-order'], ticketFolder: false });
-	expect(ticketFolder).toStrictEqual({
+	expect(address).toStrictEqual({ names: ['lo-150-observability/002-queue-order'], workOrderFolder: false });
+	expect(workOrderFolder).toStrictEqual({
 		names: ['lo-150-observability/001-search-basics', 'lo-150-observability/002-queue-order', 'lo-150-observability/003-ship-it'],
-		ticketFolder: true,
+		workOrderFolder: true,
 	});
 });
 
@@ -42,7 +42,7 @@ test('resolveReportTargets: a legacy folder resolves to its own name with the ti
 
 	const resolved = await resolveReportTargets({ cwd, name: 'legacy-plan' });
 
-	expect(resolved).toStrictEqual({ names: ['legacy-plan'], ticketFolder: false });
+	expect(resolved).toStrictEqual({ names: ['legacy-plan'], workOrderFolder: false });
 });
 
 test('resolveReportTargets: an unknown name answers an error naming the value and the plans folder searched', async () => {
@@ -63,7 +63,7 @@ test('resolveReportTargets: an unknown name answers an error naming the value an
  */
 const setupTicketsDir = async () => {
 	const cwd = await freshCwd();
-	const tickets = join(cwd, '.lightsout', 'tickets');
+	const tickets = join(cwd, '.lightsout', 'work-orders');
 
 	for (const planId of ['003-ship-it', '001-search-basics', '002-queue-order']) {
 		await mkdir(join(tickets, 'lo-150-observability', 'plans', planId), { recursive: true });
@@ -88,12 +88,12 @@ test('resolveReportTargets: a folder with no plans folder is no plan, not a loos
 test('resolveReportTargets: a ticket folder answers its plan addresses, and a missing name names the folder searched', async () => {
 	const { cwd, tickets } = await setupTicketsDir();
 
-	const ticketFolder = await resolveReportTargets({ cwd, name: 'lo-150-observability' });
+	const workOrderFolder = await resolveReportTargets({ cwd, name: 'lo-150-observability' });
 	const missing = await resolveReportTargets({ cwd, name: 'no-such-plan' });
 
-	expect(ticketFolder).toStrictEqual({
+	expect(workOrderFolder).toStrictEqual({
 		names: ['lo-150-observability/001-search-basics', 'lo-150-observability/002-queue-order', 'lo-150-observability/003-ship-it'],
-		ticketFolder: true,
+		workOrderFolder: true,
 	});
 	// the folder actually read, so an error naming a repo-wide plans directory fails here
 	expect(missing).toEqual({ error: expect.stringContaining(join(tickets, 'no-such-plan', 'plans')) });

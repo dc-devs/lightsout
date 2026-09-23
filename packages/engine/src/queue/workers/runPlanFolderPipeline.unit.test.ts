@@ -7,10 +7,10 @@ import {
 	PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketEventKind,
-	TicketMode,
-	type TicketPlan,
-	type TicketRecord,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -54,7 +54,7 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: '.lightsout/tickets/lo-75-queue-owns-the-build/plans/plan.md',
+	plan: '.lightsout/work-orders/lo-75-queue-owns-the-build/plans/plan.md',
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -102,11 +102,11 @@ const setupPlanFolder = ({
 };
 
 /** The ticket folder's name, which is also the branch every plan below implements on. */
-const ticketBranch = 'lo-140-multiple-plans';
+const workOrderName = 'lo-140-multiple-plans';
 const firstPlan = '001-queue-build';
 const secondPlan = '002-open-outcome';
 
-const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): TicketPlan => ({
+const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): WorkOrderPlan => ({
 	id,
 	title: `plan ${id}`,
 	progress,
@@ -116,46 +116,47 @@ const planOf = ({ id, progress }: { id: string; progress: PlanProgress }): Ticke
 /** A passed run of the whole plan, which is the only shape that finishes a plan's implementation. */
 const passedPlanManifest = ({ planId }: { planId: string }): RunManifest => ({
 	...manifestOf(RunStatus.Passed),
-	plan: join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md'),
+	plan: join('.lightsout', 'work-orders', workOrderName, 'plans', planId, 'plan.md'),
 });
 
 /**
- * A real repository standing on the ticket branch, holding the ticket's record
+ * A real repository standing on the ticket branch, holding the work order's record
  * and one folder per plan — the three things the ticket lifecycle reads: the
  * record for the order the plans build in, `HEAD` for where an implementation
  * starts, and each plan's own files for the snapshot a pass records.
  */
-const setupTicketPlanFolder = ({ plans, result }: { plans: TicketPlan[]; result: PipelineResult }) => {
-	const { cwd } = setupBranchRepo({ branch: ticketBranch });
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const record: TicketRecord = {
+const setupTicketPlanFolder = ({ plans, result }: { plans: WorkOrderPlan[]; result: PipelineResult }) => {
+	const { cwd } = setupBranchRepo({ branch: workOrderName });
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
+	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: 'LO-140',
-		branch: ticketBranch,
-		mode: TicketMode.MultiplePlan,
+		branch: workOrderName,
+		mode: WorkOrderMode.MultiplePlan,
 		plans,
-		history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
+		history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
 	};
 
-	mkdirSync(ticketFolder, { recursive: true });
+	mkdirSync(workOrderFolder, { recursive: true });
 
 	for (const plan of plans) {
-		mkdirSync(join(ticketFolder, 'plans', plan.id), { recursive: true });
-		writeFileSync(join(ticketFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
+		mkdirSync(join(workOrderFolder, 'plans', plan.id), { recursive: true });
+		writeFileSync(join(workOrderFolder, 'plans', plan.id, 'plan.md'), `# ${plan.id}\n`);
 	}
 
-	writeFileSync(join(ticketFolder, 'ticket.json'), JSON.stringify(record));
+	writeFileSync(join(workOrderFolder, 'state.json'), JSON.stringify(record));
 	mockRunPhasesPipeline.mockResolvedValue(result);
 	mockRunImplementPipeline.mockResolvedValue(result);
 
 	const onProgress = jest.fn<(message: string) => void>();
 
-	return { cwd, ticketFolder, onProgress };
+	return { cwd, workOrderFolder, onProgress };
 };
 
-/** One plan's entry in the ticket's record as it stands on disk once the call has returned. */
-const planAt = ({ ticketFolder, id }: { ticketFolder: string; id: string }) =>
-	(JSON.parse(readFileSync(join(ticketFolder, 'ticket.json'), 'utf8')) as TicketRecord).plans.find((plan) => plan.id === id);
+/** One plan's entry in the work order's record as it stands on disk once the call has returned. */
+const planAt = ({ workOrderFolder, id }: { workOrderFolder: string; id: string }) =>
+	(JSON.parse(readFileSync(join(workOrderFolder, 'state.json'), 'utf8')) as WorkOrderState).plans.find((plan) => plan.id === id);
 
 describe('runPlanFolderPipeline', () => {
 	test('runs the phases pipeline against the overview a phased plan folder holds', async () => {
@@ -199,32 +200,32 @@ describe('runPlanFolderPipeline', () => {
 	});
 
 	test('returns the ticket refusal as the worker error without building a blocked plan', async () => {
-		const { cwd, ticketFolder, onProgress } = setupTicketPlanFolder({
+		const { cwd, workOrderFolder, onProgress } = setupTicketPlanFolder({
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready }), planOf({ id: secondPlan, progress: PlanProgress.Ready })],
 			result: { ok: true, manifest: passedPlanManifest({ planId: secondPlan }) },
 		});
 
-		const outcome = await runPlanFolderPipeline({ cwd, name: `${ticketBranch}/${secondPlan}`, config, driver, onProgress });
+		const outcome = await runPlanFolderPipeline({ cwd, name: `${workOrderName}/${secondPlan}`, config, driver, onProgress });
 
-		// a ticket's plans implement in numeric order, so the plan standing in the
+		// a work order's plans implement in numeric order, so the plan standing in the
 		// way is named and nothing is built or recorded for the one that is blocked
 		expect(outcome).toEqual({ error: expect.stringContaining(firstPlan) });
 		expect(outcome.error).toMatch(/implementation has not finished/);
 		expect(mockRunImplementPipeline).not.toHaveBeenCalled();
 		expect(mockRunPhasesPipeline).not.toHaveBeenCalled();
-		expect(planAt({ ticketFolder, id: secondPlan })?.progress).toBe('ready');
+		expect(planAt({ workOrderFolder, id: secondPlan })?.progress).toBe('ready');
 	});
 
 	test('records a queued ticket plan implemented once its build passes', async () => {
-		const { cwd, ticketFolder, onProgress } = setupTicketPlanFolder({
+		const { cwd, workOrderFolder, onProgress } = setupTicketPlanFolder({
 			plans: [planOf({ id: firstPlan, progress: PlanProgress.Ready })],
 			result: { ok: true, manifest: passedPlanManifest({ planId: firstPlan }) },
 		});
 
-		const outcome = await runPlanFolderPipeline({ cwd, name: `${ticketBranch}/${firstPlan}`, config, driver, onProgress });
+		const outcome = await runPlanFolderPipeline({ cwd, name: `${workOrderName}/${firstPlan}`, config, driver, onProgress });
 
 		expect(outcome).toStrictEqual({});
-		expect(planAt({ ticketFolder, id: firstPlan })).toEqual(
+		expect(planAt({ workOrderFolder, id: firstPlan })).toEqual(
 			expect.objectContaining({ progress: 'implemented', implementation: expect.objectContaining({ finishedAt: expect.any(String) }) }),
 		);
 	});

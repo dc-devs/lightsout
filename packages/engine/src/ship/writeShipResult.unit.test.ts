@@ -1,16 +1,21 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { ShipResult } from '#src/contracts/index.ts';
 import { writeShipResult } from '#src/ship/writeShipResult.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
-/** A repo with nowhere to write yet — the directory is the writer's job to create. */
-const setupResultWrite = async ({ branch }: { branch?: string } = {}) => {
+/** A repo holding one work order's record and nowhere to write yet — the directory is the writer's job to create. */
+const setupResultWrite = async ({ branch = 'lo-60-ship' }: { branch?: string } = {}) => {
 	const cwd = await freshCwd();
+
+	seedWorkOrderRecord({ cwd, name: 'lo-60-ship', branch, ticketRef: 'lo-60' });
+
 	const result = ShipResult.parse({ status: 'blocked', reason: 'checks-failed', detail: 'unit finished red', failingChecks: ['unit'], branch });
 
 	return { cwd, result };
@@ -25,6 +30,7 @@ const setupLinkedShipWrite = ({ branch = 'feature/lo-60' }: { branch?: string } 
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-60-ship');
 
+	seedWorkOrderRecord({ cwd, name: 'lo-60-ship', branch, ticketRef: 'lo-60' });
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd, stdio: 'ignore' });
 
 	const result = ShipResult.parse({ status: 'shipped', branch, ticketRef: 'lo-60', prNumber: 60, mergeCommit: '0f1e2d3c', failingChecks: [] });
@@ -32,13 +38,48 @@ const setupLinkedShipWrite = ({ branch = 'feature/lo-60' }: { branch?: string } 
 	return { branch, primary: cwd, worktree, result };
 };
 
+/**
+ * A checkout holding one work order whose record stores a prefixed branch, and
+ * two results: one for that branch, one for a branch no record claims.
+ */
+const setupWorkOrderShipWrite = async () => {
+	const cwd = await freshCwd();
+	const folder = join(cwd, '.lightsout', 'work-orders', 'lo-60-ship');
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(
+		join(folder, 'state.json'),
+		JSON.stringify({ schemaVersion: 1, name: 'lo-60-ship', branch: 'feature/lo-60', ticketRef: 'lo-60', mode: 'multiple-plan', plans: [], history: [] }),
+	);
+
+	const claimed = ShipResult.parse({
+		status: 'shipped',
+		branch: 'feature/lo-60',
+		ticketRef: 'lo-60',
+		prNumber: 60,
+		mergeCommit: '0f1e2d3c',
+		failingChecks: [],
+	});
+	const unclaimed = ShipResult.parse({
+		status: 'shipped',
+		branch: 'lo-99-nobody',
+		ticketRef: 'lo-99',
+		prNumber: 99,
+		mergeCommit: '9a8b7c6d',
+		failingChecks: [],
+	});
+
+	return { cwd, claimed, unclaimed };
+};
+
 describe('writeShipResult', () => {
-	test("writeShipResult: files a branch's result as ship.json in that branch's ticket folder", async () => {
-		const { cwd, result } = await setupResultWrite({ branch: 'lo-60-ship' });
+	test("writeShipResult: files a branch's result as ship.json in its work order's own folder", async () => {
+		const { cwd, result } = await setupResultWrite();
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'));
+		expectDefined(resultPath);
+		expect(resultPath).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'));
 		expect(JSON.parse(await readFile(resultPath, 'utf8'))).toStrictEqual(result);
 		expect(existsSync(join(cwd, '.lightsout', 'ship'))).toBe(false);
 	});
@@ -48,50 +89,40 @@ describe('writeShipResult', () => {
 
 		const resultPath = await writeShipResult({ cwd: worktree, result });
 
-		expect(JSON.parse(await readFile(join(primary, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'), 'utf8'))).toStrictEqual(result);
+		expectDefined(resultPath);
+		expect(JSON.parse(await readFile(join(primary, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'), 'utf8'))).toStrictEqual(result);
 		expect(existsSync(join(worktree, '.lightsout'))).toBe(false);
 		expect(resultPath.startsWith(worktree)).toBe(false);
 	});
 
-	test('writeShipResult: a slash-bearing branch files one flat ticket folder, never a nested one', async () => {
-		const { cwd, result } = await setupResultWrite({ branch: 'feature/lo-60' });
+	test("a result whose branch git never named is filed nowhere, because no work order's record can store one", async () => {
+		const cwd = await freshCwd();
+		const result = ShipResult.parse({ status: 'blocked', reason: 'checks-failed', detail: 'unit finished red', failingChecks: ['unit'] });
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'));
-		expect(readdirSync(join(cwd, '.lightsout', 'tickets'))).toStrictEqual(['feature-lo-60']);
+		expect(resultPath).toBeUndefined();
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders'))).toBe(false);
 	});
 
-	test('files the result under the branch it describes, creating the directory on the way', async () => {
-		const { cwd, result } = await setupResultWrite({ branch: 'lo-60-ship' });
-
-		const resultPath = await writeShipResult({ cwd, result });
-
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'lo-60-ship', 'ship.json'));
-		expect(JSON.parse(await readFile(resultPath, 'utf8'))).toStrictEqual(result);
-	});
-
-	test('slugs a branch carrying a slash, so a feature branch never writes into a directory of its own', async () => {
-		const { cwd, result } = await setupResultWrite({ branch: 'feature/lo-60' });
-
-		const resultPath = await writeShipResult({ cwd, result });
-
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'feature-lo-60', 'ship.json'));
-	});
-
-	test('a result with no branch is filed under `unknown`, so even a run that never learned one leaves a record', async () => {
+	test('leaves no temp file behind, because a tracker skill reading the directory would find two answers', async () => {
 		const { cwd, result } = await setupResultWrite();
 
 		const resultPath = await writeShipResult({ cwd, result });
 
-		expect(resultPath).toBe(join(cwd, '.lightsout', 'tickets', 'unknown', 'ship.json'));
+		expectDefined(resultPath);
+		await expect(readFile(`${resultPath}.tmp`, 'utf8')).rejects.toThrow();
 	});
 
-	test('leaves no temp file behind, because a tracker skill reading the directory would find two answers', async () => {
-		const { cwd, result } = await setupResultWrite({ branch: 'lo-60-ship' });
+	test("files a result with the work order's plans, and writes none for a branch no work order claims", async () => {
+		const { cwd, claimed, unclaimed } = await setupWorkOrderShipWrite();
 
-		const resultPath = await writeShipResult({ cwd, result });
+		const claimedPath = await writeShipResult({ cwd, result: claimed });
+		const unclaimedPath = await writeShipResult({ cwd, result: unclaimed });
 
-		await expect(readFile(`${resultPath}.tmp`, 'utf8')).rejects.toThrow();
+		expect(claimedPath).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'));
+		expect(JSON.parse(await readFile(join(cwd, '.lightsout', 'work-orders', 'lo-60-ship', 'ship.json'), 'utf8'))).toStrictEqual(claimed);
+		expect(unclaimedPath).toBeUndefined();
+		expect(readdirSync(join(cwd, '.lightsout', 'work-orders'))).toStrictEqual(['lo-60-ship']);
 	});
 });

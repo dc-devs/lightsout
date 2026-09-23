@@ -37,7 +37,7 @@ const recordedResultsDir = ({ dir }: { dir: string }) => readFileSync(join(dir, 
  * code under test. A single flat folder would miss every one of them.
  */
 const runFolderLocations = ({ dir }: { dir: string }) => [
-	join(dir, '.lightsout', 'tickets'),
+	join(dir, '.lightsout', 'work-orders'),
 	...['implement', 'direct', 'refactor', 'coverage', 'queue'].map((command) => join(dir, '.lightsout', command, 'runs')),
 ];
 

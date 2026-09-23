@@ -5,13 +5,20 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { WorktreeOwner } from '#src/contracts/index.ts';
 import { createWorktree, readWorktreeRecord, removeWorktree, resolveWorktreesRoot, writeWorktreeRecord } from '#src/worktree/index.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** The repo a run starts from: fetched once already, standing on the default branch. */
-const setupMainCheckout = async () => {
+const setupMainCheckout = async ({ branches = ['lo-70-drain', 'lo-131-plan'] }: { branches?: string[] } = {}) => {
 	const { cwd } = setupBranchRepo();
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
+
+	// A tree's ownership record is filed in the work order whose record stores
+	// its branch, so every branch a case cuts needs its work order first.
+	for (const branch of branches) {
+		seedWorkOrderRecord({ cwd, name: branch });
+	}
 
 	return { cwd, worktreesRoot: await resolveWorktreesRoot({ cwd }) };
 };
@@ -236,7 +243,7 @@ describe('createWorktree', () => {
 		expect(await readWorktreeRecord({ cwd, branch: 'lo-70-drain' })).toEqual(
 			expect.objectContaining({ branch: 'lo-70-drain', owner: 'queue', worktreePath: created }),
 		);
-		expect(existsSync(join(cwd, '.lightsout', 'tickets', 'lo-70-drain', 'worktree.json'))).toBe(true);
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'lo-70-drain', 'worktree.json'))).toBe(true);
 
 		await cleanUp({ cwd, worktreesRoot, branch: 'lo-70-drain' });
 	});

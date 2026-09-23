@@ -101,7 +101,8 @@ const setupRepair = ({ oversizedDiff = false }: SetupParams = {}) => {
 		},
 	};
 
-	const ship = () => runShip({ cwd, settings: shipSettingsFixture(), integration: shipIntegrationFixture({ driver }), ticketGuard: shipTicketGuardFixture() });
+	const ship = () =>
+		runShip({ cwd, settings: shipSettingsFixture(), integration: shipIntegrationFixture({ driver }), workOrderGuard: shipTicketGuardFixture() });
 
 	return { invocations, ship };
 };

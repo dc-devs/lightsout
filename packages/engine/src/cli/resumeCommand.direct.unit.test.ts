@@ -48,7 +48,7 @@ const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committ
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
 	commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params),
-	commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
 }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();

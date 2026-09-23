@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { commitRunWork } from '#src/commit/index.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
-import { plainSubject, planFolder, planId, setupCommitRun } from '#tests/helpers/setupCommitRun.ts';
+import { plainSubject, planFolder, planId, setupCommitRun, workOrderName } from '#tests/helpers/setupCommitRun.ts';
 
 // Git stays real, HEAD read included: what these cases pin is the subject a
 // commit is addressed under, which is only readable from the commit git made.
@@ -42,7 +42,23 @@ describe('commitRunWork subjects', () => {
 
 		const uncommitted = await commitRunWork({ run, resumed: false });
 
-		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: 'lo-152 idea' });
+		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: `${workOrderName} idea` });
+	});
+
+	test('addresses a plan outside the plans directory by the ticket the branch’s work order names', async () => {
+		const { cwd, run } = await setupCommitRun({
+			dirty: { 'src/thing.ts': 'export const thing = 1;\n', 'notes/idea.md': '# an idea\n' },
+			changedFiles: ['src/thing.ts'],
+			plan: 'notes/idea.md',
+			record: 'valid',
+		});
+
+		const uncommitted = await commitRunWork({ run, resumed: false });
+
+		// A loose plan names no work order, so the reference comes off the ladder
+		// instead — and the ladder's first rung is the record the branch belongs to,
+		// never a ticket id read out of the branch name.
+		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: 'LO-152 idea' });
 	});
 
 	test('falls back to the branch name when no ticket names the run', async () => {
@@ -50,7 +66,7 @@ describe('commitRunWork subjects', () => {
 			branch: 'wip-tree',
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
-			plan: `.lightsout/tickets/wip-tree/plans/${planId}/plan.md`,
+			plan: `.lightsout/work-orders/wip-tree/plans/${planId}/plan.md`,
 		});
 
 		const uncommitted = await commitRunWork({ run, resumed: false });
@@ -69,8 +85,9 @@ describe('commitRunWork subjects', () => {
 		const uncommitted = await commitRunWork({ run, resumed: false });
 
 		// The ladder runs out on a detached HEAD, and the unit is still named
-		// rather than the commit refused.
-		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: `ticket ${planId}` });
+		// rather than the commit refused. `work` rather than `ticket`: most
+		// repositories have no tracker at all.
+		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: `work ${planId}` });
 	});
 
 	test('commits under a supplied subject without deriving one', async () => {
@@ -90,15 +107,15 @@ describe('commitRunWork subjects', () => {
 		const { cwd, run } = await setupCommitRun({
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
-			plan: '.lightsout/tickets/legacy-notes/plans/plan.md',
+			plan: '.lightsout/work-orders/legacy-notes/plans/plan.md',
 		});
 
 		const uncommitted = await commitRunWork({ run, resumed: false });
 
-		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: 'lo-152 legacy-notes' });
+		expect({ uncommitted, subject: headSubject({ cwd }) }).toStrictEqual({ uncommitted: undefined, subject: `${workOrderName} legacy-notes` });
 	});
 
-	test('commits under the branch reference when the ticket record cannot be read', async () => {
+	test('commits under the branch name when the work order state cannot be read', async () => {
 		const { cwd, run, progress } = await setupCommitRun({
 			dirty: { 'src/thing.ts': 'export const thing = 1;\n' },
 			changedFiles: ['src/thing.ts'],
@@ -107,10 +124,12 @@ describe('commitRunWork subjects', () => {
 
 		const uncommitted = await commitRunWork({ run, resumed: false });
 
+		// The record is the only thing that says which ticket this branch belongs
+		// to, so a record nothing can read leaves the branch's own name.
 		expect({ uncommitted, subject: headSubject({ cwd }), progress }).toEqual({
 			uncommitted: undefined,
 			subject: plainSubject,
-			progress: expect.arrayContaining([expect.stringMatching(/ticket record/i)]),
+			progress: expect.arrayContaining([expect.stringMatching(/work order state/i)]),
 		});
 	});
 });

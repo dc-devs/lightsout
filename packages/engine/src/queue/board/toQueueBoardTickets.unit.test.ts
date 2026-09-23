@@ -9,6 +9,8 @@ import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 type LiveQueueBoard = NonNullable<Parameters<typeof toQueueBoardTickets>[0]['live']>;
 /** Any mix of settled and live records, as a case names them. */
 type BoardRecords = Partial<QueueDrainReport> & Partial<LiveQueueBoard>;
+/** One admitted work order, with the label and the branch its record already settled. */
+type NamedWorkOrder = LiveQueueBoard['pending'][number];
 
 /** A drain report with nothing in flight, which is how the queue command draws its final board. */
 const setupSettled = ({ outcomes = [], leftBehind = [] }: Partial<QueueDrainReport> = {}) => ({
@@ -16,7 +18,7 @@ const setupSettled = ({ outcomes = [], leftBehind = [] }: Partial<QueueDrainRepo
 	at: '2026-09-10T12:00:00.000Z',
 });
 
-/** A drain still running: empty lanes, the default branch template and a fixed worktrees root, with each case filling only the lanes it is about. */
+/** A drain still running: empty lanes and a fixed worktrees root, with each case filling only the lanes it is about. */
 const setupLive = ({ outcomes = [], leftBehind = [], ...lanes }: Partial<QueueDrainReport> & Partial<LiveQueueBoard> = {}) => {
 	const live: LiveQueueBoard = {
 		pending: [],
@@ -26,12 +28,41 @@ const setupLive = ({ outcomes = [], leftBehind = [], ...lanes }: Partial<QueueDr
 		blocked: [],
 		questions: new Map(),
 		entered: new Map(),
-		branchTemplate: '{ticket}-{slug}',
 		worktreesRoot: '/worktrees/app',
 		...lanes,
 	};
 
 	return { settled: { outcomes, leftBehind }, live, at: '2026-09-10T12:00:00.000Z' };
+};
+
+/** A drain still running with nothing settled, its Build Queue holding work orders whose records already name them. */
+const setupUnbuilt = ({ pending }: { pending: NamedWorkOrder[] }) => {
+	const live: LiveQueueBoard = {
+		pending,
+		building: [],
+		readyToShip: [],
+		shipping: undefined,
+		blocked: [],
+		questions: new Map(),
+		entered: new Map(),
+		worktreesRoot: '/worktrees/app',
+	};
+
+	return { settled: { outcomes: [], leftBehind: [] }, live, at: '2026-09-10T12:00:00.000Z' };
+};
+
+/**
+ * One wave entry whose name is already settled, labelled and branched the way
+ * the default template renders it — so a case that is not about naming states
+ * the ticket alone.
+ */
+const namedOf = ({ ticket }: { ticket: ReturnType<typeof queueTicketFixture> }): NamedWorkOrder => {
+	const name = `${ticket.identifier.toLowerCase()}-${ticket.title
+		.toLowerCase()
+		.replace(/[^a-z\d]+/gu, '-')
+		.replace(/^-|-$/gu, '')}`;
+
+	return { ticket, name, branch: name };
 };
 
 /** The fields a lane rule decides, so a case states only the lane and the reason it expects. */
@@ -48,8 +79,8 @@ const setupRanked = ({ from }: { from: number }) => {
 		{ leftBehind: [{ identifier: 'LO-60', reason: 'Already merged; reconciled to Done', settled: true }] },
 		{ shipping: queueOutcomeFixture({ ticket }) },
 		{ readyToShip: [queueOutcomeFixture({ ticket })] },
-		{ building: [{ ticket, startedAt: '2026-09-10T11:00:00.000Z' }] },
-		{ pending: [ticket] },
+		{ building: [{ workOrder: namedOf({ ticket }), startedAt: '2026-09-10T11:00:00.000Z' }] },
+		{ pending: [namedOf({ ticket })] },
 		{ blocked: [{ identifier: 'LO-60', reason: 'Blocked by LO-99, which is not finished' }] },
 	];
 
@@ -142,8 +173,7 @@ describe('toQueueBoardTickets', () => {
 
 	test('puts an admitted ticket with no builder in Build Queue with its branch and worktree', () => {
 		const { settled, live, at } = setupLive({
-			pending: [queueTicketFixture({ number: 71, title: 'Drain the backlog' })],
-			branchTemplate: 'queue/{ticket}-{slug}',
+			pending: [{ ...namedOf({ ticket: queueTicketFixture({ number: 71, title: 'Drain the backlog' }) }), branch: 'queue/lo-71-drain-the-backlog' }],
 		});
 
 		const tickets = toQueueBoardTickets({ settled, live, at });
@@ -156,7 +186,7 @@ describe('toQueueBoardTickets', () => {
 				lane: 'build-queue',
 				worker: 'direct',
 				branch: 'queue/lo-71-drain-the-backlog',
-				worktreePath: '/worktrees/app/queue/lo-71-drain-the-backlog',
+				worktreePath: '/worktrees/app/lo-71-drain-the-backlog',
 				enteredAt: '2026-09-10T12:00:00.000Z',
 			},
 		]);
@@ -165,8 +195,8 @@ describe('toQueueBoardTickets', () => {
 	test('moves a build whose worker waits for an answer from Building to Blocked with the question', () => {
 		const { settled, live, at } = setupLive({
 			building: [
-				{ ticket: queueTicketFixture({ number: 72 }), startedAt: '2026-09-10T11:00:00.000Z' },
-				{ ticket: queueTicketFixture({ number: 73 }), startedAt: '2026-09-10T11:05:00.000Z' },
+				{ workOrder: namedOf({ ticket: queueTicketFixture({ number: 72 }) }), startedAt: '2026-09-10T11:00:00.000Z' },
+				{ workOrder: namedOf({ ticket: queueTicketFixture({ number: 73 }) }), startedAt: '2026-09-10T11:05:00.000Z' },
 			],
 			questions: new Map([['lo-73', 'Should the board keep an empty lane?']]),
 		});
@@ -204,8 +234,8 @@ describe('toQueueBoardTickets', () => {
 	test('names the plan folder only for an auto-plan ticket', () => {
 		const { settled, live, at } = setupLive({
 			pending: [
-				queueTicketFixture({ number: 77, title: 'Plan the board', worker: QueueWorker.AutoPlan }),
-				queueTicketFixture({ number: 78, title: 'Build the board', worker: QueueWorker.Direct }),
+				namedOf({ ticket: queueTicketFixture({ number: 77, title: 'Plan the board', worker: QueueWorker.AutoPlan }) }),
+				namedOf({ ticket: queueTicketFixture({ number: 78, title: 'Build the board', worker: QueueWorker.Direct }) }),
 			],
 		});
 
@@ -217,10 +247,46 @@ describe('toQueueBoardTickets', () => {
 		]);
 	});
 
+	test('draws an unbuilt work order from its record rather than from the branch template', () => {
+		const { settled, live, at } = setupUnbuilt({
+			pending: [
+				{
+					ticket: queueTicketFixture({ number: 71, title: 'Drain the backlog', worker: QueueWorker.Direct }),
+					name: 'lo-71-drain-the-backlog',
+					branch: 'queue/lo-71-drain-the-backlog',
+				},
+				{
+					ticket: queueTicketFixture({ number: 77, title: 'Plan the board', worker: QueueWorker.AutoPlan }),
+					name: 'lo-77-plan-the-board',
+					branch: 'queue/lo-77-plan-the-board',
+				},
+			],
+		});
+
+		const tickets = toQueueBoardTickets({ settled, live, at });
+
+		expect(tickets.map(({ identifier, lane, branch, worktreePath, planName }) => ({ identifier, lane, branch, worktreePath, planName }))).toStrictEqual([
+			{
+				identifier: 'LO-71',
+				lane: 'build-queue',
+				branch: 'queue/lo-71-drain-the-backlog',
+				worktreePath: '/worktrees/app/lo-71-drain-the-backlog',
+				planName: undefined,
+			},
+			{
+				identifier: 'LO-77',
+				lane: 'build-queue',
+				branch: 'queue/lo-77-plan-the-board',
+				worktreePath: '/worktrees/app/lo-77-plan-the-board',
+				planName: 'lo-77-plan-the-board',
+			},
+		]);
+	});
+
 	test("keeps a ticket's entry time while it stays in its lane", () => {
 		const { settled, live, at } = setupLive({
-			pending: [queueTicketFixture({ number: 79 })],
-			building: [{ ticket: queueTicketFixture({ number: 80 }), startedAt: '2026-09-10T11:30:00.000Z' }],
+			pending: [namedOf({ ticket: queueTicketFixture({ number: 79 }) })],
+			building: [{ workOrder: namedOf({ ticket: queueTicketFixture({ number: 80 }) }), startedAt: '2026-09-10T11:30:00.000Z' }],
 			entered: new Map([
 				['lo-79', { lane: QueueLane.BuildQueue, at: '2026-09-10T10:00:00.000Z' }],
 				['lo-80', { lane: QueueLane.BuildQueue, at: '2026-09-10T10:00:00.000Z' }],
@@ -238,7 +304,7 @@ describe('toQueueBoardTickets', () => {
 	test('shows a ticket named by two records once, in the lane of the record that ranks higher', () => {
 		const { settled, live, at } = setupLive({
 			outcomes: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 81 }) })],
-			pending: [queueTicketFixture({ number: 81, identifier: 'lo-81' })],
+			pending: [namedOf({ ticket: queueTicketFixture({ number: 81, identifier: 'lo-81' }) })],
 		});
 
 		const tickets = toQueueBoardTickets({ settled, live, at });
@@ -267,10 +333,14 @@ describe('toQueueBoardTickets', () => {
 				queueOutcomeFixture({ ticket: queueTicketFixture({ number: 21 }), ready: false, error: 'The test gate failed' }),
 			],
 			leftBehind: [{ identifier: 'LO-9', reason: 'Skipped: it carries two planning labels' }],
-			pending: [queueTicketFixture({ number: 90 }), queueTicketFixture({ number: 12 }), queueTicketFixture({ number: 55 })],
+			pending: [
+				namedOf({ ticket: queueTicketFixture({ number: 90 }) }),
+				namedOf({ ticket: queueTicketFixture({ number: 12 }) }),
+				namedOf({ ticket: queueTicketFixture({ number: 55 }) }),
+			],
 			building: [
-				{ ticket: queueTicketFixture({ number: 40 }), startedAt: '2026-09-10T11:00:00.000Z' },
-				{ ticket: queueTicketFixture({ number: 62 }), startedAt: '2026-09-10T11:10:00.000Z' },
+				{ workOrder: namedOf({ ticket: queueTicketFixture({ number: 40 }) }), startedAt: '2026-09-10T11:00:00.000Z' },
+				{ workOrder: namedOf({ ticket: queueTicketFixture({ number: 62 }) }), startedAt: '2026-09-10T11:10:00.000Z' },
 			],
 			readyToShip: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 30 }) })],
 			shipping: queueOutcomeFixture({ ticket: queueTicketFixture({ number: 31 }) }),
@@ -297,7 +367,7 @@ describe('toQueueBoardTickets', () => {
 
 	test("carries the ticket's title and link, and leaves them unset when the entry has none", () => {
 		const { settled, live, at } = setupLive({
-			pending: [queueTicketFixture({ number: 86, title: 'Show the board' })],
+			pending: [namedOf({ ticket: queueTicketFixture({ number: 86, title: 'Show the board' }) })],
 			leftBehind: [
 				{ identifier: 'LO-87', reason: 'Its parked worktree names a ticket the tracker no longer returns' },
 				{ identifier: 'LO-88', reason: 'Skipped: it carries two planning labels', title: 'Pick one label', url: 'https://linear.app/lightsout/issue/LO-88' },

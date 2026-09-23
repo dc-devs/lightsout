@@ -5,6 +5,7 @@ import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/con
 import { resolvePlanWorktree } from '#src/cli/plan/common/utils/resolvePlanWorktree.ts';
 import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -47,7 +48,7 @@ const mockPrepareTicketBranch = jest.fn<(params: TicketBranchParams) => Promise<
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
-	prepareTicketBranch: (params: TicketBranchParams) => mockPrepareTicketBranch(params),
+	prepareWorkOrderBranch: (params: TicketBranchParams) => mockPrepareTicketBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
@@ -71,10 +72,6 @@ const name = 'lo-131-plan-in-a-worktree';
 const launchingHead = '3f1c0de5a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const otherHead = '9e8d7c6b5a49382716f5e4d3c2b1a0f9e8d7c6b5';
 const pinnedStartPoint = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
-const ticketBranch = 'lo-7-search';
-const planAddress = 'lo-7-search/002-ranking';
-const pushedTicketCommit = 'c0ffee11223344556677889900aabbccddeeff01';
-const liveRun = { pid: 4242, runId: 'run-20260911-090000-ranking', startedAt: '2026-09-11T09:00:00.000Z' };
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** One branch's state in the arranged repository. */
@@ -101,7 +98,7 @@ const configOf = ({ planWorktree }: { planWorktree?: boolean } = {}): LightsoutC
  * tree, holder and record answered by the mocked worktree module. Paths are
  * filesystem-resolved up front, because git answers resolved paths.
  */
-const setupRepository = async ({ trees = {} }: { trees?: Record<string, Tree> } = {}) => {
+const setupRepository = async ({ trees = {}, names = [] }: { trees?: Record<string, Tree>; names?: string[] } = {}) => {
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const elsewhere = join(root, 'somebody-elses-checkout');
@@ -128,6 +125,13 @@ const setupRepository = async ({ trees = {} }: { trees?: Record<string, Tree> } 
 	await Promise.all([sourceCwd, elsewhere, worktreesRoot].map((dir) => mkdir(dir, { recursive: true })));
 	await Promise.all(Object.entries(trees).map(occupy));
 
+	// The resolver reads the branch off the plan's work order record, so every
+	// label a case names needs one. Each stores the branch its own label spells,
+	// which is what the default template renders.
+	for (const label of [...new Set([...Object.keys(trees), ...names, name])]) {
+		seedWorkOrderRecord({ cwd: sourceCwd, name: label });
+	}
+
 	mockResolveWorktreePath.mockImplementation(async ({ branch }) => pathOf(branch));
 	mockReadBranchWorktree.mockImplementation(async ({ branch }) => holderOf(branch));
 	mockReadWorktreeRecord.mockImplementation(async ({ branch }) => {
@@ -147,7 +151,7 @@ const setupRepository = async ({ trees = {} }: { trees?: Record<string, Tree> } 
 
 /** The three isolation switches, each on its own plan so a cut can be traced back to the invocation that asked for it. */
 const setupIsolationSwitches = async () => {
-	const repository = await setupRepository();
+	const repository = await setupRepository({ names: ['lo-211-config-off', 'lo-212-flag-off', 'lo-213-flag-on'] });
 	const { sourceCwd } = repository;
 
 	return {
@@ -168,22 +172,6 @@ const setupEveryRefusal = async () =>
 			'lo-204-occupied-by-file': { occupant: 'file', refusesCreation: true },
 		},
 	});
-
-/**
- * A ticket folder's tree, named by a plan address. Every branch in `trees` is a
- * ticket branch, because that is the only thing this resolver hands the worktree
- * module for an address. `prepareTicketBranch` answers 'use the local branch as
- * it stands' unless a test says otherwise, and the run lock is held only in the
- * trees `liveTrees` names.
- */
-const setupTicketPlan = async ({ trees = {}, liveTrees = [] }: { trees?: Record<string, Tree>; liveTrees?: string[] } = {}) => {
-	const repository = await setupRepository({ trees });
-
-	mockPrepareTicketBranch.mockResolvedValue({});
-	mockReadLiveRunLock.mockImplementation(async ({ cwd }) => (liveTrees.some((branch) => cwd === repository.pathOf(branch)) ? liveRun : undefined));
-
-	return repository;
-};
 
 const sentenceOf = (answer: object) => ('error' in answer ? answer.error : undefined);
 
@@ -284,6 +272,11 @@ describe('resolvePlanWorktree', () => {
 	test('stays in an unrecorded tree it is already standing in, and refuses that same tree from outside', async () => {
 		const { sourceCwd, pathOf, config, flags } = await setupRepository({ trees: { [name]: { occupant: 'worktree' } } });
 
+		// A session standing in the tree reads the record from the checkout it is
+		// standing in, which is that tree — the same record, written where that
+		// checkout resolves its own state folder.
+		seedWorkOrderRecord({ cwd: pathOf(name), name });
+
 		const [standingIn, fromOutside] = await Promise.all([
 			resolvePlanWorktree({ cwd: pathOf(name), config, flags, name }),
 			resolvePlanWorktree({ cwd: sourceCwd, config, flags, name }),
@@ -317,70 +310,5 @@ describe('resolvePlanWorktree', () => {
 			expect.stringContaining(elsewhere),
 			expect.stringContaining('--no-worktree'),
 		]);
-	});
-
-	test('keys the tree, its branch and its ownership record by the ticket-branch segment of a plan address', async () => {
-		const { sourceCwd, pathOf, config, flags } = await setupTicketPlan();
-
-		const worktree = await resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: planAddress });
-		const branchesAsked = [
-			...mockResolveWorktreePath.mock.calls,
-			...mockReadBranchWorktree.mock.calls,
-			...mockReadWorktreeRecord.mock.calls,
-			...mockCreateWorktree.mock.calls,
-		].map(([params]) => params.branch);
-
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: true });
-		expect(branchesAsked).toEqual(['lo-7-search', 'lo-7-search', 'lo-7-search', 'lo-7-search']);
-	});
-
-	test('continues a plan address in the ticket tree an implementation run owns, leaving the record untouched', async () => {
-		const { sourceCwd, pathOf, config, flags } = await setupTicketPlan({
-			trees: { [ticketBranch]: { occupant: 'worktree', record: { owner: 'implement', startPoint: pinnedStartPoint } } },
-		});
-
-		const worktree = await resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: planAddress });
-
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: false });
-		expect(mockCreateWorktree).not.toHaveBeenCalled();
-		expect(mockWriteWorktreeRecord).not.toHaveBeenCalled();
-	});
-
-	test('refuses a plan address in the ticket tree while a live run holds its run lock, naming the run', async () => {
-		const { sourceCwd, pathOf, config, flags } = await setupTicketPlan({
-			trees: {
-				'lo-7-search': { occupant: 'worktree', record: { owner: 'plan' } },
-				'lo-8-ranking': { occupant: 'worktree', record: { owner: 'queue' } },
-				'lo-9-facets': { occupant: 'worktree', record: { owner: 'implement' } },
-			},
-			liveTrees: ['lo-7-search', 'lo-8-ranking', 'lo-9-facets'],
-		});
-
-		const refusals = await Promise.all(
-			['lo-7-search/001-basics', 'lo-8-ranking/002-ranking', 'lo-9-facets/003-facets'].map((address) =>
-				resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: address }),
-			),
-		);
-
-		const sentences = refusals.map(sentenceOf);
-
-		expect(sentences).toEqual([
-			expect.stringContaining(pathOf('lo-7-search')),
-			expect.stringContaining(pathOf('lo-8-ranking')),
-			expect.stringContaining(pathOf('lo-9-facets')),
-		]);
-		expect(sentences).toEqual(Array(3).fill(expect.stringContaining('run-20260911-090000-ranking')));
-		expect(sentences).toEqual(Array(3).fill(expect.stringContaining('--no-worktree')));
-	});
-
-	test("cuts a later plan's tree at the pushed ticket branch when only the remote holds it", async () => {
-		const { sourceCwd, pathOf, config, flags } = await setupTicketPlan();
-		mockPrepareTicketBranch.mockResolvedValue({ startPoint: pushedTicketCommit });
-
-		const worktree = await resolvePlanWorktree({ cwd: sourceCwd, config, flags, name: planAddress });
-
-		expect(worktree).toStrictEqual({ cwd: pathOf(ticketBranch), branch: ticketBranch, isolated: true, created: true });
-		expect(mockPrepareTicketBranch).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch }));
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: ticketBranch, startPoint: pushedTicketCommit }));
 	});
 });

@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { QueueDrainReport, QueueFailure, TicketRunOutcome } from '#src/queue/index.ts';
+import type { NamedWorkOrder, QueueDrainReport, QueueFailure, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { createControlledQueueLane } from '#tests/helpers/createControlledQueueLane.ts';
 import { createQueueCheckoutLog } from '#tests/helpers/createQueueCheckoutLog.ts';
+import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { drainLaneOutcomeFixture } from '#tests/helpers/drainLaneOutcomeFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -19,9 +20,10 @@ type WaveSelection = { runnable: RunnableTicket[]; blocked: LeftBehindTicket[]; 
 
 /** Runs a task with no other main-checkout git mutation in flight. */
 type SerializeMainCheckout = <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
-type ShipParams = { outcome: TicketRunOutcome; serializeMainCheckout: SerializeMainCheckout };
+type ShipParams = { outcome: WorkOrderRunOutcome; serializeMainCheckout: SerializeMainCheckout };
 type ScanParams = { attempted: Set<string> };
-type ReconcileParams = { tickets: RunnableTicket[] };
+type ReconcileParams = { tickets: NamedWorkOrder[] };
+type NameWaveParams = { tickets: RunnableTicket[] };
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
@@ -36,9 +38,10 @@ export const setupDrainLanes = ({
 }: {
 	serializeMainCheckout: SerializeMainCheckout;
 	mocks: {
-		ship: jest.Mock<(params: ShipParams) => Promise<TicketRunOutcome>>;
+		ship: jest.Mock<(params: ShipParams) => Promise<WorkOrderRunOutcome>>;
 		scan: jest.Mock<(params: ScanParams) => Promise<WaveSelection | QueueFailure>>;
-		reconcile: jest.Mock<(params: ReconcileParams) => Promise<{ kept: RunnableTicket[]; leftBehind: LeftBehindTicket[] }>>;
+		reconcile: jest.Mock<(params: ReconcileParams) => Promise<{ kept: NamedWorkOrder[]; leftBehind: LeftBehindTicket[] }>>;
+		nameWave: jest.Mock<(params: NameWaveParams) => Promise<{ named: NamedWorkOrder[]; leftBehind: LeftBehindTicket[] }>>;
 	};
 	runnable?: string[];
 	blocked?: LeftBehindTicket[];
@@ -68,6 +71,15 @@ export const setupDrainLanes = ({
 	const builds = createControlledQueueLane({ enter, leave });
 	const merges = createControlledQueueLane({ enter, leave });
 
+	// Every wave entry is named after its own identifier, which is also the branch
+	// `drainLaneOutcomeFixture` reports back — so a lane test states a ticket and
+	// gets one consistent label, branch and worktree for it.
+	mocks.nameWave.mockImplementation(({ tickets }) =>
+		Promise.resolve({
+			named: tickets.map((ticket) => ({ ticket, name: `${ticket.identifier.toLowerCase()}-work`, branch: `${ticket.identifier.toLowerCase()}-work` })),
+			leftBehind: [],
+		}),
+	);
 	mocks.reconcile.mockImplementation(({ tickets }) => Promise.resolve({ kept: tickets, leftBehind: [] }));
 	mocks.scan.mockResolvedValue({ runnable: [], blocked: [], skipped: [] });
 	mocks.ship.mockImplementation(async (params) => {
@@ -80,11 +92,12 @@ export const setupDrainLanes = ({
 		return answer;
 	});
 
-	// What a builder does first: add this ticket's worktree to the main checkout.
-	const runTicket = ({ ticket }: { ticket: RunnableTicket }) => {
-		const built = builds.begin({ identifier: ticket.identifier });
+	// What a builder does first: add this work order's worktree to the main checkout.
+	const runWorkOrder = ({ workOrder }: { workOrder: NamedWorkOrder }) => {
+		const { identifier } = workOrder.ticket;
+		const built = builds.begin({ identifier });
 
-		return serializeMainCheckout({ task: () => checkout.mutate({ label: `add ${ticket.identifier}` }) }).then(() => built);
+		return serializeMainCheckout({ task: () => checkout.mutate({ label: `add ${identifier}` }) }).then(() => built);
 	};
 
 	/**
@@ -115,7 +128,7 @@ export const setupDrainLanes = ({
 
 	let finished = false;
 
-	const carried: TicketRunOutcome[] = [];
+	const carried: WorkOrderRunOutcome[] = [];
 	const params = {
 		cwd,
 		config,
@@ -125,6 +138,8 @@ export const setupDrainLanes = ({
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
 		shipIntegration: shipIntegrationFixture(),
+		/** Naming is mocked in every drain-lane test, so a spawned harness is a failure rather than a silent pass. */
+		driver: createUncalledDriver({ reason: 'a drain-lane test spawned the name summariser' }),
 		defaultBranch: 'main',
 		env: {},
 		planPath,
@@ -136,7 +151,7 @@ export const setupDrainLanes = ({
 		carried,
 		carriedLeftBehind,
 		attempted: new Set<string>(),
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout,
 		/** A board that keeps nothing — a test about the board passes its own recorder in its place. */
 		board: { record: () => undefined },

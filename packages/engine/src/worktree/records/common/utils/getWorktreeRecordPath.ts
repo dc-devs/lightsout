@@ -1,6 +1,5 @@
 import { join } from 'node:path';
-import { toBranchFileName } from '#src/common/utils/toBranchFileName.ts';
-import { ticketFolderDir } from '#src/common/workspace/ticketFolderDir.ts';
+import { resolveBranchRecordDir } from '#src/common/workspace/resolveBranchRecordDir.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */
@@ -9,17 +8,15 @@ interface Params {
 }
 
 /**
- * A branch's worktree ownership: `worktree.json` in that branch's ticket
- * folder, beside the ship and branch-state records the same branch leaves.
+ * A branch's worktree ownership: `worktree.json` in the folder of the work
+ * order whose record stores that branch, beside the ship and branch-state
+ * records the same branch leaves.
  *
- * It takes a `cwd` rather than an already-resolved state directory because
- * `ticketFolderDir` resolves the primary checkout itself — which is what keeps
- * "the record lives in the primary checkout" true by construction rather than
- * by every caller remembering.
- *
- * The branch is slugged rather than used as written, so a branch carrying a
- * slash names one flat ticket folder rather than a nested one.
+ * Undefined when no work order claims the branch — the branch keeps no local
+ * record, rather than one filed under a folder named after it.
  */
-export const getWorktreeRecordPath = async ({ cwd, branch }: Params): Promise<string> => {
-	return join(await ticketFolderDir({ cwd, ticketBranch: toBranchFileName({ branch }) }), 'worktree.json');
+export const getWorktreeRecordPath = async ({ cwd, branch }: Params): Promise<string | undefined> => {
+	const folder = await resolveBranchRecordDir({ cwd, branch });
+
+	return folder === undefined ? undefined : join(folder, 'worktree.json');
 };

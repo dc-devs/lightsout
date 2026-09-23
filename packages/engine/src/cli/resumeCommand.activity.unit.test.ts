@@ -10,8 +10,8 @@ import {
 	PlanProgress,
 	type RunManifest,
 	RunStatus,
-	TicketMode,
-	type TicketRecord,
+	WorkOrderMode,
+	type WorkOrderState,
 } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -78,19 +78,19 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 // -------------------------
 
 /** The ticket's branch, which is also its folder's name under the plans directory. */
-const ticketBranch = 'lo-154-implementation-activity';
+const workOrderName = 'lo-154-implementation-activity';
 
 /** The one plan of that ticket these cases resume a run of. */
 const planId = '001-record-implementation';
 
 /** The plan's address — the `--name` its plan folder, and so its activity record, is found by. */
-const name = `${ticketBranch}/${planId}`;
+const name = `${workOrderName}/${planId}`;
 
 /** Where that plan's deliverable sits, relative to the checkout the run builds in. */
-const planPath = join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'plan.md');
+const planPath = join('.lightsout', 'work-orders', workOrderName, 'plans', planId, 'plan.md');
 
 /** Where that plan's overview sits when it is a phased plan — the plan path a phases run records. */
-const overviewPath = join('.lightsout', 'tickets', ticketBranch, 'plans', planId, 'overview.md');
+const overviewPath = join('.lightsout', 'work-orders', workOrderName, 'plans', planId, 'overview.md');
 
 /** The ticket body a direct run froze beside itself — the plan path a build from the ticket body records. */
 const frozenTicketPath = join('.lightsout', 'direct', 'runs', runId, 'ticket.md');
@@ -114,7 +114,7 @@ const activityRecordsUnder = async ({ dir }: { dir: string }) => {
 const setupParkedImplementRun = () => {
 	const seeded = setupResume({
 		args: ['--run', runId],
-		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Failed, plan: planPath, branch: ticketBranch }),
+		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Failed, plan: planPath, branch: workOrderName }),
 	});
 
 	writeRepoFile({ cwd: seeded.cwd, path: planPath, content: '# Record the implementation\n' });
@@ -123,10 +123,10 @@ const setupParkedImplementRun = () => {
 	mockExitAfterImplement.mockResolvedValue(undefined);
 	mockRunPipelineOrFailFast.mockResolvedValue({
 		ok: true,
-		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan: planPath, branch: ticketBranch }),
+		manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan: planPath, branch: workOrderName }),
 	});
 
-	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId) };
+	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'work-orders', workOrderName, 'plans', planId) };
 };
 
 /**
@@ -141,7 +141,7 @@ const setupParkedImplementRun = () => {
 const setupParkedPhasedRun = () => {
 	const seeded = setupResume({
 		args: ['--run', runId],
-		manifest: manifestOf({ pipeline: PipelineKind.Phases, status: RunStatus.Failed, plan: overviewPath, branch: ticketBranch }),
+		manifest: manifestOf({ pipeline: PipelineKind.Phases, status: RunStatus.Failed, plan: overviewPath, branch: workOrderName }),
 	});
 
 	writeRepoFile({ cwd: seeded.cwd, path: overviewPath, content: '# Record the implementation\n' });
@@ -155,11 +155,11 @@ const setupParkedPhasedRun = () => {
 
 		return {
 			ok: true,
-			manifest: manifestOf({ pipeline: PipelineKind.Phases, status: RunStatus.Passed, plan: overviewPath, branch: ticketBranch }),
+			manifest: manifestOf({ pipeline: PipelineKind.Phases, status: RunStatus.Passed, plan: overviewPath, branch: workOrderName }),
 		};
 	});
 
-	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'tickets', ticketBranch, 'plans', planId) };
+	return { ...seeded, planDir: join(seeded.cwd, '.lightsout', 'work-orders', workOrderName, 'plans', planId) };
 };
 
 /**
@@ -174,13 +174,14 @@ const setupParkedPhasedRun = () => {
 const setupParkedDirectRun = () => {
 	const seeded = setupResume({
 		args: ['--run', runId],
-		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Failed, plan: frozenTicketPath, ticketRef: 'LO-154', branch: ticketBranch }),
+		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Failed, plan: frozenTicketPath, ticketRef: 'LO-154', branch: workOrderName }),
 	});
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: 'LO-154',
-		branch: ticketBranch,
-		mode: TicketMode.SinglePlan,
+		branch: workOrderName,
+		mode: WorkOrderMode.SinglePlan,
 		plans: [
 			{
 				id: planId,
@@ -194,14 +195,14 @@ const setupParkedDirectRun = () => {
 	};
 
 	writeRepoFile({ cwd: seeded.cwd, path: planPath, content: '# Record the implementation\n' });
-	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'tickets', ticketBranch, 'ticket.json'), content: JSON.stringify(record) });
+	writeRepoFile({ cwd: seeded.cwd, path: join('.lightsout', 'work-orders', workOrderName, 'state.json'), content: JSON.stringify(record) });
 	writeRepoFile({ cwd: seeded.cwd, path: frozenTicketPath, content: '# Record the implementation\n\nBuild the thing.\n' });
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);
 	mockExitAfterImplement.mockResolvedValue(undefined);
 	mockContinueDirectRun.mockResolvedValue({
 		ok: true,
-		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, plan: frozenTicketPath, branch: ticketBranch }),
+		manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, plan: frozenTicketPath, branch: workOrderName }),
 	});
 
 	return seeded;
@@ -239,7 +240,7 @@ describe('resumeCommand activity record', () => {
 
 			return {
 				ok: true,
-				manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan: planPath, branch: ticketBranch }),
+				manifest: manifestOf({ pipeline: PipelineKind.Implement, status: RunStatus.Passed, plan: planPath, branch: workOrderName }),
 			};
 		});
 

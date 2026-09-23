@@ -1,5 +1,5 @@
 ---
-description: 'Jira Cloud mechanics for the lightsout ticket workflow — planning-status labels, statuses, attachments, branch linking, and pull-request conventions. Use alongside ticket-workflow when filing, shaping, or closing Jira work.'
+description: 'Jira Cloud mechanics for lightsout''s ticket workflow — planning-status labels, statuses, attachments, branch linking, and pull-request conventions. Use alongside ticket-workflow when filing, shaping, or closing Jira work.'
 ---
 <!-- generated:lightsout-prompt -->
 

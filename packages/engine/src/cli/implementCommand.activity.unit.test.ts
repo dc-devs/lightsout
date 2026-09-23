@@ -9,6 +9,7 @@ import { implementCommand } from '#src/cli/implementCommand.ts';
 import { RunStatus, type WorktreeOwner } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // What an `implement` run leaves in the plan folder's activity record: its own
@@ -76,7 +77,7 @@ jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
 
 /** The plan folder every recorded case points `--plan` at, and the name the record is written under. */
 const planName = 'lo-42-add-widgets';
-const planFolder = join('.lightsout', 'tickets', planName, 'plans');
+const planFolder = join('.lightsout', 'work-orders', planName, 'plans');
 
 /** What the plan inside the plans directory says. */
 const planBody = '# Plan: add widgets\n';
@@ -106,6 +107,9 @@ const setupImplementRecord = ({ args }: { args: string[] }) => {
 
 	execSync(`git worktree add -q --detach "${workspace}"`, { cwd, stdio: 'ignore' });
 
+	// The branch an isolated run builds on is the work order record's answer, so
+	// the record for this plan's work order stands on disk before the command runs.
+	seedWorkOrderRecord({ cwd, name: planName });
 	mkdirSync(join(cwd, planFolder), { recursive: true });
 	writeFileSync(join(cwd, planFolder, 'plan.md'), planBody);
 
@@ -121,7 +125,7 @@ const setupImplementRecord = ({ args }: { args: string[] }) => {
 		context: { flags: parseFlags({ args }), rest: [], cwd },
 		cwd,
 		workspace,
-		planDir: join(cwd, '.lightsout', 'tickets', planName, 'plans'),
+		planDir: join(cwd, '.lightsout', 'work-orders', planName, 'plans'),
 		...captured,
 	};
 };
@@ -163,18 +167,17 @@ describe('implementCommand activity record', () => {
 		]);
 	});
 
-	test('a plan path outside the plans directory records nothing and still completes', async () => {
-		const { context, cwd, workspace, exitCodes } = setupImplementRecord({ args: ['--plan', 'plan.md'] });
+	test('a plan path outside the plans directory records nothing at all', async () => {
+		const { context, cwd, workspace } = setupImplementRecord({ args: ['--plan', 'plan.md'] });
 
-		await implementCommand(context);
+		await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// a loose file is nobody's plan folder, so there is nowhere the record
-		// belongs — and the run it describes is untouched by that
+		// A loose file is nobody's plan folder, so there is nowhere a record
+		// belongs — and no work order's record says which branch to isolate it on,
+		// which is what stops the run before one could be written.
 		expect(activityRecordsUnder({ dir: cwd })).toStrictEqual([]);
 		expect(activityRecordsUnder({ dir: workspace })).toStrictEqual([]);
-		expect(mockRunPipelineOrFailFast).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, planPath: join('.lightsout', 'inputs', 'plan.md') }));
-		expect(mockExitAfterImplement).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, result: passedResult }));
-		expect(exitCodes).toStrictEqual([]);
+		expect(mockRunPipelineOrFailFast).not.toHaveBeenCalled();
 	});
 
 	test('a run built in a worktree records under the primary checkout', async () => {
@@ -186,7 +189,7 @@ describe('implementCommand activity record', () => {
 
 		// the tree comes down when the work ships, so a record written inside it
 		// would take the whole account of the run with it
-		expect(activityRecordsUnder({ dir: cwd })).toStrictEqual([join('.lightsout', 'tickets', planName, 'plans', 'activity.jsonl')]);
+		expect(activityRecordsUnder({ dir: cwd })).toStrictEqual([join('.lightsout', 'work-orders', planName, 'plans', 'activity.jsonl')]);
 		expect(activityRecordsUnder({ dir: workspace })).toStrictEqual([]);
 		expect(report.roots).toEqual([expect.objectContaining({ level: 'plan', label: planName, children: [expect.objectContaining({ level: 'command-run' })] })]);
 	});

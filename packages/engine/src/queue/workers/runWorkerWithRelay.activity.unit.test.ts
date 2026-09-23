@@ -5,7 +5,7 @@ import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type ActivityLevel, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { ActivityLevelKind, type LightsoutConfig, type RunManifest, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
+import { ActivityLevelKind, type LightsoutConfig, type RunManifest, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -57,19 +57,19 @@ jest.mock('#src/phases/index.ts', () => ({
 // real, so each case runs the build through the same wrapper the queue does.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 }
 
-type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	pullTicketRecord: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
 }));
 // -------------------------
 
@@ -99,7 +99,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: join('.lightsout', 'tickets', branch, 'plans', 'plan.md'),
+	plan: join('.lightsout', 'work-orders', branch, 'plans', 'plan.md'),
 	harness: 'claude-code',
 	status,
 	currentStep: null,
@@ -127,7 +127,7 @@ const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
  */
 const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result: PipelineResult }) => {
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-queue-activity-'));
-	const planDir = join(worktreePath, '.lightsout', 'tickets', branch, 'plans');
+	const planDir = join(worktreePath, '.lightsout', 'work-orders', branch, 'plans');
 
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'plan.md'), '# Plan\n');
@@ -162,7 +162,7 @@ const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result:
 		planDir,
 		params: {
 			worktreePath,
-			branch,
+			workOrderName: branch,
 			ticket,
 			config,
 			driver,
@@ -172,7 +172,7 @@ const setupQueueBuild = ({ phased = false, result }: { phased?: boolean; result:
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};

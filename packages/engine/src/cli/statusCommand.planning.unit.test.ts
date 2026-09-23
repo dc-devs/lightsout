@@ -82,7 +82,7 @@ const worktreeDecoyRecord: PlanningProgress = {
 
 /** Put a demo plan folder holding the given record into one checkout. */
 const writeDemoRecord = ({ checkout, record }: { checkout: string; record: PlanningProgress }) => {
-	const planDir = join(checkout, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(checkout, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'planning-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
@@ -96,7 +96,7 @@ const writeDemoRecord = ({ checkout, record }: { checkout: string; record: Plann
  */
 const setupPlanning = async ({ args = { planning: 'demo' }, record }: { args?: Record<string, string | true>; record?: PlanningProgress } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-status-planning-'));
-	const planDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(join(cwd, '.lightsout', 'runs'), { recursive: true });
 	mkdirSync(planDir, { recursive: true });

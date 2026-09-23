@@ -1,22 +1,22 @@
-import { commitTicketWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/index.ts';
 import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
 import { BranchPhase } from '#src/contracts/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 interface Params {
 	/** The main repository checkout, where the branch's phase is recorded. */
 	cwd: string;
-	/** The ticket's worktree, where its work is committed and counted. */
+	/** The work order's worktree, where its work is committed and counted. */
 	worktreePath: string;
 	branch: string;
 	/** The default branch this branch's commits are counted against. */
 	defaultBranch: string;
 	ticket: RunnableTicket;
 	/** The ticket's directory under the coordinator run, where the commit message file is written. */
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	/** The configured generated paths, discarded before the commit. */
 	generated: string[] | undefined;
 	/** What the ticket's worker amounted to. */
@@ -48,11 +48,11 @@ export const settleWorkerOutcome = async ({
 	branch,
 	defaultBranch,
 	ticket,
-	ticketRunDir,
+	workOrderRunDir,
 	generated,
 	worked,
 	onProgress,
-}: Params): Promise<Pick<TicketRunOutcome, 'ready' | 'error' | 'open' | 'unanswered'>> => {
+}: Params): Promise<Pick<WorkOrderRunOutcome, 'ready' | 'error' | 'open' | 'unanswered'>> => {
 	if (worked.error !== undefined) {
 		return { ready: false, error: worked.error, unanswered: worked.unanswered };
 	}
@@ -66,10 +66,10 @@ export const settleWorkerOutcome = async ({
 		return { ready: false, open: worked.open, error: undefined, unanswered: undefined };
 	}
 
-	const committed = await commitTicketWork({
+	const committed = await commitWorkOrderWork({
 		cwd: worktreePath,
 		message: `${ticket.identifier} ${ticket.title}`,
-		runDir: ticketRunDir,
+		runDir: workOrderRunDir,
 		generated,
 		onProgress,
 	});

@@ -7,13 +7,34 @@ import { BranchPhase } from '#src/contracts/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
-/** An empty checkout, and a hand-written record file for the off-contract cases the writer would never produce. */
+/**
+ * A record the work order contract accepts, written by hand so the branch
+ * look-up is the only thing under test. The label and the branch are stored
+ * separately, because a prefixed branch is exactly where the two differ.
+ */
+const workOrderStateOf = ({ name, branch }: { name: string; branch: string }) => ({
+	schemaVersion: 1,
+	name,
+	branch,
+	mode: 'multiple-plan',
+	plans: [],
+	history: [],
+});
+
+/**
+ * A checkout holding the work order that claims `lo-70-drain`, and a
+ * hand-written phase file beside its record for the off-contract cases the
+ * writer would never produce.
+ */
 const setupCheckout = ({ branch, contents }: { branch?: string; contents?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-branch-state-'));
+	const folder = join(cwd, '.lightsout', 'work-orders', 'lo-70-drain');
+
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'state.json'), JSON.stringify(workOrderStateOf({ name: 'lo-70-drain', branch: 'lo-70-drain' })));
 
 	if (branch !== undefined && contents !== undefined) {
-		mkdirSync(join(cwd, '.lightsout', 'tickets', branch), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', branch, 'branch-state.json'), contents);
+		writeFileSync(join(cwd, '.lightsout', 'work-orders', branch, 'branch-state.json'), contents);
 	}
 
 	return { cwd };
@@ -27,10 +48,38 @@ const setupCheckout = ({ branch, contents }: { branch?: string; contents?: strin
 const setupLinkedCheckout = ({ branch = 'lo-70-drain' }: { branch?: string } = {}) => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-70-drain');
+	const folder = join(cwd, '.lightsout', 'work-orders', 'lo-70-drain');
 
 	execSync(`git worktree add -q -b ${branch} "${worktree}" main`, { cwd, stdio: 'ignore' });
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(join(folder, 'state.json'), JSON.stringify(workOrderStateOf({ name: 'lo-70-drain', branch })));
 
 	return { branch, primary: cwd, worktree };
+};
+
+/**
+ * A checkout holding one work order folder per record, and optionally a folder
+ * named after a branch no record claims — holding the very `branch-state.json`
+ * the old branch-named route would have read.
+ */
+const setupWorkOrders = ({ records, strayBranch }: { records: { name: string; branch: string }[]; strayBranch?: string }) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-branch-state-'));
+
+	for (const { name, branch } of records) {
+		const folder = join(cwd, '.lightsout', 'work-orders', name);
+
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, 'state.json'), JSON.stringify(workOrderStateOf({ name, branch })));
+	}
+
+	if (strayBranch !== undefined) {
+		const folder = join(cwd, '.lightsout', 'work-orders', strayBranch);
+
+		mkdirSync(folder, { recursive: true });
+		writeFileSync(join(folder, 'branch-state.json'), JSON.stringify({ branch: strayBranch, phase: BranchPhase.Ready, updatedAt: '2026-01-01T00:00:00.000Z' }));
+	}
+
+	return { cwd };
 };
 
 describe('readBranchState', () => {
@@ -88,5 +137,14 @@ describe('readBranchState', () => {
 			phase: BranchPhase.Ready,
 			updatedAt: expect.any(String),
 		});
+	});
+
+	test('answers undefined when no work order claims the branch', async () => {
+		const { cwd } = setupWorkOrders({ records: [{ name: 'lo-2-beta', branch: 'feature/lo-2-beta' }], strayBranch: 'lo-9-unclaimed' });
+
+		// The stray folder holds a perfectly readable record under the branch's own
+		// name, so an answer of undefined can only mean the reader asked the work
+		// orders which one claims the branch rather than reading a file named after it.
+		expect(await readBranchState({ cwd, branch: 'lo-9-unclaimed' })).toBe(undefined);
 	});
 });

@@ -24,7 +24,7 @@ describe('parsePlanAddress', () => {
 		const address = parsePlanAddress({ name: 'lo-140-multi/002-queue-order' });
 
 		expect(address).toStrictEqual({
-			ticketBranch: 'lo-140-multi',
+			workOrderName: 'lo-140-multi',
 			planId: '002-queue-order',
 		});
 	});

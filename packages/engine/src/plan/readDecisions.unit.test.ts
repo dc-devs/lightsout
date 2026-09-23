@@ -53,8 +53,11 @@ describe('readDecisions', () => {
 	test('reads from the plan workspace keyed by name, so two plans never cross', async () => {
 		const { cwd } = setupWorkspace({ name: 'plan-a', content: JSON.stringify({ planName: 'plan-a', decisions: [] }) });
 
-		mkdirSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans'), { recursive: true });
-		writeFileSync(join(cwd, '.lightsout', 'tickets', 'plan-b', 'plans', 'decisions.json'), JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }));
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', 'plan-b', 'plans'), { recursive: true });
+		writeFileSync(
+			join(cwd, '.lightsout', 'work-orders', 'plan-b', 'plans', 'decisions.json'),
+			JSON.stringify({ planName: 'plan-b', decisions: [decisionRow] }),
+		);
 
 		const record = await readDecisions({ cwd, name: 'plan-b' });
 

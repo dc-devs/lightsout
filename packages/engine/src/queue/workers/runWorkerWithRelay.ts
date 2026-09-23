@@ -10,17 +10,17 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { buildTicketPlans } from '#src/queue/workers/buildTicketPlans.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import { pullTicketRecord } from '#src/ticket/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */
 	worktreePath: string;
-	/** The ticket's branch, which is also the ticket folder its plans live under. */
-	branch: string;
+	/** The work order's label — the folder its record and its plans live under, and the first segment of every plan address it holds. */
+	workOrderName: string;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
 	ticket: RunnableTicket;
@@ -33,7 +33,7 @@ interface Params {
 	/** The coordinator run's directory in the main checkout, where the relay records them. */
 	coordinatorRunDir: string;
 	/** The ticket's own directory under the coordinator run, where every commit message file this ticket needs is written. */
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
@@ -81,13 +81,13 @@ const runDirectWorker = async ({
  * The plan worker: implement the plan or plans the ticket already carries.
  *
  * A ticket with a record of its own is built plan by plan through
- * `buildTicketPlans`: its plans that are ready to implement go in numeric order,
+ * `buildWorkOrderPlans`: its plans that are ready to implement go in numeric order,
  * each committed as its own commit, and the loop decides whether the ticket then
  * ships, stays open, or parks.
  *
  * A ticket with no record keeps exactly the shape it always had. The plan folder
- * is named like the branch, and `.lightsout` is gitignored, so a fresh worktree
- * has none — the ordinary case is fetching it back from the ticket's own
+ * carries the work order's label, and `.lightsout` is gitignored, so a fresh
+ * worktree has none — the ordinary case is fetching it back from the ticket's own
  * attachments. A ticket carrying no plan at all is not an error either: shaping
  * may have finished on approved brainstorm material, whose outcome lives in the
  * ticket body. It then builds from the body, announced so the run is legible —
@@ -96,52 +96,52 @@ const runDirectWorker = async ({
 const runPlanWorker = async ({
 	cwd,
 	ticket,
-	branch,
+	workOrderName,
 	config,
 	driver,
 	driverName,
 	trackerSettings,
 	env,
-	ticketRunDir,
+	workOrderRunDir,
 	onProgress,
 }: {
 	cwd: string;
 	ticket: TicketSummary;
-	branch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	driver: Driver;
 	driverName: string;
 	trackerSettings: TrackerSettings;
 	env: NodeJS.ProcessEnv;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	onProgress?: (message: string) => void;
 }): Promise<WorkerOutcome> => {
-	const pulled = await pullTicketRecord({ cwd, ticketBranch: branch, config, env, onProgress });
+	const pulled = await pullWorkOrderState({ cwd, name: workOrderName, config, env, onProgress });
 
 	if ('error' in pulled) {
 		return { error: pulled.error };
 	}
 
 	if (pulled.record !== undefined) {
-		return buildTicketPlans({
+		return buildWorkOrderPlans({
 			cwd,
-			branch,
+			workOrderName,
 			ticket,
 			record: pulled.record,
 			config,
 			env,
 			driver,
 			driverName,
-			ticketRunDir,
+			workOrderRunDir,
 			allowTicketBodyBuild: true,
 			onProgress,
 		});
 	}
 
-	const folder = await planWorkspaceDir({ cwd, name: branch });
+	const folder = await planWorkspaceDir({ cwd, name: workOrderName });
 
 	if (!(await pathExists({ path: folder }))) {
-		const restored = await restorePlanWorkspace({ cwd, name: branch, identifier: ticket.identifier, settings: trackerSettings });
+		const restored = await restorePlanWorkspace({ cwd, name: workOrderName, identifier: ticket.identifier, settings: trackerSettings });
 
 		if (restored.error !== undefined) {
 			return { error: `the plan published to ${ticket.identifier} could not be fetched: ${restored.error}` };
@@ -154,7 +154,7 @@ const runPlanWorker = async ({
 		}
 	}
 
-	return runPlanFolderPipeline({ cwd, name: branch, config, driver, onProgress });
+	return runPlanFolderPipeline({ cwd, name: workOrderName, config, driver, onProgress });
 };
 
 /**
@@ -167,7 +167,7 @@ const runPlanWorker = async ({
  */
 export const runWorkerWithRelay = async ({
 	worktreePath,
-	branch,
+	workOrderName,
 	ticket,
 	config,
 	driver,
@@ -177,7 +177,7 @@ export const runWorkerWithRelay = async ({
 	relay,
 	coordinatorRunId,
 	coordinatorRunDir,
-	ticketRunDir,
+	workOrderRunDir,
 	env,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
@@ -191,9 +191,21 @@ export const runWorkerWithRelay = async ({
 		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
 			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
 			[QueueWorker.Plan]: () =>
-				runPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, trackerSettings, env, ticketRunDir, onProgress }),
+				runPlanWorker({ cwd: worktreePath, ticket, workOrderName, config, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
 			[QueueWorker.AutoPlan]: () =>
-				runAutoPlanWorker({ cwd: worktreePath, ticket, branch, config, driver, driverName, settings, env, ticketRunDir, answeredQuestion, onProgress }),
+				runAutoPlanWorker({
+					cwd: worktreePath,
+					ticket,
+					workOrderName,
+					config,
+					driver,
+					driverName,
+					settings,
+					env,
+					workOrderRunDir,
+					answeredQuestion,
+					onProgress,
+				}),
 		};
 		const outcome = await workers[ticket.worker]();
 

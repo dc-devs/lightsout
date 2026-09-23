@@ -27,7 +27,7 @@ jest.mock('#src/cli/common/utils/ensureBrainstormFiles.ts', () => ({
 const setupVerifyFacts = ({ args, authored }: { args: string[]; authored?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-facts-command-'));
-	const workspaceDir = join(cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc --noEmit' } }));
@@ -110,7 +110,7 @@ test('planVerifyFactsCommand: a --notes path that does not exist fails before ve
 // when it read the folder — a fetch placed after it would find nothing.
 const setupBrainstormFetch = () => {
 	const arranged = setupVerifyFacts({ args: ['--name', 'demo'] });
-	const workspaceDir = join(arranged.context.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const workspaceDir = join(arranged.context.cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 
 	mockEnsureBrainstormFiles.mockImplementationOnce(async () => {
 		mkdirSync(workspaceDir, { recursive: true });
@@ -138,7 +138,7 @@ test('records the verify-facts step as passed in the planning record before it e
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	const recordText = readFileSync(join(context.cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8');
+	const recordText = readFileSync(join(context.cwd, '.lightsout', 'work-orders', 'demo', 'plans', 'planning-progress.json'), 'utf8');
 	const record = JSON.parse(recordText) as unknown;
 	expect(exitCodes).toStrictEqual([0]);
 	expect(record).toEqual(
@@ -154,7 +154,7 @@ test('records the verify-facts step as failed in the planning record when the au
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	const recordText = readFileSync(join(context.cwd, '.lightsout', 'tickets', 'demo', 'plans', 'planning-progress.json'), 'utf8');
+	const recordText = readFileSync(join(context.cwd, '.lightsout', 'work-orders', 'demo', 'plans', 'planning-progress.json'), 'utf8');
 	const record = JSON.parse(recordText) as { steps: unknown[] };
 
 	// facts with no request fail the authored contract, so the run stops before it verifies anything
@@ -172,7 +172,7 @@ test('a deterministic subcommand records a childless command run beside the plan
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	const planDir = join(context.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(context.cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
 	const planning = JSON.parse(readFileSync(join(planDir, 'planning-progress.json'), 'utf8')) as unknown;
 
@@ -210,7 +210,7 @@ test('records the failed outcome on the command run and the plan level when the 
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	const planDir = join(context.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const planDir = join(context.cwd, '.lightsout', 'work-orders', 'demo', 'plans');
 	const report = buildActivityTree({ plan: 'demo', marks: await readActivityMarks({ dir: planDir }) });
 
 	expect(report.roots).toEqual([
@@ -230,7 +230,7 @@ test('a run that refuses for a missing --name writes no activity record', async 
 
 	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	const marks = await readActivityMarks({ dir: join(context.cwd, '.lightsout', 'tickets', 'demo', 'plans') });
+	const marks = await readActivityMarks({ dir: join(context.cwd, '.lightsout', 'work-orders', 'demo', 'plans') });
 
 	expect(marks).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([1]);

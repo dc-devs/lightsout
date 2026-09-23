@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { GateRunResult } from '#src/gates/index.ts';
-import type { ShipTicketGuard } from '#src/ship/index.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
 import { runShipAttempt } from '#src/ship/runShipAttempt.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -70,7 +70,7 @@ const setupAttempt = () => {
 			cwd,
 			settings: shipSettingsFixture(),
 			integration: shipIntegrationFixture(),
-			ticketGuard: shipTicketGuardFixture(),
+			workOrderGuard: shipTicketGuardFixture(),
 			branch,
 			defaultBranch: 'main',
 			ticket: { ticket: 'lo-89', number: '89' },
@@ -97,13 +97,13 @@ const refusal = 'plan 003 was added to lo-89 after its ship request, so the tick
  */
 const setupRefusedMerge = () => {
 	const { branch, params, readForgeLog } = setupAttempt();
-	const authorize = jest.fn<ShipTicketGuard['authorize']>();
+	const authorize = jest.fn<ShipWorkOrderGuard['authorize']>();
 
 	authorize.mockResolvedValue(refusal);
 
 	const finishStep = jest.spyOn(params.recorder, 'finishStep');
 
-	return { authorize, branch, finishStep, params: { ...params, ticketGuard: shipTicketGuardFixture({ authorize }) }, readForgeLog };
+	return { authorize, branch, finishStep, params: { ...params, workOrderGuard: shipTicketGuardFixture({ authorize }) }, readForgeLog };
 };
 
 describe('runShipAttempt', () => {
@@ -128,7 +128,7 @@ describe('runShipAttempt', () => {
 				}),
 			}),
 		);
-		await expect(access(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'))).rejects.toThrow();
+		await expect(access(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'))).rejects.toThrow();
 		expect(currentBranch).toBe(branch);
 	});
 

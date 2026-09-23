@@ -1,17 +1,24 @@
 import { execSync } from 'node:child_process';
-import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, TicketMode, type WorktreeOwner } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, WorkOrderMode, type WorktreeOwner } from '#src/contracts/index.ts';
 import { writeWorktreeRecord } from '#src/worktree/index.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 /** The ticket folder's name, which is also the branch every plan below implements on. */
-export const ticketBranch = 'lo-152-commit';
+export const workOrderName = 'lo-152-commit';
 export const planId = '001-one-commit-behaviour';
 export const runId = 'run-1234-abcd';
-export const planFolder = `.lightsout/tickets/${ticketBranch}/plans/${planId}`;
-/** What a run with no ticket record on disk is addressed by: the branch's ticket reference and the plan id. */
-export const plainSubject = `lo-152 ${planId}`;
+export const planFolder = `.lightsout/work-orders/${workOrderName}/plans/${planId}`;
+/**
+ * What a run with no work order record on disk is addressed by: the branch's own
+ * name and the plan id.
+ *
+ * The record is the only thing that says which ticket a branch belongs to, so a
+ * checkout holding none is named by its branch rather than by a ticket id read
+ * out of it.
+ */
+export const plainSubject = `${workOrderName} ${planId}`;
 
 /** What `git rev-parse HEAD` answers in a checkout — read for real, so a recorded sha can be compared with the commit that was made. */
 export const headCommitOf = ({ cwd }: { cwd: string }) => execSync('git rev-parse HEAD', { cwd }).toString().trim();
@@ -25,9 +32,10 @@ export const configOf = ({ generated }: { generated?: string[] }): LightsoutConf
 const ticketRecordOf = ({ branch }: { branch: string }) =>
 	JSON.stringify({
 		schemaVersion: 1,
+		name: branch,
 		ticketRef: 'LO-152',
 		branch,
-		mode: TicketMode.SinglePlan,
+		mode: WorkOrderMode.SinglePlan,
 		plans: [{ id: planId, title: 'One commit behaviour', progress: PlanProgress.Implementing, createdAt: '2026-01-01T00:00:00.000Z' }],
 		history: [],
 	});
@@ -83,7 +91,7 @@ export const createCommitRun = ({ cwd, manifest, config }: { cwd: string; manife
  * answering stubs that one read in its own file.
  */
 export const setupCommitRun = async ({
-	branch = ticketBranch,
+	branch = workOrderName,
 	dirty = {},
 	changedFiles = [],
 	plan = `${planFolder}/plan.md`,
@@ -100,7 +108,7 @@ export const setupCommitRun = async ({
 	branch?: string;
 	/** Where the manifest says its plan is, repo-relative. */
 	plan?: string;
-	/** A ticket record beside the plan folders: one that parses, or a `ticket.json` that is not a record at all. */
+	/** A ticket record beside the plan folders: one that parses, or a `state.json` that is not a record at all. */
 	record?: 'valid' | 'corrupt';
 	generated?: string[];
 	/** Recorded owner of a worktree lightsout cut for this branch. Omitted for a checkout a person chose themselves. */
@@ -110,7 +118,9 @@ export const setupCommitRun = async ({
 	/** Whether the checkout stands on a commit rather than on a branch, which is where every branch read answers nothing. */
 	detached?: boolean;
 } = {}) => {
-	const { cwd } = setupBranchRepo({ branch });
+	// The work order record is this helper's own arrangement — `record` decides
+	// whether one exists, is corrupt, or is absent — so the repo seeds none.
+	const { cwd } = setupBranchRepo({ branch, workOrder: false });
 
 	writeRepoFile({ cwd, path: '.gitignore', content: '.lightsout/\n' });
 	execSync('git add -A && git commit -qm ignore', { cwd, stdio: 'ignore' });
@@ -120,8 +130,8 @@ export const setupCommitRun = async ({
 	if (record !== undefined) {
 		writeRepoFile({
 			cwd,
-			path: `.lightsout/tickets/${branch}/ticket.json`,
-			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a ticket record',
+			path: `.lightsout/work-orders/${branch}/state.json`,
+			content: record === 'valid' ? ticketRecordOf({ branch }) : '{ this is not a work order state',
 		});
 	}
 

@@ -1,65 +1,64 @@
-import { basename, extname } from 'node:path';
-import { ticketFolderOf } from '#src/common/planAddress/ticketFolderOf.ts';
-import { headingOf } from '#src/common/utils/headingOf.ts';
-import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
-import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
+import { readWorkOrderRecordFile } from '#src/common/workspace/readWorkOrderRecordFile.ts';
+import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { planNameFromPath } from '#src/plan/index.ts';
+import { findWorkOrderByTicketRef } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */
 	cwd: string;
-	config: LightsoutConfig;
 	/** `--plan` exactly as the user typed it, for a plan-based run. */
 	planPath?: string;
-	/** `--ticket` exactly as the user typed it, for a direct run. */
+	/** `--ticket` exactly as the user typed it — named in the refusal, never turned into a branch. */
 	ticketPath?: string;
 	/** `--ref` exactly as the user typed it, when a direct run named one. */
 	ticketRef?: string;
-	/** The direct run's ticket body — its first heading supplies the `{slug}` token. */
-	ticketBody?: string;
 }
 
-/** The input's own file name without its extension — what a branch is named after when no convention names it. */
-const stemOf = ({ path }: { path: string }) => basename(path, extname(path));
+/** The branch stored by the work order a plan address names, or undefined when no record answers to that label. */
+const branchOfPlan = async ({ cwd, planPath }: { cwd: string; planPath: string }) => {
+	const planName = await planNameFromPath({ cwd, planPath });
 
-/**
- * The branch an isolated run is put on, derived from the input the user named,
- * or the one sentence saying the input names no branch.
- *
- * Its one caller is `resolveRunWorkspace`, which calls it only once isolation is
- * decided: a run building in the launching checkout needs no branch and must
- * never be refused for failing to derive one.
- *
- * The template is read out of the `queue` block deliberately. That block is the
- * repository's single statement of how a branch is named for a ticket, and
- * `ship.ticket-pattern` is written to match it; a second template key for
- * standalone runs would let the two drift and break the
- * ticket-to-branch-to-pull-request chain.
- */
-export const resolveRunBranch = async ({ cwd, config, planPath, ticketPath, ticketRef, ticketBody }: Params): Promise<string | { error: string }> => {
-	const planName = planPath === undefined ? undefined : await planNameFromPath({ cwd, planPath });
-	const template = config.queue?.['branch-template'] ?? '{ticket}-{slug}';
-	const input = planPath ?? ticketPath;
-	let branch = '';
-
-	if (planName !== undefined) {
-		// The ticket folder's own name, character for character: the folder, the
-		// branch and the ticket pattern are one chain, and re-slugging breaks it.
-		// For a plan address that folder is the ticket-branch segment, so every
-		// plan of one ticket builds on the one branch.
-		branch = ticketFolderOf({ name: planName });
-	} else if (ticketRef !== undefined) {
-		branch = renderBranchTemplate({ template, ticketRef, title: headingOf({ text: ticketBody ?? '' }) });
-	} else if (input !== undefined) {
-		branch = toBranchSlug({ text: stemOf({ path: input }) });
+	if (planName === undefined) {
+		return undefined;
 	}
 
-	const named = input ?? '--ref';
+	const record = await readWorkOrderRecordFile({ workOrderFolder: await workOrderFolderDir({ cwd, name: workOrderNameOf({ name: planName }) }) });
 
-	return branch === ''
+	return record?.branch;
+};
+
+/**
+ * The branch an isolated run is put on: the one the work order's record stores,
+ * or the one sentence saying the input names no work order.
+ *
+ * Nothing is derived here any more. A plan address names a work order and the
+ * record says which branch its plans implement on; a `--ref` names a ticket and
+ * the work order carrying it says the same. Deriving a branch from a file stem
+ * or re-rendering the queue's template would put a second author of the branch
+ * back in, and a second author is exactly what a work order's record exists to
+ * remove.
+ *
+ * That is a real narrowing for `implement-direct`: an isolated direct run needs
+ * a `--ref` whose work order exists, and everything else builds in the
+ * launching checkout. Its one caller is `resolveRunWorkspace`, which calls it
+ * only once isolation is decided, so a run building where it was launched is
+ * never refused for failing to name a work order.
+ */
+export const resolveRunBranch = async ({ cwd, planPath, ticketPath, ticketRef }: Params): Promise<string | { error: string }> => {
+	let branch: string | undefined;
+
+	if (planPath !== undefined) {
+		branch = await branchOfPlan({ cwd, planPath });
+	} else if (ticketRef !== undefined) {
+		branch = (await findWorkOrderByTicketRef({ cwd, ticketRef }))?.record.branch;
+	}
+
+	const named = planPath ?? ticketPath ?? ticketRef ?? '--ref';
+
+	return branch === undefined
 		? {
-				error: `no branch could be derived from '${named}' — it names no branch-safe word, so pass --no-worktree to build in the checkout this was launched from`,
+				error: `no branch could be resolved from '${named}' — it names no work order, and only a work order's record says which branch its work implements on, so pass --no-worktree to build in the checkout this was launched from`,
 			}
 		: branch;
 };

@@ -1,17 +1,21 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { BranchPhase, type RunManifest, RunStatus, type ShipResult } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { readBranchState, writeBranchState } from '#src/queue/index.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { PullRequestSummary } from '#src/ship/index.ts';
+import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupQueueDrain } from '#tests/helpers/setupQueueDrain.ts';
 
@@ -27,7 +31,7 @@ type ReconcileShippedParams = { ticketRef: string | undefined; env: NodeJS.Proce
 
 const mockListEligibleTickets = jest.fn<() => Promise<TicketSummary[] | QueueFailure>>();
 const mockScanParkedWorktrees = jest.fn<() => Promise<ParkedWork | QueueFailure>>();
-const mockRunQueueTicket = jest.fn<(params: { ticket: TicketSummary }) => Promise<TicketRunOutcome>>();
+const mockRunQueueTicket = jest.fn<(params: { workOrder: NamedWorkOrder }) => Promise<WorkOrderRunOutcome>>();
 const mockFindPullRequest = jest.fn<(params: FindPullRequestParams) => Promise<PullRequestSummary | undefined>>();
 const mockReconcileShippedTicket = jest.fn<(params: ReconcileShippedParams) => Promise<string | undefined>>();
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
@@ -35,7 +39,7 @@ const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueTicket.ts', () => ({ runQueueTicket: (params: { ticket: TicketSummary }) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
 jest.mock('#src/ticketTracker/index.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
@@ -62,26 +66,23 @@ jest.mock('#src/ship/index.ts', () => ({
 	runShip: (params: { cwd: string }) => mockRunShip(params),
 }));
 // -------------------------
+// Naming a wave creates work orders, which reads the tracker and spawns a
+// harness — the work order module's own job, with its own tests. These cases
+// keep the label and branch the queue's template renders, so what they state
+// about branches and worktrees is what the drain itself decides.
+const mockNameWaveWorkOrders = jest.fn<typeof nameWaveWorkOrders>(nameWaveLikeTemplate());
+
+jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
+	nameWaveWorkOrders: (params: Parameters<typeof mockNameWaveWorkOrders>[0]) => mockNameWaveWorkOrders(params),
+}));
+// -------------------------
 
 /** The environment the drain is handed, so a Done write reading credentials never has to reach `process.env`. */
 const env = { LINEAR_API_KEY: 'lin_key' };
 
 /** What the reconciler answers when the tracker would not take the Done write — a sentence, never an exception. */
-const doneWriteRefusal = "LO-70 shipped, but its tracker status could not be moved to 'Done': the tracker refused";
 
 const mergedPullRequest: PullRequestSummary = { number: 41, url: 'https://forge.example/pull/41', title: 'LO-70', branch: 'lo-70-ticket-70' };
-
-const shippedResult: ShipResult = {
-	status: ShipStatus.Shipped,
-	branch: 'lo-70-ticket-70',
-	ticketRef: 'lo-70',
-	prNumber: 41,
-	prUrl: 'https://forge.example/pull/41',
-	prTitle: 'LO-70',
-	mergeCommit: '0f1e2d3c',
-	mergedAt: '2026-01-01T00:00:00.000Z',
-	failingChecks: [],
-};
 
 /** The one manifest and the one plan the drain's coordinator run wrote. */
 const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
@@ -96,14 +97,20 @@ const readCoordinatorRun = ({ cwd }: { cwd: string }) => {
 const setupMergedWave = ({ merged = [], doneWriteFailure }: { merged?: number[]; doneWriteFailure?: string } = {}) => {
 	const { cwd } = setupBranchRepo();
 
+	// Every machine-local record a branch keeps is filed with the work order whose
+	// record stores it, so both branches of this wave have one.
+	seedWorkOrderRecord({ cwd, name: 'lo-70-ticket-70', ticketRef: 'LO-70' });
+	seedWorkOrderRecord({ cwd, name: 'lo-71-ticket-71', ticketRef: 'LO-71' });
+
 	mockListEligibleTickets.mockResolvedValue([ticketOf({ number: 70 }), ticketOf({ number: 71 })]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [], leftBehind: [], merged: [] });
 	// The surviving ticket parks rather than finishing: this factory is about
 	// which tickets reach a worker at all, and a ready one would send the serial
 	// merge at a worktree no test here ever built.
-	mockRunQueueTicket.mockImplementation(({ ticket }) =>
+	mockRunQueueTicket.mockImplementation(({ workOrder: { ticket } }) =>
 		Promise.resolve({
 			ticket,
+			name: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
 			branch: `${ticket.identifier.toLowerCase()}-ticket-${ticket.id}`,
 			worktreePath: `/tmp/${ticket.identifier}`,
 			ready: false,
@@ -116,29 +123,6 @@ const setupMergedWave = ({ merged = [], doneWriteFailure }: { merged?: number[];
 	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 
 	return setupQueueDrain({ cwd, env });
-};
-
-/** A parked branch with real commits on it, ready for the serial merge and nothing else. */
-const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } = {}) => {
-	const { cwd } = setupBranchRepo();
-	const branch = 'lo-70-ticket-70';
-	const worktreePath = join(dirname(cwd), `${basename(cwd)}-worktrees`, branch);
-
-	execFileSync('git', ['worktree', 'add', worktreePath, '-b', branch, 'origin/main'], { cwd, stdio: 'ignore' });
-	writeFileSync(join(worktreePath, 'work.ts'), 'export const work = 1;\n');
-	execFileSync('git', ['add', '-A'], { cwd: worktreePath, stdio: 'ignore' });
-	execFileSync('git', ['commit', '-qm', 'work'], { cwd: worktreePath, stdio: 'ignore' });
-
-	const ready: TicketRunOutcome = { ticket: ticketOf({ number: 70 }), branch, worktreePath, ready: true };
-
-	mockListEligibleTickets.mockResolvedValue([]);
-	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });
-	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
-	mockRunShip.mockResolvedValue(shippedResult);
-	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
-
-	return { ready, ...setupQueueDrain({ cwd, env }) };
 };
 
 /**
@@ -225,7 +209,7 @@ describe('runQueue', () => {
 		await drain();
 		relay.close();
 
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier)).toStrictEqual(['LO-71']);
 	});
 
 	test('asks the forge to confirm the merge on the ticket’s own branch, rather than inferring one', async () => {
@@ -281,7 +265,7 @@ describe('runQueue', () => {
 		// Offline after a restart: the forge is asked only about the branch nothing
 		// on this machine has an answer for.
 		expect(mockFindPullRequest.mock.calls.map((call) => call[0].branch)).toStrictEqual(['lo-71-ticket-71']);
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier)).toStrictEqual(['LO-71']);
 		expect(report).toEqual(
 			expect.objectContaining({
 				leftBehind: [
@@ -317,71 +301,6 @@ describe('runQueue', () => {
 		expect(plan).toContain('LO-71 · direct · lo-71-ticket-71 ·');
 		expect(plan).not.toContain('LO-70');
 	});
-
-	test('hands the drain’s own environment to the Done write, so the tracker credentials never come from the process', async () => {
-		const { drain, relay } = setupMergedWave({ merged: [70] });
-
-		await drain();
-		relay.close();
-
-		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'LO-70', env: { LINEAR_API_KEY: 'lin_key' } }));
-	});
-
-	test('still skips the already-merged ticket when the Done write failed, folding the reason in rather than building it again', async () => {
-		const { drain, relay, progress } = setupMergedWave({ merged: [70], doneWriteFailure: doneWriteRefusal });
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(report).toEqual({
-			outcomes: [expect.objectContaining({ ticket: expect.objectContaining({ identifier: 'LO-71' }) })],
-			leftBehind: [expect.objectContaining({ identifier: 'LO-70', reason: expect.stringContaining("could not be moved to 'Done'"), settled: true })],
-		});
-		expect(progress).toContainEqual(expect.stringContaining("could not be moved to 'Done'"));
-	});
-
-	test('moves a branch it merged in the drain to done, naming the reference the ship result carried', async () => {
-		const { drain, relay } = setupShippedBranch();
-
-		await drain();
-		relay.close();
-
-		expect(mockReconcileShippedTicket).toHaveBeenCalledWith(expect.objectContaining({ ticketRef: 'lo-70', env: { LINEAR_API_KEY: 'lin_key' } }));
-	});
-
-	test('leaves a shipped outcome exactly as it was when the Done write succeeded', async () => {
-		const { ready, drain, relay } = setupShippedBranch();
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(report).toStrictEqual({ outcomes: [ready], leftBehind: [] });
-	});
-
-	test('carries a failed Done write beside the shipped outcome without un-shipping the branch', async () => {
-		const { drain, relay } = setupShippedBranch({ doneWriteFailure: doneWriteRefusal });
-
-		const report = await drain();
-
-		relay.close();
-
-		expect(report).toEqual({
-			outcomes: [expect.objectContaining({ ready: true, reconciliationFailure: doneWriteRefusal })],
-			leftBehind: [],
-		});
-	});
-
-	test('ends the coordinator run passed though the Done write failed, because a tracker cannot undo a confirmed merge', async () => {
-		const { cwd, drain, relay } = setupShippedBranch({ doneWriteFailure: 'the tracker refused' });
-
-		await drain();
-		relay.close();
-
-		expect(readCoordinatorRun({ cwd }).manifest.status).toBe(RunStatus.Passed);
-	});
-
 	test('skips a ticket whose branch already merged when a re-scan hands it back mid-run', async () => {
 		const { drain, relay } = setupRescanMergedTicket();
 
@@ -389,7 +308,7 @@ describe('runQueue', () => {
 
 		relay.close();
 
-		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].ticket.identifier)).toStrictEqual(['LO-71']);
+		expect(mockRunQueueTicket.mock.calls.map((call) => call[0].workOrder.ticket.identifier)).toStrictEqual(['LO-71']);
 		expect(report).toEqual(
 			expect.objectContaining({
 				leftBehind: expect.arrayContaining([

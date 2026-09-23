@@ -1,10 +1,8 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
 import { resolveWorktreePath } from '#src/worktree/index.ts';
 
@@ -13,15 +11,18 @@ interface Params {
 	cwd: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
-	settings: QueueSettings;
-	/** The wave's runnable tickets, in the order they would be picked up. */
-	tickets: RunnableTicket[];
+	/** The wave's named work orders, in the order they would be picked up. */
+	tickets: NamedWorkOrder[];
 	onProgress?: (message: string) => void;
 }
 
 /**
- * The confirmed-merge skip: the tickets whose branches have not already merged,
- * and one left-behind entry per ticket whose branch has.
+ * The confirmed-merge skip: the work orders whose stored branches have not
+ * already merged, and one left-behind entry per work order whose branch has.
+ *
+ * The branch is read off each work order's record rather than rendered from the
+ * queue's template, so a prefixed template cannot make the check ask about a
+ * branch nothing ever pushed.
  *
  * It runs before any worktree is created or any tracker write is made, so the
  * one step that mutates the main checkout is never spent on a ticket the queue
@@ -36,19 +37,18 @@ export const reconcileMergedTickets = async ({
 	cwd,
 	config,
 	env,
-	settings,
 	tickets,
 	onProgress,
-}: Params): Promise<{ kept: RunnableTicket[]; leftBehind: LeftBehindTicket[] }> => {
-	const kept: RunnableTicket[] = [];
+}: Params): Promise<{ kept: NamedWorkOrder[]; leftBehind: LeftBehindTicket[] }> => {
+	const kept: NamedWorkOrder[] = [];
 	const leftBehind: LeftBehindTicket[] = [];
 
-	for (const ticket of tickets) {
-		const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
+	for (const workOrder of tickets) {
+		const { ticket, branch } = workOrder;
 		const evidence = await establishBranchMerge({ cwd, branch, onProgress });
 
 		if (evidence === undefined) {
-			kept.push(ticket);
+			kept.push(workOrder);
 			continue;
 		}
 

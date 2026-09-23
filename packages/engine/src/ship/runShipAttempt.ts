@@ -4,7 +4,7 @@ import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
-import type { ShipTicketGuard } from '#src/ship/common/types/ShipTicketGuard.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
 import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
 import { mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
@@ -21,7 +21,7 @@ interface Params {
 	settings: ShipSettings;
 	integration: ShipIntegration;
 	/** The branch's ticket record's say over the merge, re-asked here immediately before it. */
-	ticketGuard: ShipTicketGuard;
+	workOrderGuard: ShipWorkOrderGuard;
 	branch: string;
 	defaultBranch: string;
 	/** The branch's ticket capture groups — `ticket` plus whatever else the pattern names. */
@@ -36,7 +36,7 @@ interface Params {
 }
 
 /** The attempt's own inputs, with the ticket reference already resolved and the stop fields it would report. */
-interface PrepareParams extends Omit<Params, 'ticket' | 'recorder' | 'ticketGuard'> {
+interface PrepareParams extends Omit<Params, 'ticket' | 'recorder' | 'workOrderGuard'> {
 	ticketRef: string;
 	stop: ShipStopFields;
 }
@@ -118,7 +118,7 @@ const mergeCandidate = async ({
 	candidate,
 	cwd,
 	settings,
-	ticketGuard,
+	workOrderGuard,
 	stop,
 	recorder,
 }: {
@@ -126,7 +126,7 @@ const mergeCandidate = async ({
 	candidate: string;
 	cwd: string;
 	settings: ShipSettings;
-	ticketGuard: ShipTicketGuard;
+	workOrderGuard: ShipWorkOrderGuard;
 	stop: ShipStopFields;
 	recorder: ShippingProgressRecorder;
 }) => {
@@ -134,7 +134,7 @@ const mergeCandidate = async ({
 		recorder,
 		step: ShippingStepId.Merge,
 		run: async () => {
-			const unauthorized = await ticketGuard.authorize({ cwd, branch: stop.branch });
+			const unauthorized = await workOrderGuard.authorize({ cwd, branch: stop.branch });
 
 			return unauthorized === undefined
 				? await mergePullRequest({ prNumber: pullRequest.number, mergeMethod: settings.mergeMethod, expectedHead: candidate, cwd })
@@ -145,7 +145,7 @@ const mergeCandidate = async ({
 
 	if (typeof mergeCommit !== 'string') {
 		if ('unauthorized' in mergeCommit) {
-			return createBlockedAttempt({ stop, reason: ShipBlockReason.TicketNotAuthorized, detail: mergeCommit.unauthorized });
+			return createBlockedAttempt({ stop, reason: ShipBlockReason.WorkOrderNotAuthorized, detail: mergeCommit.unauthorized });
 		}
 
 		const detail = appendCommandOutput({ sentence: `the forge refused to merge #${pullRequest.number}`, stderr: mergeCommit.stderr });
@@ -188,7 +188,7 @@ export const runShipAttempt = async ({
 	cwd,
 	settings,
 	integration,
-	ticketGuard,
+	workOrderGuard,
 	branch,
 	defaultBranch,
 	ticket,
@@ -244,5 +244,5 @@ export const runShipAttempt = async ({
 		passed: (stopped) => stopped === undefined,
 	});
 
-	return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, ticketGuard, stop, recorder });
+	return checkStop ?? mergeCandidate({ pullRequest, candidate, cwd, settings, workOrderGuard, stop, recorder });
 };

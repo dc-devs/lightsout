@@ -5,25 +5,35 @@ import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { QueueBoard } from '#src/contracts/index.ts';
 import { getQueueBoardPath, QueueBoardRecorder, toQueueBoardTickets } from '#src/queue/board/index.ts';
-import type { QueueDrainReport, TicketRunOutcome } from '#src/queue/index.ts';
+import type { NamedWorkOrder, QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { resolveWorktreesRoot } from '#src/worktree/index.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
-import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 type RunnableTicket = ReturnType<typeof queueTicketFixture>;
 
 interface Lanes {
-	pending: RunnableTicket[];
-	building: { ticket: RunnableTicket; startedAt: string }[];
-	readyToShip: TicketRunOutcome[];
-	shipping: TicketRunOutcome | undefined;
+	pending: NamedWorkOrder[];
+	building: { workOrder: NamedWorkOrder; startedAt: string }[];
+	readyToShip: WorkOrderRunOutcome[];
+	shipping: WorkOrderRunOutcome | undefined;
 	blocked: QueueDrainReport['leftBehind'];
 }
 
 /** When every snapshot in a test is taken, unless the test moves the clock on. */
 const snapshotTime = '2026-09-10T10:00:00.000Z';
+
+/**
+ * A wave entry whose name is already settled, the way the naming step settles
+ * one: a label and a branch the record stores side by side, neither derived
+ * from the other, and neither one a template could render.
+ */
+const namedWorkOrderOf = ({ number, worker }: { number: number; worker?: RunnableTicket['worker'] }): NamedWorkOrder => ({
+	ticket: queueTicketFixture({ number, ...(worker === undefined ? {} : { worker }) }),
+	name: `lo-${number}-work`,
+	branch: `feature/lo-${number}-work`,
+});
 
 /**
  * A recorder over a fresh main checkout, with only the clock faked, so every
@@ -36,7 +46,6 @@ const snapshotTime = '2026-09-10T10:00:00.000Z';
 const setupRecorder = async ({ boardWriteBlocked = false, reportsProgress = true }: { boardWriteBlocked?: boolean; reportsProgress?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-board-recorder-'));
 	const runId = 'run-queue-1';
-	const branchTemplate = queueSettingsFixture().branchTemplate;
 	const progress: string[] = [];
 
 	// The board sits in the coordinator run's own folder, which is looked up by
@@ -72,7 +81,7 @@ const setupRecorder = async ({ boardWriteBlocked = false, reportsProgress = true
 	});
 
 	const onProgress = reportsProgress ? (message: string) => progress.push(message) : undefined;
-	const recorder = new QueueBoardRecorder({ cwd, runId, branchTemplate, onProgress });
+	const recorder = new QueueBoardRecorder({ cwd, runId, onProgress });
 
 	/** The board file as the contract reads it; throws when the file is missing or off-contract. */
 	const readBoardFile = async () => QueueBoard.parse(JSON.parse(await readFile(boardPath, 'utf8')));
@@ -80,7 +89,7 @@ const setupRecorder = async ({ boardWriteBlocked = false, reportsProgress = true
 	/** Take away the directory in the scratch file's place, so the next board write can land. */
 	const unblockBoardWrite = () => rmSync(scratchPath, { recursive: true });
 
-	return { cwd, runId, branchTemplate, progress, boardPath, recorder, readBoardFile, unblockBoardWrite };
+	return { cwd, runId, progress, boardPath, recorder, readBoardFile, unblockBoardWrite };
 };
 
 /** Lanes holding nothing but what a test names. */
@@ -107,7 +116,6 @@ const setupUnfiledRun = () => {
 	const recorder = new QueueBoardRecorder({
 		cwd,
 		runId,
-		branchTemplate: queueSettingsFixture().branchTemplate,
 		onProgress: (message: string) => progress.push(message),
 	});
 
@@ -119,20 +127,20 @@ const placesOf = (board: QueueBoard) => board.tickets.map(({ identifier, lane })
 
 describe('QueueBoardRecorder', () => {
 	test("writes the snapshot to the run's board file through a temporary file", async () => {
-		const { cwd, runId, branchTemplate, boardPath, recorder, readBoardFile } = await setupRecorder();
+		const { cwd, runId, boardPath, recorder, readBoardFile } = await setupRecorder();
 		const settled: QueueDrainReport = {
-			outcomes: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }) })],
+			outcomes: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }), name: 'lo-73-work' })],
 			leftBehind: [{ identifier: 'LO-74', reason: 'blocked by LO-1, which is not finished' }],
 		};
 		const lanes = lanesOf({
-			pending: [queueTicketFixture({ number: 71 })],
-			building: [{ ticket: queueTicketFixture({ number: 75, worker: 'auto-plan' }), startedAt: '2026-09-10T09:50:00.000Z' }],
-			readyToShip: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 72 }) })],
+			pending: [namedWorkOrderOf({ number: 71 })],
+			building: [{ workOrder: namedWorkOrderOf({ number: 75, worker: 'auto-plan' }), startedAt: '2026-09-10T09:50:00.000Z' }],
+			readyToShip: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 72 }), name: 'lo-72-work' })],
 		});
 		const worktreesRoot = await resolveWorktreesRoot({ cwd });
 		const expectedTickets = toQueueBoardTickets({
 			settled,
-			live: { ...lanes, questions: new Map(), entered: new Map(), branchTemplate, worktreesRoot },
+			live: { ...lanes, questions: new Map(), entered: new Map(), worktreesRoot },
 			at: snapshotTime,
 		});
 
@@ -144,11 +152,38 @@ describe('QueueBoardRecorder', () => {
 		expect(readdirSync(dirname(boardPath))).toStrictEqual(['board.json']);
 	});
 
+	test('records a board with no branch template at all', async () => {
+		const { recorder, readBoardFile } = await setupRecorder();
+		const settled: QueueDrainReport = {
+			outcomes: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }), name: 'lo-73-work', branch: 'feature/lo-73-work' })],
+			leftBehind: [],
+		};
+		const lanes = lanesOf({
+			pending: [namedWorkOrderOf({ number: 71 })],
+			building: [{ workOrder: namedWorkOrderOf({ number: 75 }), startedAt: '2026-09-10T09:50:00.000Z' }],
+			readyToShip: [queueOutcomeFixture({ ticket: queueTicketFixture({ number: 72 }), name: 'lo-72-work', branch: 'feature/lo-72-work' })],
+		});
+
+		recorder.record({ settled, lanes });
+		await recorder.flush();
+		const board = await readBoardFile();
+
+		// Every branch here carries a prefix no template of the recorder's could
+		// have rendered, so each one can only have come from the record that
+		// stores it — the recorder is handed no template to render from at all.
+		expect(board.tickets.map(({ identifier, lane, branch }) => ({ identifier, lane, branch }))).toStrictEqual([
+			{ identifier: 'LO-71', lane: 'build-queue', branch: 'feature/lo-71-work' },
+			{ identifier: 'LO-75', lane: 'building', branch: 'feature/lo-75-work' },
+			{ identifier: 'LO-72', lane: 'ship-queue', branch: 'feature/lo-72-work' },
+			{ identifier: 'LO-73', lane: 'shipped', branch: 'feature/lo-73-work' },
+		]);
+	});
+
 	test('writes snapshots one at a time in the order they were recorded', async () => {
 		const { recorder, readBoardFile } = await setupRecorder();
 
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 72 })] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 71 })] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 72 })] }) });
 		await recorder.flush();
 		const board = await readBoardFile();
 
@@ -159,14 +194,14 @@ describe('QueueBoardRecorder', () => {
 		const { recorder, readBoardFile } = await setupRecorder();
 		const settled = noSettled();
 		const lanes = lanesOf({
-			pending: [queueTicketFixture({ number: 71 })],
+			pending: [namedWorkOrderOf({ number: 71 })],
 			blocked: [{ identifier: 'LO-74', reason: 'blocked by LO-1, which is not finished' }],
 		});
 
 		recorder.record({ settled, lanes });
-		lanes.pending.push(queueTicketFixture({ number: 72 }));
+		lanes.pending.push(namedWorkOrderOf({ number: 72 }));
 		lanes.blocked.splice(0);
-		settled.outcomes.push(queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }) }));
+		settled.outcomes.push(queueOutcomeFixture({ ticket: queueTicketFixture({ number: 73 }), name: 'lo-73-work' }));
 		await recorder.flush();
 		const board = await readBoardFile();
 
@@ -178,13 +213,19 @@ describe('QueueBoardRecorder', () => {
 
 	test("keeps a ticket's entry time across writes while it stays in its lane", async () => {
 		const { recorder, readBoardFile } = await setupRecorder();
-		const staying = queueTicketFixture({ number: 71 });
-		const moving = queueTicketFixture({ number: 72 });
+		const staying = namedWorkOrderOf({ number: 71 });
+		const moving = namedWorkOrderOf({ number: 72 });
 
 		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [staying, moving] }) });
 		await recorder.flush();
 		jest.setSystemTime(new Date('2026-09-10T10:05:00.000Z'));
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [staying], readyToShip: [queueOutcomeFixture({ ticket: moving })] }) });
+		recorder.record({
+			settled: noSettled(),
+			lanes: lanesOf({
+				pending: [staying],
+				readyToShip: [queueOutcomeFixture({ ticket: moving.ticket, name: moving.name, branch: moving.branch })],
+			}),
+		});
 		await recorder.flush();
 		const board = await readBoardFile();
 
@@ -197,15 +238,15 @@ describe('QueueBoardRecorder', () => {
 
 	test('rewrites the board when a worker starts and stops waiting for an answer', async () => {
 		const { recorder, readBoardFile } = await setupRecorder();
-		const ticket = queueTicketFixture({ number: 71 });
+		const workOrder = namedWorkOrderOf({ number: 71 });
 		const question = 'Which column comes first?';
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ building: [{ ticket, startedAt: '2026-09-10T09:50:00.000Z' }] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ building: [{ workOrder, startedAt: '2026-09-10T09:50:00.000Z' }] }) });
 		await recorder.flush();
 
-		recorder.markWaiting({ ticket, question });
+		recorder.markWaiting({ ticket: workOrder.ticket, question });
 		await recorder.flush();
 		const whileWaiting = await readBoardFile();
-		recorder.clearWaiting({ ticket });
+		recorder.clearWaiting({ ticket: workOrder.ticket });
 		await recorder.flush();
 		const afterAnswer = await readBoardFile();
 
@@ -227,7 +268,7 @@ describe('QueueBoardRecorder', () => {
 
 	test('reports a failed board write as one progress line and keeps recording', async () => {
 		const { boardPath, progress, recorder } = await setupRecorder({ boardWriteBlocked: true });
-		const snapshot = { settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) };
+		const snapshot = { settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 71 })] }) };
 
 		const recording = (async () => {
 			recorder.record(snapshot);
@@ -247,7 +288,7 @@ describe('QueueBoardRecorder', () => {
 	test('names the run in its progress line when there is no folder to look the board up in', async () => {
 		const { cwd, runId, progress, recorder } = setupUnfiledRun();
 
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 71 })] }) });
 		await recorder.flush();
 
 		// the board's folder is looked up rather than joined, so a run nothing
@@ -262,10 +303,10 @@ describe('QueueBoardRecorder', () => {
 	test('writes the next snapshot after a failed write when it has no progress sink', async () => {
 		const { recorder, readBoardFile, unblockBoardWrite } = await setupRecorder({ boardWriteBlocked: true, reportsProgress: false });
 
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 71 })] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 71 })] }) });
 		await recorder.flush();
 		unblockBoardWrite();
-		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [queueTicketFixture({ number: 72 })] }) });
+		recorder.record({ settled: noSettled(), lanes: lanesOf({ pending: [namedWorkOrderOf({ number: 72 })] }) });
 		await recorder.flush();
 		const board = await readBoardFile();
 

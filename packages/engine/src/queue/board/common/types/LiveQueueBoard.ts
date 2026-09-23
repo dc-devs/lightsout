@@ -7,8 +7,6 @@ export interface LiveQueueBoard extends QueueBoardLanes {
 	questions: ReadonlyMap<string, string>;
 	/** The lane each ticket was last recorded in and when it entered it, keyed by lower-cased identifier. */
 	entered: ReadonlyMap<string, { lane: QueueLane; at: string }>;
-	/** The queue's branch template, to name the branch of a ticket that has no outcome yet. */
-	branchTemplate: string;
-	/** The repository's worktrees root, joined with a branch to name its worktree. */
+	/** The repository's worktrees root, joined with a work order's label to name its worktree. */
 	worktreesRoot: string;
 }

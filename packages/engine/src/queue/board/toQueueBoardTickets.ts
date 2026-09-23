@@ -4,10 +4,10 @@ import type { LiveQueueBoard } from '#src/queue/board/common/types/LiveQueueBoar
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 interface Params {
 	/** Outcomes and left-behind entries the drain has settled. With nothing else, this is the final board. */
@@ -21,23 +21,25 @@ interface Params {
 /** A ticket's place on the board before its lane-entry time is known. */
 type Placed = Omit<QueueBoardTicket, 'enteredAt'>;
 
-/** Who the ticket is, the worker building it, and where that work lives. */
-const describeWork = ({ ticket, branch, worktreePath }: { ticket: TicketSummary; branch: string; worktreePath: string }) => ({
+/**
+ * Who the ticket is, the worker building it, and where that work lives.
+ *
+ * `planName` is the work order's LABEL rather than its branch: a plan address
+ * is built from the label, and a prefixed branch would not parse as one.
+ */
+const describeWork = ({ ticket, name, branch, worktreePath }: { ticket: TicketSummary; name: string; branch: string; worktreePath: string }) => ({
 	identifier: ticket.identifier,
 	title: ticket.title,
 	url: ticket.url,
 	worker: ticket.worker,
-	planName: ticket.worker === QueueWorker.AutoPlan ? branch : undefined,
+	planName: ticket.worker === QueueWorker.AutoPlan ? name : undefined,
 	branch,
 	worktreePath,
 });
 
-/** A ticket with no outcome yet, its branch and worktree derived the way the queue's document derives them. */
-const describeUnbuilt = ({ ticket, live }: { ticket: TicketSummary; live: LiveQueueBoard }) => {
-	const branch = toTicketBranch({ ticket, template: live.branchTemplate });
-
-	return describeWork({ ticket, branch, worktreePath: join(live.worktreesRoot, branch) });
-};
+/** A work order with no outcome yet, its branch and worktree read off the record rather than rendered from a template. */
+const describeUnbuilt = ({ workOrder, live }: { workOrder: NamedWorkOrder; live: LiveQueueBoard }) =>
+	describeWork({ ticket: workOrder.ticket, name: workOrder.name, branch: workOrder.branch, worktreePath: join(live.worktreesRoot, workOrder.name) });
 
 const placeLeftBehind = ({ entry, lane, reason }: { entry: LeftBehindTicket; lane: QueueLane; reason: string | undefined }) => ({
 	identifier: entry.identifier,
@@ -49,14 +51,14 @@ const placeLeftBehind = ({ entry, lane, reason }: { entry: LeftBehindTicket; lan
 
 /** A build in flight, unless its worker is waiting for a relayed answer — then the question holds it in Blocked. */
 const placeBuild = ({ build, live }: { build: BuildInFlight; live: LiveQueueBoard }) => {
-	const question = live.questions.get(build.ticket.identifier.toLowerCase());
-	const work = { ...describeUnbuilt({ ticket: build.ticket, live }), buildStartedAt: build.startedAt };
+	const question = live.questions.get(build.workOrder.ticket.identifier.toLowerCase());
+	const work = { ...describeUnbuilt({ workOrder: build.workOrder, live }), buildStartedAt: build.startedAt };
 
 	return question === undefined ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
 
 /** A settled outcome's lane: shipped, blocked when the ticket was only left open, and parked otherwise. */
-const placeOutcome = ({ outcome }: { outcome: TicketRunOutcome }) => {
+const placeOutcome = ({ outcome }: { outcome: WorkOrderRunOutcome }) => {
 	if (outcome.ready) {
 		return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
 	}
@@ -82,7 +84,7 @@ const placeLive = ({ live }: { live: LiveQueueBoard }) => [
 	...(live.shipping === undefined ? [] : [{ ...describeWork(live.shipping), lane: QueueLane.ShippingNow }]),
 	...live.readyToShip.map((outcome) => ({ ...describeWork(outcome), lane: QueueLane.ShipQueue })),
 	...live.building.map((build) => placeBuild({ build, live })),
-	...live.pending.map((ticket) => ({ ...describeUnbuilt({ ticket, live }), lane: QueueLane.BuildQueue })),
+	...live.pending.map((workOrder) => ({ ...describeUnbuilt({ workOrder, live }), lane: QueueLane.BuildQueue })),
 	...live.blocked.map((entry) => placeLeftBehind({ entry, lane: QueueLane.Blocked, reason: entry.reason })),
 ];
 

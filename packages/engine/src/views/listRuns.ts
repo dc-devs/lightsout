@@ -5,7 +5,7 @@ import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 interface Params {
 	cwd: string;
 	/** Narrow the read to one ticket's runs folder; without it, every run this repo has. */
-	ticketBranch?: string;
+	workOrderName?: string;
 }
 
 /**
@@ -17,10 +17,10 @@ interface Params {
  * the health report skip one: a list is an account of what is readable, and one
  * corrupt directory must not take the whole history down with it.
  */
-export const listRuns = async ({ cwd, ticketBranch }: Params): Promise<RunListing[]> => {
+export const listRuns = async ({ cwd, workOrderName }: Params): Promise<RunListing[]> => {
 	const listings: RunListing[] = [];
 
-	for (const runId of await listRunIds({ cwd, ticketBranch })) {
+	for (const runId of await listRunIds({ cwd, workOrderName })) {
 		const manifest = await readRunManifest({ cwd, runId }).catch(() => undefined);
 
 		if (manifest === undefined) {

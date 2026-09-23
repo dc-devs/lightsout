@@ -3,7 +3,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { continueDirectRun } from '#src/cli/common/implementRun/continueDirectRun.ts';
 import { readResumeClearance } from '#src/cli/common/implementRun/readResumeClearance.ts';
-import { reportTicketPlanOutcome } from '#src/cli/common/implementRun/reportTicketPlanOutcome.ts';
+import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
 import { resolveRunCwd } from '#src/cli/common/implementRun/resolveRunCwd.ts';
 import { printResult } from '#src/cli/common/render/printResult.ts';
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
@@ -19,7 +19,7 @@ import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from 
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import { recordPlanCommandRun } from '#src/plan/index.ts';
 import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 /**
  * Pipelines that own their own resume door, and the whole instruction that
@@ -183,7 +183,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	// records nothing: its plan path is a frozen ticket body, and the direct
 	// pipeline is outside this record's scope even where the ticket record can
 	// still answer a plan address for it.
-	const outcome = await runTicketPlanLifecycle({
+	const outcome = await runWorkOrderPlanLifecycle({
 		cwd: workspace,
 		name,
 		resumeRunId: manifest.runId,
@@ -208,7 +208,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 			}),
 	});
 
-	const result = reportTicketPlanOutcome({ outcome });
+	const result = reportWorkOrderPlanOutcome({ outcome });
 
 	if (result === undefined) {
 		return exitCli({ code: 1 });

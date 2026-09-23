@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { activityRecordPath, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { planCommand } from '#src/cli/plan/planCommand.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { planAttachmentManifestName } from '#src/plan/index.ts';
@@ -12,49 +13,22 @@ import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
 // -------------------------
-// The action is another module's entry point: the only behaviour this file owns
-// is what reaches it, what is printed, and how the command ends. Only the action
-// is replaced — the plan module's other exports stay real, so the planning
-// record the command writes around it lands on disk for real. The subject is
-// imported from its own file rather than the folder's barrel, because the test
-// sits inside the module.
+// The work order publish is another module's entry point, and the only one this
+// command has: the behaviour this file owns is what reaches it, what is printed
+// about it, and how the command ends. Only that publisher is replaced — the plan
+// module's other exports stay real, so the planning record the command writes
+// around it lands on disk for real. The subject is imported from its own file
+// rather than the folder's barrel, because the test sits inside the module.
 interface PublishReport {
 	ticketRef?: string;
 	published: string[];
 	stale: string[];
 	error?: string;
-}
-
-interface PublishParams {
-	cwd: string;
-	name: string;
-	config: LightsoutConfig;
-	env: NodeJS.ProcessEnv;
-	onProgress: (message: string) => void;
-	/** The plan id every attachment title is namespaced under — never set for a legacy folder. */
-	titlePrefix?: string;
-}
-
-const mockPublishPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
-
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	publishPlan: (params: PublishParams) => mockPublishPlan(params),
-}));
-// -------------------------
-// The ticket-record publish is the same kind of boundary: another module's
-// entry point, replaced so this file asserts only which of the two publishers a
-// name reaches, what is printed about it, and how the command ends.
-interface TicketPublishReport {
-	ticketRef?: string;
-	published: string[];
-	stale: string[];
-	error?: string;
-	/** Why ticket.json does not record a publish whose plan files did land. */
+	/** Why state.json does not record a publish whose plan files did land. */
 	recordError?: string;
 }
 
-interface TicketPublishParams {
+interface PublishParams {
 	cwd: string;
 	address: string;
 	config: LightsoutConfig;
@@ -62,11 +36,11 @@ interface TicketPublishParams {
 	onProgress: (message: string) => void;
 }
 
-const mockPublishTicketPlan = jest.fn<(params: TicketPublishParams) => Promise<TicketPublishReport>>();
+const mockPublishTicketPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
 
-jest.mock('#src/ticket/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticket/index.ts')>('#src/ticket/index.ts'),
-	publishTicketPlan: (params: TicketPublishParams) => mockPublishTicketPlan(params),
+jest.mock('#src/workOrder/index.ts', () => ({
+	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+	publishWorkOrderPlan: (params: PublishParams) => mockPublishTicketPlan(params),
 }));
 // -------------------------
 
@@ -85,7 +59,8 @@ const setupPublish = ({
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-publish-command-'));
 
-	mockPublishPlan.mockResolvedValue(report);
+	// One publisher is left, so every row's report is the one it answers with.
+	mockPublishTicketPlan.mockResolvedValue(report);
 
 	if (withConfig) {
 		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates, 'ticket-tracker': ticketTrackerConfigBlock }));
@@ -94,10 +69,10 @@ const setupPublish = ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
-/** A publish of `demo` whose plan folder exists, so the planning record has somewhere to land. */
+/** A publish of `demo/001-demo` whose plan folder exists, so the planning record has somewhere to land. */
 const setupPublishWithPlanFolder = ({ report, withConfig }: { report?: PublishReport; withConfig?: boolean } = {}) => {
-	const published = setupPublish({ args: ['--name', 'demo'], report, withConfig });
-	const planDir = join(published.cwd, '.lightsout', 'tickets', 'demo', 'plans');
+	const published = setupPublish({ args: ['--name', 'demo/001-demo'], report, withConfig });
+	const planDir = join(published.cwd, '.lightsout', 'work-orders', 'demo', 'plans', '001-demo');
 
 	mkdirSync(planDir, { recursive: true });
 
@@ -108,15 +83,15 @@ const setupPublishWithPlanFolder = ({ report, withConfig }: { report?: PublishRe
 const setupTicketPublish = ({
 	report = {
 		ticketRef: 'LO-9',
-		published: ['001-a--plan.md', '001-a--decisions.json', `001-a--${planAttachmentManifestName}`, 'ticket.json'],
+		published: ['001-a--plan.md', '001-a--decisions.json', `001-a--${planAttachmentManifestName}`, 'state.json'],
 		stale: [],
 	},
 }: {
 	/** What the ticket-record publish answers: the plan's prefixed files, its marker and the record, by default. */
-	report?: TicketPublishReport;
+	report?: PublishReport;
 } = {}) => {
 	const published = setupPublish({ args: ['--name', 'lo-9-x/001-a'] });
-	const planDir = join(published.cwd, '.lightsout', 'tickets', 'lo-9-x', 'plans', '001-a');
+	const planDir = join(published.cwd, '.lightsout', 'work-orders', 'lo-9-x', 'plans', '001-a');
 
 	mkdirSync(planDir, { recursive: true });
 	mockPublishTicketPlan.mockResolvedValue(report);
@@ -124,24 +99,41 @@ const setupTicketPublish = ({
 	return { ...published, planDir };
 };
 
+/**
+ * `lightsout plan publish --name demo` driven through the dispatcher, because
+ * the dispatcher's guard is where a `--name` that is not a plan address is
+ * refused — the command itself is never handed one. The repo carries its
+ * config, the work order's plans folder exists and the publisher is ready to
+ * answer, so nothing short of that refusal can keep it from being reached.
+ */
+const setupBareNamePublish = () => {
+	const args = ['publish', '--name', 'demo'];
+	const published = setupPublish({ args });
+
+	mkdirSync(join(published.cwd, '.lightsout', 'work-orders', 'demo', 'plans'), { recursive: true });
+	mockPublishTicketPlan.mockResolvedValue({ ticketRef: 'LO-9', published: ['plan.md'], stale: [] });
+
+	return { ...published, context: { ...published.context, rest: args } };
+};
+
 describe('planPublishCommand', () => {
 	test('prints the ticket and every attached file, and exits 0', async () => {
-		const { context, cwd, logged, errors, exitCodes } = setupPublish({ args: ['--name', 'lo-54-portable-plan'] });
+		const { context, cwd, logged, errors, exitCodes } = setupPublish({ args: ['--name', 'lo-54-portable-plan/001-portable-plan'] });
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// the repo's own config reaches the action, tracker block and all — without
 		// it the action can resolve no tracker to attach to
-		expect(mockPublishPlan.mock.calls[0]?.[0]).toMatchObject({
+		expect(mockPublishTicketPlan.mock.calls[0]?.[0]).toMatchObject({
 			cwd,
-			name: 'lo-54-portable-plan',
+			address: 'lo-54-portable-plan/001-portable-plan',
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
 			onProgress: expect.any(Function),
 		});
 		// the process environment is handed over rather than read inside the action,
 		// which is what keeps the API key out of a second reader
-		expect(mockPublishPlan.mock.calls[0]?.[0]?.env).toBe(process.env);
-		expect(logged[0]).toBe('\nplan publish lo-54-portable-plan — 3 file(s) attached to LO-54');
+		expect(mockPublishTicketPlan.mock.calls[0]?.[0]?.env).toBe(process.env);
+		expect(logged[0]).toBe('\nplan publish lo-54-portable-plan/001-portable-plan — 3 file(s) attached to LO-54');
 		expect(logged.slice(1, 4)).toStrictEqual(['  plan.md', '  decisions.json', `  ${planAttachmentManifestName}`]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -149,7 +141,7 @@ describe('planPublishCommand', () => {
 
 	test('names a stale attachment after the published list and still exits 0, because the publish succeeded', async () => {
 		const { context, logged, exitCodes } = setupPublish({
-			args: ['--name', 'lo-54-portable-plan'],
+			args: ['--name', 'lo-54-portable-plan/001-portable-plan'],
 			report: { ticketRef: 'LO-54', published: ['overview.md', planAttachmentManifestName], stale: ['plan.md'] },
 		});
 
@@ -161,25 +153,25 @@ describe('planPublishCommand', () => {
 
 	test('prints the report’s own sentence on stderr and exits 1 when the publish stopped', async () => {
 		const { context, logged, errors, exitCodes } = setupPublish({
-			args: ['--name', 'demo'],
-			report: { published: [], stale: [], error: "nothing to publish for 'demo': no plan found" },
+			args: ['--name', 'demo/001-demo'],
+			report: { published: [], stale: [], error: "nothing to publish for 'demo/001-demo': no plan found" },
 		});
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(logged).toStrictEqual([]);
-		expect(errors[0]).toBe("\nnothing to publish for 'demo': no plan found");
+		expect(errors[0]).toBe("\nnothing to publish for 'demo/001-demo': no plan found");
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
 	test('a repo carrying no lightsout.config.json is refused by name, and nothing is published', async () => {
-		const { context } = setupPublish({ args: ['--name', 'lo-54-portable-plan'], withConfig: false });
+		const { context } = setupPublish({ args: ['--name', 'lo-54-portable-plan/001-portable-plan'], withConfig: false });
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/lightsout\.config\.json not found/);
 
 		// publishing needs a ticket-tracker block, so a repo with no config has
 		// nothing to resolve and never reaches the tracker
-		expect(mockPublishPlan).not.toHaveBeenCalled();
+		expect(mockPublishTicketPlan).not.toHaveBeenCalled();
 	});
 
 	test('without --name it prints the usage text on stderr and exits 1, before reading any config', async () => {
@@ -189,12 +181,12 @@ describe('planPublishCommand', () => {
 
 		expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
 		expect(exitCodes).toStrictEqual([1]);
-		expect(mockPublishPlan).not.toHaveBeenCalled();
+		expect(mockPublishTicketPlan).not.toHaveBeenCalled();
 	});
 
 	test('records the publish step as failed in the planning record when publishing reports an error and exits 1', async () => {
 		const { context, planDir, exitCodes } = setupPublishWithPlanFolder({
-			report: { published: [], stale: [], error: "nothing to publish for 'demo': no plan found" },
+			report: { published: [], stale: [], error: "nothing to publish for 'demo/001-demo': no plan found" },
 		});
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
@@ -240,20 +232,19 @@ describe('planPublishCommand', () => {
 			config: { 'ticket-tracker': { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } },
 			onProgress: expect.any(Function),
 		});
-		expect(mockPublishPlan).not.toHaveBeenCalled();
 		expect(logged[0]).toBe('\nplan publish lo-9-x/001-a — 4 file(s) attached to LO-9');
-		expect(logged.slice(1, 5)).toStrictEqual(['  001-a--plan.md', '  001-a--decisions.json', `  001-a--${planAttachmentManifestName}`, '  ticket.json']);
+		expect(logged.slice(1, 5)).toStrictEqual(['  001-a--plan.md', '  001-a--decisions.json', `  001-a--${planAttachmentManifestName}`, '  state.json']);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('planPublishCommand: for a plan address, exits 1 and records the step failed when ticket.json could not be published', async () => {
+	test('planPublishCommand: for a plan address, exits 1 and records the step failed when state.json could not be published', async () => {
 		const { context, planDir, logged, errors, exitCodes } = setupTicketPublish({
 			report: {
 				ticketRef: 'LO-9',
 				published: ['001-a--plan.md', `001-a--${planAttachmentManifestName}`],
 				stale: [],
-				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
 			},
 		});
 
@@ -268,22 +259,45 @@ describe('planPublishCommand', () => {
 		// own sentence goes to stderr, and the step is failed because the ticket
 		// record does not say the plan was published
 		expect(logged.slice(1, 3)).toStrictEqual(['  001-a--plan.md', `  001-a--${planAttachmentManifestName}`]);
-		expect(errors[0] ?? '').toContain('ticket.json was refused by the tracker');
+		expect(errors[0] ?? '').toContain('state.json was refused by the tracker');
 		expect(record.steps.find((entry) => entry.step === 'publish')).toEqual(expect.objectContaining({ step: 'publish', status: 'failed' }));
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
-	test('planPublishCommand: a legacy folder name never reaches the ticket record', async () => {
-		const { context, cwd, exitCodes } = setupPublishWithPlanFolder();
+	test('planPublishCommand: names state.json as the file the publish could not land', async () => {
+		const { context, logged, errors, exitCodes } = setupTicketPublish({
+			report: {
+				ticketRef: 'LO-9',
+				published: ['001-a--plan.md', `001-a--${planAttachmentManifestName}`],
+				stale: [],
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
+			},
+		});
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// a folder named for its branch alone keeps today's publish, under bare
-		// titles: no plan id prefix, and no ticket record touched
-		expect(mockPublishPlan.mock.calls[0]?.[0]).toMatchObject({ cwd, name: 'demo' });
-		expect(mockPublishPlan.mock.calls[0]?.[0]?.titlePrefix).toBeUndefined();
+		// the files that did land are still listed, the state file is not among
+		// them, and the sentence on stderr names it by the name it is written under
+		expect(logged.slice(1, 3)).toStrictEqual(['  001-a--plan.md', `  001-a--${planAttachmentManifestName}`]);
+		expect(logged.join('\n')).not.toContain('state.json');
+		expect(errors[0] ?? '').toContain('state.json');
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('refuses a bare folder name rather than publishing bare titles', async () => {
+		const { context, logged, errors, exitCodes } = setupBareNamePublish();
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// the refusal's own wording is pinned beside the guard that writes it;
+		// what this file owns is that a bare folder name ends the publish before
+		// the publisher is reached, so no plan can be attached under bare titles
+		// any more
+		expect(errors).toHaveLength(1);
+		expect(errors[0] ?? '').toContain('demo');
 		expect(mockPublishTicketPlan).not.toHaveBeenCalled();
-		expect(exitCodes).toStrictEqual([0]);
+		expect(logged).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([1]);
 	});
 
 	// The activity record lands in the same plan folder as the planning record.
@@ -324,7 +338,7 @@ describe('planPublishCommand', () => {
 
 	test('ends the command run failed in the activity record when publishing reports an error, and exits 1', async () => {
 		const { context, planDir, exitCodes } = setupPublishWithPlanFolder({
-			report: { published: [], stale: [], error: "nothing to publish for 'demo': no plan found" },
+			report: { published: [], stale: [], error: "nothing to publish for 'demo/001-demo': no plan found" },
 		});
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
@@ -342,7 +356,7 @@ describe('planPublishCommand', () => {
 				ticketRef: 'LO-9',
 				published: ['001-a--plan.md'],
 				stale: [],
-				recordError: 'the plan files are on LO-9, but ticket.json was refused by the tracker',
+				recordError: 'the plan files are on LO-9, but state.json was refused by the tracker',
 			},
 		});
 
@@ -369,7 +383,7 @@ describe('planPublishCommand', () => {
 
 		await expect(planPublishCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(existsSync(activityRecordPath({ dir: join(cwd, '.lightsout', 'tickets', 'demo', 'plans') }))).toBe(false);
+		expect(existsSync(activityRecordPath({ dir: join(cwd, '.lightsout', 'work-orders', 'demo', 'plans') }))).toBe(false);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

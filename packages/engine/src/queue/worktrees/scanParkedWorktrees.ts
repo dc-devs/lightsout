@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
+import { findWorkOrderForBranch } from '#src/common/workspace/findWorkOrderForBranch.ts';
 import { WorktreeOwner } from '#src/contracts/index.ts';
 import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
@@ -12,7 +13,6 @@ import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMer
 import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { settleUnmergedTree } from '#src/queue/worktrees/common/utils/settleUnmergedTree.ts';
-import { readTicketMatch, type ShipSettings } from '#src/ship/index.ts';
 import { getTicketsByIdentifiers, type TrackerSettings } from '#src/ticketTracker/index.ts';
 import { readWorktreeRecord, resolveWorktreesRoot } from '#src/worktree/index.ts';
 
@@ -22,7 +22,6 @@ interface Params {
 	defaultBranch: string;
 	settings: QueueSettings;
 	trackerSettings: TrackerSettings;
-	shipSettings: ShipSettings;
 	/** The holds this drain reconciled before the scan, so a held tree is left exactly where it is. */
 	holds: GateHolds;
 	onProgress?: (message: string) => void;
@@ -51,8 +50,14 @@ const toQueuePath = ({ path, root, realRoot }: { path: string; root: string; rea
  * The queue's own worktrees, read from git rather than from the directory
  * listing: a slash-bearing branch template nests directories, so an entry name
  * is not a branch name.
+ *
+ * Which work order a tree belongs to is the records' answer rather than the
+ * branch name's: the work order whose record stores that exact branch supplies
+ * both the ticket the scan reconciles against and the label the drain carries
+ * onward. A tree no record claims, and one whose work order belongs to no
+ * ticket, are both left exactly where they are.
  */
-const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: string; shipSettings: ShipSettings; onProgress?: (message: string) => void }) => {
+const listQueueWorktrees = async ({ cwd, onProgress }: { cwd: string; onProgress?: (message: string) => void }) => {
 	const listed = await runCommand({ command: 'git worktree list --porcelain', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
 	const root = await resolveWorktreesRoot({ cwd });
 	const realRoot = await realpath(root).catch(() => root);
@@ -67,12 +72,21 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: stri
 			continue;
 		}
 
-		const identifier = readTicketMatch({ branch, ticketPattern: shipSettings.ticketPattern })?.ticket;
+		const listing = await findWorkOrderForBranch({ cwd, branch });
+
+		if (listing === undefined) {
+			// A tree someone made by hand, or one whose work order was removed.
+			// Either way no work order claims it, so it is not ours to touch.
+			onProgress?.(`leaving ${path} alone — no work order's record stores its branch ${branch}`);
+			continue;
+		}
+
+		const identifier = listing.record.ticketRef;
 
 		if (identifier === undefined) {
-			// A template edited between drains, or a tree someone made by hand.
-			// Either way it is not ours to touch.
-			onProgress?.(`leaving ${path} alone — its branch carries no ticket the configured pattern matches`);
+			// The queue only ever runs tracker work, and a work order named from
+			// words alone belongs to no ticket for it to reconcile against.
+			onProgress?.(`leaving ${path} alone — its work order ${listing.name} belongs to no ticket`);
 			continue;
 		}
 
@@ -86,7 +100,7 @@ const listQueueWorktrees = async ({ cwd, shipSettings, onProgress }: { cwd: stri
 			continue;
 		}
 
-		trees.push({ path, branch, identifier });
+		trees.push({ path, branch, identifier, name: listing.name });
 	}
 
 	return trees;
@@ -157,16 +171,8 @@ const describeLeftBehind = ({
  * merged is reported and its worktree left where it is, whatever the tree
  * holds: it may hold work no one has seen.
  */
-export const scanParkedWorktrees = async ({
-	cwd,
-	defaultBranch,
-	settings,
-	trackerSettings,
-	shipSettings,
-	holds,
-	onProgress,
-}: Params): Promise<ParkedWork | QueueFailure> => {
-	const trees = await listQueueWorktrees({ cwd, shipSettings, onProgress });
+export const scanParkedWorktrees = async ({ cwd, defaultBranch, settings, trackerSettings, holds, onProgress }: Params): Promise<ParkedWork | QueueFailure> => {
+	const trees = await listQueueWorktrees({ cwd, onProgress });
 
 	if (trees.length === 0) {
 		return { resumed: [], outcomes: [], leftBehind: [], merged: [] };

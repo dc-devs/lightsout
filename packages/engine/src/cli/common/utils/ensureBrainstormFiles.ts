@@ -2,8 +2,7 @@ import { restoreBrainstormFiles } from '#src/brainstorm/index.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { planWorkspaceDir, readPlanTicketRef } from '#src/plan/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
+import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
 import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -63,13 +62,12 @@ export const ensureBrainstormFiles = async ({ cwd, name, write = console.log }: 
 	}
 
 	const trackerSettings = resolveTrackerSettings({ config, env: process.env });
-	const shipSettings = resolveShipSettings({ config });
 
-	if ('error' in trackerSettings || shipSettings === undefined) {
+	if ('error' in trackerSettings) {
 		return;
 	}
 
-	const identifier = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const identifier = await readPlanWorkOrderRef({ cwd, name });
 
 	if (identifier === undefined) {
 		return;

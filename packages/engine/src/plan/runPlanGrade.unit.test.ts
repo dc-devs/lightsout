@@ -77,7 +77,7 @@ const setupStaleDecisionLog = () => {
 	const seeded = setup({ name: 'stale-log' });
 
 	writeFileSync(
-		join(seeded.cwd, '.lightsout', 'tickets', 'stale-log', 'plans', 'decisions.json'),
+		join(seeded.cwd, '.lightsout', 'work-orders', 'stale-log', 'plans', 'decisions.json'),
 		JSON.stringify({
 			planName: 'stale-log',
 			decisions: [

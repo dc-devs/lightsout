@@ -6,12 +6,13 @@ import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, Sh
 import type { GateRunResult } from '#src/gates/index.ts';
 import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
-import type { ShipTicketGuard } from '#src/ship/index.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
 import { createWorktree, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -23,7 +24,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // covered by its own tests. Git is real, so what this step leaves the branch
 // standing on is git's own answer.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
-const mockRunShip = jest.fn<(params: { cwd: string; ticketGuard: ShipTicketGuard }) => Promise<ShipResult>>();
+const mockRunShip = jest.fn<(params: { cwd: string; workOrderGuard: ShipWorkOrderGuard }) => Promise<ShipResult>>();
 const mockTakeGateHold =
 	jest.fn<
 		(params: {
@@ -90,6 +91,11 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
 
 	const branch = `lo-${number}-drain`;
+
+	// The branch's phase is recorded in the work order whose record stores it, so
+	// the work order comes before the tree.
+	seedWorkOrderRecord({ cwd, name: branch, ticketRef: `lo-${number}` });
+
 	const worktreePath = String(await createWorktree({ cwd, branch, startPoint: 'origin/main', owner: WorktreeOwner.Queue, reuseExisting: true }));
 
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
@@ -99,7 +105,7 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockTakeGateHold.mockResolvedValue(undefined);
 
-	const outcome: TicketRunOutcome = { ticket: ticketOf({ number }), branch, worktreePath, ready: true };
+	const outcome: WorkOrderRunOutcome = { ticket: ticketOf({ number }), name: branch, branch, worktreePath, ready: true };
 
 	return { cwd, outcome };
 };
@@ -120,7 +126,7 @@ const ship = async ({
 	onProgress,
 }: {
 	cwd: string;
-	outcome: TicketRunOutcome;
+	outcome: WorkOrderRunOutcome;
 	shipConfig?: LightsoutConfig;
 	serialize?: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	runId?: string;

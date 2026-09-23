@@ -5,7 +5,13 @@ import { describe, expect, test } from '@jest/globals';
 import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
 
 /** A repo carrying one of each thing the walk has to decide about: a plain source file, a dependency tree, a git store, a dot directory and a declaration file. */
-const repoFiles = ['src/deep/mod.ts', 'node_modules/pkg/index.js', '.git/HEAD', '.lightsout/tickets/demo/plans/plan.md', 'packages/engine/src/markdown.d.ts'];
+const repoFiles = [
+	'src/deep/mod.ts',
+	'node_modules/pkg/index.js',
+	'.git/HEAD',
+	'.lightsout/work-orders/demo/plans/plan.md',
+	'packages/engine/src/markdown.d.ts',
+];
 
 /** A temp repo holding one file at each of `repoFiles`. */
 const setupRepo = () => {
@@ -49,7 +55,7 @@ describe('readRepoPathIndex', () => {
 		// a check that blocks a plan may not judge a name against a pool that cannot
 		// hold it
 		expect(index.files).toContain(join('src', 'deep', 'mod.ts'));
-		expect(index.files).toContain(join('.lightsout', 'tickets', 'demo', 'plans', 'plan.md'));
+		expect(index.files).toContain(join('.lightsout', 'work-orders', 'demo', 'plans', 'plan.md'));
 		expect(index.files).toContain(join('packages', 'engine', 'src', 'markdown.d.ts'));
 		expect(index.files.some((path) => path.includes('node_modules'))).toBe(false);
 		expect(index.files.some((path) => path.includes('.git'))).toBe(false);

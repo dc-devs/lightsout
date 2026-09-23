@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type TicketRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
@@ -41,17 +41,17 @@ jest.mock('#src/invoke/index.ts', () => ({
 // The engine's choice of plan and the ordered build around the session are each
 // covered by their own tests; stubbing them leaves the harness call these cases
 // read as the only thing the worker does.
-const mockChooseAutoPlanTarget = jest.fn<() => Promise<{ record: TicketRecord; address?: string } | { error: string }>>();
+const mockChooseAutoPlanTarget = jest.fn<() => Promise<{ record: WorkOrderState; address?: string } | { error: string }>>();
 
 jest.mock('#src/queue/workers/chooseAutoPlanTarget.ts', () => ({ chooseAutoPlanTarget: () => mockChooseAutoPlanTarget() }));
 // -------------------------
 const mockBuildTicketPlans = jest.fn<() => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({ buildTicketPlans: () => mockBuildTicketPlans() }));
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({ buildWorkOrderPlans: () => mockBuildTicketPlans() }));
 // -------------------------
-const mockPullTicketRecord = jest.fn<() => Promise<{ record: TicketRecord | undefined } | { error: string }>>();
+const mockPullTicketRecord = jest.fn<() => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: () => mockPullTicketRecord() }));
+jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: () => mockPullTicketRecord() }));
 // -------------------------
 
 const branch = 'lo-70-drain';
@@ -75,9 +75,10 @@ const ticket: TicketSummary = {
 	unfinishedBlockers: [],
 };
 
-/** The ticket's record, holding the one plan the engine handed the session. */
-const record: TicketRecord = {
+/** The work order's record, holding the one plan the engine handed the session. */
+const record: WorkOrderState = {
 	schemaVersion: 1,
+	name: branch,
 	ticketRef: 'LO-70',
 	branch,
 	mode: 'multiple-plan',
@@ -109,7 +110,7 @@ const setupAutoPlanWorker = ({
 	config?: LightsoutConfig;
 } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-auto-plan-coverage-'));
-	const folder = join(cwd, '.lightsout', 'tickets', branch, 'plans', planId);
+	const folder = join(cwd, '.lightsout', 'work-orders', branch, 'plans', planId);
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# The plan\n');
@@ -123,13 +124,13 @@ const setupAutoPlanWorker = ({
 		params: {
 			cwd,
 			ticket,
-			branch,
+			workOrderName: branch,
 			config,
 			driver,
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			env: {},
-			ticketRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'tickets', 'LO-70'),
+			workOrderRunDir: join(cwd, '.lightsout', 'runs', 'run-q', 'work-orders', 'LO-70'),
 		},
 	};
 };

@@ -198,7 +198,7 @@ export const setupShipScenario = ({
 			cwd,
 			settings: shipSettingsFixture(settings),
 			integration: shipIntegrationFixture({ driver }),
-			ticketGuard: shipTicketGuardFixture(),
+			workOrderGuard: shipTicketGuardFixture(),
 			onProgress: (message: string) => progress.push(message),
 		});
 

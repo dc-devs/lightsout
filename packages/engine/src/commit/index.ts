@@ -4,4 +4,4 @@
 
 export { buildRunCommitMessage } from '#src/commit/buildRunCommitMessage.ts';
 export { commitRunWork } from '#src/commit/commitRunWork.ts';
-export { commitTicketWork } from '#src/commit/commitTicketWork.ts';
+export { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';

@@ -70,7 +70,7 @@ test('a file is stat’d rather than opened: its size and mtime are what comes b
 
 	expect(files.notesFile).toStrictEqual({
 		name: 'brainstorm-notes.md',
-		path: '.lightsout/tickets/add-search/plans/brainstorm-notes.md',
+		path: '.lightsout/work-orders/add-search/plans/brainstorm-notes.md',
 		bytes: 'rough idea'.length,
 		updatedAt: '2026-03-04T05:06:07.000Z',
 	});

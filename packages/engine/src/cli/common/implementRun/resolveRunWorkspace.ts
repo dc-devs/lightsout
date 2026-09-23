@@ -10,7 +10,7 @@ import { readLiveRunLock } from '#src/runState/index.ts';
 import {
 	createWorktree,
 	fetchDefaultBranch,
-	prepareTicketBranch,
+	prepareWorkOrderBranch,
 	readBranchWorktree,
 	readWorktreeRecord,
 	resolveWorktreePath,
@@ -29,8 +29,6 @@ interface Params {
 	ticketPath?: string;
 	/** `--ref` exactly as the user typed it, when a direct run named one. Forwarded to `resolveRunBranch`. */
 	ticketRef?: string;
-	/** The direct run's ticket body. Forwarded to `resolveRunBranch`. */
-	ticketBody?: string;
 	onProgress?: (message: string) => void;
 }
 
@@ -114,7 +112,7 @@ const cutWorkspace = async ({
 	// A later plan of a ticket must be built on the implementation its branch
 	// already carries, so the ticket branch is settled before anything is adopted
 	// or cut. A legacy plan keeps today's start point and never asks.
-	const prepared = addressed ? await prepareTicketBranch({ cwd, branch }) : { startPoint: undefined };
+	const prepared = addressed ? await prepareWorkOrderBranch({ cwd, branch }) : { startPoint: undefined };
 
 	if ('error' in prepared) {
 		return prepared;
@@ -191,7 +189,6 @@ export const resolveRunWorkspace = async ({
 	planPath,
 	ticketPath,
 	ticketRef,
-	ticketBody,
 	onProgress,
 }: Params): Promise<RunWorkspace | { error: string }> => {
 	const isolated = resolveWorktreeIsolation({ flags, configured: config.implement?.worktree });
@@ -204,7 +201,7 @@ export const resolveRunWorkspace = async ({
 		return { cwd, isolated: false, created: false };
 	}
 
-	const branch = await resolveRunBranch({ cwd, config, planPath, ticketPath, ticketRef, ticketBody });
+	const branch = await resolveRunBranch({ cwd, planPath, ticketPath, ticketRef });
 
 	if (typeof branch !== 'string') {
 		return branch;

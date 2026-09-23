@@ -3,7 +3,7 @@ import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { takeGateHold } from '#src/gates/index.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { readBranchTicketRef } from '#src/ship/index.ts';
+import { readWorkOrderTicketRef } from '#src/workOrder/index.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -34,13 +34,12 @@ interface Params {
  * one the next drain — or the next `lightsout resume` — picks the same ticket up
  * and queues behind the same busy machine again. A sentence the hold answers is
  * folded into the stop rather than swallowed, so a tracker that refused the
- * label is visible to whoever reads the run's ending. A branch carrying no
- * ticket takes no hold.
+ * label is visible to whoever reads the run's ending. A branch no work order claims takes no hold.
  */
 export const stopOnGateCoordination = async ({ run, stepId, record, coordination, error }: Params): Promise<PipelineResult> => {
 	run.progress(`step ${stepId}: the gates never started — another run holds this machine, and no fix was attempted`);
 
-	const ticketRef = await readBranchTicketRef({ config: run.config, cwd: run.cwd });
+	const ticketRef = await readWorkOrderTicketRef({ cwd: run.cwd });
 	const holdFailure =
 		ticketRef === undefined
 			? undefined

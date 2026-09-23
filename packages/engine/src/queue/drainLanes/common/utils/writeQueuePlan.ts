@@ -1,8 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import { toTicketBranch } from '#src/queue/toTicketBranch.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import { resolveWorktreesRoot } from '#src/worktree/index.ts';
 
 interface Params {
@@ -10,25 +8,26 @@ interface Params {
 	path: string;
 	/** Any checkout of the repository; the worktrees root is derived from its primary. */
 	cwd: string;
-	settings: QueueSettings;
-	/** Every ticket admitted so far, in admission order. */
-	queued: RunnableTicket[];
+	/** Every work order admitted so far, in admission order. */
+	queued: NamedWorkOrder[];
 }
 
 /**
- * The coordinator run's document: one line per admitted ticket, naming the
- * worker, the branch and the worktree a human can reach it in.
+ * The coordinator run's document: one line per admitted work order, naming the
+ * worker, the branch its record stores and the worktree a human can reach it in.
  *
- * Rewritten in full every time a scan admits tickets, because tickets now join
+ * Both the branch and the worktree come off the entry rather than from the
+ * queue's branch template, so the document names the branch the drain will
+ * actually build on and the directory it will actually build in.
+ *
+ * Rewritten in full every time a scan admits work, because work orders now join
  * a run already in flight rather than arriving one wave at a time.
  */
-export const writeQueuePlan = async ({ path, cwd, settings, queued }: Params): Promise<void> => {
+export const writeQueuePlan = async ({ path, cwd, queued }: Params): Promise<void> => {
 	const root = await resolveWorktreesRoot({ cwd });
-	const lines = queued.map((ticket) => {
-		const branch = toTicketBranch({ ticket, template: settings.branchTemplate });
-
-		return `- ${ticket.identifier} · ${ticket.worker} · ${branch} · ${join(root, branch)}`;
-	});
+	const lines = queued.map(
+		(workOrder) => `- ${workOrder.ticket.identifier} · ${workOrder.ticket.worker} · ${workOrder.branch} · ${join(root, workOrder.name)}`,
+	);
 
 	await writeFile(path, `# queue drain\n\n${lines.join('\n')}\n`, 'utf8');
 };

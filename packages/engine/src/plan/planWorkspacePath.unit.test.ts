@@ -35,8 +35,8 @@ describe('planWorkspacePath', () => {
 		};
 
 		expect(written).toStrictEqual({
-			address: '.lightsout/tickets/lo-155-ticket-scoped-state/plans/001-ticket-folder',
-			bare: '.lightsout/tickets/rate-limit-banner/plans',
+			address: '.lightsout/work-orders/lo-155-ticket-scoped-state/plans/001-ticket-folder',
+			bare: '.lightsout/work-orders/rate-limit-banner/plans',
 		});
 		expect(resolved).toStrictEqual(written);
 	});

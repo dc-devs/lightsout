@@ -9,11 +9,11 @@ interface Params {
 }
 
 /**
- * Whether a ticket may not be started: the local record says it is held, OR its
+ * Whether a ticket may not be started: the gate-hold file says it is held, OR its
  * tracker labels carry the blocked label.
  *
- * Each half closes the other's hole. The local record is what blocks when the
- * label write never landed; the label is what blocks when the local record was
+ * Each half closes the other's hole. The gate-hold file is what blocks when the
+ * label write never landed; the label is what blocks when the gate-hold file was
  * lost — a failed write, or somebody clearing `.lightsout` in the primary
  * checkout. The pair costs nothing, because every refusal site already holds the
  * ticket's labels, and it is what makes the documented instruction — remove the

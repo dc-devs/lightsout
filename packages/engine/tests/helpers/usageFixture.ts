@@ -31,7 +31,15 @@
  * the opt-in check that one live harness call still reports its token fields.
  * Updated once more for `status --now` — the run that is going, printed once
  * — and for `status --queue --wait`, which is now what asks the queue form to
- * wait for a queue that has only just been launched.
+ * wait for a queue that has only just been launched. Updated 2026-09-21 when
+ * `lightsout ticket` became `lightsout work-order`, its seven subcommands
+ * keeping their words: `ticket-state` kept its name, because it is the one
+ * command that genuinely writes to Linear or Jira. Updated once more when the
+ * `--from` form of `add-plan` was removed, a work order's folder name having
+ * become a label rather than an identity, so there is no folder move left to
+ * perform. Updated once more for `lightsout work-order new` — the one command
+ * that writes a work order's name, reading it from a tracker ticket behind
+ * `--ticket` and taking the words as typed behind `--title`.
  */
 export const usageFixture = `lightsout — deterministic engine for coding agents
 
@@ -67,13 +75,14 @@ usage:
   lightsout plan dedup --name <name> [--cwd <path>] [--worktree] [--no-worktree]
   lightsout plan grade --name <name> [--phase <n[,n]>] [--cwd <path>] [--worktree] [--no-worktree]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout plan publish --name <name> [--cwd <path>] [--worktree] [--no-worktree]
-  lightsout ticket add-plan --name <ticket-branch> --slug <slug> [--title <title>] [--from <folder>] [--cwd <path>]
-  lightsout ticket mode --name <ticket-branch> --set single-plan|multiple-plan [--approve] [--cwd <path>]
-  lightsout ticket request-ship --name <ticket-branch> [--plans <id,id> | --withdraw] [--cwd <path>]
-  lightsout ticket exclude-plan --name <ticket-branch> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]
-  lightsout ticket retitle-plan --name <ticket-branch> --plan <id> --title <title> [--cwd <path>]
-  lightsout ticket show --name <ticket-branch> [--cwd <path>]
-  lightsout ticket sync --name <ticket-branch> [--keep local|published] [--cwd <path>]
+  lightsout work-order new [--ticket <ref> | --title <words>] [--cwd <path>]
+  lightsout work-order add-plan --name <work-order-name> --slug <slug> [--title <title>] [--cwd <path>]
+  lightsout work-order mode --name <work-order-name> --set single-plan|multiple-plan [--approve] [--cwd <path>]
+  lightsout work-order request-ship --name <work-order-name> [--plans <id,id> | --withdraw] [--cwd <path>]
+  lightsout work-order exclude-plan --name <work-order-name> --plan <id> --reason <text> [--implementation-removed] [--cwd <path>]
+  lightsout work-order retitle-plan --name <work-order-name> --plan <id> --title <title> [--cwd <path>]
+  lightsout work-order show --name <work-order-name> [--cwd <path>]
+  lightsout work-order sync --name <work-order-name> [--keep local|published] [--cwd <path>]
   lightsout ticket-state --ref <ticket> [--planning-status <status>] [--tracker-status ready|in-progress] [--cwd <path>]
   lightsout self-check --run <id> [--cwd <path>]
   lightsout friction [--cwd <path>]

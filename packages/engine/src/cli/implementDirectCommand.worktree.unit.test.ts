@@ -54,7 +54,7 @@ const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committ
 
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitTicketWork: (params: CommitParams) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
 }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
@@ -114,7 +114,9 @@ const setupImplementDirectWorktree = ({
 }) => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo({ branch: launchBranch });
-	const { cwd: workspace } = setupBranchRepo({ branch: workspaceBranch });
+	// A case that blocks the copy puts a FILE where the state directory belongs, so
+	// that workspace must hold no work order record — which would make it a directory.
+	const { cwd: workspace } = setupBranchRepo({ branch: workspaceBranch, workOrder: !blocksTicketCopy });
 
 	writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 	writeFileSync(join(cwd, 'ticket.md'), '# Drain the backlog\n\nBuild the thing.\n');

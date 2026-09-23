@@ -5,11 +5,13 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Mocked Imports
@@ -104,6 +106,7 @@ const setupVerifyFactsFromWorktree = ({
 	name = ticketPlanName,
 	config = { gates, 'ticket-tracker': ticketTrackerConfigBlock },
 	failure,
+	ticketRef = 'lo-150',
 }: {
 	/** The plan's `--name`, and the folder its facts are authored in. */
 	name?: string;
@@ -111,6 +114,8 @@ const setupVerifyFactsFromWorktree = ({
 	config?: Record<string, unknown> | null;
 	/** What the tracker answers instead of an attachment list, when the ticket cannot be asked at all. */
 	failure?: TrackerFailure;
+	/** The ticket the plan's work order belongs to, as its record carries it. `null` names a work order that belongs to none. */
+	ticketRef?: string | null;
 } = {}) => {
 	const captured = captureCommandOutput();
 	const { cwd } = setupBranchRepo();
@@ -134,6 +139,8 @@ const setupVerifyFactsFromWorktree = ({
 
 	const planDir = planWorkspaceFolder({ cwd: primary, name: name });
 
+	// Which ticket a brainstorm is fetched from is the work order record's answer.
+	seedWorkOrderRecord({ cwd: primary, name: workOrderNameOf({ name }), ticketRef: ticketRef ?? undefined });
 	mkdirSync(planDir, { recursive: true });
 	writeFileSync(join(planDir, 'facts.json'), JSON.stringify(authoredFacts));
 	publishAttachments({ failure });
@@ -168,8 +175,21 @@ describe('planVerifyFactsCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('asks no ticket and prints no fetch line for a plan name carrying no ticket reference', async () => {
-		const { context, planDir, logged, exitCodes } = setupVerifyFactsFromWorktree({ name: 'rate-limit-banner' });
+	test('fetches from the ticket the record names, even when the plan’s label spells no ticket id at all', async () => {
+		const { context, planDir, logged, exitCodes } = setupVerifyFactsFromWorktree({ name: 'rate-limit-banner', ticketRef: 'ENG-4821' });
+
+		await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// Nothing reads a ticket id out of a label any more, so a label that spells
+		// none still reaches the ticket its work order's record belongs to.
+		expect(mockGetTicketAttachments).toHaveBeenCalledWith(expect.objectContaining({ identifier: 'ENG-4821' }));
+		expect(readFileSync(join(planDir, 'brainstorm-notes.md'), 'utf8')).toBe(notesBody);
+		expect(logged[0]).toBe(`lightsout: fetched 2 brainstorm file(s) from ticket ENG-4821 into ${planDir}`);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('asks no ticket and prints no fetch line for a work order whose record carries no ticket reference', async () => {
+		const { context, planDir, logged, exitCodes } = setupVerifyFactsFromWorktree({ name: 'rate-limit-banner', ticketRef: null });
 
 		await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 

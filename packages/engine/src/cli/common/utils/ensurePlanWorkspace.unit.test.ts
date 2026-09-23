@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
@@ -14,10 +14,11 @@ import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 // Mocked Imports
 // -------------------------
 // The tracker module is the seam: mocking its barrel keeps the network out
-// while the real `restorePlanWorkspace` writes into the temp repo, so what this
-// gate promises — disk first, then the ticket, then one sentence naming both —
-// is asserted against real files. `resolveTrackerSettings` is re-implemented
-// rather than stubbed away, because two of the refusals below are its own.
+// while the gate's own input checks run against real files, so what this half
+// promises — a path that is no plan workspace at all, disk winning outright,
+// and one sentence naming which part of the repo is missing — is asserted
+// against real files. `resolveTrackerSettings` is re-implemented rather than
+// stubbed away, because two of the refusals below are its own.
 type TrackerFailure = { error: string };
 type Attachment = { id: string; title: string; url: string };
 
@@ -49,21 +50,21 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 	},
 }));
 // -------------------------
-// The ticket module is the second seam, and a legacy name only ever reaches
-// its first step: the folder has no ticket record, so nothing is refused and
-// the two record-backed steps are never taken. They are stubbed to reject so
-// that a legacy name silently taking one would fail the test rather than pass.
-jest.mock('#src/ticket/index.ts', () => ({
-	findBareTicketFolderRefusal: () => Promise.resolve(undefined),
-	pullTicketRecord: () => Promise.reject(new Error('a legacy plan name must not pull a ticket record')),
-	restoreTicketPlan: () => Promise.reject(new Error('a legacy plan name must not restore a ticket plan')),
+// The work order module is the second seam, and none of the rows below may
+// reach it: each one is answered by the gate's own input checks, before there
+// is a record to settle or a generation to restore. Both steps are stubbed to
+// reject, so a row that silently took one would fail rather than pass. The
+// fetch itself lives beside this file in ensurePlanWorkspace.planAddress.unit.test.ts.
+jest.mock('#src/workOrder/index.ts', () => ({
+	pullWorkOrderState: () => Promise.reject(new Error('a refused plan path must not pull a work order state')),
+	restoreWorkOrderPlan: () => Promise.reject(new Error('a refused plan path must not restore a plan')),
 }));
 // -------------------------
 
 const apiKeyEnv = 'LIGHTSOUT_TEST_TRACKER_KEY';
 const trackerBlock = { ...ticketTrackerConfigBlock, 'api-key-env': apiKeyEnv };
 const name = 'lo-54-portable-plan';
-const planPath = join('.lightsout', 'tickets', name, 'plans');
+const planPath = join('.lightsout', 'work-orders', name, 'plans', '001-portable-plan');
 const planBody = '# plan restored from the ticket\n';
 
 /** A repo carrying the tracker block by default, with one plan.md waiting on the ticket. */
@@ -88,11 +89,11 @@ const ensure = ({ cwd, path = planPath }: { cwd: string; path?: string }) => {
 /**
  * A plan folder sitting in the plan's own worktree. A temp checkout belongs to
  * no repository, so its worktrees root is its own `-worktrees` sibling and the
- * plan's tree is `<cwd>-worktrees/<plan name>` — no git, and no ownership
+ * plan's tree is `<cwd>-worktrees/<work order name>` — no git, and no ownership
  * record, because a folder being there is all this gate asks.
  */
 const seedWorktreePlan = ({ cwd, planName, files }: { cwd: string; planName: string; files: Record<string, string> }) => {
-	const tree = join(`${cwd}-worktrees`, planName);
+	const tree = join(`${cwd}-worktrees`, planName.split('/')[0] ?? planName);
 	const dir = planWorkspaceFolder({ cwd: tree, name: planName });
 
 	mkdirSync(dir, { recursive: true });
@@ -104,41 +105,20 @@ const seedWorktreePlan = ({ cwd, planName, files }: { cwd: string; planName: str
 	return { tree, dir };
 };
 
-/** A launching checkout whose own plan folder is there, beside a worktree holding a different copy of the same plan. */
-const setupPlanOnDiskAndInWorktree = async () => {
-	const cwd = await seedCwd();
-
-	mkdirSync(join(cwd, planPath), { recursive: true });
-	writeFileSync(join(cwd, planPath, 'plan.md'), '# the plan on this machine\n');
-	seedWorktreePlan({ cwd, planName: name, files: { 'plan.md': '# the copy in the worktree\n', 'grade-memory.json': '{}\n' } });
-
-	return { cwd };
-};
-
-/** A launching checkout with no plan folder, a plan worktree holding none either, and a ticket carrying no plan attachment. */
-const setupNoPlanAnywhere = async () => {
-	const cwd = await seedCwd();
-	const tree = join(`${cwd}-worktrees`, name);
-
-	mkdirSync(tree, { recursive: true });
-	mockGetTicketAttachments.mockResolvedValue([]);
-
-	return { cwd, tree };
-};
-
 /**
- * A launching checkout with no plan folder, a worktree standing at the plan's
- * branch that does hold one, and a ticket carrying no plan attachment. The
- * tree's copy is no longer a source to recover from, so the only place left to
- * ask is the ticket.
+ * A work order that belongs to no ticket: a hand-written record carrying no
+ * `ticketRef`, so the record read is the only thing under test. The label is
+ * left spelling a ticket id, because a label never has to agree with the
+ * reference — or the absence of one — that the record holds.
  */
-const setupPlanOnlyInWorktree = async () => {
-	const cwd = await seedCwd();
-	const { tree, dir } = seedWorktreePlan({ cwd, planName: name, files: { 'plan.md': '# the copy in the worktree\n' } });
+const seedTicketlessWorkOrder = ({ cwd, workOrderName }: { cwd: string; workOrderName: string }) => {
+	const folder = join(cwd, '.lightsout', 'work-orders', workOrderName);
 
-	mockGetTicketAttachments.mockResolvedValue([]);
-
-	return { cwd, tree, worktreeDir: dir };
+	mkdirSync(folder, { recursive: true });
+	writeFileSync(
+		join(folder, 'state.json'),
+		JSON.stringify({ schemaVersion: 1, name: workOrderName, branch: workOrderName, mode: 'multiple-plan', plans: [], history: [] }),
+	);
 };
 
 describe('ensurePlanWorkspace', () => {
@@ -159,15 +139,6 @@ describe('ensurePlanWorkspace', () => {
 		expect(mockGetTicketAttachments).not.toHaveBeenCalled();
 	});
 
-	test('fetches the durable files, writes the folder and says so', async () => {
-		const cwd = await seedCwd();
-		const { result, printed } = await ensure({ cwd });
-
-		expect(result).toBeUndefined();
-		expect(readdirSync(join(cwd, planPath))).toStrictEqual(['plan.md']);
-		expect(printed).toStrictEqual([`lightsout: fetched 1 plan file(s) from ticket lo-54 into ${join(cwd, planPath)}`]);
-	});
-
 	test('names the missing folder and the missing config when the repo has none', async () => {
 		const cwd = await freshCwd();
 		const { result } = await ensure({ cwd });
@@ -186,58 +157,30 @@ describe('ensurePlanWorkspace', () => {
 		});
 	});
 
-	test('names the missing folder and the unusable ticket pattern', async () => {
+	test('names the missing folder and a work order that has no record at all', async () => {
 		const cwd = await seedCwd({ config: { 'ticket-tracker': trackerBlock, ship: { 'ticket-pattern': '(' } } });
 		const { result } = await ensure({ cwd });
 
+		// An unusable pattern reaches this gate not at all now: which ticket the
+		// work belongs to is the record's answer, and there is no record here.
 		expect(result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and the ticket to fetch one from cannot be read: ship.ticket-pattern is not a regular expression capturing a 'ticket' group`,
+			error: `no plan at ${join(cwd, planPath)}, and no plan could be fetched from a ticket: work order '${name}' carries no ticket reference in its record, so it belongs to no ticket`,
 		});
 	});
 
-	test('names the missing folder and the folder name carrying no ticket id', async () => {
+	test('a plan folder whose work order belongs to no ticket is never recovered from a worktree', async () => {
 		const cwd = await seedCwd();
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
-		const { result } = await ensure({ cwd, path });
-
-		expect(result).toStrictEqual({
-			error: `no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: the plan folder name 'portable-plan' carries no ticket id matching this repo's ship.ticket-pattern`,
-		});
-	});
-
-	test('names the missing folder, ticket and concrete reason when its plan attachments cannot be restored', async () => {
-		const cwd = await seedCwd();
-
-		mockGetTicketAttachments.mockResolvedValue({ error: 'no ticket lo-54 in team LO' });
-
-		expect((await ensure({ cwd })).result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and the plan attachments on ticket lo-54 could not be restored: no ticket lo-54 in team LO`,
-		});
-	});
-
-	test('names the missing folder and the command that puts a plan on the ticket', async () => {
-		const cwd = await seedCwd();
-
-		mockGetTicketAttachments.mockResolvedValue([]);
-
-		expect((await ensure({ cwd })).result).toStrictEqual({
-			error: `no plan at ${join(cwd, planPath)}, and ticket lo-54 carries no plan attachment — run \`lightsout plan publish --name ${name}\` from the machine that has the plan`,
-		});
-	});
-
-	test('a ticketless plan folder sitting in a worktree is never recovered from it', async () => {
-		const cwd = await seedCwd();
-		const path = join('.lightsout', 'tickets', 'portable-plan', 'plans');
+		const path = join('.lightsout', 'work-orders', 'portable-plan', 'plans', '001-portable-plan');
 		const { tree, dir } = seedWorktreePlan({
 			cwd,
-			planName: 'portable-plan',
+			planName: 'portable-plan/001-portable-plan',
 			files: { 'plan.md': '# the plan graded in its worktree\n', 'grade-memory.json': '{"passes":1}\n' },
 		});
 
 		const { result, printed } = await ensure({ cwd, path });
 
-		// The name carries no ticket id, so there is nowhere left to ask: the tree's
-		// copy is not a source, and the refusal names the missing folder alone.
+		// The work order belongs to no ticket, so there is nowhere left to ask: the
+		// tree's copy is not a source, and the refusal names the missing folder first.
 		expect({
 			error: result?.error,
 			folderWritten: existsSync(join(cwd, path)),
@@ -245,7 +188,7 @@ describe('ensurePlanWorkspace', () => {
 			printed,
 			trackerCalls: mockGetTicketAttachments.mock.calls.length,
 		}).toEqual({
-			error: `no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: the plan folder name 'portable-plan' carries no ticket id matching this repo's ship.ticket-pattern`,
+			error: `no plan at ${join(cwd, path)}, and no plan could be fetched from a ticket: work order 'portable-plan' carries no ticket reference in its record, so it belongs to no ticket`,
 			folderWritten: false,
 			worktreeFiles: ['grade-memory.json', 'plan.md'],
 			printed: [],
@@ -254,51 +197,33 @@ describe('ensurePlanWorkspace', () => {
 		expect(result?.error).not.toContain(tree);
 	});
 
-	test('keeps local disk winning outright, and names every place it looked when nothing has a plan', async () => {
-		const onDisk = await setupPlanOnDiskAndInWorktree();
-		const nowhere = await setupNoPlanAnywhere();
+	test("names the missing folder and the work order's absent ticket reference", async () => {
+		const cwd = await seedCwd();
 
-		const kept = await ensure({ cwd: onDisk.cwd });
-		const trackerCallsWhileOnDisk = mockGetTicketAttachments.mock.calls.length;
-		const refused = await ensure({ cwd: nowhere.cwd });
-
-		expect({
-			kept,
-			localFiles: readdirSync(join(onDisk.cwd, planPath)),
-			localPlan: readFileSync(join(onDisk.cwd, planPath, 'plan.md'), 'utf8'),
-			trackerCallsWhileOnDisk,
-		}).toStrictEqual({
-			kept: { result: undefined, printed: [] },
-			localFiles: ['plan.md'],
-			localPlan: '# the plan on this machine\n',
-			trackerCallsWhileOnDisk: 0,
-		});
-		expect(refused.result).toEqual({
-			error: expect.stringContaining(join(nowhere.cwd, planPath)),
-		});
-		expect(refused.result?.error).not.toContain(nowhere.tree);
-		expect(refused.result?.error).toContain('ticket lo-54');
-	});
-
-	test('an absent plan folder goes straight to the ticket restore, naming no worktree copy', async () => {
-		const { cwd, tree, worktreeDir } = await setupPlanOnlyInWorktree();
+		seedTicketlessWorkOrder({ cwd, workOrderName: name });
 
 		const { result, printed } = await ensure({ cwd });
 
+		// Everything after the missing folder is the reason, read on its own so the
+		// folder path in the lead cannot stand in for naming the work order.
+		const lead = `no plan at ${join(cwd, planPath)},`;
+		const reason = result?.error.slice(lead.length);
+
+		// The label spells a ticket id and the record carries none, so a reason that
+		// names the work order's absent reference proves the record — not the folder
+		// name, and not ship.ticket-pattern — is what was asked.
 		expect({
-			error: result?.error,
-			folderWritten: existsSync(join(cwd, planPath)),
-			worktreeFiles: readdirSync(worktreeDir),
+			leadsWithTheMissingFolder: result?.error.startsWith(lead),
+			blamesThePattern: result?.error.includes('ticket-pattern'),
+			reason,
 			printed,
 			trackerCalls: mockGetTicketAttachments.mock.calls.length,
 		}).toEqual({
-			error: expect.stringContaining(join(cwd, planPath)),
-			folderWritten: false,
-			worktreeFiles: ['plan.md'],
+			leadsWithTheMissingFolder: true,
+			blamesThePattern: false,
+			reason: expect.stringMatching(new RegExp(`(?=.*\\b${name}\\b)(?=.*ticket)`, 'isu')),
 			printed: [],
-			trackerCalls: 1,
+			trackerCalls: 0,
 		});
-		expect(result?.error).toContain('ticket lo-54');
-		expect(result?.error).not.toContain(tree);
 	});
 });

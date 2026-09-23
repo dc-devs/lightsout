@@ -1,13 +1,14 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import type { GateHolds } from '#src/gates/index.ts';
 import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
@@ -24,6 +25,8 @@ interface Params {
 	shipSettings: ShipSettings;
 	/** The effective config and harness the merge lane's integration step verifies and repairs with. */
 	shipIntegration: ShipIntegration;
+	/** The harness the wave's naming step spawns, so a queued work order is named the way `work-order new` names one. */
+	driver: Driver;
 	config: LightsoutConfig;
 	/** The process environment the tracker credentials are read from. Passed rather than read, so a test never needs to mutate `process.env`. */
 	env: NodeJS.ProcessEnv;
@@ -33,7 +36,7 @@ interface Params {
 	/** The opening selection, built from the parked scan and the opening tracker read. */
 	first: WaveSelection;
 	parked: ParkedWork;
-	runTicket: (params: { ticket: RunnableTicket }) => Promise<TicketRunOutcome>;
+	runWorkOrder: (params: { workOrder: NamedWorkOrder }) => Promise<WorkOrderRunOutcome>;
 	/** Runs a task with no other main-checkout git mutation in flight — one chain per drain, created in `runQueue.ts` and threaded down. */
 	serializeMainCheckout: <Result>(params: { task: () => Promise<Result> }) => Promise<Result>;
 	/** The coordinator run's board, handed to the drain that records into it. */
@@ -76,13 +79,14 @@ export const drainQueue = async ({
 	trackerSettings,
 	shipSettings,
 	shipIntegration,
+	driver,
 	config,
 	env,
 	defaultBranch,
 	planPath,
 	first,
 	parked,
-	runTicket,
+	runWorkOrder,
 	serializeMainCheckout,
 	board,
 	onProgress,
@@ -101,6 +105,7 @@ export const drainQueue = async ({
 		trackerSettings,
 		shipSettings,
 		shipIntegration,
+		driver,
 		defaultBranch,
 		env,
 		planPath,
@@ -108,7 +113,7 @@ export const drainQueue = async ({
 		carried: parked.outcomes,
 		carriedLeftBehind: leftBehind,
 		attempted,
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout,
 		board,
 		onProgress,

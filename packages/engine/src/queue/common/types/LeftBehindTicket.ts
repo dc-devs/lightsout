@@ -1,7 +1,7 @@
 /**
  * A ticket the drain touched and deliberately did not run, and why.
  *
- * It never became a `TicketRunOutcome` — nothing ran it — so it is carried
+ * It never became a `WorkOrderRunOutcome` — nothing ran it — so it is carried
  * beside the outcomes instead, which is what keeps a ticket from vanishing
  * from the queue's final summary.
  */
@@ -20,7 +20,7 @@ export interface LeftBehindTicket {
 	 * Why the ticket's tracker state could not be reconciled after its merge.
 	 *
 	 * Set only on a `settled` entry whose done write failed, mirroring
-	 * `TicketRunOutcome.reconciliationFailure`. The same text stays folded into
+	 * `WorkOrderRunOutcome.reconciliationFailure`. The same text stays folded into
 	 * `reason`; this field lets a reader show the failure without parsing it.
 	 */
 	reconciliationFailure?: string;

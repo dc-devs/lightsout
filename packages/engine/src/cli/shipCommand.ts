@@ -6,8 +6,8 @@ import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEf
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { ShipStatus } from '#src/contracts/index.ts';
 import { resolveShipSettings, runShip } from '#src/ship/index.ts';
-import { createTicketShipGuard } from '#src/ticket/index.ts';
 import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/index.ts';
 
 /**
  * `lightsout ship` — the current branch, from committed work to merged.
@@ -37,7 +37,7 @@ export const shipCommand = async ({ cwd }: CommandContext): Promise<void> => {
 		integration: { config: effectiveConfig, driver },
 		// The branch's own ticket record has the last word on the merge, here as
 		// much as in the queue: a standalone ship is not a way around it.
-		ticketGuard: createTicketShipGuard({ config, env: process.env, onProgress: createProgressPrinter() }),
+		workOrderGuard: createWorkOrderShipGuard({ config, env: process.env, onProgress: createProgressPrinter() }),
 		onProgress: createProgressPrinter(),
 	});
 

@@ -108,6 +108,20 @@ describe('checkQueueStartup', () => {
 		expect(errorOf(started)).toContain("renders 'wip/sample'");
 	});
 
+	// Ship is deliberately not doubled in this file, so the refusal below is
+	// produced by ship's own predicate over the compiled `ship.ticket-pattern`
+	// rather than by anything this file arranged. A prefixed template is the
+	// realistic shape of the failure: the render carries a namespace the
+	// pattern is anchored before.
+	test("still refuses a branch template the ship pattern cannot read, through ship's own predicate", async () => {
+		setupReadyRepo();
+
+		const started = await check({ settings: queueSettingsFixture({ branchTemplate: 'feature/{ticket}-{slug}' }) });
+
+		expect(errorOf(started)).toContain('`queue.branch-template`');
+		expect(errorOf(started)).toContain('`ship.ticket-pattern`');
+	});
+
 	test('shapes the sample branch from the configured tracker prefix, so a pattern scoped to one project is not false-alarmed', async () => {
 		setupReadyRepo();
 		const tracker = trackerSettingsFixture({ ticketPrefix: 'ACME' });

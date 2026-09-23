@@ -9,7 +9,7 @@ const listingOf = ({ runId, parentRunId }: { runId: string; parentRunId?: string
 	pipeline: 'implement',
 	status: RunStatus.Running,
 	title: 'a run',
-	plan: '.lightsout/tickets/demo/plans/001-demo/plan.md',
+	plan: '.lightsout/work-orders/demo/plans/001-demo/plan.md',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
 	live: false,

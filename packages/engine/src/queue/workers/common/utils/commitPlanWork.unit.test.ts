@@ -1,8 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanProgress, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
+import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
-import { config, driver, planOf, ticket, ticketBranch } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { config, driver, planOf, ticket, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
 
 // Mocked Imports
 // -------------------------
@@ -14,7 +14,7 @@ const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed
 
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitTicketWork: (params: CommitCall) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params),
 }));
 // -------------------------
 
@@ -37,16 +37,17 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		runId,
 		finishedAt: '2026-01-03T00:00:00.000Z',
 	});
-	const record: TicketRecord = {
+	const record: WorkOrderState = {
 		schemaVersion: 1,
+		name: workOrderName,
 		ticketRef: ticket.identifier,
-		branch: ticketBranch,
-		mode: TicketMode.MultiplePlan,
+		branch: workOrderName,
+		mode: WorkOrderMode.MultiplePlan,
 		plans: [plan],
 		history: [],
 	};
-	const step: TicketPlanStep = {
-		cwd: `/tmp/${ticketBranch}`,
+	const step: WorkOrderPlanStep = {
+		cwd: `/tmp/${workOrderName}`,
 		record,
 		plan,
 		ticket,
@@ -54,7 +55,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		env: {},
 		driver,
 		driverName: driver.name,
-		ticketRunDir: `/tmp/${ticketBranch}/.lightsout/runs/run-1/ticket`,
+		workOrderRunDir: `/tmp/${workOrderName}/.lightsout/runs/run-1/ticket`,
 	};
 
 	return { step };

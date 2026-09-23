@@ -2,20 +2,28 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
-import { type PlanProgress, type RunManifest, RunStatus, TicketEventKind, TicketMode, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import {
+	type PlanProgress,
+	type RunManifest,
+	RunStatus,
+	WorkOrderEventKind,
+	WorkOrderMode,
+	type WorkOrderPlan,
+	type WorkOrderState,
+} from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { planWorkspacePath } from '#src/plan/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /** What a test file's `jest.mock` of the git module hands this fixture to answer HEAD with. */
 export type MockedReadGitHeadCommit = jest.Mock<(params: { cwd: string }) => Promise<string | undefined>>;
 
 /** The ticket folder's name, which is also the branch every record below names. */
-export const ticketBranch = 'lo-140-multi';
+export const workOrderName = 'lo-140-multi';
 export const firstPlan = '001-lifecycle';
 export const secondPlan = '002-queue-order';
-export const address = `${ticketBranch}/${firstPlan}`;
+export const address = `${workOrderName}/${firstPlan}`;
 /** What `git rev-parse HEAD` answers in the checkout a run builds in. */
 export const headCommit = '9f1c0a7d3b6e4152a8c07d5b9e2f4a6c1d3e5f70';
 /** Where the ticket branch stood when an earlier run of plan 001 began, before HEAD moved on. */
@@ -36,9 +44,9 @@ export const planOf = ({
 }: {
 	id: string;
 	progress: PlanProgress;
-	implementation?: TicketPlan['implementation'];
+	implementation?: WorkOrderPlan['implementation'];
 	publishedMarker?: string;
-}): TicketPlan => ({
+}): WorkOrderPlan => ({
 	id,
 	title: `plan ${id}`,
 	progress,
@@ -47,13 +55,14 @@ export const planOf = ({
 	publishedMarker,
 });
 
-const recordOf = ({ mode, plans }: { mode: TicketMode; plans: TicketPlan[] }): TicketRecord => ({
+const recordOf = ({ mode, plans }: { mode: WorkOrderMode; plans: WorkOrderPlan[] }): WorkOrderState => ({
 	schemaVersion: 1,
+	name: workOrderName,
 	ticketRef: 'LO-140',
-	branch: ticketBranch,
+	branch: workOrderName,
 	mode,
 	plans,
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: `added plan ${firstPlan}` }],
 });
 
 /** The manifest a pipeline hands back, written by hand so a row can pin a shape no convenient real run produces. */
@@ -83,9 +92,9 @@ interface LifecycleSetup {
 	/** What the run is asked for: a plan address, or a legacy plan folder's name. */
 	name?: string;
 	/** The plans the ticket record holds. Omitted entirely, no record is written at all. */
-	plans?: TicketPlan[];
-	mode?: TicketMode;
-	/** The sidecar's per-plan markers, written as `ticket-sync.json`. Omitted, no sidecar is written. */
+	plans?: WorkOrderPlan[];
+	mode?: WorkOrderMode;
+	/** The sidecar's per-plan markers, written as `state-sync.json`. Omitted, no sidecar is written. */
 	planMarkers?: Record<string, string>;
 	/** The plan's own files: a single `plan.md`, or an `overview.md` with one phase file beside it. */
 	folder?: 'single' | 'phased';
@@ -114,7 +123,7 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 		mockReadGitHeadCommit,
 		name = address,
 		plans,
-		mode = TicketMode.MultiplePlan,
+		mode = WorkOrderMode.MultiplePlan,
 		planMarkers,
 		folder = 'single',
 		status = RunStatus.Passed,
@@ -128,8 +137,8 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	// back and it could never reach the refusal it names.
 	const head = 'head' in setup ? setup.head : headCommit;
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-lifecycle-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', ticketBranch);
-	const recordPath = join(ticketFolder, 'ticket.json');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', workOrderName);
+	const recordPath = join(workOrderFolder, 'state.json');
 	const planFolder = planWorkspaceFolder({ cwd: cwd, name: name });
 
 	// Reading HEAD is the one await between the record's first read and the locked
@@ -151,22 +160,22 @@ export const setupTicketPlanLifecycle = async (setup: LifecycleSetup) => {
 	}
 
 	if (plans !== undefined) {
-		await updateLocalTicketRecord({ cwd, ticketBranch, change: () => recordOf({ mode, plans }) });
+		await updateLocalWorkOrderState({ cwd, name: workOrderName, change: () => recordOf({ mode, plans }) });
 	}
 
 	if (planMarkers !== undefined) {
-		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(join(ticketFolder, 'ticket-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
+		mkdirSync(workOrderFolder, { recursive: true });
+		writeFileSync(join(workOrderFolder, 'state-sync.json'), JSON.stringify({ schemaVersion: 1, planMarkers }));
 	}
 
 	if (corrupt) {
 		writeFileSync(recordPath, '{ half a record');
 	}
 
-	const readRecord = () => JSON.parse(readFileSync(recordPath, 'utf8')) as TicketRecord;
+	const readRecord = () => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
 	const seenRunIds: string[] = [];
 	/** The record as it stood the moment the pipeline started, which is what "before the run" is asserted against. */
-	const recordsAtRunStart: (TicketRecord | undefined)[] = [];
+	const recordsAtRunStart: (WorkOrderState | undefined)[] = [];
 	const run = ({ runId }: { runId: string }): Promise<PipelineResult> => {
 		seenRunIds.push(runId);
 		recordsAtRunStart.push(existsSync(recordPath) ? readRecord() : undefined);

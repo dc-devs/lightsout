@@ -8,6 +8,7 @@ import type { LightsoutConfig, WorktreeOwner, WorktreeRecord } from '#src/contra
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 // Mocked Imports
 // -------------------------
@@ -37,7 +38,7 @@ const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }
 
 jest.mock('#src/worktree/index.ts', () => ({
 	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
-	prepareTicketBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
+	prepareWorkOrderBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
@@ -50,7 +51,8 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 }));
 // -------------------------
 
-const name = 'lo-131-plan-in-a-worktree';
+const workOrderName = 'lo-131-plan-in-a-worktree';
+const name = `${workOrderName}/001-plan-in-a-worktree`;
 const launchingHead = '3f1c0de5a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const pinnedStartPoint = '0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d';
 const setupCommand = 'pnpm install --frozen-lockfile';
@@ -71,24 +73,42 @@ const setupWorkspace = async ({
 	record,
 	committed = true,
 	brainstorm = false,
+	workOrder = {},
 }: {
 	flags?: string[];
 	launchFromTree?: boolean;
 	record?: { owner: WorktreeOwner; startPoint?: string };
 	committed?: boolean;
 	brainstorm?: boolean;
+	/**
+	 * The work order record beside this plan's label. `branch` is what it
+	 * stores — equal to the label by default, and a different string under a
+	 * prefixed template. `'unclaimed'` writes no record at all, which is a
+	 * `--name` nothing ever authored.
+	 */
+	workOrder?: { branch?: string } | 'unclaimed';
 } = {}) => {
 	const captured = captureCommandOutput();
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
-	const tree = join(root, 'launching-checkout-worktrees', name);
-	const sourcePlanDir = planWorkspaceFolder({ cwd: sourceCwd, name: name });
+	const tree = join(root, 'launching-checkout-worktrees', workOrderName);
+	const sourcePlanDir = planWorkspaceFolder({ cwd: sourceCwd, name });
 
 	await mkdir(sourceCwd, { recursive: true });
+	// The branch a planning session is cut on is the work order record's answer.
+	if (workOrder !== 'unclaimed') {
+		seedWorkOrderRecord({ cwd: sourceCwd, name: workOrderName, branch: workOrder.branch });
+	}
+
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
 
 	if (launchFromTree) {
 		await mkdir(tree, { recursive: true });
+		// Launched from inside the tree, which is no git worktree here, so its own
+		// directory is where the record is looked for.
+		if (workOrder !== 'unclaimed') {
+			seedWorkOrderRecord({ cwd: tree, name: workOrderName, branch: workOrder.branch });
+		}
 	}
 
 	if (brainstorm) {
@@ -100,8 +120,9 @@ const setupWorkspace = async ({
 	mockResolveWorktreePath.mockResolvedValue(tree);
 	mockReadBranchWorktree.mockResolvedValue(launchFromTree ? tree : undefined);
 	mockReadWorktreeRecord.mockResolvedValue(
-		record === undefined ? undefined : { branch: name, worktreePath: tree, createdAt: '2026-09-01T09:00:00.000Z', ...record },
+		record === undefined ? undefined : { branch: workOrderName, worktreePath: tree, createdAt: '2026-09-01T09:00:00.000Z', ...record },
 	);
+	mockPrepareTicketBranch.mockResolvedValue({});
 	mockReadGitHeadCommit.mockResolvedValue(committed ? launchingHead : undefined);
 	// The cut itself: git would make the directory, so the mock does.
 	mockCreateWorktree.mockImplementation(async () => {
@@ -130,9 +151,10 @@ const setupTicketPlanWorkspace = async () => {
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
-	const sourcePlanDir = join(sourceCwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '002-ranking');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'work-orders', 'lo-7-search', 'plans', '002-ranking');
 
 	await mkdir(sourcePlanDir, { recursive: true });
+	seedWorkOrderRecord({ cwd: sourceCwd, name: 'lo-7-search' });
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates, worktree: { setup: setupCommand } }));
 	await writeFile(join(sourcePlanDir, 'brainstorm-notes.md'), '# Brainstorm notes\n');
 	await writeFile(join(sourcePlanDir, 'brainstorm-decisions.json'), '{"decisions":[]}\n');
@@ -169,10 +191,11 @@ const setupStandingTicketTree = async ({ owner, heldBy }: { owner: WorktreeOwner
 	const root = await realpath(await freshCwd());
 	const sourceCwd = join(root, 'launching-checkout');
 	const tree = join(root, 'launching-checkout-worktrees', 'lo-7-search');
-	const sourcePlanDir = join(sourceCwd, '.lightsout', 'tickets', 'lo-7-search', 'plans', '002-ranking');
+	const sourcePlanDir = join(sourceCwd, '.lightsout', 'work-orders', 'lo-7-search', 'plans', '002-ranking');
 
 	await mkdir(sourcePlanDir, { recursive: true });
 	await mkdir(tree, { recursive: true });
+	seedWorkOrderRecord({ cwd: sourceCwd, name: 'lo-7-search' });
 	await writeFile(join(sourceCwd, 'lightsout.config.json'), JSON.stringify({ gates }));
 	await writeFile(join(sourcePlanDir, 'brainstorm-notes.md'), '# Brainstorm notes\n');
 	await writeFile(join(sourcePlanDir, 'brainstorm-decisions.json'), '{"decisions":[]}\n');
@@ -210,10 +233,10 @@ describe('planCommand', () => {
 		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ startPoint: launchingHead, owner: 'plan', setup: setupCommand }));
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
-		expect(logged[0]).toContain(`branch: ${name}`);
+		expect(logged[0]).toContain(`branch: ${workOrderName}`);
 		// the tree holds code work only, so nothing was copied into it and the
 		// launching checkout's folder is exactly as it was
-		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'work-orders'))).toBe(false);
 		expect(original).toStrictEqual({ notes: '# Brainstorm notes\n', decisions: '{"decisions":[]}\n' });
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
@@ -245,8 +268,32 @@ describe('planCommand', () => {
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: name, startPoint: pinnedStartPoint }));
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: workOrderName, startPoint: pinnedStartPoint }));
 		expect(logged.at(-1)).toBe(tree);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('refuses a --name no work order claims, naming the work order rather than planning on a branch nothing authored', async () => {
+		const { context, logged, errors, exitCodes } = await setupWorkspace({ workOrder: 'unclaimed' });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors).toEqual([expect.stringContaining(workOrderName)]);
+		expect(errors).toEqual([expect.stringContaining('--no-worktree')]);
+		expect(logged).toStrictEqual([]);
+		expect(mockCreateWorktree).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('cuts the tree on the branch the record stores, not on the plan address’s first segment', async () => {
+		const { context, logged, exitCodes } = await setupWorkspace({ workOrder: { branch: 'feature/lo-131-plan-in-a-worktree' } });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// The label names the work order to look up; the branch is whatever its
+		// record stores, and under a prefixed template those are two strings.
+		expect(mockCreateWorktree).toHaveBeenCalledWith(expect.objectContaining({ branch: 'feature/lo-131-plan-in-a-worktree' }));
+		expect(logged[0]).toContain('branch: feature/lo-131-plan-in-a-worktree');
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
@@ -273,7 +320,7 @@ describe('planCommand', () => {
 		// one announcement naming the tree and its branch, then the path alone
 		expect(logged).toEqual([expect.stringContaining(tree), tree]);
 		expect(logged[0]).toMatch(/branch: lo-7-search$/);
-		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'work-orders'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
@@ -287,7 +334,7 @@ describe('planCommand', () => {
 		// nothing is cut and the path is answered as it stands
 		expect(mockCreateWorktree).not.toHaveBeenCalled();
 		expect(logged.at(-1)).toBe(tree);
-		expect(existsSync(join(tree, '.lightsout', 'tickets'))).toBe(false);
+		expect(existsSync(join(tree, '.lightsout', 'work-orders'))).toBe(false);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

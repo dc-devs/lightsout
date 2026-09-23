@@ -17,7 +17,7 @@ const runsFolders = ({ dir }: { dir: string }) => {
 	const stateDir = join(dir, '.lightsout');
 
 	return [
-		...childFolders({ path: join(stateDir, 'tickets') }).map((ticket) => join(stateDir, 'tickets', ticket, 'runs')),
+		...childFolders({ path: join(stateDir, 'work-orders') }).map((ticket) => join(stateDir, 'work-orders', ticket, 'runs')),
 		...['implement', 'direct', 'refactor', 'coverage', 'queue'].map((command) => join(stateDir, command, 'runs')),
 	];
 };

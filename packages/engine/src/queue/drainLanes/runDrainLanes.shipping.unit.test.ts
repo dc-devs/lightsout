@@ -4,10 +4,11 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus, WorktreeOwner } from '#src/contracts/index.ts';
 import { QueueBoardRecorder } from '#src/queue/board/index.ts';
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
 import { createWorktree } from '#src/worktree/index.ts';
+import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -42,7 +43,7 @@ const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-co
 const author = '-c user.name=t -c user.email=t@t';
 
 /** Nothing is built in these cases: the branch arrives already finished, carried in from the parked scan. */
-const runTicket = (): Promise<TicketRunOutcome> => Promise.reject(new Error('the drain started a build in a scenario that carries a finished branch'));
+const runWorkOrder = (): Promise<WorkOrderRunOutcome> => Promise.reject(new Error('the drain started a build in a scenario that carries a finished branch'));
 
 /**
  * A drain with one finished branch waiting in the ship lane and nothing to
@@ -75,6 +76,8 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 		runId,
 		holds: {},
 		shipIntegration: shipIntegrationFixture(),
+		/** Nothing is named in these cases: the branch arrives finished, so the summariser is never reached. */
+		driver: createUncalledDriver({ reason: 'a carried-branch drain spawned the name summariser' }),
 		settings,
 		trackerSettings: trackerSettingsFixture(),
 		shipSettings: shipSettingsFixture(),
@@ -82,12 +85,12 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 		env: {},
 		planPath: join(cwd, 'queue.md'),
 		first: { runnable: [], blocked: [], skipped: [] },
-		carried: [{ ticket, branch, worktreePath, ready: true }],
+		carried: [{ ticket, name: branch, branch, worktreePath, ready: true }],
 		carriedLeftBehind: [],
 		attempted: new Set<string>(),
-		runTicket,
+		runWorkOrder,
 		serializeMainCheckout: createMainCheckoutSerializer(),
-		board: new QueueBoardRecorder({ cwd, runId, branchTemplate: settings.branchTemplate }),
+		board: new QueueBoardRecorder({ cwd, runId }),
 		onProgress: (message: string) => progress.push(message),
 	};
 
@@ -95,7 +98,7 @@ const setupCarriedBranch = async ({ reason, detail }: { reason: ShipBlockReason;
 };
 
 /** How the drain reported the one branch it tried to merge, beside the fact a park promises: the worktree still there. */
-const parkOf = ({ outcomes, worktreePath }: { outcomes: TicketRunOutcome[]; worktreePath: string }) => ({
+const parkOf = ({ outcomes, worktreePath }: { outcomes: WorkOrderRunOutcome[]; worktreePath: string }) => ({
 	reported: outcomes.map((outcome) => ({ identifier: outcome.ticket.identifier, ready: outcome.ready, error: outcome.error })),
 	holdsTaken: mockTakeGateHold.mock.calls.length,
 	worktreeKept: existsSync(worktreePath),

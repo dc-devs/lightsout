@@ -24,8 +24,12 @@ const runRecording = ({ planName, plan, runId = plan }: { planName?: string; pla
 test('a plan keeps the runs that recorded its name, and no others', () => {
 	const runs = [
 		runRecording({ planName: 'add-search/001-indexing', plan: 'somewhere/else/overview.md', runId: 'recorded-this-plan' }),
-		runRecording({ planName: 'add-search/001-indexing-v2', plan: '.lightsout/tickets/add-search/plans/001-indexing/plan.md', runId: 'recorded-a-near-name' }),
-		runRecording({ planName: undefined, plan: '.lightsout/tickets/add-search/plans/001-indexing/plan.md', runId: 'recorded-no-plan' }),
+		runRecording({
+			planName: 'add-search/001-indexing-v2',
+			plan: '.lightsout/work-orders/add-search/plans/001-indexing/plan.md',
+			runId: 'recorded-a-near-name',
+		}),
+		runRecording({ planName: undefined, plan: '.lightsout/work-orders/add-search/plans/001-indexing/plan.md', runId: 'recorded-no-plan' }),
 	];
 
 	const matched = matchPlanRuns({ name: 'add-search/001-indexing', runs });
@@ -36,9 +40,9 @@ test('a plan keeps the runs that recorded its name, and no others', () => {
 
 test('the matched runs keep the newest-first order they were given', () => {
 	const runs = [
-		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/tickets/add-search/plans/001-indexing/phase3-ui.md', runId: 'newest' }),
-		runRecording({ planName: 'add-search/002-ranking', plan: '.lightsout/tickets/add-search/plans/002-ranking/plan.md', runId: 'unrelated' }),
-		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/tickets/add-search/plans/001-indexing/phase1-schema.md', runId: 'oldest' }),
+		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/work-orders/add-search/plans/001-indexing/phase3-ui.md', runId: 'newest' }),
+		runRecording({ planName: 'add-search/002-ranking', plan: '.lightsout/work-orders/add-search/plans/002-ranking/plan.md', runId: 'unrelated' }),
+		runRecording({ planName: 'add-search/001-indexing', plan: '.lightsout/work-orders/add-search/plans/001-indexing/phase1-schema.md', runId: 'oldest' }),
 	];
 
 	const matched = matchPlanRuns({ name: 'add-search/001-indexing', runs });

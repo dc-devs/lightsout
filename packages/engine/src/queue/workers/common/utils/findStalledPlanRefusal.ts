@@ -1,9 +1,9 @@
-import { PlanProgress, type TicketPlan, type TicketRecord } from '#src/contracts/index.ts';
+import { PlanProgress, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
 
 interface Params {
-	record: TicketRecord;
+	record: WorkOrderState;
 	/** The plan the ordered build is about to take. */
-	plan: TicketPlan;
+	plan: WorkOrderPlan;
 }
 
 /**
@@ -24,5 +24,5 @@ export const findStalledPlanRefusal = ({ record, plan }: Params): string | undef
 
 	const finish = plan.implementation === undefined ? '' : `finish it with \`lightsout resume --run ${plan.implementation.runId}\`, or `;
 
-	return `the implementation of plan ${plan.id} on ticket ${record.branch} has not finished, and a ticket's plans implement in numeric order — ${finish}take it out of the order with \`lightsout ticket exclude-plan --name ${record.branch} --plan ${plan.id}\``;
+	return `the implementation of plan ${plan.id} on work order ${record.name} has not finished, and a work order's plans implement in numeric order — ${finish}take it out of the order with \`lightsout work-order exclude-plan --name ${record.name} --plan ${plan.id}\``;
 };

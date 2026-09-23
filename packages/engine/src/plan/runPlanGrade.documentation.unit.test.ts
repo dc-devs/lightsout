@@ -99,7 +99,7 @@ test('plan grade: a repository declaring no surfaces sees no documentation step,
 	// nothing was spawned for it
 	expect(invocations.some(({ prompt }) => prompt.includes('# Docs-check input'))).toBeFalsy();
 	// so no transcript was written either
-	expect(existsSync(join(cwd, '.lightsout', 'tickets', 'undeclared', 'plans', 'grade-documentation-stream.jsonl'))).toBeFalsy();
+	expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'undeclared', 'plans', 'grade-documentation-stream.jsonl'))).toBeFalsy();
 
 	// and the verdict is the one this plan always earned
 	const recorded = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));

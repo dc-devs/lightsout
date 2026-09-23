@@ -1,10 +1,10 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
-import { ticketsDir } from '#src/common/workspace/ticketsDir.ts';
+import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
 import { PipelineKind } from '#src/contracts/index.ts';
 import { getCommandRunsDir } from '#src/runState/common/paths/getCommandRunsDir.ts';
-import { getTicketRunsDir } from '#src/runState/common/paths/getTicketRunsDir.ts';
+import { getWorkOrderRunsDir } from '#src/runState/common/paths/getWorkOrderRunsDir.ts';
 
 interface Params {
 	cwd: string;
@@ -14,7 +14,7 @@ interface Params {
  * Every directory a run folder may sit in for one repository: one runs folder
  * per ticket, plus one per command.
  *
- * The primary checkout is resolved twice — once through `ticketsDir` and once
+ * The primary checkout is resolved twice — once through `workOrdersDir` and once
  * through `resolveSharedStateDir` — rather than deriving one from the other.
  * Each of those two names is owned by exactly one helper, and recovering the
  * state directory from the tickets directory by walking up would be this file
@@ -26,9 +26,9 @@ interface Params {
  * was taken must not be missed because the folder was absent when it was built.
  */
 export const listRunLocations = async ({ cwd }: Params): Promise<string[]> => {
-	const tickets = await ticketsDir({ cwd });
+	const tickets = await workOrdersDir({ cwd });
 	const entries = await readdir(tickets, { withFileTypes: true }).catch(() => []);
-	const ticketRuns = entries.filter((entry) => entry.isDirectory()).map((entry) => getTicketRunsDir({ ticketFolder: join(tickets, entry.name) }));
+	const ticketRuns = entries.filter((entry) => entry.isDirectory()).map((entry) => getWorkOrderRunsDir({ workOrderFolder: join(tickets, entry.name) }));
 	const stateDir = await resolveSharedStateDir({ cwd });
 	// Two pipelines share the implement folder, so the set is what keeps the
 	// scan from reading it twice.

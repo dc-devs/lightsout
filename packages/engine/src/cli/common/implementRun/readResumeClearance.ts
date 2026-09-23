@@ -4,8 +4,8 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest } from '#src/contracts/index.ts';
 import type { ShipIntent } from '#src/ship/index.ts';
-import { readTicketRunTerms } from '#src/ticket/index.ts';
 import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
+import { readWorkOrderRunTerms } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The checkout the parked run recorded its source work in. */
@@ -41,7 +41,7 @@ export const readResumeClearance = async ({
 	flags,
 }: Params): Promise<{ name: string | undefined; shipIntent: ShipIntent } | undefined> => {
 	const name = await readResumedPlanName({ cwd: workspace, manifest });
-	const terms = await readTicketRunTerms({
+	const terms = await readWorkOrderRunTerms({
 		cwd: workspace,
 		name,
 		planPath: manifest.pipeline === PipelineKind.Direct ? undefined : manifest.plan,

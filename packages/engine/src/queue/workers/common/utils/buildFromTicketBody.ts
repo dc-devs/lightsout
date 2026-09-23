@@ -1,15 +1,15 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { runDirectWork } from '#src/direct/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import type { TicketPlanStep } from '#src/queue/workers/common/types/TicketPlanStep.ts';
-import { runTicketPlanLifecycle, type TicketPlanOutcome } from '#src/ticket/index.ts';
+import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
+import { runWorkOrderPlanLifecycle, type WorkOrderPlanOutcome } from '#src/workOrder/index.ts';
 
 interface Params {
-	step: TicketPlanStep;
+	step: WorkOrderPlanStep;
 }
 
 /** The wrapped run read back in the queue's three terms, exactly as a plan-folder build states one. */
-const toBuildOutcome = ({ outcome }: { outcome: TicketPlanOutcome }) => {
+const toBuildOutcome = ({ outcome }: { outcome: WorkOrderPlanOutcome }) => {
 	if ('refusal' in outcome) {
 		return { error: outcome.refusal };
 	}
@@ -31,7 +31,7 @@ const toBuildOutcome = ({ outcome }: { outcome: TicketPlanOutcome }) => {
  * alone.
  *
  * It still goes through the ticket lifecycle helper, because plan 001 supplies a
- * single-plan ticket's whole implementation however it was built — and a plan the
+ * single-plan work order's whole implementation however it was built — and a plan the
  * record does not show as implemented is a plan the ship check refuses.
  *
  * It never relays a question, for the reason a plan-folder build does not: the
@@ -44,9 +44,9 @@ export const buildFromTicketBody = async ({ step }: Params): Promise<WorkerOutco
 	onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
 
 	return toBuildOutcome({
-		outcome: await runTicketPlanLifecycle({
+		outcome: await runWorkOrderPlanLifecycle({
 			cwd,
-			name: formatPlanAddress({ ticketBranch: record.branch, planId: plan.id }),
+			name: formatPlanAddress({ workOrderName: record.name, planId: plan.id }),
 			run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config, onProgress }),
 		}),
 	});

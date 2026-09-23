@@ -10,12 +10,15 @@ interface Params {
 
 /**
  * Who made the branch's worktree, or undefined when nothing was ever recorded,
- * the file is unreadable, or its contents do not satisfy the contract.
+ * no work order claims the branch, the file is unreadable, or its contents do
+ * not satisfy the contract.
  *
  * Undefined means "nobody claims this tree", never "the tree is free": a tree a
  * drain made before ownership was recorded reads exactly like one nobody made,
  * and the caller decides what an unclaimed tree is worth.
  */
 export const readWorktreeRecord = async ({ cwd, branch }: Params): Promise<WorktreeRecord | undefined> => {
-	return readJsonFile({ path: await getWorktreeRecordPath({ cwd, branch }), schema: WorktreeRecord });
+	const path = await getWorktreeRecordPath({ cwd, branch });
+
+	return path === undefined ? undefined : readJsonFile({ path, schema: WorktreeRecord });
 };

@@ -378,7 +378,7 @@ describe('runDirectWork', () => {
 
 		expect(result.manifest).toEqual(expect.objectContaining({ runId: existing.runId, baselineDirtyFiles: ['src/half-done.ts'], status: RunStatus.Passed }));
 		// a direct run of a ticket is filed under the ticket's own runs folder
-		expect(readdirSync(dirname(runDirFor({ cwd, runId: existing.runId, ticketBranch: existing.branch })))).toStrictEqual([existing.runId]);
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: existing.runId, workOrderName: existing.branch })))).toStrictEqual([existing.runId]);
 		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['verify']);
 		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
 	});
@@ -392,7 +392,9 @@ describe('runDirectWork', () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.manifest.status).toBe(RunStatus.Failed);
-		expect(readdirSync(dirname(runDirFor({ cwd, runId: result.manifest.runId, ticketBranch: result.manifest.branch })))).toStrictEqual([result.manifest.runId]);
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: result.manifest.runId, workOrderName: result.manifest.branch })))).toStrictEqual([
+			result.manifest.runId,
+		]);
 		expect(mockRunGates.mock.calls.map((call) => call[0].step)).toStrictEqual(['pre-flight']);
 		expect(mockInvokeAgentWithContract).not.toHaveBeenCalled();
 	});
@@ -406,7 +408,9 @@ describe('runDirectWork', () => {
 		// the id the caller minted is the run that exists, so a ticket record
 		// naming it names a run on disk
 		expect(result.manifest.runId).toBe('20260912-pre-minted');
-		expect(readdirSync(dirname(runDirFor({ cwd, runId: '20260912-pre-minted', ticketBranch: result.manifest.branch })))).toStrictEqual(['20260912-pre-minted']);
+		expect(readdirSync(dirname(runDirFor({ cwd, runId: '20260912-pre-minted', workOrderName: result.manifest.branch })))).toStrictEqual([
+			'20260912-pre-minted',
+		]);
 		expect(readFileSync(join(await resolveRunDir({ cwd, runId: '20260912-pre-minted' }), 'ticket.md'), 'utf8')).toBe(`${ticketBody}\n`);
 	});
 });

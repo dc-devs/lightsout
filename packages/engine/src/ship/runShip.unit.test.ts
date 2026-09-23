@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
@@ -31,7 +32,7 @@ const stateView = ({ merged }: { merged: boolean }) =>
 const integration = shipIntegrationFixture();
 
 /** The ticket's say over the merge, authorizing every branch: what the record does to a ship is the sibling ticket-guard file's subject. */
-const ticketGuard = shipTicketGuardFixture();
+const workOrderGuard = shipTicketGuardFixture();
 
 /** The settings a resolved `ship` block hands the sequence — this repo's own, with its nested ticket groups. */
 const settings = {
@@ -100,13 +101,13 @@ const setupShip = async ({ repo = {}, forge = {} }: { repo?: RepoParams; forge?:
 
 /** The result file the run left on disk, which is the whole point of the command. */
 const readShipResult = async ({ cwd, branch }: { cwd: string; branch: string }) =>
-	JSON.parse(await readFile(join(cwd, '.lightsout', 'tickets', branch, 'ship.json'), 'utf8'));
+	JSON.parse(await readFile(join(cwd, '.lightsout', 'work-orders', branch, 'ship.json'), 'utf8'));
 
 describe('runShip', () => {
 	test('a clean branch on a green pull request ships, and the result carries what a tracker comment is built from', async () => {
 		const { cwd, onProgress } = await setupShip();
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -124,16 +125,16 @@ describe('runShip', () => {
 	test('writes the shipped result to disk, because the file is what the next tool reads', async () => {
 		const { cwd, progress, onProgress } = await setupShip();
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(await readShipResult({ cwd, branch: 'lo-60-ship' })).toStrictEqual(result);
-		expect(progress.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
+		expect(progress.some((line) => line.includes(join('.lightsout', 'work-orders', 'lo-60-ship', 'ship.json')))).toBe(true);
 	});
 
 	test('renders the body from the branch’s own capture groups before opening the pull request', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip();
 
-		await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(readForgeLog()).toContain('pr edit 41 --body Closes LO-60 on lo-60-ship');
 	});
@@ -141,7 +142,7 @@ describe('runShip', () => {
 	test('adopts a pull request already open on the branch instead of opening a second one', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip({ forge: { list: `[${viewed}]` } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result.status).toBe('shipped');
 		expect(readForgeLog().some((line) => line.startsWith('pr create'))).toBe(false);
@@ -150,7 +151,7 @@ describe('runShip', () => {
 	test('asks the forge only for the branch’s open pull request, so a merged one is never adopted as a resume', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip();
 
-		await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(readForgeLog()).toContain('pr list --head lo-60-ship --state open --json number,url,title,headRefName --limit 1');
 	});
@@ -158,7 +159,7 @@ describe('runShip', () => {
 	test('a blocked precondition stops before the forge is touched, and still leaves a result on disk', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { dirty: { 'brainstorm-notes.md': 'half a thought\n' } } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'dirty-tree', branch: 'lo-60-ship' }));
 		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
@@ -167,7 +168,7 @@ describe('runShip', () => {
 	test('the pre-ship command prepares the tree, and only the verified result is committed and pushed', async () => {
 		const { cwd, onProgress } = await setupShip();
 
-		const result = await runShip({ cwd, settings: { ...settings, preShip: 'echo rebuilt > bundle.txt' }, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings: { ...settings, preShip: 'echo rebuilt > bundle.txt' }, integration, workOrderGuard, onProgress });
 
 		expect(result.status).toBe('shipped');
 		// the hook's output is on the remote, so it was committed — and it got
@@ -178,25 +179,27 @@ describe('runShip', () => {
 	test('a failing pre-ship command blocks the ship with the command’s own words, before a pull request is touched', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip();
 
-		const result = await runShip({ cwd, settings: { ...settings, preShip: 'echo no bundler here && exit 1' }, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings: { ...settings, preShip: 'echo no bundler here && exit 1' }, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'pre-ship-failed', detail: expect.stringContaining('no bundler here') }));
 		expect(readForgeLog().some((line) => line.startsWith('pr '))).toBe(false);
 	});
 
-	test('a block before any branch name is known files its result under `unknown`', async () => {
+	test('a block before any branch name is known files its result nowhere, and still answers it', async () => {
 		const { cwd, onProgress } = await setupShip({ repo: { worktree: false } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
+		// A run whose branch git could not name belongs to no work order, so there
+		// is no folder to file a result in. The forge stays ship's durable record.
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'git-unreadable' }));
-		expect(await readShipResult({ cwd, branch: 'unknown' })).toStrictEqual(result);
+		expect(existsSync(join(cwd, '.lightsout', 'work-orders', 'unknown'))).toBe(false);
 	});
 
 	test('a push the remote will not take blocks before a pull request is opened', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { brokenOrigin: true } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -212,7 +215,7 @@ describe('runShip', () => {
 	test('a push that failed with the candidate already on the remote ships, because the remote’s own ref is what answers', async () => {
 		const { cwd, readForgeLog, onProgress } = await setupShip({ repo: { prePushed: true, brokenOrigin: true } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		const published = execSync('git ls-remote --heads origin lo-60-ship', { cwd, encoding: 'utf8' }).split('\t')[0] ?? '';
 
@@ -226,7 +229,7 @@ describe('runShip', () => {
 	test('a forge that will not open a pull request blocks with that reason, and with what the forge said', async () => {
 		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: 'gh: no write access' } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -243,7 +246,7 @@ describe('runShip', () => {
 	test('a command that failed without saying anything leaves the sentence alone', async () => {
 		const { cwd, onProgress } = await setupShip({ forge: { createExit: 1, createStderr: '' } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result.detail).toBe("no pull request could be opened or read for 'lo-60-ship'");
 	});
@@ -251,7 +254,7 @@ describe('runShip', () => {
 	test('a red check blocks and names what finished red, which is what the reader goes and fixes', async () => {
 		const { cwd, onProgress } = await setupShip({ forge: { checks: '[{"name":"unit","bucket":"fail"}]' } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(expect.objectContaining({ status: 'blocked', reason: 'checks-failed', failingChecks: ['unit'] }));
 	});
@@ -259,7 +262,7 @@ describe('runShip', () => {
 	test('a merge the forge refuses blocks rather than retrying, so re-running ship is the only resume path', async () => {
 		const { cwd, onProgress } = await setupShip({ forge: { mergeExit: 1 } });
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard, onProgress });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard, onProgress });
 
 		expect(result).toEqual(
 			expect.objectContaining({ status: 'blocked', reason: 'merge-rejected', detail: 'the forge refused to merge #41: protected branch' }),
@@ -269,7 +272,7 @@ describe('runShip', () => {
 	test('runs silently when no progress sink was handed in', async () => {
 		const { cwd } = await setupShip();
 
-		const result = await runShip({ cwd, settings, integration, ticketGuard });
+		const result = await runShip({ cwd, settings, integration, workOrderGuard });
 
 		expect(result.status).toBe('shipped');
 	});

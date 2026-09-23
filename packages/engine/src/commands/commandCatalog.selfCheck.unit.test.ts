@@ -41,7 +41,7 @@ describe('commandCatalog self-check', () => {
 
 	test('pairs the self-check with every other Build command in both directions', () => {
 		const { byId } = setupCatalog();
-		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'ticket', 'ticket-state'];
+		const neighbours = ['brainstorm', 'plan', 'auto-plan', 'implement', 'implement-direct', 'resume', 'ship', 'queue', 'work-order', 'ticket-state'];
 
 		const named = [...(byId.get('self-check')?.related ?? [])].sort();
 		const silentBack = neighbours.filter((id) => byId.get(id)?.related.includes('self-check') !== true);

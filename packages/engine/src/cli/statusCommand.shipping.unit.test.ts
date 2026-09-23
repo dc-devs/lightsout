@@ -6,6 +6,7 @@ import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShi
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { RunStatus, type ShippingProgress, ShippingStepId } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 
 // Mocked Imports
@@ -115,17 +116,32 @@ const runningWithoutStart: ShippingProgress = {
  * the shipping loader answers for that checkout, taken before any output is
  * captured.
  */
-const setupShipping = async ({ args = { shipping: 'lo-7-ship' }, record }: { args?: Record<string, string | true>; record?: ShippingProgress } = {}) => {
+const setupShipping = async ({
+	args = { shipping: 'lo-7-ship' },
+	record,
+	claimed = true,
+}: {
+	args?: Record<string, string | true>;
+	record?: ShippingProgress;
+	claimed?: boolean;
+} = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-status-shipping-'));
-	const ticketFolder = join(cwd, '.lightsout', 'tickets', 'lo-7-ship');
+	const workOrderFolder = join(cwd, '.lightsout', 'work-orders', 'lo-7-ship');
+
+	// The shipping record is filed in the work order whose record stores the
+	// branch, so the work order comes before the record. A branch no work order
+	// claims has nowhere to file one, which is its own answer.
+	if (claimed) {
+		seedWorkOrderRecord({ cwd, name: 'lo-7-ship' });
+	}
 
 	mkdirSync(join(cwd, '.lightsout', 'runs'), { recursive: true });
 	mockResolveWatchTarget.mockResolvedValue(undefined);
 	mockWatchRunProgress.mockResolvedValue(undefined);
 
 	if (record) {
-		mkdirSync(ticketFolder, { recursive: true });
-		writeFileSync(join(ticketFolder, 'ship-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
+		mkdirSync(workOrderFolder, { recursive: true });
+		writeFileSync(join(workOrderFolder, 'ship-progress.json'), `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
 	}
 
 	const expected = await loadShippingProgressBlock({ cwd, branch: 'lo-7-ship' });
@@ -184,6 +200,20 @@ describe('statusCommand --shipping', () => {
 			expect.stringMatching(/^ · {2}sync /),
 		]);
 		expect(logged.at(-1)).toMatch(/^ now {2}.*no step has run yet/);
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('status --shipping for a branch no work order claims says it keeps no local record, and draws no steps', async () => {
+		const { context, logged, errors, exitCodes } = await setupShipping({ claimed: false });
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// A branch no record stores has nowhere a shipping record could ever have
+		// been filed, which is a different answer from a branch that has one and
+		// has shipped nothing yet — so no step row is drawn at all.
+		expect(logged).toEqual(['', expect.stringContaining('lo-7-ship keeps no local shipping record')]);
+		expect(stepIds.filter((id) => logged.join('\n').includes(id))).toStrictEqual([]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

@@ -3,8 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { shipCommand } from '#src/cli/shipCommand.ts';
-import { PlanProgress, TicketEventKind, TicketMode, type TicketRecord } from '#src/contracts/index.ts';
-import { updateLocalTicketRecord } from '#src/ticket/index.ts';
+import { PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
@@ -44,6 +44,7 @@ const setupShipCommand = ({
 	checks = '[{"name":"unit","bucket":"pass"}]',
 	dirty,
 	tracker,
+	workOrder = true,
 }: {
 	ship?: Record<string, unknown>;
 	checks?: string;
@@ -51,6 +52,8 @@ const setupShipCommand = ({
 	dirty?: Record<string, string>;
 	/** The `ticket-tracker` block, when the test wants the merge reconciled to Done. */
 	tracker?: Record<string, unknown>;
+	/** Whether a work order claims the branch. Off for a branch that predates work order states. */
+	workOrder?: boolean;
 } = {}) => {
 	const captured = captureCommandOutput();
 
@@ -70,7 +73,7 @@ const setupShipCommand = ({
 		},
 	});
 
-	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
+	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship', workOrder });
 
 	writeFileSync(
 		join(cwd, 'lightsout.config.json'),
@@ -133,11 +136,12 @@ const setupImplementHarness = () => {
  * The record `lo-60-ship` carries: multiple-plan, its one plan implemented, and
  * no ship request — the ticket whose own record says it may not be merged yet.
  */
-const unrequestedShipRecord: TicketRecord = {
+const unrequestedShipRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-60-ship',
 	ticketRef: 'LO-60',
 	branch: 'lo-60-ship',
-	mode: TicketMode.MultiplePlan,
+	mode: WorkOrderMode.MultiplePlan,
 	plans: [
 		{
 			id: '001-ship-command',
@@ -146,7 +150,7 @@ const unrequestedShipRecord: TicketRecord = {
 			createdAt: '2026-01-01T00:00:00.000Z',
 		},
 	],
-	history: [{ at: '2026-01-01T00:00:00.000Z', kind: TicketEventKind.PlanAdded, detail: 'added plan 001-ship-command' }],
+	history: [{ at: '2026-01-01T00:00:00.000Z', kind: WorkOrderEventKind.PlanAdded, detail: 'added plan 001-ship-command' }],
 };
 
 /**
@@ -179,7 +183,7 @@ const setupTicketShipCommand = async () => {
 	});
 
 	const { cwd } = setupBranchRepo({ branch: 'lo-60-ship' });
-	const seeded = await updateLocalTicketRecord({ cwd, ticketBranch: 'lo-60-ship', change: () => unrequestedShipRecord });
+	const seeded = await updateLocalWorkOrderState({ cwd, name: 'lo-60-ship', change: () => unrequestedShipRecord });
 
 	if ('error' in seeded) {
 		throw new Error(seeded.error);
@@ -212,9 +216,13 @@ describe('shipCommand', () => {
 	});
 
 	test('a ship whose tracker cannot be reached prints why the ticket is not Done, and still exits 0', async () => {
+		// No work order claims this branch: a branch that DOES carry a record is
+		// refused outright when its tracker cannot be read, so the Done write is
+		// only ever reached on one that does not.
 		const { context, errors, logged, exitCodes } = setupShipCommand({
 			ship: { 'ticket-pattern': '^(?<ticket>lo-(?<number>\\d+))' },
 			tracker: unreachableTracker,
+			workOrder: false,
 		});
 
 		await expect(shipCommand(context)).rejects.toThrow(/process\.exit/);
@@ -233,7 +241,7 @@ describe('shipCommand', () => {
 
 		expect(errors.some((line) => line.includes('checks-failed'))).toBe(true);
 		expect(errors).toContain('  checks: unit');
-		expect(logged.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
+		expect(logged.some((line) => line.includes(join('.lightsout', 'work-orders', 'lo-60-ship', 'ship.json')))).toBe(true);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -245,7 +253,7 @@ describe('shipCommand', () => {
 		expect(errors.some((line) => line.includes('dirty-tree') && line.includes('brainstorm-notes.md'))).toBe(true);
 		expect(errors.some((line) => line.startsWith('  checks:'))).toBe(false);
 		// the run still happened, so it still left the result file a tracker skill reads
-		expect(logged.some((line) => line.includes(join('.lightsout', 'tickets', 'lo-60-ship', 'ship.json')))).toBe(true);
+		expect(logged.some((line) => line.includes(join('.lightsout', 'work-orders', 'lo-60-ship', 'ship.json')))).toBe(true);
 		expect(exitCodes).toStrictEqual([1]);
 	});
 

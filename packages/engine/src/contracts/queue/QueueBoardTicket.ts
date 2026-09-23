@@ -10,12 +10,12 @@ export const QueueBoardTicket = z.object({
 	/** The queue worker value that builds the ticket. */
 	worker: z.string().optional(),
 	/**
-	 * Set only for an auto-plan ticket: the folder under the plans directory the
-	 * worker's session writes in, which is named for the ticket's branch.
+	 * Set only for an auto-plan ticket: the work order's label, which is the
+	 * folder under the work-orders directory the worker's session writes in.
 	 *
-	 * For a ticket with a record of its own that is the ticket folder, and the plan
-	 * the session is writing is the one inside it still being planned; for a ticket
-	 * with no record it is the plan folder itself, as it always was.
+	 * The label rather than the branch, because a plan address is built from the
+	 * label and a branch carrying a prefix would not parse as one. The plan the
+	 * session is writing is the one inside that folder still being planned.
 	 */
 	planName: z.string().optional(),
 	branch: z.string().optional(),

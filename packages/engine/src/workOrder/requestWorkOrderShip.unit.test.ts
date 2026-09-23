@@ -1,0 +1,200 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, test } from '@jest/globals';
+import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
+import {
+	excludeWorkOrderPlan,
+	requestWorkOrderShip,
+	retitleWorkOrderPlan,
+	setWorkOrderMode,
+	updateLocalWorkOrderState,
+	withdrawWorkOrderShipRequest,
+} from '#src/workOrder/index.ts';
+
+/** The work order's label: the folder it sits in, and the name every command addresses it by. */
+const name = 'lo-140-multi';
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
+
+/**
+ * No `ticket-tracker` block, so the record is local only: these rows are about
+ * which plan ids a request may name, not about what reaches the tracker.
+ */
+const config: LightsoutConfig = { gates };
+const env: NodeJS.ProcessEnv = {};
+const mergeCommit = 'a1b2c3d4e5f6';
+
+const planOf = ({ id, progress = PlanProgress.Ready, excludedFor }: { id: string; progress?: PlanProgress; excludedFor?: string }): WorkOrderPlan => ({
+	id,
+	title: id,
+	progress,
+	createdAt: '2026-01-01T00:00:00.000Z',
+	...(excludedFor === undefined ? {} : { exclusion: { at: '2026-01-02T00:00:00.000Z', reason: excludedFor, implementationRemoved: false } }),
+});
+
+/** The record the ship-request rows start from: two plans a request must cover, and one it must not name. */
+const threePlans = [planOf({ id: '001-search-basics' }), planOf({ id: '002-fix-x' }), planOf({ id: '003-drop-me', excludedFor: 'superseded' })];
+
+const setupTicketRecord = async ({
+	mode = WorkOrderMode.MultiplePlan,
+	plans = threePlans,
+	shipped,
+	branch = name,
+}: {
+	mode?: WorkOrderMode;
+	plans?: WorkOrderPlan[];
+	/** The plan ids a merged ticket shipped with, which makes the record history. */
+	shipped?: string[];
+	/** The git branch the record names, which a row sets apart from the label on purpose. */
+	branch?: string;
+} = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-request-ship-'));
+	const record: WorkOrderState = {
+		schemaVersion: 1,
+		name,
+		ticketRef: 'LO-140',
+		branch,
+		mode,
+		plans,
+		history: [],
+		...(shipped === undefined ? {} : { shipped: { at: '2026-02-01T00:00:00.000Z', planIds: shipped, mergeCommit } }),
+	};
+
+	await updateLocalWorkOrderState({ cwd, name, change: () => record });
+
+	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
+
+	return { recordPath, before: readFileSync(recordPath, 'utf8'), params: { cwd, name, config, env } };
+};
+
+/** The record as it stands on disk now. */
+const readRecordAt = ({ recordPath }: { recordPath: string }) => JSON.parse(readFileSync(recordPath, 'utf8')) as WorkOrderState;
+
+describe('requestWorkOrderShip', () => {
+	test('refuses every record change on a ticket whose record says it shipped', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({
+			plans: [planOf({ id: '001-search-basics', progress: PlanProgress.Implemented }), planOf({ id: '002-fix-x', progress: PlanProgress.Planning })],
+			shipped: ['001-search-basics'],
+		});
+
+		const results = [
+			await setWorkOrderMode({ ...params, mode: WorkOrderMode.SinglePlan, approve: true }),
+			await requestWorkOrderShip({ ...params, plans: ['001-search-basics', '002-fix-x'] }),
+			await withdrawWorkOrderShipRequest({ ...params }),
+			await excludeWorkOrderPlan({ ...params, plan: '002-fix-x', reason: 'not needed', implementationRemoved: false }),
+			await retitleWorkOrderPlan({ ...params, plan: '002-fix-x', title: 'Fix search' }),
+		];
+
+		expect(results).toEqual([
+			{ error: expect.stringContaining(mergeCommit) },
+			{ error: expect.stringContaining(mergeCommit) },
+			{ error: expect.stringContaining(mergeCommit) },
+			{ error: expect.stringContaining(mergeCommit) },
+			{ error: expect.stringContaining(mergeCommit) },
+		]);
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('stores the exact non-excluded plan ids, accepting full ids or bare numbers', async () => {
+		const { params, recordPath } = await setupTicketRecord();
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1', '002-fix-x'] });
+
+		const stored = readRecordAt({ recordPath });
+
+		expect(stored).toEqual(
+			expect.objectContaining({
+				shipRequest: expect.objectContaining({ planIds: ['001-search-basics', '002-fix-x'] }),
+				history: [expect.objectContaining({ kind: 'ship-requested' })],
+			}),
+		);
+		expect(result).toEqual(expect.objectContaining({ record: stored }));
+	});
+
+	test('refuses a request that does not cover every non-excluded plan and names work-order exclude-plan', async () => {
+		const { params, recordPath, before } = await setupTicketRecord();
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1'] });
+
+		expect(result).toEqual({ error: expect.stringContaining('002-fix-x') });
+		expect(result).toEqual({ error: expect.stringContaining('work-order exclude-plan') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('refuses a request naming an excluded plan', async () => {
+		const { params, recordPath, before } = await setupTicketRecord();
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1', '2', '3'] });
+
+		expect(result).toEqual({ error: expect.stringContaining('003-drop-me') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('refuses a request naming a plan the ticket does not hold', async () => {
+		const { params, recordPath, before } = await setupTicketRecord();
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1', '2', '9'] });
+
+		expect(result).toEqual({ error: expect.stringContaining('001-search-basics') });
+		expect(result).toEqual({ error: expect.stringContaining('002-fix-x') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('refuses a ship request outside multiple-plan mode', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['001-search-basics'] });
+
+		expect(result).toEqual({ error: expect.any(String) });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('refuses a request that names no plan', async () => {
+		const { params, recordPath, before } = await setupTicketRecord();
+
+		const result = await requestWorkOrderShip({ ...params, plans: [] });
+
+		expect(result).toEqual({ error: expect.any(String) });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('names the work order by its label in the uncovered-plans remedy when the branch carries a prefix', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({ branch: `feature/${name}` });
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1'] });
+
+		// The remedy is a command a human types, and `--name` takes the label, so a
+		// sentence built from the prefixed branch would offer an unrunnable one.
+		expect(result).toEqual({ error: expect.stringContaining(`lightsout work-order exclude-plan --name ${name} --plan`) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('names the work order by its label when a request names an excluded plan and the branch carries a prefix', async () => {
+		const { params, recordPath, before } = await setupTicketRecord({ branch: `feature/${name}` });
+
+		const result = await requestWorkOrderShip({ ...params, plans: ['1', '2', '3'] });
+
+		expect(result).toEqual({ error: expect.stringContaining(`work order ${name}`) });
+		expect(result).toEqual({ error: expect.not.stringContaining('feature/') });
+		expect(readFileSync(recordPath, 'utf8')).toBe(before);
+	});
+
+	test('requestWorkOrderShip: the uncovered-plans and wrong-mode refusals spell the work-order command word', async () => {
+		const uncovered = await setupTicketRecord();
+		const singlePlan = await setupTicketRecord({ mode: WorkOrderMode.SinglePlan, plans: [planOf({ id: '001-search-basics' })] });
+
+		const results = [
+			await requestWorkOrderShip({ ...uncovered.params, plans: ['1'] }),
+			await requestWorkOrderShip({ ...singlePlan.params, plans: ['001-search-basics'] }),
+		];
+
+		expect(results).toEqual([
+			{ error: expect.stringContaining('lightsout work-order exclude-plan') },
+			{ error: expect.stringContaining('lightsout work-order mode') },
+		]);
+		expect(results).toEqual([{ error: expect.not.stringContaining('lightsout ticket ') }, { error: expect.not.stringContaining('lightsout ticket ') }]);
+		expect(readFileSync(uncovered.recordPath, 'utf8')).toBe(uncovered.before);
+		expect(readFileSync(singlePlan.recordPath, 'utf8')).toBe(singlePlan.before);
+	});
+});

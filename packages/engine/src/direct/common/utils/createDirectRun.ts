@@ -25,8 +25,8 @@ export const createDirectRun = async ({ cwd, runId, ticketBody, ticketRef, drive
 	// `plan` field points at a `ticket.md` inside it. A direct run belongs to no
 	// plan, so it is filed under the ticket branch it is built on — and under
 	// `direct/runs/` only when there is no branch to file it under.
-	const ticketBranch = await readGitCurrentBranch({ cwd });
-	const ticketPath = join(await resolveNewRunDir({ cwd, ticketBranch, pipeline: PipelineKind.Direct, runId }), 'ticket.md');
+	const workOrderName = await readGitCurrentBranch({ cwd });
+	const ticketPath = join(await resolveNewRunDir({ cwd, workOrderName, pipeline: PipelineKind.Direct, runId }), 'ticket.md');
 	const manifest = await createRun({
 		cwd,
 		runId,

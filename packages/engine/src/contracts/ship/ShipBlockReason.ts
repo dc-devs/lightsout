@@ -57,7 +57,7 @@ export const ShipBlockReason = {
 	 * Checked twice — once before anything is pushed, and again immediately before
 	 * the merge — so a plan added while the checks were running still stops it.
 	 */
-	TicketNotAuthorized: 'ticket-not-authorized',
+	WorkOrderNotAuthorized: 'ticket-not-authorized',
 } as const;
 
 export type ShipBlockReason = (typeof ShipBlockReason)[keyof typeof ShipBlockReason];

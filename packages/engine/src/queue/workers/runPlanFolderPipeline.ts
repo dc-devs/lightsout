@@ -5,7 +5,7 @@ import { runPhasesPipeline } from '#src/phases/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { pathExists, planWorkspaceDir, recordPlanCommandRun } from '#src/plan/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { runTicketPlanLifecycle } from '#src/ticket/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The worktree holding the plan folder, and where the pipeline runs. */
@@ -25,7 +25,7 @@ interface Params {
  * fetches a missing one back from the ticket, and the auto-plan worker fails,
  * because a session that reported a plan it never wrote built nothing.
  *
- * The run goes through the ticket lifecycle helper, so a plan the ticket's record
+ * The run goes through the ticket lifecycle helper, so a plan the work order's record
  * says may not be built yet becomes a worker error rather than a build — and a
  * plan that passes is recorded implemented on the record every later plan and
  * every ship reads. A folder with no record builds exactly as it always has.
@@ -43,7 +43,7 @@ export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgr
 	const folder = await planWorkspaceDir({ cwd, name });
 	const overviewPath = join(folder, 'overview.md');
 	const phased = await pathExists({ path: overviewPath });
-	const outcome = await runTicketPlanLifecycle({
+	const outcome = await runWorkOrderPlanLifecycle({
 		cwd,
 		name,
 		run: ({ runId }) =>

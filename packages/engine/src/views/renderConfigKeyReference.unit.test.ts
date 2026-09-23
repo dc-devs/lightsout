@@ -44,4 +44,11 @@ describe('renderConfigKeyReference', () => {
 	test('carries each key’s own sentence as the third cell, so the document and the page cannot disagree', () => {
 		expect(findRow({ key: 'packages-dir' })).toBe(`| \`packages-dir\` | no | ${configKeyDescriptions['packages-dir']} |`);
 	});
+
+	test('renderConfigKeyReference: the plan row names the renamed default-work-order-mode key', () => {
+		const planRow = findRow({ key: 'plan' });
+
+		expect(planRow).toContain('plan.default-work-order-mode');
+		expect(planRow).not.toContain('default-ticket-mode');
+	});
 });

@@ -59,7 +59,7 @@ const foreignManifest = ({ pipeline }: { pipeline?: PipelineKind }): RunManifest
 const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
 	const { cwd } = setupBranchRepo();
 	const worktree = join(cwd, '.worktrees', 'lo-151-read-coverage');
-	const folder = join(cwd, '.lightsout', 'tickets', 'lo-151', 'plans', '001-read-coverage');
+	const folder = join(cwd, '.lightsout', 'work-orders', 'lo-151', 'plans', '001-read-coverage');
 	const rows = Array.from({ length: phases }, (_, index) => `| ${index + 1} | \`phase${index + 1}.md\` | scope |`);
 
 	mkdirSync(folder, { recursive: true });
@@ -71,7 +71,7 @@ const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
 
 	execSync(`git worktree add -q -b lo-151-read-coverage "${worktree}" main`, { cwd, stdio: 'ignore' });
 
-	return { worktree, overviewPath: join('.lightsout', 'tickets', 'lo-151', 'plans', '001-read-coverage', 'overview.md') };
+	return { worktree, overviewPath: join('.lightsout', 'work-orders', 'lo-151', 'plans', '001-read-coverage', 'overview.md') };
 };
 
 /**
@@ -83,7 +83,7 @@ const setupLinkedPlanWorktree = ({ phases }: { phases: number }) => {
  */
 const setupTicketPlanFolder = ({ recordedPlanName }: { recordedPlanName: string }) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-sequence-ticket-'));
-	const parts = ['.lightsout', 'tickets', 'lo-155-record-the-plan', 'plans', '001-recorded-plan-name'];
+	const parts = ['.lightsout', 'work-orders', 'lo-155-record-the-plan', 'plans', '001-recorded-plan-name'];
 	const folder = join(dir, ...parts);
 
 	mkdirSync(folder, { recursive: true });

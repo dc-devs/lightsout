@@ -149,7 +149,7 @@ describe('draftSinglePlan', () => {
 			// Reports the file as written without ever writing it.
 			driver: {
 				name: 'claude-code',
-				invoke: async () => ({ text: draftReport({ status: 'drafted', filesWritten: ['.lightsout/tickets/legacy-ghost/plans/plan.md'] }), exitCode: 0 }),
+				invoke: async () => ({ text: draftReport({ status: 'drafted', filesWritten: ['.lightsout/work-orders/legacy-ghost/plans/plan.md'] }), exitCode: 0 }),
 			},
 		});
 

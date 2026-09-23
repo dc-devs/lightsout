@@ -21,7 +21,7 @@ describe('commandCatalog flags', () => {
 			['resume', ['cwd', 'no-ship', 'run', 'ship', 'skip-refactor']],
 			['ship', ['cwd']],
 			['queue', ['cwd', 'file-relay']],
-			['ticket', ['approve', 'cwd', 'from', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'title', 'withdraw']],
+			['work-order', ['approve', 'cwd', 'implementation-removed', 'keep', 'name', 'plan', 'plans', 'reason', 'set', 'slug', 'ticket', 'title', 'withdraw']],
 			['ticket-state', ['cwd', 'planning-status', 'ref', 'tracker-status']],
 			['self-check', ['cwd', 'run']],
 			['refactor', ['all', 'allow-dirty', 'code-checks', 'cwd', 'max-batches', 'path', 'run']],
@@ -148,67 +148,81 @@ describe('commandCatalog flags', () => {
 		expect(usageProbe?.meaning).toEqual(expect.stringMatching(/money/i));
 	});
 
-	test('scopes each ticket flag to the subcommand that reads it', () => {
+	test('scopes each work-order flag to the subcommand that reads it', () => {
 		const { byId } = setupCatalog();
 
-		const ticketFlags = byId.get('ticket')?.flags ?? [];
+		const workOrderFlags = byId.get('work-order')?.flags ?? [];
 
-		expect(ticketFlags.map((flag) => [flag.name, flag.shape])).toStrictEqual([
-			['name', undefined],
-			['slug', 'ticket-add-plan'],
-			['title', 'ticket-add-plan'],
-			['from', 'ticket-add-plan'],
-			['set', 'ticket-mode'],
-			['approve', 'ticket-mode'],
-			['plans', 'ticket-request-ship'],
-			['withdraw', 'ticket-request-ship'],
-			['plan', 'ticket-exclude-plan'],
-			['reason', 'ticket-exclude-plan'],
-			['implementation-removed', 'ticket-exclude-plan'],
-			['plan', 'ticket-retitle-plan'],
-			['title', 'ticket-retitle-plan'],
-			['keep', 'ticket-sync'],
+		expect(workOrderFlags.map((flag) => [flag.name, flag.shape])).toStrictEqual([
+			['ticket', 'work-order-new'],
+			['title', 'work-order-new'],
+			['name', 'work-order-add-plan'],
+			['slug', 'work-order-add-plan'],
+			['title', 'work-order-add-plan'],
+			['name', 'work-order-mode'],
+			['set', 'work-order-mode'],
+			['approve', 'work-order-mode'],
+			['name', 'work-order-request-ship'],
+			['plans', 'work-order-request-ship'],
+			['withdraw', 'work-order-request-ship'],
+			['name', 'work-order-exclude-plan'],
+			['plan', 'work-order-exclude-plan'],
+			['reason', 'work-order-exclude-plan'],
+			['implementation-removed', 'work-order-exclude-plan'],
+			['name', 'work-order-retitle-plan'],
+			['plan', 'work-order-retitle-plan'],
+			['title', 'work-order-retitle-plan'],
+			['name', 'work-order-show'],
+			['name', 'work-order-sync'],
+			['keep', 'work-order-sync'],
 			['cwd', undefined],
 		]);
-		expect(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.name)).toStrictEqual(['plans', 'withdraw']);
-		expect(new Set(ticketFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith)).size).toBe(1);
+		expect(workOrderFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.name)).toStrictEqual(['ticket', 'title', 'plans', 'withdraw']);
+		expect(new Set(workOrderFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith)).size).toBe(2);
 	});
 
-	test('tells the reader what happens without each optional ticket flag, and gives the required ones no fallback', () => {
+	test('tells the reader what happens without each optional work-order flag, and gives the required ones no fallback', () => {
 		const { byId } = setupCatalog();
 
-		const ticketFlags = byId.get('ticket')?.flags ?? [];
+		const workOrderFlags = byId.get('work-order')?.flags ?? [];
 
-		expect(ticketFlags.map((flag) => [`${flag.name} in ${flag.shape ?? 'every shape'}`, flag.required, flag.fallback !== undefined])).toStrictEqual([
-			['name in every shape', true, false],
-			['slug in ticket-add-plan', true, false],
-			['title in ticket-add-plan', false, true],
-			['from in ticket-add-plan', false, true],
-			['set in ticket-mode', true, false],
-			['approve in ticket-mode', false, true],
-			['plans in ticket-request-ship', false, true],
-			['withdraw in ticket-request-ship', false, true],
-			['plan in ticket-exclude-plan', true, false],
-			['reason in ticket-exclude-plan', true, false],
-			['implementation-removed in ticket-exclude-plan', false, true],
-			['plan in ticket-retitle-plan', true, false],
-			['title in ticket-retitle-plan', true, false],
-			['keep in ticket-sync', false, true],
+		expect(workOrderFlags.map((flag) => [`${flag.name} in ${flag.shape ?? 'every shape'}`, flag.required, flag.fallback !== undefined])).toStrictEqual([
+			['ticket in work-order-new', false, true],
+			['title in work-order-new', false, true],
+			['name in work-order-add-plan', true, false],
+			['slug in work-order-add-plan', true, false],
+			['title in work-order-add-plan', false, true],
+			['name in work-order-mode', true, false],
+			['set in work-order-mode', true, false],
+			['approve in work-order-mode', false, true],
+			['name in work-order-request-ship', true, false],
+			['plans in work-order-request-ship', false, true],
+			['withdraw in work-order-request-ship', false, true],
+			['name in work-order-exclude-plan', true, false],
+			['plan in work-order-exclude-plan', true, false],
+			['reason in work-order-exclude-plan', true, false],
+			['implementation-removed in work-order-exclude-plan', false, true],
+			['name in work-order-retitle-plan', true, false],
+			['plan in work-order-retitle-plan', true, false],
+			['title in work-order-retitle-plan', true, false],
+			['name in work-order-show', true, false],
+			['name in work-order-sync', true, false],
+			['keep in work-order-sync', false, true],
 			['cwd in every shape', false, true],
 		]);
 	});
 
-	test('scopes --from to ticket-add-plan and leaves no flag shaped to a removed invocation', () => {
+	test('declares no --from flag and leaves none shaped to a removed invocation', () => {
 		const { byId } = setupCatalog();
-		const ticketEntry = byId.get('ticket');
-		const invocationIds = new Set((ticketEntry?.invocations ?? []).map((invocation) => invocation.id));
+		const workOrderEntry = byId.get('work-order');
+		const invocationIds = new Set((workOrderEntry?.invocations ?? []).map((invocation) => invocation.id));
 
-		const fromFlags = (ticketEntry?.flags ?? []).filter((flag) => flag.name === 'from');
-		const orphanShapes = (ticketEntry?.flags ?? [])
+		const fromFlags = (workOrderEntry?.flags ?? []).filter((flag) => flag.name === 'from');
+		const orphanShapes = (workOrderEntry?.flags ?? [])
 			.filter((flag) => flag.shape !== undefined && !invocationIds.has(flag.shape))
 			.map((flag) => `--${flag.name} in ${flag.shape ?? 'every shape'}`);
 
-		expect(fromFlags).toEqual([expect.objectContaining({ value: '<folder>', shape: 'ticket-add-plan', required: false, fallback: expect.any(String) })]);
+		expect(fromFlags).toStrictEqual([]);
 		expect(orphanShapes).toStrictEqual([]);
 	});
 
@@ -220,5 +234,87 @@ describe('commandCatalog flags', () => {
 		);
 
 		expect(lonely).toStrictEqual([]);
+	});
+
+	test('commandCatalog: the work-order entry pairs --ticket with --title on the new shape and shapes --name onto the subcommands that take it', () => {
+		const { byId } = setupCatalog();
+		const workOrderEntry = byId.get('work-order');
+		const workOrderFlags = workOrderEntry?.flags ?? [];
+
+		const newInvocation = workOrderEntry?.invocations[0];
+		const newShapeFlags = workOrderFlags.filter((flag) => flag.shape === undefined || flag.shape === 'work-order-new');
+		const nameRows = workOrderFlags.filter((flag) => flag.name === 'name');
+		const nameKeys = new Set(newShapeFlags.filter((flag) => flag.exclusiveWith !== undefined).map((flag) => flag.exclusiveWith));
+		const acceptedFlags = readCommandFlags({ command: 'work-order' });
+
+		// the line that creates a work order comes first, so `new` is the entry's first invocation
+		expect(newInvocation).toEqual(expect.objectContaining({ id: 'work-order-new', positional: 'new' }));
+
+		// the `new` line carries the naming pair and --cwd, and none of the flags that act on a record that already exists
+		expect(newShapeFlags.map((flag) => [flag.name, flag.value, flag.shape])).toStrictEqual([
+			['ticket', '<ref>', 'work-order-new'],
+			['title', '<words>', 'work-order-new'],
+			['cwd', '<path>', undefined],
+		]);
+
+		// one shared exclusivity key renders the pair in a single bracket, and no other flag joins it
+		expect(nameKeys.size).toBe(1);
+		expect(workOrderFlags.filter((flag) => flag.exclusiveWith !== undefined && nameKeys.has(flag.exclusiveWith)).map((flag) => flag.name)).toStrictEqual([
+			'ticket',
+			'title',
+		]);
+		expect(newShapeFlags.find((flag) => flag.name === 'ticket')?.fallback).toEqual(expect.stringMatching(/--title/));
+		expect(newShapeFlags.find((flag) => flag.name === 'title')?.fallback).toEqual(expect.stringMatching(/--ticket/));
+
+		// --name is one row per subcommand that takes it, so it never renders on the line that writes the name itself
+		expect(nameRows.map((flag) => flag.shape).sort()).toStrictEqual([
+			'work-order-add-plan',
+			'work-order-exclude-plan',
+			'work-order-mode',
+			'work-order-request-ship',
+			'work-order-retitle-plan',
+			'work-order-show',
+			'work-order-sync',
+		]);
+
+		// those seven rows fold back into one accepted flag, so the only change to what the command accepts is --ticket
+		expect([...acceptedFlags].sort()).toStrictEqual([
+			'approve',
+			'cwd',
+			'implementation-removed',
+			'keep',
+			'name',
+			'plan',
+			'plans',
+			'reason',
+			'set',
+			'slug',
+			'ticket',
+			'title',
+			'withdraw',
+		]);
+	});
+
+	test('readCommandFlags: work-order accepts its declared flags and ticket accepts none of them', () => {
+		const workOrderFlags = readCommandFlags({ command: 'work-order' });
+		const ticketFlags = readCommandFlags({ command: 'ticket' });
+
+		// the accepted set follows the entry's id, so the old command word accepts nothing the entry declares
+		expect([...workOrderFlags].sort()).toStrictEqual([
+			'approve',
+			'cwd',
+			'implementation-removed',
+			'keep',
+			'name',
+			'plan',
+			'plans',
+			'reason',
+			'set',
+			'slug',
+			'ticket',
+			'title',
+			'withdraw',
+		]);
+		expect(ticketFlags).toStrictEqual(new Set(['cwd']));
 	});
 });

@@ -1,7 +1,7 @@
-import type { TicketRunOutcome } from '#src/queue/common/types/TicketRunOutcome.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 interface Params {
-	outcome: TicketRunOutcome;
+	outcome: WorkOrderRunOutcome;
 }
 
 /**

@@ -43,10 +43,17 @@ const ensureIgnoreFile = async ({ folder }: { folder: string }) => {
  * The path arrives unresolved because the recorder's constructor cannot await
  * one, and it is resolved inside the same `try` the write itself runs in — a
  * checkout that cannot be resolved is dropped exactly as an unwritable file is.
+ * A branch no work order claims resolves to no path at all, and its writes drop
+ * just as silently.
  */
-const writeRecord = async ({ recordPath, record }: { recordPath: Promise<string>; record: ShippingProgress }) => {
+const writeRecord = async ({ recordPath, record }: { recordPath: Promise<string | undefined>; record: ShippingProgress }) => {
 	try {
 		const path = await recordPath;
+
+		if (path === undefined) {
+			return;
+		}
+
 		const folder = dirname(path);
 
 		await mkdir(folder, { recursive: true });
@@ -78,7 +85,7 @@ interface ConstructorParams {
  * step, and a failed write is dropped without a word.
  */
 export class ShippingProgressRecorder {
-	private readonly recordPath: Promise<string>;
+	private readonly recordPath: Promise<string | undefined>;
 	private record: ShippingProgress;
 	private writes: Promise<void> = Promise.resolve();
 

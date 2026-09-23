@@ -25,7 +25,7 @@ const setupSettledWorker = () => {
 			branch: 'lo-70-drain',
 			defaultBranch: 'main',
 			ticket: queueTicketFixture(),
-			ticketRunDir: runDir,
+			workOrderRunDir: runDir,
 			generated: undefined,
 			worked: {},
 		},

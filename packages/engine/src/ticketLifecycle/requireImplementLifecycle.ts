@@ -1,12 +1,12 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { describeGateHold, isTicketGateHeld, syncGateHolds } from '#src/gates/index.ts';
-import { readBranchTicketRef } from '#src/ship/index.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
 import { resolveLifecycleSettings } from '#src/ticketLifecycle/resolveLifecycleSettings.ts';
 import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { readWorkOrderTicketRef } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The checkout source work is about to begin in. */
@@ -50,9 +50,9 @@ const toPreImplementationPlanningStatus = ({ labels, lifecycle }: { labels: stri
  * stops the run rather than letting two entry points disagree about who owns
  * the branch.
  *
- * A repository with no tracker, and a branch carrying no ticket the repo's own
- * `ship.ticket-pattern` matches, both proceed untouched — there is nothing to
- * synchronize and no ticket to refuse on behalf of.
+ * A repository with no tracker, and a branch no work order's record claims a
+ * ticket for, both proceed untouched — there is nothing to synchronize and no
+ * ticket to refuse on behalf of.
  *
  * A ticket under a durable gate hold is refused outright, and refused here —
  * after the ticket is fetched and before any lifecycle write — so a held ticket
@@ -74,8 +74,8 @@ export const requireImplementLifecycle = async ({ cwd, config, env, ticketRef, o
 	}
 
 	// The ticket this run is about: the reference the caller was given, or the one
-	// the branch carries.
-	const reference = ticketRef ?? (await readBranchTicketRef({ config, cwd }));
+	// the branch's own work order record names.
+	const reference = ticketRef ?? (await readWorkOrderTicketRef({ cwd }));
 
 	if (reference === undefined) {
 		return undefined;

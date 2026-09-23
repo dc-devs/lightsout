@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -122,38 +122,12 @@ const setupWorktree = ({ args, refused = false }: { args: string[]; refused?: bo
 };
 
 /**
- * A checkout whose plans folder already holds a ticket record for the named
- * folder — the state that makes a bare `--name` the wrong way to address a
- * plan. No repository stands above the temporary directory, so its own
- * `.lightsout` folder is the shared one the record is read from.
- */
-const setupTicketRecordFolder = ({ args, ticketBranch }: { args: string[]; ticketBranch: string }) => {
-	const launched = setupPlan({ args });
-	const ticketFolder = join(launched.cwd, '.lightsout', 'tickets', ticketBranch);
-
-	mkdirSync(ticketFolder, { recursive: true });
-	writeFileSync(
-		join(ticketFolder, 'ticket.json'),
-		JSON.stringify({
-			schemaVersion: 1,
-			ticketRef: 'LO-9',
-			branch: ticketBranch,
-			mode: 'multiple-plan',
-			plans: [{ id: '001-search-basics', title: 'Search basics', progress: 'ready', createdAt: '2026-01-01T00:00:00.000Z' }],
-			history: [{ at: '2026-01-01T00:00:00.000Z', kind: 'plan-added', detail: 'added plan 001-search-basics' }],
-		}),
-	);
-
-	return launched;
-};
-
-/**
  * `plan workspace` twice over — once with no --name, and once named while its
  * worktree cannot be established. Both contexts share one capture, so a single
  * act dispatches both and every line either wrote is read back.
  */
 const setupRefusedWorkspaces = () => {
-	const named = setupWorktree({ args: ['workspace', '--name', 'demo'], refused: true });
+	const named = setupWorktree({ args: ['workspace', '--name', 'demo/001-demo'], refused: true });
 	const namelessArgs = ['workspace'];
 
 	return { ...named, nameless: { ...named.context, flags: parseFlags({ args: namelessArgs }), rest: namelessArgs } };
@@ -161,7 +135,7 @@ const setupRefusedWorkspaces = () => {
 
 describe('planCommand', () => {
 	test('routes verify-facts without resolving a harness, because it runs no agent', async () => {
-		const { context, cwd } = setupPlan({ args: ['verify-facts', '--name', 'demo'] });
+		const { context, cwd } = setupPlan({ args: ['verify-facts', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
@@ -172,7 +146,7 @@ describe('planCommand', () => {
 	});
 
 	test('routes lint without resolving a harness either', async () => {
-		const { context, cwd } = setupPlan({ args: ['lint', '--name', 'demo'] });
+		const { context, cwd } = setupPlan({ args: ['lint', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
@@ -182,7 +156,7 @@ describe('planCommand', () => {
 	});
 
 	test('routes publish without resolving a harness, because it spawns no agent either', async () => {
-		const { context, cwd } = setupPlan({ args: ['publish', '--name', 'lo-54-portable-plan'] });
+		const { context, cwd } = setupPlan({ args: ['publish', '--name', 'lo-54-portable-plan/001-portable-plan'] });
 
 		await planCommand(context);
 
@@ -192,7 +166,7 @@ describe('planCommand', () => {
 	});
 
 	test('routes sync-decisions without resolving a harness, because it runs no agent', async () => {
-		const { context, cwd } = setupPlan({ args: ['sync-decisions', '--name', 'demo'] });
+		const { context, cwd } = setupPlan({ args: ['sync-decisions', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
@@ -204,43 +178,43 @@ describe('planCommand', () => {
 	});
 
 	test('routes draft with the resolved harness and standards', async () => {
-		const { context, cwd, config } = setupPlan({ args: ['draft', '--name', 'demo'] });
+		const { context, cwd, config } = setupPlan({ args: ['draft', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanDraftCommand).toHaveBeenCalledTimes(1);
-		expect(argsOf(mockPlanDraftCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		expect(argsOf(mockPlanDraftCommand)).toMatchObject({ cwd, name: 'demo/001-demo', standards: 'STANDARDS', config, driver: stubDriver });
 		// there is one plans root, derived from cwd and name — nothing relocatable
 		// rides the dispatch, got: ${JSON.stringify(Object.keys(argsOf(mockPlanDraftCommand) ?? {}))}
 		expect(argsOf(mockPlanDraftCommand)).not.toHaveProperty('plansDir');
 	});
 
 	test('routes dedup', async () => {
-		const { context, cwd, config } = setupPlan({ args: ['dedup', '--name', 'demo'] });
+		const { context, cwd, config } = setupPlan({ args: ['dedup', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanDedupCommand).toHaveBeenCalledTimes(1);
-		expect(argsOf(mockPlanDedupCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		expect(argsOf(mockPlanDedupCommand)).toMatchObject({ cwd, name: 'demo/001-demo', standards: 'STANDARDS', config, driver: stubDriver });
 		// dedup finds the plan from cwd and name alone, got: ${JSON.stringify(Object.keys(argsOf(mockPlanDedupCommand) ?? {}))}
 		expect(argsOf(mockPlanDedupCommand)).not.toHaveProperty('plansDir');
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 	});
 
 	test('routes grade', async () => {
-		const { context, cwd, config } = setupPlan({ args: ['grade', '--name', 'demo'] });
+		const { context, cwd, config } = setupPlan({ args: ['grade', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanGradeCommand).toHaveBeenCalledTimes(1);
-		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd, name: 'demo/001-demo', standards: 'STANDARDS', config, driver: stubDriver });
 		// grade finds the plan from cwd and name alone, got: ${JSON.stringify(Object.keys(argsOf(mockPlanGradeCommand) ?? {}))}
 		expect(argsOf(mockPlanGradeCommand)).not.toHaveProperty('plansDir');
 		expect(mockPlanDedupCommand).not.toHaveBeenCalled();
 	});
 
 	test('grade with no --phase asks for the whole plan', async () => {
-		const { context } = setupPlan({ args: ['grade', '--name', 'demo'] });
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
@@ -249,7 +223,7 @@ describe('planCommand', () => {
 	});
 
 	test('grade splits a comma-separated --phase into trimmed values', async () => {
-		const { context } = setupPlan({ args: ['grade', '--name', 'demo', '--phase', '1, phase3-fanout.md ,'] });
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo/001-demo', '--phase', '1, phase3-fanout.md ,'] });
 
 		await planCommand(context);
 
@@ -259,7 +233,7 @@ describe('planCommand', () => {
 	});
 
 	test('a --phase that yields no values reaches the runner as an empty list, which it refuses', async () => {
-		const { context } = setupPlan({ args: ['grade', '--name', 'demo', '--phase', ','] });
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo/001-demo', '--phase', ','] });
 
 		await planCommand(context);
 
@@ -294,28 +268,21 @@ describe('planCommand', () => {
 	});
 
 	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'])(
-		'%s addresses a plan by name, so a folder carrying no ticket id draws exactly one advisory and the subcommand still runs',
+		'%s addresses a plan by name and says nothing about the folder, whatever its label spells',
 		async (subcommand) => {
-			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
+			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner/001-banner'], repoConfig: trackerRepoConfig });
 
 			await planCommand(context);
 
-			expect(logged.filter((line) => /carries no ticket id/.test(line)).length).toBe(1);
-			// advisory only: the dispatch ran to its end and nothing exited
+			// A label is only a label now: which ticket the work belongs to is the
+			// work order record's answer, so there is nothing to advise about.
+			expect(logged).toStrictEqual([]);
 			expect(exitCodes).toStrictEqual([]);
 		},
 	);
 
-	test('a plan folder named after its ticket is told nothing at all', async () => {
-		const { context, logged } = setupPlan({ args: ['lint', '--name', 'lo-52-status-progress'], repoConfig: trackerRepoConfig });
-
-		await planCommand(context);
-
-		expect(logged).toStrictEqual([]);
-	});
-
-	test('a repo carrying a queue block and no ticket-tracker block is advised nothing, because a queue names no tracker', async () => {
-		const { context, logged } = setupPlan({ args: ['lint', '--name', 'rate-limit-banner'], repoConfig: queueOnlyRepoConfig });
+	test('a repo carrying a queue block and no ticket-tracker block is told nothing either, because a queue names no tracker', async () => {
+		const { context, logged } = setupPlan({ args: ['lint', '--name', 'rate-limit-banner/001-banner'], repoConfig: queueOnlyRepoConfig });
 
 		await planCommand(context);
 
@@ -323,7 +290,7 @@ describe('planCommand', () => {
 		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
 	});
 
-	test('a subcommand given no --name has no folder to name, so nothing is advised', async () => {
+	test('a subcommand given no --name names no plan at all, and still prints nothing', async () => {
 		const { context, logged } = setupPlan({ args: ['verify-facts'], repoConfig: trackerRepoConfig });
 
 		await planCommand(context);
@@ -331,7 +298,7 @@ describe('planCommand', () => {
 		expect(logged).toStrictEqual([]);
 	});
 
-	test('an unknown subcommand addresses no plan — the usage error stands alone, with no advisory ahead of it', async () => {
+	test('an unknown subcommand addresses no plan — the usage error stands alone', async () => {
 		const { context, logged, exitCodes } = setupPlan({ args: ['sideways', '--name', 'rate-limit-banner'], repoConfig: trackerRepoConfig });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
@@ -341,17 +308,17 @@ describe('planCommand', () => {
 	});
 
 	test("runs a graded pass in the plan's worktree rather than the checkout it was launched from", async () => {
-		const { context, cwd, worktreePath } = setupWorktree({ args: ['grade', '--name', 'demo'] });
+		const { context, cwd, worktreePath } = setupWorktree({ args: ['grade', '--name', 'demo/001-demo'] });
 
 		await planCommand(context);
 
 		// the tree is resolved from the launching checkout, and the pass runs in the tree
-		expect(mockOpenPlanWorktree).toHaveBeenCalledWith(expect.objectContaining({ cwd, name: 'demo' }));
-		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd: worktreePath, name: 'demo' });
+		expect(mockOpenPlanWorktree).toHaveBeenCalledWith(expect.objectContaining({ cwd, name: 'demo/001-demo' }));
+		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd: worktreePath, name: 'demo/001-demo' });
 	});
 
 	test("dispatches no subcommand when the plan's worktree cannot be established", async () => {
-		const { context, errors, exitCodes, refusal } = setupWorktree({ args: ['grade', '--name', 'demo'], refused: true });
+		const { context, errors, exitCodes, refusal } = setupWorktree({ args: ['grade', '--name', 'demo/001-demo'], refused: true });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -381,20 +348,23 @@ describe('planCommand', () => {
 		expect(argsOf(mockPlanLintCommand)?.cwd).toBe(cwd);
 	});
 
-	test('planCommand: refuses a bare name whose ticket folder has a ticket record before any subcommand runs', async () => {
-		const { context, errors, exitCodes } = setupTicketRecordFolder({ args: ['publish', '--name', 'lo-9-x'], ticketBranch: 'lo-9-x' });
+	test('refuses a plan name that is not a plan address', async () => {
+		const { context, errors, exitCodes } = setupPlan({ args: ['draft', '--name', 'rate-limit-banner'] });
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// the refusal's own wording is pinned beside findBareTicketFolderRefusal;
-		// what the dispatcher owns is that the one sentence reaches stderr whole,
-		// names the folder and says how to list the plans it holds
+		// one sentence, carrying the name as given and stating the shape a plan is
+		// addressed by — the work order's name and the plan's id joined by a slash
 		expect(errors).toHaveLength(1);
-		expect(errors[0]).toContain('lo-9-x');
-		expect(errors[0]).toMatch(/lightsout ticket show/);
-		// nothing was published, and no tree was cut for a name that cannot address a plan
-		expect(mockPlanPublishCommand).not.toHaveBeenCalled();
+		expect(errors[0]).toContain('rate-limit-banner');
+		expect(errors[0]).toMatch(/\/<plan[- ]?id>/i);
+		expect(errors[0]).toMatch(/lightsout work-order show/);
+		// nothing was drafted, no tree was cut and no harness was resolved for a
+		// name that cannot address a plan — and no record on disk was needed to
+		// reach this refusal
+		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 		expect(mockOpenPlanWorktree).not.toHaveBeenCalled();
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
@@ -405,7 +375,7 @@ describe('planCommand', () => {
 
 		expect(outcomes.map(({ status }) => status)).toStrictEqual(['rejected', 'rejected']);
 		// only the named invocation asked for a tree — the nameless one was refused before any
-		expect(mockOpenPlanWorktree.mock.calls.map(([params]) => params.name)).toStrictEqual(['demo']);
+		expect(mockOpenPlanWorktree.mock.calls.map(([params]) => params.name)).toStrictEqual(['demo/001-demo']);
 		expect(errors.filter((line) => /^lightsout — deterministic engine for coding agents/.test(line))).toHaveLength(1);
 		expect(errors.filter((line) => line.includes(refusal))).toHaveLength(1);
 		// planWorkspaceCommand never ran: no path reached stdout and nothing exited 0

@@ -9,12 +9,15 @@ interface Params {
 
 /**
  * The ship result filed for a branch, or undefined when none was ever written,
- * the file is unreadable, or its contents do not satisfy the contract.
+ * no work order claims the branch, the file is unreadable, or its contents do
+ * not satisfy the contract.
  *
  * Results are filed per BRANCH, not per run, so this answers "what happened
  * the last time this branch was shipped" — which is the right answer for the
  * run currently on it, and the only one the on-disk layout can give.
  */
 export const readShipResult = async ({ cwd, branch }: Params): Promise<ShipResult | undefined> => {
-	return readJsonFile({ path: await getShipResultPath({ cwd, branch }), schema: ShipResult });
+	const path = await getShipResultPath({ cwd, branch });
+
+	return path === undefined ? undefined : readJsonFile({ path, schema: ShipResult });
 };

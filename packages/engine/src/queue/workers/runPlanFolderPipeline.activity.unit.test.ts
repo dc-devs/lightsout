@@ -50,7 +50,7 @@ const passedManifest: RunManifest = {
 	runId: 'run-7',
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:01.000Z',
-	plan: join('.lightsout', 'tickets', name, 'plans', 'plan.md'),
+	plan: join('.lightsout', 'work-orders', name, 'plans', 'plan.md'),
 	harness: 'claude-code',
 	status: RunStatus.Passed,
 	currentStep: null,
@@ -77,7 +77,7 @@ const passedManifest: RunManifest = {
  */
 const setupQueueBuild = async ({ phased }: { phased: boolean }) => {
 	const cwd = await freshCwd();
-	const planDir = join(cwd, '.lightsout', 'tickets', name, 'plans');
+	const planDir = join(cwd, '.lightsout', 'work-orders', name, 'plans');
 
 	await mkdir(planDir, { recursive: true });
 	await writeFile(join(planDir, 'plan.md'), '# Plan\n', 'utf8');

@@ -66,21 +66,31 @@ describe('ConfigPlan', () => {
 		expect(ConfigPlan.safeParse({ worktree: 'false' }).success).toBe(false);
 	});
 
-	test('accepts either ticket mode as the repository default and adds no key when unsaid', () => {
-		const single = ConfigPlan.parse({ 'default-ticket-mode': 'single-plan' });
-		const multiple = ConfigPlan.parse({ 'default-ticket-mode': 'multiple-plan' });
+	test('accepts either work order mode as the repository default and adds no key when unsaid', () => {
+		const single = ConfigPlan.parse({ 'default-work-order-mode': 'single-plan' });
+		const multiple = ConfigPlan.parse({ 'default-work-order-mode': 'multiple-plan' });
 		const unsaid = ConfigPlan.parse({ contract: true });
 
-		expect(single).toStrictEqual({ 'default-ticket-mode': 'single-plan' });
-		expect(multiple).toStrictEqual({ 'default-ticket-mode': 'multiple-plan' });
-		expect(Object.hasOwn(unsaid, 'default-ticket-mode')).toBe(false);
+		expect(single).toStrictEqual({ 'default-work-order-mode': 'single-plan' });
+		expect(multiple).toStrictEqual({ 'default-work-order-mode': 'multiple-plan' });
+		expect(Object.hasOwn(unsaid, 'default-work-order-mode')).toBe(false);
 	});
 
-	test('refuses a default ticket mode outside the two modes and its camelCase spelling', () => {
-		const outsideTheModes = ConfigPlan.safeParse({ 'default-ticket-mode': 'multiple' });
-		const camelCase = ConfigPlan.safeParse({ defaultTicketMode: 'single-plan' });
+	test('refuses a default work order mode outside the two modes and its camelCase spelling', () => {
+		const outsideTheModes = ConfigPlan.safeParse({ 'default-work-order-mode': 'multiple' });
+		const camelCase = ConfigPlan.safeParse({ defaultWorkOrderMode: 'single-plan' });
 
 		expect(outsideTheModes.success).toBe(false);
 		expect(camelCase.success).toBe(false);
+	});
+
+	test('ConfigPlan: accepts default-work-order-mode and refuses the old default-ticket-mode key', () => {
+		const single = ConfigPlan.parse({ 'default-work-order-mode': 'single-plan' });
+		const multiple = ConfigPlan.parse({ 'default-work-order-mode': 'multiple-plan' });
+		const oldKey = ConfigPlan.safeParse({ 'default-ticket-mode': 'single-plan' });
+
+		expect(single).toStrictEqual({ 'default-work-order-mode': 'single-plan' });
+		expect(multiple).toStrictEqual({ 'default-work-order-mode': 'multiple-plan' });
+		expect(oldKey.success).toBe(false);
 	});
 });

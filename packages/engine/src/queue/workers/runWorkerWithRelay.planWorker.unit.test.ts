@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type TicketRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
@@ -56,38 +56,38 @@ jest.mock('#src/plan/index.ts', () => ({
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
 // -------------------------
-// Reading the record, and building a ticket's plans one at a time, each have
+// Reading the record, and building a work order's plans one at a time, each have
 // their own tests. What this file owns is the fork between them: a record sends
 // the ticket to the ordered per-plan build, no record leaves the single
 // branch-named build exactly as it was, and a failed pull builds nothing.
 interface PullTicketRecordParams {
 	cwd: string;
-	ticketBranch: string;
+	workOrderName: string;
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	onProgress?: (message: string) => void;
 }
 
-type PullTicketRecordResult = { record: TicketRecord | undefined } | { error: string };
+type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: string };
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/ticket/index.ts', () => ({ pullTicketRecord: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;
-	branch: string;
-	record: TicketRecord;
+	workOrderName: string;
+	record: WorkOrderState;
 	env: NodeJS.ProcessEnv;
 	driverName: string;
-	ticketRunDir: string;
+	workOrderRunDir: string;
 	allowTicketBodyBuild: boolean;
 }
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildTicketPlans.ts', () => ({
-	buildTicketPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
+jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------
 
@@ -170,7 +170,7 @@ const setupBrainstormOnlyTicket = () => {
 		params: {
 			// A fresh empty worktree: no plan folder on disk, which is what sends the worker to the ticket.
 			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-brainstorm-only-')),
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: { ...ticketOf(QueueWorker.Plan), planningStatus: PlanningStatus.Complete },
 			config,
 			driver,
@@ -180,7 +180,7 @@ const setupBrainstormOnlyTicket = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: {},
 			onProgress: (message: string) => {
 				progress.push(message);
@@ -190,8 +190,9 @@ const setupBrainstormOnlyTicket = () => {
 };
 
 /** The ticket record the queue pulls before it builds, handed on to the build loop whole. */
-const ticketRecord: TicketRecord = {
+const ticketRecord: WorkOrderState = {
 	schemaVersion: 1,
+	name: 'lo-70-drain',
 	ticketRef: 'LO-70',
 	branch: 'lo-70-drain',
 	mode: 'multiple-plan',
@@ -203,7 +204,7 @@ const ticketRecord: TicketRecord = {
 const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 	const { relay, coordinatorRunDir } = setupRelay();
 	const worktreePath = mkdtempSync(join(tmpdir(), 'lightsout-ticket-record-'));
-	const ticketRunDir = join(coordinatorRunDir, 'tickets', 'LO-70');
+	const workOrderRunDir = join(coordinatorRunDir, 'work-orders', 'LO-70');
 
 	mockPullTicketRecord.mockResolvedValue(pull);
 	mockBuildTicketPlans.mockResolvedValue({});
@@ -212,11 +213,11 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 
 	return {
 		relay,
-		ticketRunDir,
+		workOrderRunDir,
 		worktreePath,
 		params: {
 			worktreePath,
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: ticketOf(QueueWorker.Plan),
 			config,
 			driver,
@@ -226,7 +227,7 @@ const setupPlanWorkerTicket = ({ pull }: { pull: PullTicketRecordResult }) => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir,
+			workOrderRunDir,
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};
@@ -247,7 +248,7 @@ const setupPlanWorkerInWorktree = () => {
 
 	execSync(`git worktree add -q -b lo-70-drain "${worktreePath}" main`, { cwd: primary, stdio: 'ignore' });
 
-	const folder = join(primary, '.lightsout', 'tickets', 'lo-70-drain', 'plans');
+	const folder = join(primary, '.lightsout', 'work-orders', 'lo-70-drain', 'plans');
 
 	mkdirSync(folder, { recursive: true });
 	writeFileSync(join(folder, 'plan.md'), '# Plan\n');
@@ -260,7 +261,7 @@ const setupPlanWorkerInWorktree = () => {
 		worktreePath,
 		params: {
 			worktreePath,
-			branch: 'lo-70-drain',
+			workOrderName: 'lo-70-drain',
 			ticket: ticketOf(QueueWorker.Plan),
 			config,
 			driver,
@@ -270,7 +271,7 @@ const setupPlanWorkerInWorktree = () => {
 			relay,
 			coordinatorRunId: 'run-q',
 			coordinatorRunDir,
-			ticketRunDir: join(coordinatorRunDir, 'tickets', 'LO-70'),
+			workOrderRunDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			env: { LINEAR_API_KEY: 'key-1' },
 		},
 	};
@@ -290,7 +291,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a plan-worker ticket with a record is built plan by plan', async () => {
-		const { relay, params, ticketRunDir, worktreePath } = setupPlanWorkerTicket({ pull: { record: ticketRecord } });
+		const { relay, params, workOrderRunDir, worktreePath } = setupPlanWorkerTicket({ pull: { record: ticketRecord } });
 
 		const outcome = await runWorkerWithRelay(params);
 
@@ -298,7 +299,7 @@ describe('runWorkerWithRelay', () => {
 
 		expect(outcome).toStrictEqual({});
 		expect(mockBuildTicketPlans).toHaveBeenCalledWith(
-			expect.objectContaining({ cwd: worktreePath, branch: 'lo-70-drain', record: ticketRecord, ticketRunDir, allowTicketBodyBuild: true }),
+			expect.objectContaining({ cwd: worktreePath, workOrderName: 'lo-70-drain', record: ticketRecord, workOrderRunDir, allowTicketBodyBuild: true }),
 		);
 		expect(mockRestorePlanWorkspace).not.toHaveBeenCalled();
 	});
@@ -343,7 +344,7 @@ describe('runWorkerWithRelay', () => {
 	});
 
 	test('runWorkerWithRelay: a plan worker whose record pull fails builds nothing', async () => {
-		const divergence = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout ticket sync --name lo-70-drain';
+		const divergence = 'the ticket record on LO-70 and the local one both moved: resolve them with lightsout work-order sync --name lo-70-drain';
 		const { relay, params } = setupPlanWorkerTicket({ pull: { error: divergence } });
 
 		const outcome = await runWorkerWithRelay(params);

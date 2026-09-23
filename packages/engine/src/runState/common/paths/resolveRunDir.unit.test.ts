@@ -9,7 +9,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 interface SetupParams {
 	/**
 	 * Run folders to plant, each a path under `.lightsout` ending in the run id —
-	 * `tickets/<branch>/runs/<id>` for a run of a plan, `direct/runs/<id>` for one
+	 * `work-orders/<name>/runs/<id>` for a run of a plan, `direct/runs/<id>` for one
 	 * belonging to no plan.
 	 */
 	runDirs?: string[];
@@ -50,11 +50,11 @@ const setupLinkedWorktree = ({ runDir }: { runDir: string }) => {
 
 describe('resolveRunDir', () => {
 	test('finds a run filed under the ticket its plan belongs to', async () => {
-		const { cwd } = setupRunLocations({ runDirs: ['tickets/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92'] });
+		const { cwd } = setupRunLocations({ runDirs: ['work-orders/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92'] });
 
 		const runDir = await resolveRunDir({ cwd, runId: 'be7bc314-1845-44c0-bb6c-a8c2becb7f92' });
 
-		expect(runDir).toBe(join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
+		expect(runDir).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
 	});
 
 	test('finds a run filed under the command that owns it', async () => {
@@ -67,7 +67,7 @@ describe('resolveRunDir', () => {
 
 	test('takes the shortened id a report prints, and prefers an exact id over one it prefixes', async () => {
 		const { cwd } = setupRunLocations({
-			runDirs: ['tickets/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92', 'direct/runs/abcdefgh', 'direct/runs/abcdefgh-2222'],
+			runDirs: ['work-orders/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92', 'direct/runs/abcdefgh', 'direct/runs/abcdefgh-2222'],
 		});
 
 		// the eight characters printResult shows are what a user copies back
@@ -75,14 +75,14 @@ describe('resolveRunDir', () => {
 		const exact = await resolveRunDir({ cwd, runId: 'abcdefgh' });
 
 		expect({ shortened, exact }).toStrictEqual({
-			shortened: join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'),
+			shortened: join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'),
 			exact: join(cwd, '.lightsout', 'direct', 'runs', 'abcdefgh'),
 		});
 	});
 
 	test('refuses to guess between two runs sharing a prefix, and names them', async () => {
 		const { cwd } = setupRunLocations({
-			runDirs: ['tickets/lo-155-ticket-scoped-state/runs/abcd-1111', 'refactor/runs/abcd-2222'],
+			runDirs: ['work-orders/lo-155-ticket-scoped-state/runs/abcd-1111', 'refactor/runs/abcd-2222'],
 		});
 
 		await expect(resolveRunDir({ cwd, runId: 'abcd' })).rejects.toThrow(RunNotFoundError);
@@ -91,7 +91,7 @@ describe('resolveRunDir', () => {
 	});
 
 	test('names the run id it could not find instead of failing on a path', async () => {
-		const { cwd } = setupRunLocations({ runDirs: ['tickets/lo-155-ticket-scoped-state/runs/aaaaaaaa-1111'] });
+		const { cwd } = setupRunLocations({ runDirs: ['work-orders/lo-155-ticket-scoped-state/runs/aaaaaaaa-1111'] });
 
 		await expect(resolveRunDir({ cwd, runId: 'bbbbbbbb' })).rejects.toThrow(RunNotFoundError);
 		await expect(resolveRunDir({ cwd, runId: 'bbbbbbbb' })).rejects.toThrow(/bbbbbbbb/);
@@ -101,18 +101,18 @@ describe('resolveRunDir', () => {
 		const { cwd } = setupRunLocations({ runDirs: ['queue/runs/aaaaaaaa-1111'] });
 
 		await expect(resolveRunDir({ cwd, runId: 'bbbbbbbb-2222' })).rejects.toThrow(RunNotFoundError);
-		mkdirSync(join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'bbbbbbbb-2222'), { recursive: true });
+		mkdirSync(join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'bbbbbbbb-2222'), { recursive: true });
 		const runDir = await resolveRunDir({ cwd, runId: 'bbbbbbbb-2222' });
 
-		expect(runDir).toBe(join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'bbbbbbbb-2222'));
+		expect(runDir).toBe(join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'bbbbbbbb-2222'));
 	});
 
 	test('answers a second lookup from memory rather than reading the locations again', async () => {
-		const { cwd } = setupRunLocations({ runDirs: ['tickets/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92'] });
-		const planted = join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92');
+		const { cwd } = setupRunLocations({ runDirs: ['work-orders/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92'] });
+		const planted = join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92');
 
 		await resolveRunDir({ cwd, runId: 'be7bc314-1845-44c0-bb6c-a8c2becb7f92' });
-		renameSync(planted, join(cwd, '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'moved-aside'));
+		renameSync(planted, join(cwd, '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'moved-aside'));
 		const runDir = await resolveRunDir({ cwd, runId: 'be7bc314-1845-44c0-bb6c-a8c2becb7f92' });
 
 		expect(runDir).toBe(planted);
@@ -120,11 +120,11 @@ describe('resolveRunDir', () => {
 
 	test('resolves a run against the primary checkout from a linked worktree', async () => {
 		const { primary, worktree } = setupLinkedWorktree({
-			runDir: 'tickets/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92',
+			runDir: 'work-orders/lo-155-ticket-scoped-state/runs/be7bc314-1845-44c0-bb6c-a8c2becb7f92',
 		});
 
 		const runDir = await resolveRunDir({ cwd: worktree, runId: 'be7bc314-1845-44c0-bb6c-a8c2becb7f92' });
 
-		expect(runDir).toBe(join(realpathSync(primary), '.lightsout', 'tickets', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
+		expect(runDir).toBe(join(realpathSync(primary), '.lightsout', 'work-orders', 'lo-155-ticket-scoped-state', 'runs', 'be7bc314-1845-44c0-bb6c-a8c2becb7f92'));
 	});
 });

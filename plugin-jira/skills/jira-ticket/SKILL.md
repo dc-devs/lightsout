@@ -1,7 +1,7 @@
 ---
 name: jira-ticket
 description: >-
-  Jira Cloud mechanics for the lightsout ticket workflow — planning-status
+  Jira Cloud mechanics for lightsout's ticket workflow — planning-status
   labels, statuses, attachments, branch linking, and pull-request conventions.
   Use alongside ticket-workflow when filing, shaping, or closing Jira work.
 ---
@@ -116,7 +116,8 @@ The `ticket-workflow` skill is the one home for which files travel and for the
 command that publishes a finished plan. Do not enumerate or upload that durable
 set by hand; follow its ready-to-implement publish step.
 
-The engine uploads the ticket's own record and each plan's prefixed files itself.
+The engine uploads the work order's own record — `state.json` — and each plan's
+prefixed files itself.
 Never upload or replace any of them by hand — see the ticket-workflow skill's
 `### Attachment titles`.
 

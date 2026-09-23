@@ -1,11 +1,11 @@
+import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { attachDurableFiles } from '#src/plan/publish/common/utils/attachDurableFiles.ts';
 import { prepareAttachments } from '#src/plan/publish/common/utils/prepareAttachments.ts';
 import { reportStaleAttachments } from '#src/plan/publish/common/utils/reportStaleAttachments.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
-import { readPlanTicketRef } from '#src/plan/readPlanTicketRef.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
+import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
 import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
 
 interface Params {
@@ -38,10 +38,10 @@ interface PublishReport {
 }
 
 /**
- * Put a plan folder's durable set on the ticket the folder is named after,
+ * Put a plan folder's durable set on the ticket its work order's record names,
  * committing the exact names and hashes with a manifest attached last.
  *
- * The refusals are ordered disk first, then the folder's own name, then
+ * The refusals are ordered disk first, then the work order's own record, then
  * configuration, then the network: the first two are answered with no config
  * and no round trip, and "this folder holds no plan" is the failure a user hits
  * most. The queue refuses configuration first because it is about to spawn
@@ -59,23 +59,13 @@ export const publishPlan = async ({ cwd, name, config, env, onProgress, titlePre
 		return { published: [], stale: [], error: durable.error };
 	}
 
-	const shipSettings = resolveShipSettings({ config });
-
-	if (shipSettings === undefined) {
-		return {
-			published: [],
-			stale: [],
-			error: `ship.ticket-pattern is not a usable regular expression with a (?<ticket>) group, so publish cannot read a ticket id out of plan folder '${name}'`,
-		};
-	}
-
-	const ticketRef = readPlanTicketRef({ name, ticketPattern: shipSettings.ticketPattern });
+	const ticketRef = await readPlanWorkOrderRef({ cwd, name });
 
 	if (ticketRef === undefined) {
 		return {
 			published: [],
 			stale: [],
-			error: `plan folder '${name}' carries no ticket id — name a plan folder after its ticket's branch so publish knows which ticket to attach to`,
+			error: `plan '${name}' cannot be published: work order '${workOrderNameOf({ name })}' carries no ticket reference in its record, so it belongs to no ticket`,
 		};
 	}
 

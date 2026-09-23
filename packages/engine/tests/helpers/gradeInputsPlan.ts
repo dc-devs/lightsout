@@ -22,7 +22,7 @@ export const seedGradeInputsPlan = (): {
 	params: { cwd: string; planPaths: string[]; decisions: DecisionRow[]; standards: string; config: LightsoutConfig; model: string; effort: Effort };
 } => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-grade-inputs-'));
-	const planDir = join(cwd, '.lightsout', 'tickets', 'p', 'plans');
+	const planDir = join(cwd, '.lightsout', 'work-orders', 'p', 'plans');
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
 	writeFileSync(join(cwd, 'src', 'a.ts'), 'export const a = 1;\n');

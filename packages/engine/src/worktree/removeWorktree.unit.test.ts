@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { WorktreeOwner } from '#src/contracts/index.ts';
 import { createWorktree, readWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
+import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 /** The repo a drain starts from, with an author git will accept. */
@@ -11,6 +12,9 @@ const setupMainCheckout = () => {
 	const { cwd } = setupBranchRepo();
 
 	execSync('git config user.name t && git config user.email t@t', { cwd, stdio: 'ignore' });
+	// A tree's ownership record is filed in the work order whose record stores
+	// its branch, so the work order comes before the tree.
+	seedWorkOrderRecord({ cwd, name: 'lo-70-drain' });
 
 	return { cwd };
 };

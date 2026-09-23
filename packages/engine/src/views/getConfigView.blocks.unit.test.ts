@@ -146,7 +146,7 @@ describe('getConfigView', () => {
 	});
 
 	test('shows the plan block whole in its own area, thresholds and all', async () => {
-		const plan = { contract: true, 'default-ticket-mode': 'multiple-plan', 'weight-thresholds': { 'created-files': 5, packages: 2 } };
+		const plan = { contract: true, 'default-work-order-mode': 'multiple-plan', 'weight-thresholds': { 'created-files': 5, packages: 2 } };
 		const cwd = await seedConfiguredCwd({ config: { plan } });
 
 		const view = await getConfigView({ cwd });
@@ -158,6 +158,28 @@ describe('getConfigView', () => {
 			// cannot say different things about the same block
 			expect.objectContaining({ key: 'plan', value: plan, fromConfig: true, description: expect.stringContaining('acceptance-test ledger') }),
 		]);
+	});
+
+	test("getConfigView: renders the plan block's renamed default-work-order-mode key", async () => {
+		const plan = { contract: true, 'default-work-order-mode': 'multiple-plan' };
+		const cwd = await seedConfiguredCwd({ config: { plan } });
+
+		const view = await getConfigView({ cwd });
+		const planField = findField({ sections: view.sections, key: 'plan' });
+
+		// the block travels whole, so the row's value is the whole proof: the renamed
+		// key arrives with its mode, and the old spelling is nowhere on the page —
+		// and the row's sentence comes from the config-key description constant, so it
+		// names the renamed key too
+		expect(planField).toEqual(
+			expect.objectContaining({
+				value: { contract: true, 'default-work-order-mode': 'multiple-plan' },
+				fromConfig: true,
+				description: expect.stringContaining('plan.default-work-order-mode'),
+			}),
+		);
+		expect(planField?.description).toEqual(expect.not.stringContaining('default-ticket-mode'));
+		expect(findField({ sections: view.sections, key: 'default-ticket-mode' })).toBeUndefined();
 	});
 
 	test('leaves plan null when the file omits it, because the block is opt-in and the engine fills nothing in for it', async () => {

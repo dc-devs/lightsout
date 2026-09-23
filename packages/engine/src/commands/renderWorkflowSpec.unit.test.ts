@@ -46,7 +46,7 @@ describe('renderWorkflowSpec', () => {
 					expect.objectContaining({
 						title: 'CREATE THE PLAN WORKSPACE',
 						savedLabel: 'SAVED WHEN NOTES EXIST',
-						saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/brainstorm-notes.md'],
+						saved: ['.lightsout/work-orders/<work-order-name>/plans/<plan-id>/brainstorm-notes.md'],
 					}),
 				]),
 			}),
@@ -87,7 +87,7 @@ describe('renderWorkflowSpec', () => {
 							'Verify every referenced file and path before moving forward',
 						],
 						note: 'Ensures the plan reflects the repository’s current state, not assumptions',
-						saved: ['.lightsout/tickets/<ticket-branch>/plans/<plan-id>/facts.json'],
+						saved: ['.lightsout/work-orders/<work-order-name>/plans/<plan-id>/facts.json'],
 					},
 				]),
 			}),
