@@ -110,6 +110,7 @@ export {
 	PlanVariant,
 	PlanWeight,
 	ProseFile,
+	RenameRule,
 	SourceEvidenceEntry,
 	SourceEvidenceIndex,
 	SourceEvidenceKind,

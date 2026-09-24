@@ -25,6 +25,7 @@ interface PhaseBlock {
 	exports: string[];
 	scripts: string[];
 	fileBudget?: number;
+	renamesOnly?: boolean;
 	blockRange: { start: number; end: number };
 }
 
@@ -94,6 +95,13 @@ const fileBudgetFrom = ({ lines }: { lines: string[] }) => {
 	return integerFrom({ cell: /(\d+)/.exec(value ?? '')?.[1] });
 };
 
+/** `true` when the optional `- **Renames only:** yes` bullet is present and reads `yes`; undefined for an absent bullet or any other value. */
+const renamesOnlyFrom = ({ lines }: { lines: string[] }) => {
+	const value = bulletLine({ lines, label: 'Renames only' })?.replace(/^\s*-\s+\*\*[^*]+\*\*/, '');
+
+	return value?.trim().toLowerCase() === 'yes' ? true : undefined;
+};
+
 /**
  * The `## Phase Declarations` section's `### Phase <n> — ` blocks, in document
  * order, each carrying the absolute inclusive range it covers: its header line
@@ -126,6 +134,7 @@ const blocksFrom = ({ sectionLines, firstLine }: { sectionLines: string[] | unde
 			exports: bulletValues({ lines: blockLines, label: 'Exports' }),
 			scripts: bulletValues({ lines: blockLines, label: 'Scripts' }),
 			fileBudget: fileBudgetFrom({ lines: blockLines }),
+			renamesOnly: renamesOnlyFrom({ lines: blockLines }),
 			blockRange: { start, end: (blocks[index + 1]?.start ?? sectionEnd + 1) - 1 },
 		});
 	}
@@ -153,7 +162,8 @@ const firstLineOf = ({ plan, heading }: { plan: ParsedPlan; heading: string }) =
  * Each block carries `- **Creates:**`, `- **Exports:**` and `- **Scripts:**`
  * bullets whose values are the backticked spans on that line, or empty when the
  * line reads `none`, plus an optional `- **File budget:**` bullet holding one
- * integer.
+ * integer and an optional `- **Renames only:** yes` bullet declaring the phase
+ * rename-only.
  *
  * Malformed input is preserved, never repaired or dropped — each of these is a
  * hand-edit the consistency check exists to catch:
@@ -189,12 +199,23 @@ export const parsePhaseDeclarations = ({ plan }: Params): PhaseDeclaration[] => 
 			exports: block?.exports ?? [],
 			scripts: block?.scripts ?? [],
 			fileBudget: block?.fileBudget,
+			...(block?.renamesOnly === true ? { renamesOnly: true } : {}),
 			...(block === undefined ? {} : { blockRange: block.blockRange }),
 		};
 	});
 	const orphans = blocks
 		.filter(({ file }) => !claimed.has(file))
-		.map(({ file, creates, exports, scripts, fileBudget, blockRange }) => ({ number: 0, file, scope: '', creates, exports, scripts, fileBudget, blockRange }));
+		.map(({ file, creates, exports, scripts, fileBudget, renamesOnly, blockRange }) => ({
+			number: 0,
+			file,
+			scope: '',
+			creates,
+			exports,
+			scripts,
+			fileBudget,
+			...(renamesOnly === true ? { renamesOnly: true } : {}),
+			blockRange,
+		}));
 
 	return [...declared, ...orphans];
 };

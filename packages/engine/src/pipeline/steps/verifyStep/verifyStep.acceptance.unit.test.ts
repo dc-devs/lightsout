@@ -84,6 +84,7 @@ describe('verifyStep', () => {
 			coverage: true,
 			acceptanceTests: () => rows,
 			final: true,
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 

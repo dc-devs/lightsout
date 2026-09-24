@@ -601,6 +601,13 @@ expected result and the failure case the test pins.
 A file whose behaviour no test can state — a document, a config file — is listed
 under `## Prose Files` with the reason, and stays described in words.
 
+A rename-only plan or phase — one with a `## Renames` section, one old text and
+new text per bullet — keeps the `## Acceptance Tests` heading but states no rows,
+and is asked for none: a rename adds no behaviour a new test could state. In a
+phased plan the overview repeats the declaration as a `- **Renames only:** yes`
+bullet in that phase's declaration block, and the lint requires it to agree with
+the phase file.
+
 A plan file is weighed from its own counts: it is heavy when it creates more
 source files than `created-files`, when it touches more packages than
 `packages`, or when it names no pattern to mirror. A heavy file gets the reader

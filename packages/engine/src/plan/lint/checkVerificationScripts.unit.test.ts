@@ -37,6 +37,8 @@ const planWith = ({
 	malformedLedgerLines: [],
 	proseFiles: [],
 	malformedProseLines: [],
+	renames: [],
+	malformedRenameLines: [],
 	lines: [],
 });
 

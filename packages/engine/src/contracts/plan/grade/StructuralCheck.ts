@@ -12,7 +12,8 @@
  * against the saved decision records the engine composes it from, and the
  * global-constraints check compares that file's `## Global Constraints` against
  * the same records. The hand-off-declared check asks every implementable plan
- * file to name what it hands forward, or to say it hands nothing forward.
+ * file to name what it hands forward, or to say it hands nothing forward. The
+ * renames check reads a rename-only plan's `## Renames` section.
  * Values are internal to findings reports.
  */
 export const StructuralCheck = {
@@ -35,6 +36,7 @@ export const StructuralCheck = {
 	DecisionLogCurrent: 'decision-log-current',
 	GlobalConstraintsCurrent: 'global-constraints-current',
 	HandoffDeclared: 'handoff-declared',
+	RenamesWellFormed: 'renames-well-formed',
 } as const;
 
 export type StructuralCheck = (typeof StructuralCheck)[keyof typeof StructuralCheck];

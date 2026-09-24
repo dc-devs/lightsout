@@ -7,6 +7,7 @@ import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
+import { phaseBody } from '#tests/helpers/phasePlan.ts';
 import { planBodyWith } from '#tests/helpers/planBodyWith.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeDemoPlanFile } from '#tests/helpers/writeDemoPlanFile.ts';
@@ -340,4 +341,29 @@ test('lintPlanStructure: a single plan with an unnamed hand-off is checked, havi
 	// returns nothing at all for a deliverable of one file; this check reads the
 	// file on its own, got: ${JSON.stringify(findings)}
 	expect(handoff).toEqual([expect.objectContaining({ severity: FindingSeverity.Blocking, phase: 'plan.md' })]);
+});
+
+test("lintPlanStructure: an implementable plan's Renames section is held to the renames-well-formed check", async () => {
+	const cwd = setupConsumerRepo();
+	const selfContaining = writeDemoPlanFile({
+		cwd,
+		name: 'self-containing.md',
+		body: phaseBody({ modify: ['src/index.js'], renames: [{ from: 'foo', to: 'fooBar' }], reference: false }),
+	});
+	const clean = writeDemoPlanFile({
+		cwd,
+		name: 'rename-only.md',
+		body: phaseBody({ modify: ['src/index.js'], renames: [{ from: 'one', to: 'uno' }], reference: false }),
+	});
+
+	const refused = await lintPlanStructure({ cwd, planPaths: [selfContaining], decisions: emptyDecisionsRecord() });
+	const accepted = await lintPlanStructure({ cwd, planPaths: [clean], decisions: emptyDecisionsRecord() });
+	const refusedRenames = refused.filter((finding) => finding.check === StructuralCheck.RenamesWellFormed);
+	const acceptedRenames = accepted.filter((finding) => finding.check === StructuralCheck.RenamesWellFormed);
+
+	// `foo` → `fooBar` re-applies to its own output, so the per-file loop must
+	// reach the renames check for an implementable file, got:
+	// ${JSON.stringify(refused)}
+	expect(refusedRenames).toEqual([expect.objectContaining({ check: 'renames-well-formed', severity: FindingSeverity.Blocking, phase: 'self-containing.md' })]);
+	expect(acceptedRenames).toStrictEqual([]);
 });

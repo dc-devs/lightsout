@@ -60,6 +60,16 @@ will not reach A:
   `## Global Constraints` section for session-stated project-wide constraints;
   `None` is valid content. Phases inherit the overview's — a phase may write
   "See overview."
+- **Rename-only phases.** A plan or phase whose whole work is renaming symbols
+  or paths may be declared rename-only with a `## Renames` section, one `-`
+  bullet per rename naming the old and the new text, each in backticks. Gather
+  renames into their own phase where you can, covering every file the rename
+  spans. A rename-only file creates nothing, and it is built without test
+  writing: the engine checks in code that every changed file differs from the
+  phase's start only by the declared renames. Each rename is a literal,
+  case-sensitive substitution of every occurrence, applied in the order listed,
+  to file paths and file contents alike — and no rename's new text may contain
+  any rename's old text, own or another's.
 {{documentationRule}}
 
 ---
@@ -146,6 +156,14 @@ subheading names exactly two paths in backticks, old then new.>
 source files. A single integer on its own line: the total source files this plan
 touches. It must cover the real count, and it does NOT raise the created-file
 ceiling, which is fixed at {{createdFileCeiling}}.>
+
+## Renames
+
+<Optional — omit the heading entirely unless this plan is rename-only. One
+bullet per rename, the old text then the new, each in backticks, in the order
+they are applied. A rename-only plan lists nothing under Files to Create.>
+
+- `<oldName>` → `<newName>`
 
 ## Patterns to Mirror
 
@@ -250,11 +268,13 @@ edited. Write `none` for a bullet with nothing to declare.
 - **Exports:** none
 - **Scripts:** none
 - **File budget:** <n>
+- **Renames only:** yes
 
 <!-- **File budget:** is optional: include it only when that phase file carries a
 `## File Budget`, and repeat the same integer. It must cover that phase's Touches
 count, and it never raises the created-file ceiling, which is fixed at
-{{createdFileCeiling}}. -->
+{{createdFileCeiling}}. **Renames only:** is optional too: write it, reading
+`yes`, only for a phase whose file carries a `## Renames` section. -->
 
 ## Cross-Phase Dependencies
 

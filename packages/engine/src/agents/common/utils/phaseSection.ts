@@ -11,6 +11,12 @@ interface Params {
 const declarationBlock = ({ label, declaration }: { label: string; declaration: PhaseDeclaration }) =>
 	`### ${label}\n\n\`\`\`json\n${JSON.stringify(declaration, undefined, '\t')}\n\`\`\``;
 
+/** The one writing rule the declaration's `renamesOnly` chooses: the phase file must carry its renames, or must carry none. */
+const renamesBullet = ({ declaration }: { declaration: PhaseDeclaration }) =>
+	declaration.renamesOnly === true
+		? 'This phase is **rename-only**. Its file carries a `## Renames` section, one `-` bullet per rename with the old and new text each in a backtick span; lists nothing under Files to Create; states no Acceptance Tests rows; and carries a `## File Budget` covering every file the rename spans.'
+		: 'This phase is not rename-only: its file carries no `## Renames` section.';
+
 /**
  * The phase spawn's brief: one file, authored against a settled declaration
  * rather than against its sibling phases, which are being written at the same
@@ -38,6 +44,7 @@ ${
 - \`## What Next Plan Expects\` states this phase's own declared \`creates\`, \`exports\` and \`scripts\`, each in a backticked span, and nothing else. Write \`None.\` when every bullet of your declaration is \`none\`, and \`None — final phase.\` when your row is the last in the overview's \`## Phases\` table.
 - \`## Prerequisites\` states the previous phase's declared \`creates\`, \`exports\` and \`scripts\`, each in a backticked span. Phase 1 states the pre-feature codebase state instead.
 - \`## File Budget\` is written when the declaration carries a \`fileBudget\`, repeating that integer. If your phase's real work needs a HIGHER budget than the declaration states, write **the number you need** — never the declared one — and omit the section entirely if you need none. The mismatch is reported and resolved against the overview later; understating your budget to avoid a finding is the one thing that would actually break the run.
+- ${renamesBullet({ declaration })}
 
 ### The settled overview
 

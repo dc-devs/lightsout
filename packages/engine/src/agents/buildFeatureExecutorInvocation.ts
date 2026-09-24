@@ -1,10 +1,11 @@
 import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
 import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
 import { changedFilesSection } from '#src/agents/common/utils/changedFilesSection.ts';
+import { renameOnlySection } from '#src/agents/common/utils/renameOnlySection.ts';
 import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
-import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
 
 interface Params {
 	/** Full plan content, inlined — the agent never loads its own context. */
@@ -25,6 +26,8 @@ interface Params {
 	acceptanceTests?: Pick<AcceptanceTestRecord, 'testFile' | 'testName'>[];
 	/** The engine's own self-check, exactly as this spawn may run it. Absent = this spawn gets no self-check and is told nothing about one. */
 	selfCheckCommand?: string;
+	/** The plan's declared renames; absent or empty for every plan that is not rename-only. */
+	renames?: RenameRule[];
 }
 
 /**
@@ -46,6 +49,7 @@ export const buildFeatureExecutorInvocation = ({
 	fileLimit,
 	acceptanceTests,
 	selfCheckCommand,
+	renames,
 }: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [applyPromptTokens({ text: featureExecutorPrompt, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
 
@@ -56,6 +60,14 @@ export const buildFeatureExecutorInvocation = ({
 	}
 
 	roleSections.push(`# Plan\n\n${planContent}`);
+
+	// Rides the system prompt: the renames are stable across the run, so the
+	// first spawn and every fix must carry this section byte-identically.
+	const renameOnly = renameOnlySection({ renames });
+
+	if (renameOnly) {
+		roleSections.push(renameOnly);
+	}
 
 	if (standards) {
 		roleSections.push(`# Standards\n\nThese rules are binding for every line you write:\n\n${standards}`);

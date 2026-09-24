@@ -33,3 +33,4 @@ export {
 	GradeScope,
 } from '#src/contracts/plan/memory/index.ts';
 export { PlanningProgress, PlanningStep, PlanningStepRecord } from '#src/contracts/plan/progress/index.ts';
+export { RenameRule } from '#src/contracts/plan/renames/index.ts';

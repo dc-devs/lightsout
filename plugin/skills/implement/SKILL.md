@@ -95,6 +95,13 @@ Stated so nobody adds a step for it here — the engine already does it:
   run is not done until every named test has executed and passed in the gate
   run. Nothing in this skill triggers that; the plan's own ledger is what turns
   the step on.
+- When the plan or phase only renames, it lists its renames in a `## Renames`
+  section. Such a phase is built without test writing, without the cleanup pass
+  and without the reviewing agent. Instead, before the gates run, the engine
+  checks in code that every changed file differs from the phase's starting
+  commit only by the declared renames, and refuses the checkpoint otherwise.
+  Every gate still runs, coverage included. Nothing in this skill turns this
+  on; the plan's own `## Renames` section does.
 - Before any source work, the engine resolves the workspace itself: it picks
   the branch, creates the worktree, copies the plan or ticket inputs into it,
   and runs `worktree.setup`. Nothing in this skill creates, chooses or cleans
