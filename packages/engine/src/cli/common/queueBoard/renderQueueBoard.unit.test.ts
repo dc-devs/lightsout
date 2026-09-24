@@ -5,19 +5,32 @@ import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
 
 type BoardParams = Parameters<typeof renderQueueBoard>[0];
 
-const headerRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const headerRow = '| Parked | Blocked | Build Queue | Building | Ship Queue | Shipping Now | Shipped |';
 const separatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
 
-/** One board ticket with no url, in the given lane. */
-const boardTicket = ({ identifier, title, lane, reason }: { identifier: string; title?: string; lane: QueueLane; reason?: string }): QueueBoardTicket => ({
+/** One board ticket in the given lane, with no url unless a case gives one. */
+const boardTicket = ({
 	identifier,
 	title,
+	lane,
+	reason,
+	url,
+}: {
+	identifier: string;
+	title?: string;
+	lane: QueueLane;
+	reason?: string;
+	url?: string;
+}): QueueBoardTicket => ({
+	identifier,
+	title,
+	url,
 	lane,
 	reason,
 	enteredAt: '2026-09-11T08:00:00.000Z',
 });
 
-/** A body row's cells, left to right, without their padding. The fixtures hold no pipe, so a plain split is exact. */
+/** A table row's cells, left to right, without their padding. The fixtures hold no pipe, so a plain split is exact. */
 const toCells = (row: string) =>
 	row
 		.split('|')
@@ -77,12 +90,12 @@ describe('renderQueueBoard', () => {
 
 		const lines = renderQueueBoard(params);
 
-		expect(lines.slice(2).map(toCells)).toStrictEqual([
-			['Build Queue', 'Building', 'Ship Queue', 'Shipping Now', 'Shipped', 'Parked', 'Blocked'],
+		expect(lines.slice(2, 7).map(toCells)).toStrictEqual([
+			['Parked', 'Blocked', 'Build Queue', 'Building', 'Ship Queue', 'Shipping Now', 'Shipped'],
 			['---', '---', '---', '---', '---', '---', '---'],
-			['—', 'EX-7 · Seven', 'EX-6 · Six', '—', '—', '—', 'EX-9 · Nine — first hold'],
-			['', 'EX-2 · Two', '', '', '', '', 'EX-3 · Three — second hold'],
-			['', '', '', '', '', '', 'EX-5 · Five — third hold'],
+			['—', 'EX-9', '—', 'EX-7', 'EX-6', '—', '—'],
+			['', 'EX-3', '', 'EX-2', '', '', ''],
+			['', 'EX-5', '', '', '', '', ''],
 		]);
 	});
 
@@ -91,8 +104,8 @@ describe('renderQueueBoard', () => {
 
 		const lines = renderQueueBoard(params);
 
-		const bodyCells = lines.slice(4).map(toCells);
-		const emptyLaneColumns = [0, 3, 4, 5].map((column) => bodyCells.map((cells) => cells[column]));
+		const bodyCells = lines.slice(4, 7).map(toCells);
+		const emptyLaneColumns = [0, 2, 5, 6].map((column) => bodyCells.map((cells) => cells[column]));
 
 		expect(emptyLaneColumns).toStrictEqual([
 			['—', '', ''],
@@ -102,7 +115,7 @@ describe('renderQueueBoard', () => {
 		]);
 	});
 
-	test("reproduces the ticket's example board, with two tickets stacked in three columns", () => {
+	test("reproduces the ticket's example board: identifiers in the table, then one detail line per ticket in column order", () => {
 		const params = setupBoard({
 			tickets: [
 				boardTicket({ identifier: 'EX-101', title: 'Notifications', lane: QueueLane.BuildQueue }),
@@ -124,12 +137,22 @@ describe('renderQueueBoard', () => {
 			'',
 			headerRow,
 			separatorRow,
-			'| EX-101 · Notifications | EX-102 · API changes | EX-104 · Exports | — | EX-106 · Settings | EX-107 · Import fix — retry needed | EX-108 · Migration — dependency |',
-			'| EX-109 · Permissions | EX-103 · Search changes | EX-105 · Audit log |  |  |  |  |',
+			'| EX-107 | EX-108 | EX-101 | EX-102 | EX-104 | — | EX-106 |',
+			'|  |  | EX-109 | EX-103 | EX-105 |  |  |',
+			'',
+			'- EX-107 · Import fix — retry needed',
+			'- EX-108 · Migration — dependency',
+			'- EX-101 · Notifications',
+			'- EX-109 · Permissions',
+			'- EX-102 · API changes',
+			'- EX-103 · Search changes',
+			'- EX-104 · Exports',
+			'- EX-105 · Audit log',
+			'- EX-106 · Settings',
 		]);
 	});
 
-	test('draws one row of em dashes when the board holds no ticket', () => {
+	test('draws one row of em dashes and no detail list when the board holds no ticket', () => {
 		const params = setupBoard();
 
 		const lines = renderQueueBoard(params);
@@ -137,7 +160,30 @@ describe('renderQueueBoard', () => {
 		expect(lines).toStrictEqual(['Queue update · 10:20 · next update 10:30', '', headerRow, separatorRow, '| — | — | — | — | — | — | — |']);
 	});
 
-	test('appends a reason only to Parked, Blocked and Shipped cells', () => {
+	test("links a cell's identifier to the ticket, and leaves the detail line unlinked", () => {
+		const params = setupBoard({
+			tickets: [boardTicket({ identifier: 'EX-31', title: 'Search', lane: QueueLane.Building, url: 'https://tracker.example.com/EX-31' })],
+		});
+
+		const lines = renderQueueBoard(params);
+
+		expect(lines.slice(4)).toStrictEqual(['| — | — | — | [EX-31](https://tracker.example.com/EX-31) | — | — | — |', '', '- EX-31 · Search']);
+	});
+
+	test('lists a ticket with no title by its identifier alone, with its reason when it has one', () => {
+		const params = setupBoard({
+			tickets: [
+				boardTicket({ identifier: 'EX-41', lane: QueueLane.Blocked, reason: 'skipped: it is blocked by an unfinished ticket' }),
+				boardTicket({ identifier: 'EX-42', lane: QueueLane.BuildQueue }),
+			],
+		});
+
+		const lines = renderQueueBoard(params);
+
+		expect(lines.slice(6)).toStrictEqual(['- EX-41 — skipped: it is blocked by an unfinished ticket', '- EX-42']);
+	});
+
+	test('appends a reason only to the detail lines of Parked, Blocked and Shipped tickets', () => {
 		const params = setupBoard({
 			tickets: [
 				boardTicket({ identifier: 'EX-11', title: 'Import fix', lane: QueueLane.Parked, reason: 'retry' }),
@@ -149,8 +195,13 @@ describe('renderQueueBoard', () => {
 
 		const lines = renderQueueBoard(params);
 
-		expect(lines.slice(4).map(toCells)).toStrictEqual([
-			['—', 'EX-14 · Search', '—', '—', 'EX-13 · Settings — tracker failed', 'EX-11 · Import fix — retry', 'EX-12 · Migration — held by EX-1'],
+		expect(lines.slice(4)).toStrictEqual([
+			'| EX-11 | EX-12 | — | EX-14 | — | — | EX-13 |',
+			'',
+			'- EX-11 · Import fix — retry',
+			'- EX-12 · Migration — held by EX-1',
+			'- EX-14 · Search',
+			'- EX-13 · Settings — tracker failed',
 		]);
 	});
 
@@ -164,6 +215,6 @@ describe('renderQueueBoard', () => {
 
 		const clippedReason = `${'x'.repeat(99)} ${'y'.repeat(19)}…`;
 
-		expect(lines.slice(4).map(toCells)).toStrictEqual([['—', '—', '—', '—', '—', `EX-21 · Import fix — ${clippedReason}`, '—']]);
+		expect(lines.slice(4)).toStrictEqual(['| EX-21 | — | — | — | — | — | — |', '', `- EX-21 · Import fix — ${clippedReason}`]);
 	});
 });

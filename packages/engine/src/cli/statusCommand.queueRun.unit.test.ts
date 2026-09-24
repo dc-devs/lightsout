@@ -25,7 +25,7 @@ const worktreeRunId = 'c4c4c4c4-0000-4000-8000-000000000000';
 /** When the board was last written: local 10:12, the time a stopped board's heading shows. */
 const boardUpdatedAt = new Date(2026, 8, 10, 10, 12).toISOString();
 
-const headerRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const headerRow = '| Parked | Blocked | Build Queue | Building | Ship Queue | Shipping Now | Shipped |';
 const separatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
 const liveHeading = expect.stringMatching(/^Queue update · \d{2}:\d{2} · next update \d{2}:\d{2}$/);
 
@@ -172,7 +172,10 @@ describe('statusCommand', () => {
 			'',
 			headerRow,
 			separatorRow,
-			'| EX-101 · Notifications | EX-102 · API changes | — | — | — | — | — |',
+			'| — | — | EX-101 | EX-102 | — | — | — |',
+			'',
+			'- EX-101 · Notifications',
+			'- EX-102 · API changes',
 			'',
 			'**EX-102 · API changes**',
 			'',
@@ -208,7 +211,10 @@ describe('statusCommand', () => {
 			'',
 			headerRow,
 			separatorRow,
-			'| EX-101 · Notifications | EX-102 · API changes | — | — | — | — | — |',
+			'| — | — | EX-101 | EX-102 | — | — | — |',
+			'',
+			'- EX-101 · Notifications',
+			'- EX-102 · API changes',
 		]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);

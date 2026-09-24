@@ -172,8 +172,8 @@ describe('runQueue', () => {
 			coordinatorRunId: runId,
 			updatedAt: expect.any(String),
 			tickets: [
-				expect.objectContaining({ identifier: 'LO-70', lane: 'shipped' }),
 				expect.objectContaining({ identifier: 'LO-71', lane: 'parked', reason: 'tsc: 3 errors' }),
+				expect.objectContaining({ identifier: 'LO-70', lane: 'shipped' }),
 			],
 		});
 	});

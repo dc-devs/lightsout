@@ -59,7 +59,7 @@ export const statusCatalogEntry: CommandCatalogEntry = {
 		{
 			name: 'queue',
 			meaning:
-				"Show the queue's seven-column board — Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked — then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
+				"Show the queue's seven-column board — Parked, Blocked, Build Queue, Building, Ship Queue, Shipping Now, Shipped — with one ticket ID in each cell and each ticket's title and reason listed under it, then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
 			shape: 'status-queue',
 			required: true,
 		},

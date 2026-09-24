@@ -178,7 +178,11 @@ const executeDirectWork = async ({
 	const run = new RunState({ cwd, config, manifest, onProgress });
 	const stop = ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => stopDirectRun({ run, record, status, error });
 
-	await run.update({ patch: { status: RunStatus.Running } });
+	// Declared before the first step starts, so a reader sees every step the run
+	// will take — the ones it has not reached shown pending — from its first
+	// moment. A resumed run declares the same sequence: its pre-flight is
+	// already recorded, so the skip leaves no pending row behind.
+	await run.update({ patch: { status: RunStatus.Running, stepOrder: ['pre-flight', 'implement', 'verify'] } });
 
 	if (run.current().steps.some((step) => step.id === 'verify' && step.status === RunStatus.Passed)) {
 		return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });

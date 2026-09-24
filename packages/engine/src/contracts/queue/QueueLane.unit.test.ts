@@ -5,6 +5,6 @@ describe('QueueLane', () => {
 	test("lists the seven lanes in the board's column order", () => {
 		const lanes = Object.values(QueueLane);
 
-		expect(lanes).toStrictEqual(['build-queue', 'building', 'ship-queue', 'shipping-now', 'shipped', 'parked', 'blocked']);
+		expect(lanes).toStrictEqual(['parked', 'blocked', 'build-queue', 'building', 'ship-queue', 'shipping-now', 'shipped']);
 	});
 });

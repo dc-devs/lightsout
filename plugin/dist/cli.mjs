@@ -24450,13 +24450,13 @@ var BranchState = external_exports.object({
 
 // src/contracts/queue/QueueLane.ts
 var QueueLane = {
+  Parked: "parked",
+  Blocked: "blocked",
   BuildQueue: "build-queue",
   Building: "building",
   ShipQueue: "ship-queue",
   ShippingNow: "shipping-now",
-  Shipped: "shipped",
-  Parked: "parked",
-  Blocked: "blocked"
+  Shipped: "shipped"
 };
 
 // src/contracts/queue/QueueBoardTicket.ts
@@ -134860,7 +134860,7 @@ var statusCatalogEntry = {
     },
     {
       name: "queue",
-      meaning: "Show the queue's seven-column board \u2014 Build Queue, Building, Ship Queue, Shipping Now, Shipped, Parked, Blocked \u2014 then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
+      meaning: "Show the queue's seven-column board \u2014 Parked, Blocked, Build Queue, Building, Ship Queue, Shipping Now, Shipped \u2014 with one ticket ID in each cell and each ticket's title and reason listed under it, then one block per active ticket, each exactly what --run, --planning or --shipping prints for that ticket's worktree. Printed once. Cannot be combined with --watch, --planning, --shipping or --now.",
       shape: "status-queue",
       required: true
     },
@@ -160669,7 +160669,7 @@ var executeDirectWork = async ({
   const manifest = existing ?? await createDirectRun({ cwd, runId, ticketBody, ticketRef, driverName, config: config2, willShip });
   const run = new RunState({ cwd, config: config2, manifest, onProgress });
   const stop = ({ record: record3, status, error: error51 }) => stopDirectRun({ run, record: record3, status, error: error51 });
-  await run.update({ patch: { status: RunStatus.Running } });
+  await run.update({ patch: { status: RunStatus.Running, stepOrder: ["pre-flight", "implement", "verify"] } });
   if (run.current().steps.some((step) => step.id === "verify" && step.status === RunStatus.Passed)) {
     return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
   }
@@ -161488,13 +161488,13 @@ var formatTicketLink = ({ ticket }) => {
 
 // src/cli/common/queueBoard/renderQueueBoard.ts
 var laneLabels = {
+  [QueueLane.Parked]: "Parked",
+  [QueueLane.Blocked]: "Blocked",
   [QueueLane.BuildQueue]: "Build Queue",
   [QueueLane.Building]: "Building",
   [QueueLane.ShipQueue]: "Ship Queue",
   [QueueLane.ShippingNow]: "Shipping Now",
-  [QueueLane.Shipped]: "Shipped",
-  [QueueLane.Parked]: "Parked",
-  [QueueLane.Blocked]: "Blocked"
+  [QueueLane.Shipped]: "Shipped"
 };
 var lanesWithReason = /* @__PURE__ */ new Set([QueueLane.Shipped, QueueLane.Parked, QueueLane.Blocked]);
 var toClock = ({ at }) => `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
@@ -161508,20 +161508,23 @@ var toHeading = ({ state, at }) => {
   }
   return heading;
 };
-var toCell3 = ({ ticket }) => {
-  const label2 = formatTicketLink({ ticket });
+var toCell3 = ({ ticket }) => formatTicketLink({ ticket: { identifier: ticket.identifier, url: ticket.url } });
+var toDetailLine = ({ ticket }) => {
+  const label2 = formatTicketLink({ ticket: { identifier: ticket.identifier, title: ticket.title } });
   const maxReasonLength = 120;
-  return ticket.reason !== void 0 && lanesWithReason.has(ticket.lane) ? `${label2} \u2014 ${toInlineMarkdown({ text: ticket.reason, maxLength: maxReasonLength })}` : label2;
+  return ticket.reason !== void 0 && lanesWithReason.has(ticket.lane) ? `- ${label2} \u2014 ${toInlineMarkdown({ text: ticket.reason, maxLength: maxReasonLength })}` : `- ${label2}`;
 };
 var toRow = ({ cells }) => `| ${cells.join(" | ")} |`;
 var renderQueueBoard = ({ tickets, state, at }) => {
   const lanes = Object.values(QueueLane);
   const header = toRow({ cells: lanes.map((lane) => laneLabels[lane]) });
   const separator2 = toRow({ cells: lanes.map(() => "---") });
-  const columns = lanes.map((lane) => tickets.filter((ticket) => ticket.lane === lane).map((ticket) => toCell3({ ticket })));
+  const laneTickets = lanes.map((lane) => tickets.filter((ticket) => ticket.lane === lane));
+  const columns = laneTickets.map((inLane) => inLane.map((ticket) => toCell3({ ticket })));
   const depth = Math.max(1, ...columns.map((cells) => cells.length));
   const body = Array.from({ length: depth }, (_, row) => toRow({ cells: columns.map((cells) => cells[row] ?? (row === 0 ? "\u2014" : "")) }));
-  return [toHeading({ state, at }), "", header, separator2, ...body];
+  const details = laneTickets.flat().map((ticket) => toDetailLine({ ticket }));
+  return [toHeading({ state, at }), "", header, separator2, ...body, ...details.length === 0 ? [] : ["", ...details]];
 };
 
 // src/queue/board/BoardQuestionRelay.ts

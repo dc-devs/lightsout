@@ -132,7 +132,7 @@ const openOutcomeOf = ({ identifier, title, branch, open }: { identifier: string
 
 /** The final board's heading: the finish time is the moment the command ran, so only its shape is pinned. */
 const finishedHeading = expect.stringMatching(/^Queue finished · \d{2}:\d{2}$/);
-const boardHeaderRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const boardHeaderRow = '| Parked | Blocked | Build Queue | Building | Ship Queue | Shipping Now | Shipped |';
 const boardSeparatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
 
 describe('queueCommand', () => {
@@ -233,7 +233,11 @@ describe('queueCommand', () => {
 			'',
 			boardHeaderRow,
 			boardSeparatorRow,
-			'| — | — | — | — | [LO-70 · Drain the backlog](https://linear.app/lightsout/issue/LO-70) | [LO-74 · Fix the import](https://linear.app/lightsout/issue/LO-74) — tsc: 3 errors | LO-71 — skipped: it is blocked by an unfinished ticket |',
+			'| [LO-74](https://linear.app/lightsout/issue/LO-74) | LO-71 | — | — | — | — | [LO-70](https://linear.app/lightsout/issue/LO-70) |',
+			'',
+			'- LO-74 · Fix the import — tsc: 3 errors',
+			'- LO-71 — skipped: it is blocked by an unfinished ticket',
+			'- LO-70 · Drain the backlog',
 			'',
 			'LO-70 lo-70-drain shipped',
 			'LO-74 lo-74-import parked: tsc: 3 errors',
@@ -271,7 +275,9 @@ describe('queueCommand', () => {
 			'',
 			boardHeaderRow,
 			boardSeparatorRow,
-			`| — | — | — | — | — | [LO-70 · Drain the backlog](https://linear.app/lightsout/issue/LO-70) — ${'x'.repeat(119)}… | — |`,
+			'| [LO-70](https://linear.app/lightsout/issue/LO-70) | — | — | — | — | — | — |',
+			'',
+			`- LO-70 · Drain the backlog — ${'x'.repeat(119)}…`,
 			'',
 			`LO-70 lo-70-drain parked: ${longError}`,
 			'  worktree: /tmp/worktrees/lo-70-drain',

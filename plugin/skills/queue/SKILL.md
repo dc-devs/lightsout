@@ -217,13 +217,15 @@ stdin instead.
   nothing new.
 - **The ten-minute posts:** at launch and then every ten minutes, this
   session posts the output of `lightsout status --queue`. First comes a board
-  with seven columns — Build Queue, Building, Ship Queue, Shipping Now,
-  Shipped, Parked and Blocked — where each ticket sits in the one column it is
-  in now, so tickets move across the columns from one post to the next. Below
-  the board is a detail block for each active ticket: one that is building,
-  shipping, or waiting for an answer. A detail block is exactly what
-  `lightsout status` prints for that ticket's run, planning or ship in its
-  worktree. This is separate from the implement skill's two-minute watch,
+  with seven columns — Parked, Blocked, Build Queue, Building, Ship Queue,
+  Shipping Now and Shipped — where each ticket's ID sits in the one column it
+  is in now, so tickets move across the columns from one post to the next.
+  Under the table is a list with one line per ticket: its title, and its reason
+  when it has one. Below that is a detail block for each active ticket: one
+  that is building, shipping, or waiting for an answer. A detail block is
+  exactly what `lightsout status` prints for that ticket's run, planning or
+  ship in its worktree. A run's block lists every step the run will take, with
+  the steps it has not reached shown as pending. This is separate from the implement skill's two-minute watch,
   which follows a single run.
 - **Exit codes:** 0 — everything eligible shipped. 2 — work remains that a
   re-run picks up (parked or left-behind tickets); a ticket left open is not

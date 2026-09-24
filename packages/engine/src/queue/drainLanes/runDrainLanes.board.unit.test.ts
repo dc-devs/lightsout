@@ -140,8 +140,8 @@ describe('runDrainLanes', () => {
 		await drained;
 
 		expect(afterTheFailure).toEqual([
-			{ identifier: 'LO-2', lane: 'building', buildStartedAt: isoTime },
 			{ identifier: 'LO-1', lane: 'parked', reason: 'the gates went red' },
+			{ identifier: 'LO-2', lane: 'building', buildStartedAt: isoTime },
 		]);
 	});
 
@@ -155,8 +155,8 @@ describe('runDrainLanes', () => {
 		await drained;
 
 		expect(firstWrite).toEqual([
-			{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
 			{ identifier: 'LO-2', lane: 'blocked', reason: 'blocked by LO-9' },
+			{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
 		]);
 	});
 
@@ -185,10 +185,10 @@ describe('runDrainLanes', () => {
 
 		expect({ firstWrite, leftBehind: report.leftBehind }).toEqual({
 			firstWrite: [
-				{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
-				{ identifier: 'LO-8', lane: 'shipped' },
 				{ identifier: 'LO-7', lane: 'blocked', reason: 'its worktree holds a branch nobody has merged' },
 				{ identifier: 'LO-9', lane: 'blocked', reason: 'blocked by LO-5' },
+				{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
+				{ identifier: 'LO-8', lane: 'shipped' },
 			],
 			leftBehind: [parkedEntry, mergedEntry, heldEntry],
 		});

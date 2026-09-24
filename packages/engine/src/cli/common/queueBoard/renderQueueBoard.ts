@@ -9,16 +9,16 @@ import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
  * added to the board fails the typecheck here instead of drawing a blank header.
  */
 const laneLabels: Record<QueueLane, string> = {
+	[QueueLane.Parked]: 'Parked',
+	[QueueLane.Blocked]: 'Blocked',
 	[QueueLane.BuildQueue]: 'Build Queue',
 	[QueueLane.Building]: 'Building',
 	[QueueLane.ShipQueue]: 'Ship Queue',
 	[QueueLane.ShippingNow]: 'Shipping Now',
 	[QueueLane.Shipped]: 'Shipped',
-	[QueueLane.Parked]: 'Parked',
-	[QueueLane.Blocked]: 'Blocked',
 };
 
-/** The lanes whose cells carry a reason: why a ticket stopped or is held, or a shipped ticket's stale tracker. */
+/** The lanes whose detail lines carry a reason: why a ticket stopped or is held, or a shipped ticket's stale tracker. */
 const lanesWithReason = new Set<QueueLane>([QueueLane.Shipped, QueueLane.Parked, QueueLane.Blocked]);
 
 /** Local 24-hour HH:MM, with no date and no zone — the clock a reader compares against the one on their own screen. */
@@ -37,14 +37,18 @@ const toHeading = ({ state, at }: { state: QueueBoardState; at: Date }) => {
 	return heading;
 };
 
-const toCell = ({ ticket }: { ticket: QueueBoardTicket }) => {
-	const label = formatTicketLink({ ticket });
-	// Clipped so one long error cannot stretch the table; the queue's own report keeps the full text.
+/** A cell holds the identifier alone, linked to the ticket, so no cell wraps over several lines in a terminal. */
+const toCell = ({ ticket }: { ticket: QueueBoardTicket }) => formatTicketLink({ ticket: { identifier: ticket.identifier, url: ticket.url } });
+
+/** One ticket's line in the list under the table: `ID · Title`, then its reason when its lane carries one. */
+const toDetailLine = ({ ticket }: { ticket: QueueBoardTicket }) => {
+	const label = formatTicketLink({ ticket: { identifier: ticket.identifier, title: ticket.title } });
+	// Clipped so one long error cannot fill the screen; the queue's own report keeps the full text.
 	const maxReasonLength = 120;
 
 	return ticket.reason !== undefined && lanesWithReason.has(ticket.lane)
-		? `${label} — ${toInlineMarkdown({ text: ticket.reason, maxLength: maxReasonLength })}`
-		: label;
+		? `- ${label} — ${toInlineMarkdown({ text: ticket.reason, maxLength: maxReasonLength })}`
+		: `- ${label}`;
 };
 
 const toRow = ({ cells }: { cells: string[] }) => `| ${cells.join(' | ')} |`;
@@ -63,6 +67,10 @@ interface Params {
  * its first row, so a ticket visibly moves across columns from one post to the
  * next.
  *
+ * Each cell holds only the ticket's identifier. Every ticket's title, and its
+ * reason when it has one, follow in a list under the table — one line per
+ * ticket, in the table's column order — after a blank line that ends the table.
+ *
  * Pure — no clock and no terminal paint: the lines are markdown the queue
  * skill posts into a conversation.
  */
@@ -70,9 +78,11 @@ export const renderQueueBoard = ({ tickets, state, at }: Params): string[] => {
 	const lanes = Object.values(QueueLane);
 	const header = toRow({ cells: lanes.map((lane) => laneLabels[lane]) });
 	const separator = toRow({ cells: lanes.map(() => '---') });
-	const columns = lanes.map((lane) => tickets.filter((ticket) => ticket.lane === lane).map((ticket) => toCell({ ticket })));
+	const laneTickets = lanes.map((lane) => tickets.filter((ticket) => ticket.lane === lane));
+	const columns = laneTickets.map((inLane) => inLane.map((ticket) => toCell({ ticket })));
 	const depth = Math.max(1, ...columns.map((cells) => cells.length));
 	const body = Array.from({ length: depth }, (_, row) => toRow({ cells: columns.map((cells) => cells[row] ?? (row === 0 ? '—' : '')) }));
+	const details = laneTickets.flat().map((ticket) => toDetailLine({ ticket }));
 
-	return [toHeading({ state, at }), '', header, separator, ...body];
+	return [toHeading({ state, at }), '', header, separator, ...body, ...(details.length === 0 ? [] : ['', ...details])];
 };

@@ -38,7 +38,7 @@ const now = new Date(2026, 8, 10, 10, 20);
 const updatedAt = new Date(2026, 8, 10, 10, 12).toISOString();
 
 /** The rows every board in this file opens with, as decision 18 states them. */
-const headerRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const headerRow = '| Parked | Blocked | Build Queue | Building | Ship Queue | Shipping Now | Shipped |';
 const separatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
 
 /** A queue coordinator's row in the runs list: running, with a live process behind it. */
@@ -148,7 +148,7 @@ const setupQueueStatus = async ({ listing, boardTickets }: { listing: RunListing
 const setupLiveQueue = async () => {
 	const boardTickets = [tickets.blocked, tickets.waiting, tickets.shippingNow, tickets.parked, tickets.building, tickets.buildQueue];
 	const captured = await setupQueueStatus({ listing: listingOf(), boardTickets });
-	const active = [tickets.building, tickets.shippingNow, tickets.waiting];
+	const active = [tickets.waiting, tickets.building, tickets.shippingNow];
 	const blocks = await Promise.all(active.map(async (ticket) => renderTicketDetailBlock({ ticket, lines: await loadActiveTicketBlock({ ticket }) })));
 	const board = renderQueueBoard({ tickets: boardTickets, state: QueueBoardState.Live, at: now });
 
@@ -178,7 +178,11 @@ describe('printQueueStatus', () => {
 				'',
 				headerRow,
 				separatorRow,
-				'| EX-101 · Notifications | EX-102 · API changes | — | — | — | — | EX-108 · Migration — Which lane comes first? |',
+				'| — | EX-108 | EX-101 | EX-102 | — | — | — |',
+				'',
+				'- EX-108 · Migration — Which lane comes first?',
+				'- EX-101 · Notifications',
+				'- EX-102 · API changes',
 			],
 			errors: [],
 			code: 0,
@@ -199,7 +203,11 @@ describe('printQueueStatus', () => {
 				'',
 				headerRow,
 				separatorRow,
-				'| — | EX-102 · API changes | — | — | EX-106 · Settings | EX-107 · Import fix — retry needed | — |',
+				'| EX-107 | — | — | EX-102 | — | — | EX-106 |',
+				'',
+				'- EX-107 · Import fix — retry needed',
+				'- EX-102 · API changes',
+				'- EX-106 · Settings',
 			],
 			errors: [],
 			code: 0,
