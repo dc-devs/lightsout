@@ -72,4 +72,40 @@ describe('settleCoverageGates', () => {
 		expect(fixCalls).toStrictEqual([]);
 		expect(testsOnlyCalls).toStrictEqual([]);
 	});
+
+	test('settleCoverageGates: a crashed gate escalates without spending a fix attempt', async () => {
+		const { run, fixCalls, testsOnlyCalls } = setupSettle({
+			gate: gateResultOf({
+				error: 'test (exit -1): jest worker SIGSEGV',
+				crashes: ['packages/engine test crashed: every attempt died in the jest worker crash'],
+			}),
+		});
+
+		const stop = await run();
+
+		expect(stop).toEqual({
+			kind: CoverageBatchStopKind.Escalated,
+			error: expect.stringContaining('packages/engine test crashed: every attempt died in the jest worker crash'),
+		});
+		expect(fixCalls).toStrictEqual([]);
+		expect(testsOnlyCalls).toStrictEqual([]);
+	});
+
+	test('settleCoverageGates: a timed-out gate escalates without spending a fix attempt', async () => {
+		const { run, fixCalls, testsOnlyCalls } = setupSettle({
+			gate: gateResultOf({
+				error: 'test (exit -1): timed out after 900000ms',
+				timeouts: ['packages/engine test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes)'],
+			}),
+		});
+
+		const stop = await run();
+
+		expect(stop).toEqual({
+			kind: CoverageBatchStopKind.Escalated,
+			error: expect.stringContaining('packages/engine test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes)'),
+		});
+		expect(fixCalls).toStrictEqual([]);
+		expect(testsOnlyCalls).toStrictEqual([]);
+	});
 });

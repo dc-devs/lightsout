@@ -322,6 +322,30 @@ describe('runDirectWork', () => {
 		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
 	});
 
+	test('runDirectWork: a gate that ran past its ceiling ends the run without spending a fix attempt', async () => {
+		const { run } = setupDirectRun();
+		const timeout = 'test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
+			error: 'test: exit -1 (timeout at the 15-minute ceiling)',
+			failedFamilies: [],
+			crashes: [],
+			timeouts: [timeout],
+			coordination: undefined,
+		});
+
+		const result = await run();
+
+		expect(result.manifest.status).toBe(RunStatus.Escalated);
+		expect(result.error).toContain(timeout);
+		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
+		// one verify attempt on the record: the run stopped at the first gate run
+		// rather than counting a fix round it never spent
+		expect(result.manifest.steps.filter((step) => step.id === 'verify')).toEqual([
+			expect.objectContaining({ id: 'verify', status: RunStatus.Escalated, attempts: 1 }),
+		]);
+	});
+
 	test('relays what the verify gates report back to the caller, so the terminal shows the gate that is running', async () => {
 		const { run } = setupDirectRun();
 		const progress: string[] = [];

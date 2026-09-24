@@ -32,7 +32,7 @@ export const configKeyDescriptions: Record<string, string> = {
 		'Ceiling for the working roles — executor, test writers, refactorer, fixes. Defaults to 60. Reaching it stops the harness together with every process it started — a terminate signal first, then a kill if that is ignored.',
 	'timeouts.supervisor-minutes': 'Ceiling for the read-only supervisor, which reads and rules rather than editing. Defaults to 15.',
 	'timeouts.gate-minutes':
-		"Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that hits it is reported as a gate that did not finish, which reads differently from one that ran and went red. Defaults to 15.",
+		"Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that runs past it is stopped and re-run once; a gate that runs past it again stops the run as a timeout, which names the gate and the ceiling and is reported apart from a gate that failed. Such a gate is never handed to a fix agent and spends no fix attempt. Defaults to 15.",
 	'agent-commands':
 		'Command prefixes working agents are granted (prefix match, arguments allowed) — for plan deliverables only a command can produce, such as a migration generator. Verification commands never belong here: the engine runs all gates itself. The one verification command an agent is handed is the engine’s own self-check, granted per spawn to the roles that write code rather than configured here.',
 	generated:

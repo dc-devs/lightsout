@@ -204,6 +204,66 @@ describe('integrateDefaultBranch', () => {
 		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
 	});
 
+	test('blocks a crashed gate under its own reason, spawns no repair and restores the baseline', async () => {
+		const { cwd, baselineCommit, invocations, integrate } = setupIntegration({
+			defaultBranchEdit: 'unrelated',
+			gateRuns: [
+				{
+					error: 'test: exited 139 with no verdict',
+					failedFamilies: [],
+					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					timeouts: [],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const failure = await integrate();
+
+		expect(failure).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-crashed',
+				paths: [],
+				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
+		expect(readHead({ cwd })).toBe(baselineCommit);
+		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
+	});
+
+	test('blocks a timed-out gate under its own reason, spawns no repair and restores the baseline', async () => {
+		const { cwd, baselineCommit, invocations, integrate } = setupIntegration({
+			defaultBranchEdit: 'unrelated',
+			gateRuns: [
+				{
+					error: 'test-e2e: exit -1 (timeout at the 15-minute ceiling)',
+					failedFamilies: [],
+					crashes: [],
+					timeouts: ['test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.'],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const failure = await integrate();
+
+		expect(failure).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-timed-out',
+				paths: [],
+				detail: expect.stringContaining('test-e2e timed out: every attempt ran past the 15-minute gate ceiling'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
+		expect(readHead({ cwd })).toBe(baselineCommit);
+		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
+	});
+
 	// The ledger states one criterion, and so one test name, for both halves of
 	// the guard: a failure arriving after the merge began restores the baseline,
 	// and git state this attempt no longer owns is never reset. Each half is

@@ -135,7 +135,7 @@ describe('repairIntegratedGates', () => {
 		expect(mockRunGates).toHaveBeenCalledTimes(3);
 	});
 
-	test('attempts no repair for a gate that crashed instead of failing', async () => {
+	test('blocks a crashed gate under its own reason without spending a repair', async () => {
 		const { invocations, repair } = setupRepair({
 			gateRuns: [
 				{
@@ -151,7 +151,40 @@ describe('repairIntegratedGates', () => {
 
 		const settled = await repair();
 
-		expect(settled).toEqual(expect.objectContaining({ reason: 'integration-gates-failed', detail: expect.stringContaining('SIGSEGV') }));
+		expect(settled).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-crashed',
+				paths: [],
+				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
+	});
+
+	test('blocks a timed-out gate under its own reason without spending a repair', async () => {
+		const { invocations, repair } = setupRepair({
+			gateRuns: [
+				{
+					error: 'test-e2e: exit -1 (timeout at the 15-minute ceiling)',
+					failedFamilies: [],
+					crashes: [],
+					timeouts: ['test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.'],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const settled = await repair();
+
+		expect(settled).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-timed-out',
+				paths: [],
+				detail: expect.stringContaining('test-e2e timed out: every attempt ran past the 15-minute gate ceiling'),
+			}),
+		);
 		expect(invocations).toStrictEqual([]);
 		expect(mockRunGates).toHaveBeenCalledTimes(1);
 	});

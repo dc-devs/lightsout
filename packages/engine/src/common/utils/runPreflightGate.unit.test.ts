@@ -143,6 +143,60 @@ describe('runPreflightGate', () => {
 		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
 	});
 
+	test('runPreflightGate: a crashed baseline gate escalates instead of reporting a red baseline', async () => {
+		const { setSteps, stops, args } = setupPreflightGate();
+		mockRunGates.mockResolvedValue({
+			error: 'test: exit -1 (jest worker crash)',
+			failedFamilies: [],
+			crashes: ['test crashed: every attempt died in the known jest worker crash, so this gate never returned a verdict.'],
+			timeouts: [],
+			coordination: undefined,
+		});
+
+		const result = await runPreflightGate(args);
+
+		// a crashed gate returned no verdict, so nothing here says the consumer's code is red
+		expect(result).toStrictEqual({ stopped: 'escalated' });
+		expect(stops).toStrictEqual([
+			{
+				record: { id: 'pre-flight', status: 'running', attempts: 1 },
+				status: 'escalated',
+				error: expect.stringContaining('test crashed: every attempt died in the known jest worker crash, so this gate never returned a verdict.'),
+			},
+		]);
+		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
+		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
+	});
+
+	test('runPreflightGate: a timed-out baseline gate escalates instead of reporting a red baseline', async () => {
+		const { setSteps, stops, args } = setupPreflightGate();
+		mockRunGates.mockResolvedValue({
+			error: 'test: exit -1 (timeout at the 15-minute ceiling)',
+			failedFamilies: [],
+			crashes: [],
+			timeouts: ['test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.'],
+			coordination: undefined,
+		});
+
+		const result = await runPreflightGate(args);
+
+		// a timed-out gate returned no verdict, so nothing here says the consumer's code is red
+		expect(result).toStrictEqual({ stopped: 'escalated' });
+		expect(stops).toStrictEqual([
+			{
+				record: { id: 'pre-flight', status: 'running', attempts: 1 },
+				status: 'escalated',
+				error: expect.stringContaining(
+					'test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.',
+				),
+			},
+		]);
+		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
+		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
+	});
+
 	test('a step an earlier attempt already passed is skipped rather than re-run', async () => {
 		const { setSteps, args } = setupPreflightGate({ steps: [{ id: 'pre-flight', status: RunStatus.Passed, attempts: 1 }] });
 
