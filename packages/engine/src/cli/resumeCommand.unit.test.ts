@@ -353,6 +353,8 @@ describe('resumeCommand', () => {
 		// checkout the command was launched from: the pipeline is building there
 		expect(errors.join('\n')).toContain(`plan file not found: ${join(workspace, 'ghost.md')}`);
 		expect(errors.join('\n')).not.toContain(join(cwd, 'ghost.md'));
+		// the resumed run re-reads the launching checkout's config, and names that file rather than the workspace's copy
+		expect(logged).toContain(`  config: ${join(cwd, 'lightsout.config.json')}`);
 		// and the ship restamp still landed in the launching checkout, which is
 		// where this run's records live and stay
 		expect(readManifest({ cwd }).willShip).toBe(false);

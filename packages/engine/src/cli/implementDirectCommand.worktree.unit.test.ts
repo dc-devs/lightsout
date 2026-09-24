@@ -219,7 +219,7 @@ describe('implementDirectCommand worktree isolation', () => {
 	});
 
 	test('names the workspace, its branch and the copied ticket in the startup line', async () => {
-		const { context, workspace, logged } = setupImplementDirectWorktree({ args: ['--ticket', 'ticket.md'] });
+		const { context, cwd, workspace, logged } = setupImplementDirectWorktree({ args: ['--ticket', 'ticket.md'] });
 
 		await implementDirectCommand(context);
 
@@ -230,6 +230,8 @@ describe('implementDirectCommand worktree isolation', () => {
 		expect(header).toContain(workspace);
 		expect(header).toContain('lo-70-drain');
 		expect(header).toContain(join('.lightsout', 'inputs', 'ticket.md'));
+		// the config is the launching checkout's, not the workspace's copy — so the file read is named outright
+		expect(logged).toContain(`  config: ${join(cwd, 'lightsout.config.json')}`);
 	});
 
 	test('exits on a workspace refusal without building anything', async () => {
