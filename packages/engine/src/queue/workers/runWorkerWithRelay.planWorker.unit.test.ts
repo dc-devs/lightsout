@@ -72,7 +72,17 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+// The no-record fallback reaches the direct worker, which builds through the
+// body-build lifecycle; with no record it writes nothing, so this stand-in only
+// hands the run an id and answers its result.
+interface BodyBuildLifecycleParams {
+	run: (params: { runId: string }) => Promise<PipelineResult>;
+}
+
+jest.mock('#src/workOrder/index.ts', () => ({
+	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
+	runWorkOrderBodyBuildLifecycle: async ({ run }: BodyBuildLifecycleParams) => ({ result: await run({ runId: 'run-body-1' }) }),
+}));
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;

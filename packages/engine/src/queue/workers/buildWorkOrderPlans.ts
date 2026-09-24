@@ -9,10 +9,12 @@ import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { buildFromTicketBody } from '#src/queue/workers/common/utils/buildFromTicketBody.ts';
+import { buildPlanlessWorkOrder } from '#src/queue/workers/common/utils/buildPlanlessWorkOrder.ts';
+import { decideTicketOutcome } from '#src/queue/workers/common/utils/decideTicketOutcome.ts';
 import { findStalledPlanRefusal } from '#src/queue/workers/common/utils/findStalledPlanRefusal.ts';
 import { settleLeftoverWork } from '#src/queue/workers/common/utils/settleLeftoverWork.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import { readWorkOrderShipEligibility, readWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
+import { isPlanlessWorkOrder, readWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
 
 interface Params {
 	/** The work order's worktree: where each plan is restored, built and committed. */
@@ -30,7 +32,7 @@ interface Params {
 	driverName: string;
 	/** The ticket's directory under the coordinator run, where each plan's commit message file is written. */
 	workOrderRunDir: string;
-	/** True only for the plan worker: a single-plan work order whose plan 001 is still being planned is then built from the ticket body. */
+	/** True only for the plan worker: a single-plan work order whose plan 001 is still being planned, or that holds no plan 001, is then built from the ticket body. */
 	allowTicketBodyBuild: boolean;
 	onProgress?: (message: string) => void;
 }
@@ -126,19 +128,6 @@ const confirmPlanImplemented = async ({ step, workOrderName }: { step: WorkOrder
 	return { record };
 };
 
-/** What the record says about the ticket once there is nothing left to build: ship it, leave it open, or park it. */
-const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
-	const eligibility = readWorkOrderShipEligibility({ record });
-
-	if (eligibility.eligible) {
-		return {};
-	}
-
-	// A single-plan work order is never left open: plan 001 alone supplies its
-	// implementation, so anything short of that is a human's to look at.
-	return record.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
-};
-
 /**
  * Build the plans of one ticket that are ready to implement, one at a time and
  * lowest number first. Each plan's own pipeline commits the implementation it
@@ -155,6 +144,11 @@ const decideTicketOutcome = ({ record }: { record: WorkOrderState }) => {
  * ship reads are written there rather than here. This loop writes nothing to the
  * record itself, and neither pushes nor fetches.
  *
+ * A single-plan work order holding no plan 001 has no plan to loop over: when
+ * the ticket-body fallback is allowed it is built from the ticket body through
+ * the body-build lifecycle instead, and its outcome is decided from the record
+ * that build was recorded on.
+ *
  * @returns success once nothing is left to build and the ticket may ship, the reason it stays open, or the reason it parks
  */
 export const buildWorkOrderPlans = async ({
@@ -170,6 +164,10 @@ export const buildWorkOrderPlans = async ({
 	allowTicketBodyBuild,
 	onProgress,
 }: Params): Promise<WorkerOutcome> => {
+	if (allowTicketBodyBuild && isPlanlessWorkOrder({ record })) {
+		return buildPlanlessWorkOrder({ step: { cwd, record, ticket, config, env, driver, driverName, workOrderRunDir, onProgress }, workOrderName });
+	}
+
 	// Read once, before anything is built, so what it reports is unambiguously
 	// work that was already there rather than work this loop made.
 	const leftover = await readLeftoverWork({ cwd, config });

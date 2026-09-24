@@ -228,3 +228,19 @@ test('createWorkOrder: a prefixed branch template stores a branch that differs f
 	);
 	expect(readdirSync(workOrdersFolder)).toStrictEqual(['lo-158-give-the-name-one']);
 });
+
+test('createWorkOrder: a handed mode is the mode written to the new record, and without one the repository default is', async () => {
+	const { params, recordPathOf } = await setupCreate({
+		config: { gates, 'ticket-tracker': trackerBlock, plan: { 'default-work-order-mode': WorkOrderMode.MultiplePlan } },
+	});
+
+	const handed = await createWorkOrder({ ...params, ticketRef: 'LO-158', mode: WorkOrderMode.SinglePlan });
+	const defaulted = await createWorkOrder({ ...params, title: 'Give the name one author' });
+
+	// Read back from disk rather than from the returned record: the mode has to
+	// survive the whole way from the creator into the file every later command reads.
+	expect(handed).toEqual(expect.objectContaining({ name: 'lo-158-give-the-name-one' }));
+	expect(recordAt({ path: recordPathOf({ name: 'lo-158-give-the-name-one' }) }).mode).toBe('single-plan');
+	expect(defaulted).toEqual(expect.objectContaining({ name: 'give-the-name-one-author' }));
+	expect(recordAt({ path: recordPathOf({ name: 'give-the-name-one-author' }) }).mode).toBe('multiple-plan');
+});

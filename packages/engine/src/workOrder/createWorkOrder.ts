@@ -1,5 +1,5 @@
 import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig, WorkOrderMode, WorkOrderState } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { buildWorkOrderState } from '#src/workOrder/common/record/buildWorkOrderState.ts';
 import type { WorkOrderListing } from '#src/workOrder/common/types/WorkOrderListing.ts';
@@ -17,6 +17,8 @@ interface Params {
 	ticketRef?: string;
 	/** The words naming this work, taken as handed. Exactly one of this and `ticketRef` is given. */
 	title?: string;
+	/** The mode the record is created in, overriding `plan.default-work-order-mode`. Absent for `lightsout work-order new`, which keeps the repository default. */
+	mode?: WorkOrderMode;
 	config: LightsoutConfig;
 	/** The process environment the tracker API key is read from. */
 	env: NodeJS.ProcessEnv;
@@ -101,6 +103,7 @@ export const createWorkOrder = async ({
 	cwd,
 	ticketRef,
 	title,
+	mode,
 	config,
 	env,
 	driver,
@@ -135,7 +138,7 @@ export const createWorkOrder = async ({
 		name: composed.name,
 		change: (current) =>
 			current === undefined
-				? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, config })
+				? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, mode, config })
 				: { error: takenRefusal({ name: composed.name }) },
 	});
 

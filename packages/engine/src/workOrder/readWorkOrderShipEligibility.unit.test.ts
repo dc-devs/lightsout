@@ -74,6 +74,29 @@ const setupPrefixedBranchRecord = (): { record: WorkOrderState } => ({
 	},
 });
 
+/** A record carrying a build from the ticket body at the progress asked for, or none when no progress is given. */
+const setupTicketBodyBuildRecord = ({
+	mode,
+	plans,
+	progress,
+	runId = 'run-body-7',
+}: {
+	mode: WorkOrderState['mode'];
+	plans: WorkOrderPlan[];
+	progress?: 'implementing' | 'implemented' | 'failed';
+	runId?: string;
+}): { record: WorkOrderState } => {
+	const { record } = setupRecord({ mode, plans });
+	const finishedAt = progress === 'implementing' ? {} : { finishedAt: '2026-01-06T00:00:00.000Z' };
+
+	return {
+		record: {
+			...record,
+			...(progress ? { ticketBodyBuild: { runId, progress, startedAt: '2026-01-05T00:00:00.000Z', ...finishedAt } } : {}),
+		},
+	};
+};
+
 describe('readWorkOrderShipEligibility', () => {
 	test('never makes a ticket eligible once its record says it shipped', () => {
 		const { record } = setupRecord({
@@ -231,5 +254,56 @@ describe('readWorkOrderShipEligibility', () => {
 			reason: expect.stringContaining('lightsout work-order request-ship --name lo-140-multi --plans 001-record,002-queue-order'),
 		});
 		expect(JSON.stringify(eligibility)).not.toMatch(/feature\//);
+	});
+
+	test('makes a single-plan ticket with no plan 001 eligible once its build from the ticket body is implemented', () => {
+		const { record: noPlansRecord } = setupTicketBodyBuildRecord({ mode: 'single-plan', plans: [], progress: 'implemented' });
+		const { record: excludedPlanTwoRecord } = setupTicketBodyBuildRecord({
+			mode: 'single-plan',
+			plans: [planWith({ id: '002-queue-order', progress: 'ready', exclusion: exclusionWith({ reason: 'switched to single-plan mode' }) })],
+			progress: 'implemented',
+		});
+
+		const noPlans = readWorkOrderShipEligibility({ record: noPlansRecord });
+		const excludedPlanTwo = readWorkOrderShipEligibility({ record: excludedPlanTwoRecord });
+
+		expect(noPlans).toStrictEqual({ eligible: true });
+		expect(excludedPlanTwo).toStrictEqual({ eligible: true });
+	});
+
+	test('refuses a single-plan ticket with no plan 001 whose build from the ticket body is missing or has not passed, naming its run', () => {
+		const { record: missingRecord } = setupTicketBodyBuildRecord({ mode: 'single-plan', plans: [] });
+		const { record: implementingRecord } = setupTicketBodyBuildRecord({
+			mode: 'single-plan',
+			plans: [],
+			progress: 'implementing',
+			runId: 'run-body-building',
+		});
+		const { record: failedRecord } = setupTicketBodyBuildRecord({ mode: 'single-plan', plans: [], progress: 'failed', runId: 'run-body-failed' });
+
+		const missing = readWorkOrderShipEligibility({ record: missingRecord });
+		const implementing = readWorkOrderShipEligibility({ record: implementingRecord });
+		const failed = readWorkOrderShipEligibility({ record: failedRecord });
+
+		expect(missing).toStrictEqual({ eligible: false, reason: expect.stringContaining('ticket body') });
+		expect(missing).toStrictEqual({ eligible: false, reason: expect.stringContaining('plan 001') });
+		expect(implementing).toStrictEqual({ eligible: false, reason: expect.stringContaining('run-body-building') });
+		expect(failed).toStrictEqual({ eligible: false, reason: expect.stringContaining('run-body-failed') });
+		expect(JSON.stringify([missing, implementing, failed])).not.toMatch(/unfinished/i);
+	});
+
+	test('ignores a ticket body build on a single-plan ticket holding plan 001 and on a multiple-plan ticket', () => {
+		const { record: planOneReadyRecord } = setupTicketBodyBuildRecord({
+			mode: 'single-plan',
+			plans: [planWith({ id: '001-record', progress: 'ready' })],
+			progress: 'implemented',
+		});
+		const { record: multiplePlanRecord } = setupTicketBodyBuildRecord({ mode: 'multiple-plan', plans: [], progress: 'implemented' });
+
+		const planOneReady = readWorkOrderShipEligibility({ record: planOneReadyRecord });
+		const multiplePlan = readWorkOrderShipEligibility({ record: multiplePlanRecord });
+
+		expect(planOneReady).toStrictEqual({ eligible: false, reason: expect.stringContaining('001-record') });
+		expect(multiplePlan).toStrictEqual({ eligible: false, reason: expect.stringContaining('lightsout work-order request-ship') });
 	});
 });

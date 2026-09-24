@@ -464,7 +464,10 @@ A work order is in one of two modes, and its record saves which.
 
 **Single-plan.** Plan 001 alone supplies the ticket's implementation — that one
 plan may still have phases — and the repository's `ship.after-implement` applies
-exactly as it always has.
+exactly as it always has. A single-plan work order holding no plan 001 is
+instead implemented by the queue's build from the ticket body, and ships once
+that build passed. The queue creates the record of a ticket it builds from the
+ticket body in single-plan mode, whatever the repository default is.
 
 **Multiple-plan.** Independent brainstorm and plan iterations accumulate on the
 ticket's one branch, and the ticket ships only once a ship request is satisfied.
