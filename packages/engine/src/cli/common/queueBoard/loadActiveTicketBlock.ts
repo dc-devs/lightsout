@@ -4,6 +4,7 @@ import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShi
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
 import { pathExists } from '#src/plan/index.ts';
+import { QueueWorker } from '#src/queue/index.ts';
 import { isPidAlive, readRunLock } from '#src/runState/index.ts';
 import { readShippingProgress } from '#src/ship/index.ts';
 import { listRuns } from '#src/views/index.ts';
@@ -39,15 +40,16 @@ const loadShippingBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardT
 };
 
 /**
- * The engine run that stands for a ticket's current build: only runs in its
- * own worktree created since the build began count — anything older belongs to
- * an earlier queue invocation. Of those, the one the worktree's run lock names
- * while its process lives (a phase child during a phase, its coordinator
- * between phases), otherwise the newest.
+ * The engine run that stands for a ticket's current build: only runs in the
+ * ticket's own work order folder created since the build began count — the
+ * shared state directory holds every ticket's runs, and anything older in this
+ * folder belongs to an earlier queue invocation. Of those, the one the
+ * worktree's run lock names while its process lives (a phase child during a
+ * phase, its coordinator between phases), otherwise the newest.
  */
-const findBuildRun = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket; worktreePath: string }) => {
+const findBuildRun = async ({ ticket, worktreePath, workOrderName }: { ticket: QueueBoardTicket; worktreePath: string; workOrderName: string }) => {
 	const since = Date.parse(ticket.buildStartedAt ?? ticket.enteredAt);
-	const candidates = (await listRuns({ cwd: worktreePath }))
+	const candidates = (await listRuns({ cwd: worktreePath, workOrderName }))
 		.filter((run) => Date.parse(run.createdAt) >= since)
 		.sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
 	const lock = await readRunLock({ cwd: worktreePath });
@@ -65,8 +67,8 @@ const findBuildRun = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket
  * plan's address. A folder with no record is a plan folder itself and is read
  * exactly as it always was.
  */
-const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: string; planName: string }) => {
-	const read = await readWorkOrderState({ cwd: worktreePath, name: planName });
+const loadPlanningBlock = async ({ worktreePath, workOrderName }: { worktreePath: string; workOrderName: string }) => {
+	const read = await readWorkOrderState({ cwd: worktreePath, name: workOrderName });
 
 	if ('error' in read) {
 		return [read.error];
@@ -75,14 +77,14 @@ const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: str
 	const { record } = read;
 
 	if (record === undefined) {
-		return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+		return loadPlanningProgressBlock({ cwd: worktreePath, name: workOrderName });
 	}
 
 	const waiting = findNextPlanToPlan({ record });
 
 	return waiting === undefined
-		? [`no plan in ${planName} is waiting to be planned`]
-		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName: planName, planId: waiting.id }) });
+		? [`no plan in ${workOrderName} is waiting to be planned`]
+		: loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName, planId: waiting.id }) });
 };
 
 /**
@@ -90,16 +92,21 @@ const loadPlanningBlock = async ({ worktreePath, planName }: { worktreePath: str
  * overview paired with the phase moving now, which the family loader climbs to
  * from the run this build is bound to. Before any run, an auto-plan ticket's
  * planning block, or a notice for any other ticket.
+ *
+ * A board that recorded no work order gets a notice rather than a read of every
+ * run in the repository, which would show whichever ticket's run is newest.
  */
 const loadBuildBlock = async ({ ticket, worktreePath }: { ticket: QueueBoardTicket; worktreePath: string }) => {
-	const run = await findBuildRun({ ticket, worktreePath });
-	const { planName } = ticket;
+	const { workOrderName } = ticket;
+	const run = workOrderName === undefined ? undefined : await findBuildRun({ ticket, worktreePath, workOrderName });
 	let lines: string[];
 
-	if (run !== undefined) {
+	if (workOrderName === undefined) {
+		lines = [`the board recorded no work order for ${ticket.identifier}`];
+	} else if (run !== undefined) {
 		lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
-	} else if (planName !== undefined) {
-		lines = await loadPlanningBlock({ worktreePath, planName });
+	} else if (ticket.worker === QueueWorker.AutoPlan) {
+		lines = await loadPlanningBlock({ worktreePath, workOrderName });
 	} else {
 		lines = [`no engine run has started in ${worktreePath} since ${ticket.identifier}'s build began`];
 	}
@@ -117,9 +124,10 @@ interface Params {
  * `status --run`, `--planning` or `--shipping` form prints for its worktree,
  * or a one-line notice when there is nothing honest to show.
  *
- * It never draws a block of its own. Every run and planning record it reads is
- * the ticket's own worktree's; the shipping record is the branch's, which the
- * reader resolves to the primary checkout from that worktree.
+ * It never draws a block of its own. Runs are read from the ticket's own work
+ * order folder and planning records from its worktree; the shipping record is
+ * the branch's, which the reader resolves to the primary checkout from that
+ * worktree.
  */
 export const loadActiveTicketBlock = async ({ ticket }: Params): Promise<string[]> => {
 	const { worktreePath } = ticket;

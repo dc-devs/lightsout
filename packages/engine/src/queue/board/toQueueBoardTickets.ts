@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
 import type { LiveQueueBoard } from '#src/queue/board/common/types/LiveQueueBoard.ts';
-import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
@@ -24,15 +23,16 @@ type Placed = Omit<QueueBoardTicket, 'enteredAt'>;
 /**
  * Who the ticket is, the worker building it, and where that work lives.
  *
- * `planName` is the work order's LABEL rather than its branch: a plan address
- * is built from the label, and a prefixed branch would not parse as one.
+ * `workOrderName` is the work order's LABEL rather than its branch: a plan
+ * address and a runs folder are both built from the label, and a prefixed
+ * branch would name neither.
  */
 const describeWork = ({ ticket, name, branch, worktreePath }: { ticket: TicketSummary; name: string; branch: string; worktreePath: string }) => ({
 	identifier: ticket.identifier,
 	title: ticket.title,
 	url: ticket.url,
 	worker: ticket.worker,
-	planName: ticket.worker === QueueWorker.AutoPlan ? name : undefined,
+	workOrderName: name,
 	branch,
 	worktreePath,
 });
@@ -59,15 +59,23 @@ const placeBuild = ({ build, live }: { build: BuildInFlight; live: LiveQueueBoar
 
 /** A settled outcome's lane: shipped, blocked when the ticket was only left open, and parked otherwise. */
 const placeOutcome = ({ outcome }: { outcome: WorkOrderRunOutcome }) => {
+	let lane: QueueLane;
+	let reason: string | undefined;
+
 	if (outcome.ready) {
-		return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+		lane = QueueLane.Shipped;
+		reason = outcome.reconciliationFailure;
+	} else if (outcome.open === undefined) {
+		lane = QueueLane.Parked;
+		reason = outcome.error;
+	} else {
+		// Blocked rather than Parked: that lane already holds the tickets waiting on a
+		// human, which is what an open ticket is waiting on.
+		lane = QueueLane.Blocked;
+		reason = outcome.open;
 	}
 
-	// Blocked rather than Parked: that lane already holds the tickets waiting on a
-	// human, which is what an open ticket is waiting on.
-	return outcome.open === undefined
-		? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error }
-		: { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+	return { ...describeWork(outcome), lane, reason };
 };
 
 const placeSettled = ({ settled }: { settled: QueueDrainReport }) => [
