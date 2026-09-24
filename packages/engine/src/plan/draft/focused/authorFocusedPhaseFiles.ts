@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildFocusedPlanWriterInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import {
 	ActivityLevelKind,
 	type ConfigDocs,
@@ -92,7 +93,7 @@ const spawnPhase = async ({
 			overviewText,
 			declaration,
 			previousDeclaration,
-			limits: { executorFileLimit, createdFileCeiling },
+			limits: { executorFileLimit, createdFileCeiling, touchedFileCeiling },
 			standards,
 			docs,
 			contract,

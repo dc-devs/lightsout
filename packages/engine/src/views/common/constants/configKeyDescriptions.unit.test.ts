@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
 import { defaultRefactorMaxRounds } from '#src/common/constants/defaultRefactorMaxRounds.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import { LightsoutConfig } from '#src/contracts/index.ts';
 import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
 
@@ -74,5 +75,17 @@ describe('configKeyDescriptions', () => {
 
 	test('names the worktree switch in the implement sentence, so the table describes every key of the block', () => {
 		expect(configKeyDescriptions.implement).toMatch(/worktree/i);
+	});
+
+	test('names the fixed touched-file ceiling a File Budget cannot lift, so the page cannot promise an unbounded budget', () => {
+		// a sentence presenting `## File Budget` as the only limit on touched files
+		// is what let a 77-file phase through; the number is read from the lint's own
+		// constant so the page and the check cannot drift apart
+		const description = configKeyDescriptions['executor-file-limit'];
+
+		expect(description).toMatch(new RegExp(`\\b${touchedFileCeiling}\\b`));
+		expect(description).toMatch(/touched/i);
+		expect(description).toMatch(/`## File Budget`/);
+		expect(description).toMatch(/renames? ?-?only/i);
 	});
 });

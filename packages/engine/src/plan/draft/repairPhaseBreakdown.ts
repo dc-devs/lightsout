@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 import type { ActivityLevel } from '#src/activity/index.ts';
 import { buildPlanReshapeInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import { ActivityLevelKind, type Effort, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { getAgentOutcomeStatus } from '#src/invoke/index.ts';
@@ -68,6 +69,7 @@ const runReshapeAttempt = async ({ params, findings, attempt }: { params: Params
 			findings,
 			planPaths: [overviewPath],
 			createdFileCeiling,
+			touchedFileCeiling,
 			decisionsPath: join(workspaceDir, 'decisions.json'),
 			brainstormDecisionsPath,
 			factsPath: join(workspaceDir, 'facts.json'),

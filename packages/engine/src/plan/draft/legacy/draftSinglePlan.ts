@@ -19,15 +19,15 @@ interface Params {
  * Draft a single plan, with one escape.
  *
  * A single plan cannot be split by the structural repairer — the engine hands it
- * exactly one output path — so a busted created-file ceiling is the one blocking
- * finding that loop can never resolve. Rather than dead-ending on a defect the
- * engine can work out itself, the draft re-runs once as phased from the same
- * facts and decisions. That is reachable in ordinary use: the scope estimate
+ * exactly one output path — so a busted created-file or touched-file ceiling is
+ * the blocking finding that loop can never resolve. Rather than dead-ending on
+ * a defect the engine can work out itself, the draft re-runs once as phased from
+ * the same facts and decisions. That is reachable in ordinary use: the scope estimate
  * counts only the paths the verified facts name, and those carry no
  * create-paths, so a plan estimated as comfortably single can still author forty
  * new files. The phased flow never escalates back, so the retry is taken at most
- * once, and only for this one check — every other structural defect is the
- * repair loop's job.
+ * once, and only for the two ceiling checks — every other structural defect is
+ * the repair loop's job.
  */
 export const draftSinglePlan = async ({ context }: Params): Promise<RunPlanDraftResult> => {
 	const { cwd, name, workspaceDir, decisions, progress } = context;
@@ -57,7 +57,9 @@ export const draftSinglePlan = async ({ context }: Params): Promise<RunPlanDraft
 	await syncPlanDecisions({ cwd, name, planPaths, decisions });
 
 	const converged = await convergePlanStructure({ context, planPaths, variant: PlanVariant.Single, reports: [report], advisories });
-	const overCeiling = converged.blocking.find((finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling);
+	const overCeiling = converged.blocking.find(
+		(finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling || finding.check === StructuralCheck.TouchedFilesWithinCeiling,
+	);
 
 	if (overCeiling) {
 		progress(`plan draft ${name}: ${overCeiling.issue} — deleting ${outputs[0].path} and re-drafting phased`);

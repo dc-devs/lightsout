@@ -1,4 +1,5 @@
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
@@ -11,11 +12,14 @@ interface Params {
 }
 
 /**
- * The two size numbers. The created-file count is a real ceiling and is never
- * declarable; the touched count is advisory and measured against whatever this
- * plan declares for itself, because a phase that creates three files and renames
- * an import across two hundred is legitimate work one repo-wide number cannot
- * express.
+ * The three size numbers: two fixed ceilings and one advisory budget. The
+ * created-file count and the touched count each have a real ceiling that no
+ * declaration raises. The touched count is also measured against whatever
+ * budget this plan declares for itself, as an advisory note that reads beside
+ * the ceiling rather than in place of it.
+ *
+ * A rename-only plan (one with a `## Renames` section) is exempt from the
+ * touched ceiling, because a repo-wide rename's size is not what makes it hard.
  */
 export const checkPlanSizes = ({ phase, fileLimit, counts }: Params): StructuralFinding[] => {
 	const findings: StructuralFinding[] = [];
@@ -30,6 +34,17 @@ export const checkPlanSizes = ({ phase, fileLimit, counts }: Params): Structural
 			issue: `plan creates ${created} source files, over the ${createdFileCeiling}-file ceiling`,
 			location: phase.base,
 			fix: `split the phase so it creates no more than ${createdFileCeiling} files`,
+		});
+	}
+
+	if (touched > touchedFileCeiling && phase.plan.renames.length === 0) {
+		findings.push({
+			check: StructuralCheck.TouchedFilesWithinCeiling,
+			severity: FindingSeverity.Blocking,
+			phase: phase.base,
+			issue: `plan touches ${touched} source files, over the ${touchedFileCeiling}-file ceiling`,
+			location: phase.base,
+			fix: `split the phase so it touches no more than ${touchedFileCeiling} files — or, if its whole work is renaming, declare it rename-only with a '## Renames' section`,
 		});
 	}
 

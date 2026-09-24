@@ -29,6 +29,7 @@ export const StructuralCheck = {
 	HandoffChained: 'handoff-chained',
 	DeclarationConsistent: 'declaration-consistent',
 	CreatedFilesWithinCeiling: 'created-files-within-ceiling',
+	TouchedFilesWithinCeiling: 'touched-files-within-ceiling',
 	PhaseCount: 'phase-count',
 	MoveWellFormed: 'move-well-formed',
 	LedgerWellFormed: 'ledger-well-formed',

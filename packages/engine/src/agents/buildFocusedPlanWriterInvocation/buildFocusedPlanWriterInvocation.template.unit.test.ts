@@ -22,7 +22,7 @@ const setupFocusedInvocation = (
 		facts: planFacts(),
 		decisions: focusedDecisions(),
 		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/plan.md', variant: PlanVariant.Single }],
-		limits: { executorFileLimit: 50, createdFileCeiling: 30 },
+		limits: { executorFileLimit: 50, createdFileCeiling: 30, touchedFileCeiling: 70 },
 		...overrides,
 	});
 
@@ -184,5 +184,33 @@ test('the focused overview brief hands the phase row and declaration pairing to 
 		namesThePhaseDeclarations: true,
 		saysTheEngineNormalisesThePairing: true,
 		repeatsTheHandReconciliationRule: false,
+	});
+});
+
+test('the focused contract template states the touched-file ceiling from limits', () => {
+	const template = planTemplateOf(
+		setupFocusedInvocation({ contract: true, limits: { executorFileLimit: 50, createdFileCeiling: 30, touchedFileCeiling: 45 } }),
+	);
+
+	const [rules = ''] = template.split('\n\n---\n\n');
+	const touchedRule = rules.split('\n- **').find((bullet) => bullet.startsWith('Touched files counted')) ?? '';
+	const fileBudgetSection = template.split('\n## File Budget\n')[1]?.split('\n## ')[0] ?? '';
+	const declarationsNoteStart = template.indexOf('never raises the created-file ceiling');
+	const declarationsNote = declarationsNoteStart === -1 ? '' : template.slice(declarationsNoteStart, template.indexOf('\n\n', declarationsNoteStart));
+
+	expect({
+		// the touched ceiling reaches the writer as the configured number in all three places it is stated
+		touchedRuleStatesTheCeiling: /\b45\b/.test(touchedRule),
+		fileBudgetSectionStatesTheCeiling: /\b45\b/.test(fileBudgetSection),
+		declarationsNoteStatesTheCeiling: /\b45\b/.test(declarationsNote),
+		// and no token survives into what the agent reads
+		leavesAStandingToken: template.includes('{{'),
+		leavesTheTokenName: template.includes('touchedFileCeiling'),
+	}).toEqual({
+		touchedRuleStatesTheCeiling: true,
+		fileBudgetSectionStatesTheCeiling: true,
+		declarationsNoteStatesTheCeiling: true,
+		leavesAStandingToken: false,
+		leavesTheTokenName: false,
 	});
 });

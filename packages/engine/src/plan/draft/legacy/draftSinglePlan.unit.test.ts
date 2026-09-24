@@ -27,6 +27,18 @@ const planCreating = ({ extra }: { extra: number }) => {
 	return cleanPlanBody().replace('## Files to Modify', `${creates}\n## Files to Modify`);
 };
 
+/**
+ * The clean single skeleton with `extra` further modified files, each a distinct
+ * path so the touched count is 1 + `extra` — the skeleton's modified
+ * `src/index.js` is a barrel the lint does not count. 70 is the hard touched
+ * ceiling, and the skeleton's one create keeps the plan far under the created one.
+ */
+const planTouching = ({ extra }: { extra: number }) => {
+	const modifies = Array.from({ length: extra }, (_, index) => `### \`src/touched${index}.ts\`\n\nRename an import in \`touched${index}\`.\n`).join('\n');
+
+	return cleanPlanBody().replace('## Patterns to Mirror', `${modifies}\n## Patterns to Mirror`);
+};
+
 /** A plan-writer report as the harness returns it — `filesWritten` is what the engine then verifies against disk. */
 const draftReport = ({ status, filesWritten, discrepancies = [] }: { status: string; filesWritten: string[]; discrepancies?: string[] }) =>
 	JSON.stringify({
@@ -191,6 +203,44 @@ describe('draftSinglePlan', () => {
 		// `resolvePlanDeliverable` short-circuits on plan.md, so a surviving single
 		// draft would shadow the phases from grade, dedup and implement alike — and
 		// the legacy phased flow never escalates back, so one overview is paid for
+		expect({
+			single: existsSync(join(planDir, 'plan.md')),
+			overview: existsSync(join(planDir, 'overview.md')),
+			phase: existsSync(join(planDir, 'phase1-core.md')),
+			variant: result.variant,
+			implementation: result.implementation,
+			overviewSpawns: roles.filter((role) => role === 'overview').length,
+		}).toStrictEqual({ single: false, overview: true, phase: true, variant: 'overview', implementation: 'legacy', overviewSpawns: 1 });
+	});
+
+	test('escalates once to a legacy phased re-draft when the touched-file ceiling is busted', async () => {
+		// A single plan touching more files than one implementing agent can finish
+		// is as unsplittable by its repair loop as one creating too many — so a
+		// busted touched-file ceiling takes the same one-time phased re-draft.
+		const roles: DraftRole[] = [];
+		const { context, planDir } = setupLegacySingle({
+			name: 'legacy-touched-escalated',
+			driver: createScriptedDraftDriver({
+				onCall: ({ role }) => roles.push(role),
+				respond: ({ role, path }) => {
+					if (role === 'single') {
+						return planTouching({ extra: 70 });
+					}
+
+					return role === 'overview'
+						? overviewBody({ rows: [phaseRow()] })
+						: role === 'phase'
+							? cleanPlanBody({ reference: true })
+							: unchangedFixReport({ path });
+				},
+			}),
+		});
+
+		const result = await draftSinglePlan({ context });
+
+		expectStatus(result, 'complete');
+		// 1 create + 70 distinct modifies is 71 touched against a 70-file ceiling:
+		// the single draft is deleted and exactly one phased overview replaces it
 		expect({
 			single: existsSync(join(planDir, 'plan.md')),
 			overview: existsSync(join(planDir, 'overview.md')),

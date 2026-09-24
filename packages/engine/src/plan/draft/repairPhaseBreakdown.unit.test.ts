@@ -296,4 +296,29 @@ describe('repairPhaseBreakdown', () => {
 		expect(prompts[0]).toContain(join(overview.workspaceDir, 'brainstorm-decisions.json'));
 		expect(prompts[0]).toContain(`[${StructuralCheck.CreatedFilesWithinCeiling}]`);
 	});
+
+	test('the reshaper is told the touched ceiling the breakdown check applies', async () => {
+		const overview = setupOverview({ overview: overviewBody({ rows: [{ number: 1, file: 'phase1-step.md', created: 1, touched: 71 }] }) });
+		const prompts: string[] = [];
+		const driver = reshapeDriver({
+			bodies: [
+				overviewBody({
+					rows: [
+						{ number: 1, file: 'phase1-step.md', created: 1, touched: 36 },
+						{ number: 2, file: 'phase2-step.md', created: 0, touched: 35 },
+					],
+				}),
+			],
+			onCall: (prompt) => prompts.push(prompt),
+		});
+
+		const result = await run({ ...overview, driver });
+
+		expectStatus(result, 'complete');
+		// the reshaper splits against the same touched number the check applies,
+		// and is told which finding it is being spent on
+		const touchedSection = /## Touched-file ceiling\n\n([\s\S]*?)(?:\n\n## |$)/.exec(prompts[0] ?? '')?.[1] ?? '';
+		expect(touchedSection).toMatch(/\b70\b/);
+		expect(prompts[0]).toContain('[touched-files-within-ceiling]');
+	});
 });

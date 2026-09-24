@@ -1,4 +1,5 @@
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
@@ -87,16 +88,18 @@ const shapeDefects = ({ declarations }: { declarations: PhaseDeclaration[] }) =>
 	}).map((defect) => ({ check: StructuralCheck.DeclarationConsistent, severity: FindingSeverity.Blocking, ...defect }));
 
 /**
- * The two size numbers, read from the declaration alone. This is the only
- * created-file check that runs before any phase file exists, so a count that
- * cannot be read has to stop the run rather than wave the phase through — the
- * reshaper's job then includes writing a real number.
+ * The size numbers, read from the declaration alone: the created-file ceiling,
+ * the touched-file ceiling (which a phase declared `Renames only` is exempt
+ * from), and the advisory budget. This is the only size check that runs before
+ * any phase file exists, so a count that cannot be read has to stop the run
+ * rather than wave the phase through — the reshaper's job then includes writing
+ * a real number.
  */
 const sizeDefects = ({ declarations, executorFileLimit }: { declarations: PhaseDeclaration[]; executorFileLimit: number }) => {
 	const defects: Defect[] = [];
 
 	for (const declaration of declarations) {
-		const { file, createdCount, touchedCount, fileBudget } = declaration;
+		const { file, createdCount, touchedCount, fileBudget, renamesOnly } = declaration;
 		const budget = fileBudget ?? executorFileLimit;
 
 		for (const { label } of [
@@ -119,6 +122,16 @@ const sizeDefects = ({ declarations, executorFileLimit }: { declarations: PhaseD
 				issue: `${file} is declared to create ${createdCount} source files, over the ${createdFileCeiling}-file ceiling`,
 				location: `Phases → ${file}`,
 				fix: `split this phase into two in the '## Phases' table and '## Phase Declarations'`,
+			});
+		}
+
+		if (touchedCount !== undefined && touchedCount > touchedFileCeiling && renamesOnly !== true) {
+			defects.push({
+				check: StructuralCheck.TouchedFilesWithinCeiling,
+				severity: FindingSeverity.Blocking,
+				issue: `${file} is declared to touch ${touchedCount} source files, over the ${touchedFileCeiling}-file ceiling`,
+				location: `Phases → ${file}`,
+				fix: `split this phase in the '## Phases' table and '## Phase Declarations' so each touches no more than ${touchedFileCeiling} files — or, if its whole work is renaming, declare it with the '- **Renames only:** yes' bullet instead`,
 			});
 		}
 

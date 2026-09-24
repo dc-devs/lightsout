@@ -8,6 +8,8 @@ interface Params {
 	planPaths: string[];
 	/** The hard per-phase created-file ceiling, stated so the reshaper splits against the same number the check applies. */
 	createdFileCeiling: number;
+	/** The hard per-phase touched-file ceiling, stated so the reshaper splits against the same number the check applies. */
+	touchedFileCeiling: number;
 	/** Absolute path of the workspace's decisions.json — the reshaper Reads it on demand. */
 	decisionsPath: string;
 	/** Absolute path of the workspace's brainstorm-decisions.json when one exists — the reshaper Reads it on demand. */
@@ -19,7 +21,7 @@ interface Params {
 /**
  * Assemble one phase-breakdown reshape invocation deterministically: the
  * findings (with their exact fix strings), the overview path to edit in place,
- * the ceiling every phase must come in under, and the facts/decisions as
+ * the ceilings every phase must come in under, and the facts/decisions as
  * *paths* the reshaper Reads only when a re-split needs their content.
  *
  * A sibling of `buildPlanRepairInvocation` rather than a use of it: that
@@ -32,6 +34,7 @@ export const buildPlanReshapeInvocation = ({
 	findings,
 	planPaths,
 	createdFileCeiling,
+	touchedFileCeiling,
 	decisionsPath,
 	brainstormDecisionsPath,
 	factsPath,
@@ -46,6 +49,7 @@ export const buildPlanReshapeInvocation = ({
 		`# Reshape input`,
 		`## Overview file to reshape (Edit in place)\n\n- ${planPaths.join('\n- ')}`,
 		`## Created-file ceiling\n\nNo phase may declare more than ${createdFileCeiling} created source files. This is fixed and no declaration raises it.`,
+		`## Touched-file ceiling\n\nNo phase may declare more than ${touchedFileCeiling} touched source files, and a \`## File Budget\` never raises that. The only exemption is a phase whose declaration block carries \`- **Renames only:** yes\`, and that bullet is only for a phase whose whole work is renaming.`,
 		`## Breakdown findings to resolve\n\n${findingLines.join('\n')}`,
 		`## Reference files (Read on demand)\n\n${referenceLines.join('\n')}`,
 		'Remember: re-split the phase breakdown, touch nothing else, then your entire final message must be exactly one JSON PlanFixReport object — nothing else.',

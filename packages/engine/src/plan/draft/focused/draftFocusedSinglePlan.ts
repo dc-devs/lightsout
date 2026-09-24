@@ -33,11 +33,11 @@ interface Params {
  * standalone plan has no overview to render a phase table into.
  *
  * A single plan cannot be split by the structural repairer — the engine hands it
- * exactly one output path — so a busted created-file ceiling is the one blocking
- * finding that loop can never resolve. Rather than dead-ending on a defect the
- * engine can work out itself, the draft re-runs once as phased from the same
- * facts and decisions. The phased flow never escalates back, so the retry is
- * taken at most once, and only for this one check.
+ * exactly one output path — so a busted created-file or touched-file ceiling is
+ * the blocking finding that loop can never resolve. Rather than dead-ending on
+ * a defect the engine can work out itself, the draft re-runs once as phased from
+ * the same facts and decisions. The phased flow never escalates back, so the retry is
+ * taken at most once, and only for these two checks.
  */
 export const draftFocusedSinglePlan = async ({ context }: Params): Promise<RunPlanDraftResult> => {
 	const { cwd, name, workspaceDir, decisions, evidence, progress } = context;
@@ -76,7 +76,9 @@ export const draftFocusedSinglePlan = async ({ context }: Params): Promise<RunPl
 		advisories,
 		mechanicalRepair: true,
 	});
-	const overCeiling = converged.blocking.find((finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling);
+	const overCeiling = converged.blocking.find(
+		(finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling || finding.check === StructuralCheck.TouchedFilesWithinCeiling,
+	);
 
 	if (overCeiling) {
 		progress(`plan draft ${name}: ${overCeiling.issue} — deleting ${outputs[0].path} and re-drafting phased`);

@@ -151,10 +151,11 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
  * repo-rooted is resolved against a repo index read once per run instead of
  * being `stat`ed. Every verification script is looked up in a package.json
  * (honoring `config.gates` full-command overrides), placeholders and required
- * sections are matched textually, and the two size numbers are checked: a
- * blocking ceiling on the files a plan CREATES, and an advisory note on every
- * source file it touches. The `naming-matches` check no-ops without a
- * machine-checkable convention (the facts' `namingConvention` is free-text
+ * sections are matched textually, and the size numbers are checked: a
+ * blocking ceiling on the files a plan CREATES, a blocking ceiling on every
+ * source file it touches (a rename-only plan is exempt), and an advisory note
+ * on its touched count against its budget. The `naming-matches` check no-ops
+ * without a machine-checkable convention (the facts' `namingConvention` is free-text
  * prose), and `packages-identifiable` only fires on a malformed `packagesDir/`
  * path — both are conservative by design, never guessing.
  *

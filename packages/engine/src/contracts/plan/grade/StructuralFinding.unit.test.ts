@@ -57,6 +57,21 @@ describe('StructuralFinding', () => {
 		}
 	});
 
+	test('check accepts the touched-file ceiling the plan lint now reports', () => {
+		const { finding } = setupFinding({
+			check: 'touched-files-within-ceiling',
+			issue: 'plan touches 71 source files, over the 70-file ceiling',
+			location: 'plan.md',
+			fix: 'split the phase, or declare it rename-only with a ## Renames section',
+		});
+
+		const parsed = StructuralFinding.parse(finding);
+
+		// the closed check set must admit the id checkPlanSizes and checkPhaseBreakdown
+		// report when a plan or phase touches more files than one run can finish
+		expect(parsed.check).toBe('touched-files-within-ceiling');
+	});
+
 	test('rejects a check outside the structural lint set', () => {
 		const { finding } = setupFinding({ check: 'imports-resolve' });
 

@@ -1,3 +1,5 @@
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
+
 /**
  * What each live `lightsout.config.json` key is for, in the schema's own words.
  *
@@ -41,8 +43,7 @@ export const configKeyDescriptions: Record<string, string> = {
 		'Path prefixes of third-party code the repo vendors in rather than writes, such as a shadcn/ui component folder. Excluded from the source walk exactly as `generated` is, so the standards never judge it, no test is written for it and no refactor pass touches it — with one difference: a vendored file IS attributed when it changes, because no source in the repo produced it. Excluding it from a coverage threshold is your test runner’s job, not the engine’s.',
 	'coverage-summary-path':
 		'Path to the JSON coverage summary the coverage tooling writes — the `json-summary` reporter’s `coverage-summary.json`, which `lightsout test-coverage-to-threshold` reads for per-file percentages. Defaults to `coverage/coverage-summary.json`, repo-relative in single-package repos and package-relative in monorepo mode. The file is the tool-agnostic contract, so a printed coverage table changing format never breaks a run.',
-	'executor-file-limit':
-		'How many source files one plan or phase may create or modify before the feature executor refuses it as out of scope. Defaults to 50. One key rather than a number per reader, so the plan lint, the scope estimate and the executor’s own stop rule agree by construction. A plan that is mostly mechanical edits raises its own allowance with a `## File Budget` section rather than moving this key; the separate ceiling on files a plan creates is fixed and cannot be raised either way.',
+	'executor-file-limit': `How many source files one plan or phase may create or modify before the feature executor refuses it as out of scope. Defaults to 50. One key rather than a number per reader, so the plan lint, the scope estimate and the executor’s own stop rule agree by construction. A plan that is mostly mechanical edits raises its own allowance with a \`## File Budget\` section rather than moving this key, but a \`## File Budget\` cannot lift a plan or phase past the fixed touched-file ceiling of ${touchedFileCeiling} source files unless that plan or phase is rename-only; the separate ceiling on files a plan creates is fixed and cannot be raised either way.`,
 	'packages-dir': 'Directory holding workspace packages, for monorepo scoped gates. Defaults to `packages`.',
 	'package-gates':
 		'Monorepo scoped gate templates — the per-package commands `{package}` is substituted into. Each template runs once per affected package, so a gate runs only for the packages a change touched.',

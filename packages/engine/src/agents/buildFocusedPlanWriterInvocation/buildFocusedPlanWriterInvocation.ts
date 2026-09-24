@@ -25,7 +25,7 @@ interface Params {
 	/** The previous phase's declaration row. Absent for phase 1. */
 	previousDeclaration?: PhaseDeclaration;
 	/** Numbers the template's size rules are stated with. */
-	limits: { executorFileLimit: number; createdFileCeiling: number };
+	limits: { executorFileLimit: number; createdFileCeiling: number; touchedFileCeiling: number };
 	/** Supplemental code standards, inlined verbatim. */
 	standards?: string;
 	/** Exact self-lint command the writer runs before reporting. */
@@ -92,7 +92,7 @@ export const buildFocusedPlanWriterInvocation = ({
 	}
 
 	if (declaration && overviewText !== undefined) {
-		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration }));
+		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration, touchedFileCeiling: limits.touchedFileCeiling }));
 	}
 
 	if (evidenceBrief) {
@@ -133,6 +133,7 @@ export const buildFocusedPlanWriterInvocation = ({
 		tokens: {
 			fileLimit: limits.executorFileLimit,
 			createdFileCeiling: limits.createdFileCeiling,
+			touchedFileCeiling: limits.touchedFileCeiling,
 			documentationRule: documentationRule({ docs }),
 		},
 	});

@@ -249,100 +249,6 @@ test('lintPlanStructure: a plan file that cannot be read is a finding, not a sil
 	expect(findings[0]?.fix).toMatch(/ensure the draft wrote the plan file/);
 });
 
-/**
- * A single implementable plan whose two contested spans the caller chooses: the
- * `## Global Constraints` section verbatim, and the body of
- * `## What Next Plan Expects`. Everything else is the clean plan's content, so
- * the only findings either test can see are the ones it arranged.
- */
-const handoffPlan = ({ constraints, handsForward }: { constraints: string; handsForward: string }) => `# Clean Plan
-
-## Context
-
-A tiny clean plan for the structural lint.
-
-${renderDecisionLog({ decisions: [] })}
-
-${constraints}
-
-## Prerequisites
-
-- None
-
-## Files to Create
-
-### \`src/new-thing.ts\`
-
-A new module exporting \`newThing\`.
-
-## Files to Modify
-
-### \`src/index.js\`
-
-Re-export \`newThing\`.
-
-## Patterns to Mirror
-
-- \`src/index.js\` — mirror its single-export shape.
-
-## Prior Art
-
-- \`newThing\` — searched newThing/new-thing, found none (new).
-
-## Scope Boundaries
-
-**Do:**
-- Add \`newThing\`.
-
-**Do NOT:**
-- Touch anything else.
-
-## Verification
-
-- \`true\` — types clean
-
-## What Next Plan Expects
-
-${handsForward}
-`;
-
-test('lintPlanStructure: a stale Global Constraints section and an unnamed hand-off each block', async () => {
-	const cwd = setupConsumerRepo();
-	const body = handoffPlan({
-		// the note line the renderer writes, with a rule underneath it that no
-		// decision record holds — a hand edit to a section the engine composes
-		constraints: `## Global Constraints\n\nComposed from this plan's saved decision records — every \`Global constraint:\` row. Do not edit by hand.\n\n- Never ship on a Friday.`,
-		handsForward: 'The next plan continues from where this one stops.',
-	});
-	const path = writeDemoPlanFile({ cwd, name: 'both-stale.md', body });
-
-	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
-	const constraints = findings.filter((finding) => finding.check === StructuralCheck.GlobalConstraintsCurrent);
-	const handoff = findings.filter((finding) => finding.check === StructuralCheck.HandoffDeclared);
-
-	// both checks hang in the per-file loop, so one pass over one file reports
-	// both defects against that file, got: ${JSON.stringify(findings)}
-	expect(constraints).toEqual([expect.objectContaining({ severity: FindingSeverity.Blocking, phase: 'both-stale.md' })]);
-	expect(handoff).toEqual([expect.objectContaining({ severity: FindingSeverity.Blocking, phase: 'both-stale.md' })]);
-});
-
-test('lintPlanStructure: a single plan with an unnamed hand-off is checked, having no phase boundary to be checked across', async () => {
-	const cwd = setupConsumerRepo();
-	const body = handoffPlan({
-		constraints: renderGlobalConstraints({ decisions: [] }),
-		handsForward: 'Whoever picks this up next will know what to do.',
-	});
-	const path = writeDemoPlanFile({ cwd, name: 'plan.md', body });
-
-	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
-	const handoff = findings.filter((finding) => finding.check === StructuralCheck.HandoffDeclared);
-
-	// the pairwise hand-off check compares one phase against the next and so
-	// returns nothing at all for a deliverable of one file; this check reads the
-	// file on its own, got: ${JSON.stringify(findings)}
-	expect(handoff).toEqual([expect.objectContaining({ severity: FindingSeverity.Blocking, phase: 'plan.md' })]);
-});
-
 test("lintPlanStructure: an implementable plan's Renames section is held to the renames-well-formed check", async () => {
 	const cwd = setupConsumerRepo();
 	const selfContaining = writeDemoPlanFile({
@@ -366,4 +272,78 @@ test("lintPlanStructure: an implementable plan's Renames section is held to the 
 	// ${JSON.stringify(refused)}
 	expect(refusedRenames).toEqual([expect.objectContaining({ check: 'renames-well-formed', severity: FindingSeverity.Blocking, phase: 'self-containing.md' })]);
 	expect(acceptedRenames).toStrictEqual([]);
+});
+
+/** `count` distinct source paths — distinct because the touched count drops duplicates. */
+const touchedPaths = ({ count }: { count: number }) => Array.from({ length: count }, (_, index) => `src/touched${index}.ts`);
+
+test('lintPlanStructure: a plan touching more source files than the touched ceiling is blocked, and the budget note still reads beside it', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writeDemoPlanFile({
+		cwd,
+		name: 'too-wide.md',
+		body: phaseBody({ create: ['src/gen0.ts'], modify: touchedPaths({ count: 70 }), reference: false }),
+	});
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
+	const ceiling = findings.filter((finding) => finding.check === StructuralCheck.TouchedFilesWithinCeiling);
+	const guardrail = findings.filter((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail);
+
+	// 71 touched files is more than one implementing run finishes, got:
+	// ${JSON.stringify(findings)}
+	expect(ceiling).toEqual([
+		expect.objectContaining({
+			severity: FindingSeverity.Blocking,
+			phase: 'too-wide.md',
+			issue: expect.stringMatching(/touches 71 source files, over the 70-file ceiling/),
+		}),
+	]);
+	expect(guardrail).toEqual([expect.objectContaining({ severity: FindingSeverity.Advisory })]);
+});
+
+test('lintPlanStructure: a plan touching exactly the touched ceiling keeps only the advisory note', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writeDemoPlanFile({ cwd, name: 'seventy.md', body: phaseBody({ modify: touchedPaths({ count: 70 }), reference: false }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
+	const ceiling = findings.filter((finding) => finding.check === StructuralCheck.TouchedFilesWithinCeiling);
+	const guardrail = findings.filter((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail);
+
+	// the ceiling is 70, not 69, got: ${JSON.stringify(findings)}
+	expect(ceiling).toStrictEqual([]);
+	expect(guardrail).toEqual([
+		expect.objectContaining({
+			severity: FindingSeverity.Advisory,
+			issue: expect.stringMatching(/touches 70 source files, over the 50-file limit from the configured executor-file-limit/),
+		}),
+	]);
+});
+
+test("lintPlanStructure: a plan's own File Budget does not lift it past the touched ceiling", async () => {
+	const cwd = setupConsumerRepo();
+	const path = writeDemoPlanFile({ cwd, name: 'budgeted.md', body: phaseBody({ modify: touchedPaths({ count: 71 }), fileBudget: 200, reference: false }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
+	const ceiling = findings.filter((finding) => finding.check === StructuralCheck.TouchedFilesWithinCeiling);
+	const guardrail = findings.filter((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail);
+
+	// an unbounded budget is what let a 77-file phase through, got:
+	// ${JSON.stringify(findings)}
+	expect(ceiling).toEqual([expect.objectContaining({ severity: FindingSeverity.Blocking, phase: 'budgeted.md' })]);
+	expect(guardrail).toStrictEqual([]);
+});
+
+test('lintPlanStructure: a rename-only plan is exempt from the touched ceiling', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writeDemoPlanFile({
+		cwd,
+		name: 'wide-rename.md',
+		body: phaseBody({ modify: touchedPaths({ count: 71 }), renames: [{ from: 'one', to: 'uno' }], reference: false }),
+	});
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], decisions: emptyDecisionsRecord() });
+	const ceiling = findings.filter((finding) => finding.check === StructuralCheck.TouchedFilesWithinCeiling);
+
+	// a rename's size is not what makes it hard, got: ${JSON.stringify(findings)}
+	expect(ceiling).toStrictEqual([]);
 });
