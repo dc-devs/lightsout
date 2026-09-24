@@ -79,6 +79,7 @@ const setupAttempt = ({
 					// the reservation sets it.
 					failedFamilies: gateError !== undefined && coordination === undefined ? ['test'] : [],
 					crashes: [],
+					timeouts: [],
 					coordination,
 				}),
 				finish,

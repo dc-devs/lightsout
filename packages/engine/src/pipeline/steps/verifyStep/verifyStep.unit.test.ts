@@ -157,7 +157,7 @@ describe('verifyStep', () => {
 		const gateError =
 			'gate-overrides named no gate this run could execute: check, test-e2e — every named gate is absent from the group(s) that ran at this checkpoint';
 		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
-			result: { error: gateError, failedFamilies: [], crashes: [], coordination: undefined, failures: [] },
+			result: { error: gateError, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [] },
 		});
 
 		const escalation = await verifyStep({
@@ -182,7 +182,7 @@ describe('verifyStep', () => {
 		const coordination =
 			'another gate run holds this machine: run run-7 in worktree /repo/.worktrees/lo-42, holding the reservation for 31m — the wait of 30m expired';
 		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
-			result: { error: 'gates did not run', failedFamilies: [], crashes: [], coordination, failures: [] },
+			result: { error: 'gates did not run', failedFamilies: [], crashes: [], timeouts: [], coordination, failures: [] },
 		});
 
 		const escalation = await verifyStep({
@@ -206,8 +206,8 @@ describe('verifyStep', () => {
 
 	test('verifyStep: an ordinary red with a failed family still spends the cheap repair budget', async () => {
 		const { run, manifest, agentSinks, roleInvocations, stopped } = setupRepairableRun({
-			red: { error: 'test suite failed', failedFamilies: ['test'], crashes: [], coordination: undefined, failures: [] },
-			green: { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [] },
+			red: { error: 'test suite failed', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined, failures: [] },
+			green: { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [] },
 		});
 
 		const outcome = await verifyStep({
@@ -235,7 +235,7 @@ describe('verifyStep', () => {
 			'another gate run holds this machine: run run-7 in worktree /repo/.worktrees/lo-42, holding the reservation for 31m — the wait of 30m expired';
 		const holdFailure = "the 'queue-blocked-gate-timed-out' label could not be written: the tracker answered 403 forbidden";
 		const { run, stopped } = setupVerifyRun({
-			result: { error: 'gates did not run', failedFamilies: [], crashes: [], coordination, failures: [] },
+			result: { error: 'gates did not run', failedFamilies: [], crashes: [], timeouts: [], coordination, failures: [] },
 			ticketRef: 'LO-118',
 			holdFailure,
 		});
@@ -259,5 +259,95 @@ describe('verifyStep', () => {
 		expect(escalation?.error).toEqual(expect.stringContaining(holdFailure));
 		expect(escalation?.error).toEqual(expect.stringContaining(coordination));
 		expect(stopped()?.status).toBe(RunStatus.Escalated);
+	});
+
+	test('verifyStep: a gate that ran past its ceiling stops escalated without spending a fix agent or a supervisor', async () => {
+		const timeout = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
+			result: {
+				error: 'test-e2e: exit -1 (timeout at the 15-minute ceiling)',
+				failedFamilies: [],
+				crashes: [],
+				timeouts: [timeout],
+				coordination: undefined,
+				failures: [],
+			},
+		});
+
+		const escalation = await verifyStep({
+			run,
+			planContent: '# Plan',
+			id: 'verify-implement',
+			acceptanceTests: () => [],
+			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
+		})();
+
+		// A gate stopped by its own ceiling returned no verdict about the code, so
+		// the run ends for the human naming the timeout: it may not read as a red
+		// that survived the repair budget, because no fix was spent on it.
+		expect(escalation?.error).toEqual(expect.stringContaining(timeout));
+		expect(stopped()?.status).toBe(RunStatus.Escalated);
+		expect(stopped()?.error).toEqual(expect.not.stringContaining('still failing after retries'));
+		expect(roleInvocations).toStrictEqual([]);
+		expect(agentSinks).toStrictEqual([]);
+	});
+
+	test('verifyStep: a timeout beside a failed family still spends no fix, because the run has no whole verdict', async () => {
+		const timeout = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
+			result: {
+				error: 'check: exit 1\n\ntest-e2e: exit -1 (timeout at the 15-minute ceiling)',
+				failedFamilies: ['check'],
+				crashes: [],
+				timeouts: [timeout],
+				coordination: undefined,
+				failures: [],
+			},
+		});
+
+		const escalation = await verifyStep({
+			run,
+			planContent: '# Plan',
+			id: 'verify-implement',
+			acceptanceTests: () => [],
+			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
+		})();
+
+		// Verification runs every gate, so a failed family can sit beside a gate
+		// that never finished. The failed family alone would be repaired, but the
+		// run holds no whole verdict: no fix role is invoked on it and no
+		// supervisor is consulted, and the run stops naming the timeout.
+		expect(roleInvocations).toStrictEqual([]);
+		expect(agentSinks).toStrictEqual([]);
+		expect(stopped()?.status).toBe(RunStatus.Escalated);
+		expect(escalation?.error).toEqual(expect.stringContaining(timeout));
+	});
+
+	test('verifyStep: a crash and a timeout in one run stop on the crash first, with the full output beside it', async () => {
+		const crash = 'test crashed: every attempt died in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+		const timeout = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+		const gateOutput = 'test: exit 139 (SIGSEGV)\n\ntest-e2e: exit -1 (timeout at the 15-minute ceiling)';
+		const { run, roleInvocations, stopped } = setupVerifyRun({
+			result: { error: gateOutput, failedFamilies: [], crashes: [crash], timeouts: [timeout], coordination: undefined, failures: [] },
+		});
+
+		await verifyStep({
+			run,
+			planContent: '# Plan',
+			id: 'verify-implement',
+			acceptanceTests: () => [],
+			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
+		})();
+
+		// The checks run coordination, then crash, then timeout, so the crash stop
+		// ends the step and leads its error. The full gate output rides beside the
+		// crash line, so the operator still reads which gate ran past its ceiling.
+		const error = stopped()?.error ?? '';
+
+		expect(stopped()?.status).toBe(RunStatus.Escalated);
+		expect(error).toMatch(/^verify-implement: a gate crashed/);
+		expect(error).toEqual(expect.stringContaining(crash));
+		expect(error).toEqual(expect.stringContaining(gateOutput));
+		expect(roleInvocations).toStrictEqual([]);
 	});
 });

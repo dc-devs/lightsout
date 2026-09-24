@@ -22,6 +22,14 @@ const setupOnSpawn = () => {
 	return { cwd, onSpawn };
 };
 
+const setupOnTimeout = ({ cwdExists = true }: { cwdExists?: boolean } = {}) => {
+	const { cwd: existingCwd } = setupCwd();
+	const cwd = cwdExists ? existingCwd : join(existingCwd, 'no-such-directory');
+	const onTimeout = jest.fn<() => void>();
+
+	return { cwd, onTimeout };
+};
+
 test('runCommand: a green command resolves with exit code 0 and its captured stdout', async () => {
 	const { cwd } = setupCwd();
 
@@ -95,5 +103,31 @@ test("reports the spawned shell's pid once through onSpawn, before the command s
 	expect({ pidsBeforeSettling, callCount: onSpawn.mock.calls.length }).toStrictEqual({
 		pidsBeforeSettling: [Number(result.stdout.trim())],
 		callCount: 1,
+	});
+});
+
+test("runCommand: passes the deadline's onTimeout through to the caller", async () => {
+	const { cwd, onTimeout } = setupOnTimeout();
+
+	const error = await getRejectionError({ promise: runCommand({ command: 'sleep 30', cwd, timeoutMs: 50, onTimeout }) });
+
+	// the call still rejects, and the hook is the one fact that says the ceiling
+	// fired rather than the spawn failing
+	expect({ message: error.message, callCount: onTimeout.mock.calls.length }).toStrictEqual({
+		message: 'command timed out after 50ms: sleep 30',
+		callCount: 1,
+	});
+});
+
+test('runCommand: a spawn failure rejects without reporting a timeout', async () => {
+	const { cwd, onTimeout } = setupOnTimeout({ cwdExists: false });
+
+	const error = await getRejectionError({ promise: runCommand({ command: 'echo never-runs', cwd, timeoutMs: 50, onTimeout }) });
+
+	// a missing cwd is a spawn failure — it must stay an ordinary red, never a
+	// gate that ran past its ceiling
+	expect({ code: (error as NodeJS.ErrnoException).code, callCount: onTimeout.mock.calls.length }).toStrictEqual({
+		code: 'ENOENT',
+		callCount: 0,
 	});
 });

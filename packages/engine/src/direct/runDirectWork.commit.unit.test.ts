@@ -85,7 +85,7 @@ const armDirectRun = ({ uncommitted }: { uncommitted?: string }) => {
 	const seen: { subject?: string; resumed?: boolean; statusAtCommit?: RunStatus } = {};
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	mockCommitRunWork.mockImplementation(({ run, address, resumed }) => {
 		seen.subject = address?.fallbackSubject;
 		seen.resumed = resumed;

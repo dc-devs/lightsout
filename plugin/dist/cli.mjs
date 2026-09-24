@@ -23408,12 +23408,14 @@ var GateResult = external_exports.object({
   /** 'root' or the package directory name. */
   group: external_exports.string(),
   command: external_exports.string(),
-  /** Absent when skipped. -1 = spawn failure or timeout. */
+  /** Absent when skipped. -1 = spawn failure or timeout; `timedOut` tells the two apart. */
   exitCode: external_exports.number().optional(),
   durationMs: external_exports.number().optional(),
   rerun: external_exports.boolean().optional(),
   /** Present (always `true`) when this red was the known jest worker crash rather than evidence about the code. */
   crashed: external_exports.literal(true).optional(),
+  /** Present (always `true`) when this attempt was stopped by the gate ceiling rather than returning an exit code. */
+  timedOut: external_exports.literal(true).optional(),
   /** Present (always `true`) only on a scoped skip; absent otherwise. */
   skipped: external_exports.literal(true).optional(),
   /** Skip reason, e.g. `no "check" script`. */
@@ -24900,6 +24902,20 @@ var ShipBlockReason = {
    * other.
    */
   IntegrationGatesUnavailable: "integration-gates-unavailable",
+  /**
+   * A gate on the integrated branch died in the known jest worker crash on
+   * every attempt, so no verdict about the code exists and no repair was spent.
+   *
+   * Separate from `IntegrationGatesFailed` so that a failure and a crash no
+   * longer share one reason.
+   */
+  IntegrationGatesCrashed: "integration-gates-crashed",
+  /**
+   * A gate on the integrated branch ran past its `timeouts.gate-minutes`
+   * ceiling on every attempt, so no verdict about the code exists and no repair
+   * was spent.
+   */
+  IntegrationGatesTimedOut: "integration-gates-timed-out",
   /** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
   ChecksMissing: "checks-missing",
   /**
@@ -25748,7 +25764,7 @@ var relayShutdownSignals = ({ child }) => {
 };
 
 // src/common/processes/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+var collectChildOutput = ({ child, timeout, onStdoutLine, onTimeout }) => {
   return new Promise((resolve19, reject) => {
     let stdout = "";
     let stderr = "";
@@ -25771,6 +25787,7 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
       const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
       escalation.unref();
       child.once("close", () => clearTimeout(escalation));
+      onTimeout?.();
       reject(new Error(timeout?.message ?? "timed out"));
     };
     const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
@@ -25798,14 +25815,15 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
 };
 
 // src/common/processes/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
+var runCommand = ({ command, cwd, timeoutMs, env, onSpawn, onTimeout }) => {
   const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
   if (child.pid !== void 0) {
     onSpawn?.({ pid: child.pid });
   }
   return collectChildOutput({
     child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0,
+    onTimeout
   });
 };
 
@@ -137841,9 +137859,21 @@ var stageCountOf = ({ schedule }) => stageCounts[schedule.kind];
 // src/gates/createGateRunner.ts
 import { mkdir as mkdir18, rm as rm6 } from "node:fs/promises";
 
+// src/gates/common/constants/GateEnding.ts
+var GateEnding = {
+  /** Exit 0. */
+  Passed: "passed",
+  /** A red that is evidence about the code — a gate that failed to spawn included. */
+  Failed: "failed",
+  /** The known jest worker crash, with no failing test beside it. */
+  Crashed: "crashed",
+  /** Stopped by its own ceiling, `timeouts.gate-minutes`, before it returned an exit code. */
+  Timeout: "timeout"
+};
+
 // src/gates/common/utils/buildGateResult.ts
 import { relative as relative9 } from "node:path";
-var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, rerun, evidenceDir }) => {
+var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, timedOut, rerun, evidenceDir }) => {
   const outputTailChars = 2e3;
   return {
     kind,
@@ -137853,10 +137883,36 @@ var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed,
     durationMs,
     ...rerun ? { rerun: true } : {},
     ...crashed ? { crashed: true } : {},
+    ...timedOut ? { timedOut: true } : {},
     ...evidenceDir ? { testResultsDir: relative9(cwd, evidenceDir) } : {},
     ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
   };
+};
+
+// src/gates/common/utils/classifyGateEnding.ts
+var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
+var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
+var testKinds = /* @__PURE__ */ new Set(["test", "testCoverage", "extraTests"]);
+var jestReported = /\bTest Suites:[ \t]+/;
+var isWorkerCrash = ({ kind, result }) => {
+  const output = `${result.stdout}
+${result.stderr}`;
+  if (result.exitCode === -1 || reportedTestFailure.test(output)) {
+    return false;
+  }
+  return jestWorkerSigsegv.test(output) || testKinds.has(kind) && jestReported.test(output);
+};
+var classifyGateEnding = ({ kind, result, timedOut }) => {
+  let ending = GateEnding.Failed;
+  if (timedOut) {
+    ending = GateEnding.Timeout;
+  } else if (result.exitCode === 0) {
+    ending = GateEnding.Passed;
+  } else if (isWorkerCrash({ kind, result })) {
+    ending = GateEnding.Crashed;
+  }
+  return ending;
 };
 
 // src/gates/testResults/checkAcceptanceTests.ts
@@ -138063,18 +138119,7 @@ var writeJestReporter = async ({ cwd, runId }) => {
 
 // src/gates/createGateRunner.ts
 var maxCrashAttempts = 3;
-var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
-var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
-var testKinds = /* @__PURE__ */ new Set(["test", "testCoverage", "extraTests"]);
-var jestReported = /\bTest Suites:[ \t]+/;
-var isWorkerCrash = ({ kind, result }) => {
-  const output = `${result.stdout}
-${result.stderr}`;
-  if (result.exitCode === 0 || result.exitCode === -1 || reportedTestFailure.test(output)) {
-    return false;
-  }
-  return jestWorkerSigsegv.test(output) || testKinds.has(kind) && jestReported.test(output);
-};
+var maxTimeoutAttempts = 2;
 var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
   if (!runId) {
     return void 0;
@@ -138085,73 +138130,108 @@ var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
   await mkdir18(dir, { recursive: true });
   return { dir, env: { [testReporterEnv.reporter]: reporterPath, [testReporterEnv.resultsDir]: dir } };
 };
-var recordCrashFriction = async ({
+var spawnAttempt = async ({
+  command,
   cwd,
-  runId,
-  step,
-  kind,
-  group,
-  crashed
+  timeoutMs,
+  env,
+  onGateSpawn,
+  onGateExit
 }) => {
-  if (!crashed || !runId) {
-    return;
-  }
-  await appendFriction({
-    cwd,
-    runId,
-    step: step ?? "gates",
-    friction: [
-      {
-        area: FrictionArea.Environment,
-        detail: `gate [${group}] ${kind} crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+  let result;
+  let timedOut = false;
+  let spawnedPid;
+  try {
+    result = await runCommand({
+      command,
+      cwd,
+      timeoutMs,
+      env,
+      onSpawn: ({ pid }) => {
+        spawnedPid = pid;
+        onGateSpawn?.({ pid });
+      },
+      onTimeout: () => {
+        timedOut = true;
       }
-    ]
-  });
+    });
+  } catch (error51) {
+    result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
+  }
+  if (spawnedPid !== void 0) {
+    onGateExit?.({ pid: spawnedPid });
+  }
+  return { result, timedOut };
+};
+var noVerdictPolicy = ({ ending, ceilingMinutes }) => {
+  const policies = {
+    [GateEnding.Crashed]: {
+      allowance: maxCrashAttempts,
+      suffix: "jest worker crash",
+      rerun: "jest worker crash, not a test failure",
+      friction: `crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+    },
+    [GateEnding.Timeout]: {
+      allowance: maxTimeoutAttempts,
+      suffix: `timeout at the ${ceilingMinutes}-minute ceiling`,
+      rerun: `ran past its ${ceilingMinutes}-minute ceiling, not a verdict about the code`,
+      friction: `timed out: it ran past its ${ceilingMinutes}-minute ceiling (timeouts.gate-minutes) without returning an exit code \u2014 not a verdict about the code, re-run up to ${maxTimeoutAttempts} times.`
+    }
+  };
+  return policies[ending];
 };
 var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress, onGateSpawn, onGateExit }) => {
+  const ceilingMinutes = timeoutMs / 6e4;
   const executeOnce = async ({ kind, command, group, rerun }) => {
     const evidence = await prepareEvidence({ cwd, runId, step, kind, group });
     const startedAt = Date.now();
-    let result;
-    let spawnedPid;
-    try {
-      result = await runCommand({
-        command,
-        cwd,
-        timeoutMs,
-        env: evidence?.env,
-        onSpawn: ({ pid }) => {
-          spawnedPid = pid;
-          onGateSpawn?.({ pid });
-        }
-      });
-    } catch (error51) {
-      result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
-    }
-    if (spawnedPid !== void 0) {
-      onGateExit?.({ pid: spawnedPid });
-    }
-    const crashed = isWorkerCrash({ kind, result });
+    const { result, timedOut } = await spawnAttempt({ command, cwd, timeoutMs, env: evidence?.env, onGateSpawn, onGateExit });
+    const ending = classifyGateEnding({ kind, result, timedOut });
+    const policy = noVerdictPolicy({ ending, ceilingMinutes });
     onProgress?.(
-      `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${crashed ? " (jest worker crash)" : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
+      `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${policy ? ` (${policy.suffix})` : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
     );
-    const gateResult = buildGateResult({ cwd, kind, group, command, result, durationMs: Date.now() - startedAt, crashed, rerun, evidenceDir: evidence?.dir });
+    const gateResult = buildGateResult({
+      cwd,
+      kind,
+      group,
+      command,
+      result,
+      durationMs: Date.now() - startedAt,
+      crashed: ending === GateEnding.Crashed,
+      timedOut: ending === GateEnding.Timeout,
+      rerun,
+      evidenceDir: evidence?.dir
+    });
     if (runId) {
       await appendCommandLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, ...gateResult } });
     }
-    await recordCrashFriction({ cwd, runId, step, kind, group, crashed });
+    if (policy && runId) {
+      await appendFriction({
+        cwd,
+        runId,
+        step: step ?? "gates",
+        friction: [{ area: FrictionArea.Environment, detail: `gate [${group}] ${kind} ${policy.friction}` }]
+      });
+    }
     onGateResult?.(gateResult);
-    return { result, crashed };
+    return { result, ending };
   };
   return async ({ kind, command, group }) => {
-    let attempt = 1;
+    const executions = /* @__PURE__ */ new Map();
     let outcome = await executeOnce({ kind, command, group });
-    while (outcome.crashed && attempt < maxCrashAttempts) {
-      attempt += 1;
-      onProgress?.(`gate [${group}] ${kind}: jest worker crash, not a test failure \u2014 re-running (attempt ${attempt} of ${maxCrashAttempts})`);
-      outcome = await executeOnce({ kind, command, group, rerun: true });
-    }
-    return outcome.crashed ? { ...outcome.result, crashed: true } : outcome.result;
+    let rerun = false;
+    do {
+      const count2 = (executions.get(outcome.ending) ?? 0) + 1;
+      const policy = noVerdictPolicy({ ending: outcome.ending, ceilingMinutes });
+      executions.set(outcome.ending, count2);
+      rerun = policy !== void 0 && count2 < policy.allowance;
+      if (policy && rerun) {
+        onProgress?.(`gate [${group}] ${kind}: ${policy.rerun} \u2014 re-running (attempt ${count2 + 1} of ${policy.allowance})`);
+        outcome = await executeOnce({ kind, command, group, rerun: true });
+      }
+    } while (rerun);
+    return { ...outcome.result, ending: outcome.ending, ceilingMinutes };
   };
 };
 
@@ -138213,6 +138293,9 @@ var buildGateStages = ({ entries, schedule, coverage }) => {
 // src/gates/common/utils/describeGateCrash.ts
 var describeGateCrash = ({ label: label2 }) => `${label2} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
 
+// src/gates/common/utils/describeGateTimeout.ts
+var describeGateTimeout = ({ label: label2, ceilingMinutes }) => `${label2} timed out: every attempt ran past the ${ceilingMinutes}-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.`;
+
 // src/gates/common/utils/mergeGateRunResults.ts
 var mergeGateRunResults = ({ results }) => {
   const errors = results.flatMap((result) => result.error === void 0 ? [] : [result.error]);
@@ -138220,6 +138303,7 @@ var mergeGateRunResults = ({ results }) => {
     error: errors.length > 0 ? errors.join("\n\n") : void 0,
     failedFamilies: [...new Set(results.flatMap((result) => result.failedFamilies))],
     crashes: results.flatMap((result) => result.crashes),
+    timeouts: results.flatMap((result) => result.timeouts),
     // A constant rather than a fold: the inputs here are the groups of a stage
     // and the stages of a checkpoint, and the reservation is taken around the
     // whole schedule — so no input this is ever given can carry a coordination
@@ -138244,13 +138328,17 @@ var runGateSet = async ({ entries, label: label2, gate, failFast = true }) => {
   const failures = [];
   const failedFamilies = [];
   const crashes = [];
+  const timeouts = [];
   const stop = () => failFast && failures.length > 0;
   const recordRed = ({ family, name, outcome }) => {
-    failures.push(`${prefix}${name} failed (exit ${outcome.exitCode}):
+    const label3 = `${prefix}${name}`;
+    failures.push(`${label3} failed (exit ${outcome.exitCode}):
 ${outcome.stdout}
 ${outcome.stderr}`);
-    if (outcome.crashed) {
-      crashes.push(describeGateCrash({ label: `${prefix}${name}` }));
+    if (outcome.ending === GateEnding.Crashed) {
+      crashes.push(describeGateCrash({ label: label3 }));
+    } else if (outcome.ending === GateEnding.Timeout) {
+      timeouts.push(describeGateTimeout({ label: label3, ceilingMinutes: outcome.ceilingMinutes }));
     } else {
       failedFamilies.push(family);
     }
@@ -138268,6 +138356,7 @@ ${outcome.stderr}`);
     error: failures.length > 0 ? failures.join("\n\n") : void 0,
     failedFamilies: [...new Set(failedFamilies)],
     crashes,
+    timeouts,
     coordination: void 0
   };
 };
@@ -138323,7 +138412,7 @@ var runPackageGates = async ({
   try {
     manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
   } catch (error51) {
-    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"], crashes: [], coordination: void 0 };
+    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"], crashes: [], timeouts: [], coordination: void 0 };
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
@@ -138379,16 +138468,22 @@ var runGenerate = async ({ gate, command }) => {
     error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
 ${generated.stderr}`,
-    failedFamilies: generated.crashed ? [] : ["generate"],
-    crashes: generated.crashed ? [describeGateCrash({ label: "generate" })] : [],
+    failedFamilies: generated.ending === GateEnding.Failed ? ["generate"] : [],
+    crashes: generated.ending === GateEnding.Crashed ? [describeGateCrash({ label: "generate" })] : [],
+    timeouts: generated.ending === GateEnding.Timeout ? [describeGateTimeout({ label: "generate", ceilingMinutes: generated.ceilingMinutes })] : [],
     coordination: void 0
   };
 };
-var heldTierMessage = ({ failedFamilies }) => `gate: expensive gates not started \u2014 a cheap gate is red (${failedFamilies.length > 0 ? failedFamilies.join(", ") : "crash"})`;
+var heldTierMessage = ({ stageResult }) => {
+  const noVerdict = [...stageResult.crashes.length > 0 ? ["crash"] : [], ...stageResult.timeouts.length > 0 ? ["timeout"] : []];
+  const reds = stageResult.failedFamilies.length > 0 ? stageResult.failedFamilies : noVerdict;
+  return `gate: expensive gates not started \u2014 a cheap gate is red (${reds.join(", ")})`;
+};
 var overrideMatchedNothing = ({ gates }) => ({
   error: `gate-overrides named no gate this run could execute: ${gates.join(", ")} \u2014 every named gate is absent from the group(s) that ran at this checkpoint`,
   failedFamilies: [],
   crashes: [],
+  timeouts: [],
   coordination: void 0
 });
 var runGateStage = async ({
@@ -138441,7 +138536,7 @@ var runGateSchedule = async ({
     stageResults.push(stageResult);
     if (stageResult.error !== void 0) {
       if (stage + 1 < stageCount) {
-        onProgress?.(heldTierMessage({ failedFamilies: stageResult.failedFamilies }));
+        onProgress?.(heldTierMessage({ stageResult }));
       }
       break;
     }
@@ -138483,7 +138578,7 @@ var runGates = async ({
     onProgress,
     run: ({ onGateSpawn, onGateExit }) => runGateSchedule({ ...scheduleParams, gate: createGateRunner({ ...runnerParams, onGateSpawn, onGateExit }) })
   });
-  return "coordination" in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], coordination: outcome.coordination } : outcome.held;
+  return "coordination" in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], timeouts: [], coordination: outcome.coordination } : outcome.held;
 };
 
 // src/gates/runBatchGates.ts
@@ -138575,7 +138670,15 @@ var scheduledGateNames = ({ config: config2, coverage, checkpoint }) => {
 };
 var runSelfCheck = async ({ cwd, config: config2, coverage, checkpoint, wholeRepository, runId, step, onProgress }) => {
   const gateNames = scheduledGateNames({ config: config2, coverage, checkpoint });
-  let result = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: void 0, crashes: [], coordination: void 0 };
+  let result = {
+    reason: SelfCheckReason.NothingScheduled,
+    gateNames,
+    gates: [],
+    error: void 0,
+    crashes: [],
+    timeouts: [],
+    coordination: void 0
+  };
   if (gateNames.length > 0) {
     const resolved = await resolveScope({ cwd, config: config2, wholeRepository });
     if ("reason" in resolved) {
@@ -138602,9 +138705,9 @@ var runSelfCheck = async ({ cwd, config: config2, coverage, checkpoint, wholeRep
       const gates = collector.observed();
       const ranNothing = gates.every((observation) => observation.skipped === true);
       if (run.coordination !== void 0) {
-        result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: void 0, crashes: [], coordination: run.coordination };
+        result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: void 0, crashes: [], timeouts: [], coordination: run.coordination };
       } else {
-        result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, coordination: void 0 };
+        result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, timeouts: run.timeouts, coordination: void 0 };
       }
     }
   }
@@ -138656,11 +138759,25 @@ var verifyCandidate = async ({
   if (gates.crashes.length > 0) {
     return {
       blocked: {
-        reason: ShipBlockReason.IntegrationGatesFailed,
+        reason: ShipBlockReason.IntegrationGatesCrashed,
         detail: [
           "a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
           "No repair was attempted and no repair attempt was spent.",
           gates.crashes.join("\n"),
+          gates.error ?? ""
+        ].join("\n\n"),
+        paths: []
+      }
+    };
+  }
+  if (gates.timeouts.length > 0) {
+    return {
+      blocked: {
+        reason: ShipBlockReason.IntegrationGatesTimedOut,
+        detail: [
+          "a gate ran past its own time ceiling (timeouts.gate-minutes) \u2014 not a verdict about the code.",
+          "No repair was attempted and no repair attempt was spent.",
+          gates.timeouts.join("\n"),
           gates.error ?? ""
         ].join("\n\n"),
         paths: []
@@ -143953,19 +144070,28 @@ var stopOnGateCoordination = async ({ run, stepId: stepId2, record: record3, coo
   });
 };
 
-// src/pipeline/common/utils/stopOnGateCrash.ts
-var stopOnGateCrash = ({ run, stepId: stepId2, record: record3, crashes, error: error51 }) => {
-  run.progress(`step ${stepId2}: gate crashed rather than failed \u2014 no fix attempted`);
-  return run.stop({
-    record: record3,
-    status: RunStatus.Escalated,
-    error: [
-      `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
-      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
-      crashes.join("\n"),
-      error51 ?? ""
-    ].join("\n\n")
-  });
+// src/common/utils/describeGateNoVerdictStop.ts
+var describeGateNoVerdictStop = ({ stepId: stepId2, crashes, timeouts }) => crashes.length > 0 ? {
+  ending: "crashed",
+  reason: [
+    `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
+    "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+    crashes.join("\n")
+  ].join("\n\n")
+} : {
+  ending: "timed out",
+  reason: [
+    `${stepId2}: a gate ran past its own time ceiling (timeouts.gate-minutes) \u2014 not a verdict about the code.`,
+    "No fix was attempted and no fix attempt was spent; re-running the run, or raising timeouts.gate-minutes, is the answer.",
+    timeouts.join("\n")
+  ].join("\n\n")
+};
+
+// src/pipeline/common/utils/stopOnGateNoVerdict.ts
+var stopOnGateNoVerdict = ({ run, stepId: stepId2, record: record3, crashes, timeouts, error: error51 }) => {
+  const { ending, reason } = describeGateNoVerdictStop({ stepId: stepId2, crashes, timeouts });
+  run.progress(`step ${stepId2}: gate ${ending} rather than failed \u2014 no fix attempted`);
+  return run.stop({ record: record3, status: RunStatus.Escalated, error: [reason, error51 ?? ""].join("\n\n") });
 };
 
 // src/common/fileGroups/chunkFileGroup.ts
@@ -144665,6 +144791,23 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   return { manifest, worklist };
 };
 
+// src/common/utils/describeGateNoVerdict.ts
+var describeGateNoVerdict = ({ result }) => {
+  let reason;
+  if (result.coordination !== void 0) {
+    reason = result.coordination;
+  } else if (result.crashes.length > 0) {
+    reason = [result.crashes.join("\n"), "No fix attempt was spent: a gate that crashed returned no verdict about the code.", result.error ?? ""].join("\n\n");
+  } else if (result.timeouts.length > 0) {
+    reason = [
+      result.timeouts.join("\n"),
+      "No fix attempt was spent: a gate that ran past its ceiling returned no verdict about the code.",
+      result.error ?? ""
+    ].join("\n\n");
+  }
+  return reason;
+};
+
 // src/common/utils/runPreflightGate.ts
 var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }) => {
   const steps = run.current().steps;
@@ -144678,7 +144821,7 @@ var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }
   };
   await run.setStep({ record: record3 });
   run.progress(label2);
-  const { error: gateError, coordination } = await runGates({
+  const gates = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
@@ -144686,12 +144829,13 @@ var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }
     step: "pre-flight",
     onProgress: (message) => run.progress(message)
   });
+  const noVerdict = describeGateNoVerdict({ result: gates });
   let result;
-  if (coordination !== void 0) {
-    result = await run.stop({ record: record3, status: RunStatus.Escalated, error: coordination });
-  } else if (gateError) {
+  if (noVerdict !== void 0) {
+    result = await run.stop({ record: record3, status: RunStatus.Escalated, error: noVerdict });
+  } else if (gates.error) {
     result = await run.stop({ record: record3, status: RunStatus.Failed, error: `${redBaselineError}
-${gateError}` });
+${gates.error}` });
   } else {
     await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
   }
@@ -144950,10 +145094,13 @@ var measureCoverageBatch = async ({ cwd, config: config2, runId, batch }) => {
 };
 
 // src/coverage/batch/settleCoverageGates.ts
-var coordinationStop = ({ result }) => result.coordination === void 0 ? void 0 : { kind: CoverageBatchStopKind.Escalated, error: result.coordination };
+var noVerdictStop = ({ result }) => {
+  const error51 = describeGateNoVerdict({ result });
+  return error51 === void 0 ? void 0 : { kind: CoverageBatchStopKind.Escalated, error: error51 };
+};
 var settleCoverageGates = async ({ batchId, onProgress, invokeFix, testsOnly, gates }) => {
   let result = await gates();
-  let stop = coordinationStop({ result });
+  let stop = noVerdictStop({ result });
   for (let retry = 1; result.error && stop === void 0 && retry <= maxCheapFixRetries; retry += 1) {
     onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invokeFix({ label: `fix-${retry}`, errorContext: result.error });
@@ -144965,7 +145112,7 @@ var settleCoverageGates = async ({ batchId, onProgress, invokeFix, testsOnly, ga
         stop = { kind: CoverageBatchStopKind.Failed, error: violation };
       } else {
         result = await gates();
-        stop = coordinationStop({ result });
+        stop = noVerdictStop({ result });
       }
     }
   }
@@ -145278,7 +145425,7 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
   });
   const gates = collector.observed();
   const failures = gates.filter(
-    (observation) => observation.skipped !== true && observation.crashed !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
+    (observation) => observation.skipped !== true && observation.crashed !== true && observation.timedOut !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
   );
   const coverageRan = gates.some((gate) => passedCoverage({ gate }));
   let verdict = { ...result, failures };
@@ -145292,10 +145439,10 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
       onProgress: (message) => run.progress(message)
     });
     if (acceptanceError !== void 0) {
-      verdict = { error: acceptanceError, failedFamilies: ["acceptance-tests"], crashes: [], coordination: void 0, failures: [] };
+      verdict = { error: acceptanceError, failedFamilies: ["acceptance-tests"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
     } else if (coverageRan) {
       const executedError = await changedFilesExecutedError({ run, packagesDir });
-      verdict = executedError === void 0 ? { error: void 0, failedFamilies: [], crashes: [], coordination: void 0, failures: [] } : { error: executedError, failedFamilies: ["changed-files-executed"], crashes: [], coordination: void 0, failures: [] };
+      verdict = executedError === void 0 ? { error: void 0, failedFamilies: [], crashes: [], timeouts: [], coordination: void 0, failures: [] } : { error: executedError, failedFamilies: ["changed-files-executed"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
     }
   }
   return { ...verdict, gates };
@@ -145335,7 +145482,7 @@ var reviewAndVerify = async ({
     return { rateLimited: true };
   }
   if (review.error !== void 0) {
-    return { error: review.error, failedFamilies: ["test-review"], crashes: [], coordination: void 0, failures: [] };
+    return { error: review.error, failedFamilies: ["test-review"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
   }
   const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });
   await approveRunnerSnapshots({ run });
@@ -145365,7 +145512,7 @@ var formatAndVerify = async ({ context, record: record3 }) => {
   const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
   await run.setStep({ record: next });
   if (error51 !== void 0) {
-    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], coordination: void 0, failures, gates: [] } };
+    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], timeouts: [], coordination: void 0, failures, gates: [] } };
   }
   const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
   if ("rateLimited" in result) {
@@ -145437,7 +145584,7 @@ var withResult = ({ record: record3, result }) => ({
 var runCheapRepairs = async ({ context, record: record3, result }) => {
   let currentRecord = record3;
   let currentResult = result;
-  while (currentResult.error && currentResult.crashes.length === 0 && currentResult.coordination === void 0) {
+  while (currentResult.error && currentResult.crashes.length === 0 && currentResult.timeouts.length === 0 && currentResult.coordination === void 0) {
     const repairable = [...new Set(currentResult.failedFamilies)].filter(
       (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
     );
@@ -145497,7 +145644,7 @@ var consultSupervisor = async ({
 
 // src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts
 var runGuidedRepair = async ({ context, record: record3, result }) => {
-  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || result.coordination !== void 0 || record3.verification?.guidedRepairAttempted) {
+  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || result.timeouts.length > 0 || result.coordination !== void 0 || record3.verification?.guidedRepairAttempted) {
     return { record: record3, result, ruling: void 0 };
   }
   const { run, id, planContent } = context;
@@ -145593,8 +145740,8 @@ var runVerificationStep = async ({ context }) => {
   if (result.coordination !== void 0) {
     return stopOnGateCoordination({ run, stepId: id, record: record3, coordination: result.coordination, error: result.error });
   }
-  if (result.crashes.length > 0) {
-    return stopOnGateCrash({ run, stepId: id, record: record3, crashes: result.crashes, error: result.error });
+  if (result.crashes.length > 0 || result.timeouts.length > 0) {
+    return stopOnGateNoVerdict({ run, stepId: id, record: record3, crashes: result.crashes, timeouts: result.timeouts, error: result.error });
   }
   if (result.error) {
     const diagnosis = record3.verification?.supervisorDiagnosis;
@@ -159148,12 +159295,12 @@ var cleanSlateStep = ({ run, ledgerGates }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const { error: error51, coordination, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
+    const { error: error51, coordination, timeouts, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
     if (coordination !== void 0) {
       return stopOnGateCoordination({ run, stepId: "clean-slate", record: record3, coordination, error: error51 });
     }
     if (error51) {
-      const ranOut = failures.some((failure) => failure.exitCode === -1);
+      const ranOut = timeouts.length > 0 || failures.some((failure) => failure.exitCode === -1);
       const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
       return run.stop({ record: record3, status: RunStatus.Failed, error: `${headline}
 ${error51}` });
@@ -159956,6 +160103,7 @@ var verifyDirectWork = async ({
   const {
     error: gateError,
     crashes,
+    timeouts,
     coordination
   } = await runGates({
     cwd: run.cwd,
@@ -159966,7 +160114,7 @@ var verifyDirectWork = async ({
     onProgress: (message) => run.progress(message)
   });
   await run.setStep({ record: { ...record3, status: gateError ? RunStatus.Failed : RunStatus.Passed, error: gateError } });
-  return { record: record3, gateError, crashes, coordination };
+  return { record: record3, gateError, crashes, timeouts, coordination };
 };
 
 // src/direct/runDirectWork.ts
@@ -159979,19 +160127,16 @@ var stopDirectOnCoordination = ({ run, record: record3, coordination }) => {
     error: describeGateCoordinationStop({ stepId: "verify", coordination })
   });
 };
-var stopDirectOnCrash = ({ run, record: record3, crashes, gateError }) => {
-  run.progress("a gate crashed rather than failed \u2014 no fix attempted");
-  return stopDirectRun({
-    run,
-    record: record3,
-    status: RunStatus.Escalated,
-    error: [
-      "verify: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
-      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
-      crashes.join("\n"),
-      gateError ?? ""
-    ].join("\n\n")
-  });
+var stopDirectOnNoVerdict = ({
+  run,
+  record: record3,
+  crashes,
+  timeouts,
+  gateError
+}) => {
+  const { ending, reason } = describeGateNoVerdictStop({ stepId: "verify", crashes, timeouts });
+  run.progress(`a gate ${ending} rather than failed \u2014 no fix attempted`);
+  return stopDirectRun({ run, record: record3, status: RunStatus.Escalated, error: [reason, gateError ?? ""].join("\n\n") });
 };
 var buildAndVerify = async ({
   run,
@@ -160008,12 +160153,12 @@ var buildAndVerify = async ({
     if (stopped) {
       return stopped;
     }
-    const { record: record3, gateError, crashes, coordination } = await verifyDirectWork({ run });
+    const { record: record3, gateError, crashes, timeouts, coordination } = await verifyDirectWork({ run });
     if (coordination !== void 0) {
       return stopDirectOnCoordination({ run, record: record3, coordination });
     }
-    if (crashes.length > 0) {
-      return stopDirectOnCrash({ run, record: record3, crashes, gateError });
+    if (crashes.length > 0 || timeouts.length > 0) {
+      return stopDirectOnNoVerdict({ run, record: record3, crashes, timeouts, gateError });
     }
     if (gateError === void 0) {
       return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
@@ -163782,7 +163927,7 @@ var superviseBatch = async ({
   }
   let outcome;
   let remainingError = gateError;
-  let coordination;
+  let noVerdict;
   if (!verdict.ok && verdict.rateLimited) {
     outcome = { kind: SettleKind.Parked };
   } else if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
@@ -163798,12 +163943,12 @@ ${ruling.guidance}`
     } else {
       const rerun = await gates();
       remainingError = rerun.error;
-      coordination = rerun.coordination;
+      noVerdict = describeGateNoVerdict({ result: rerun });
     }
   }
   if (outcome === void 0) {
-    if (coordination !== void 0) {
-      outcome = { kind: SettleKind.Escalated, error: coordination };
+    if (noVerdict !== void 0) {
+      outcome = { kind: SettleKind.Escalated, error: noVerdict };
     } else if (remainingError) {
       const diagnosis = ruling ? `
 supervisor (${ruling.decision}): ${ruling.diagnosis}` : "";
@@ -163836,7 +163981,7 @@ var settleBatchGates = async ({
 }) => {
   let result = await gates();
   let outcome;
-  for (let retry = 1; outcome === void 0 && result.error && result.coordination === void 0 && retry <= maxCheapFixRetries; retry += 1) {
+  for (let retry = 1; outcome === void 0 && result.error && describeGateNoVerdict({ result }) === void 0 && retry <= maxCheapFixRetries; retry += 1) {
     onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invokeFix({ label: `fix-${retry}`, gateError: result.error });
     if (!fix.ok && fix.rateLimited) {
@@ -163847,8 +163992,9 @@ var settleBatchGates = async ({
   }
   const gateError = result.error;
   if (outcome === void 0) {
-    if (result.coordination !== void 0) {
-      outcome = { kind: SettleKind.Escalated, error: result.coordination };
+    const noVerdict = describeGateNoVerdict({ result });
+    if (noVerdict !== void 0) {
+      outcome = { kind: SettleKind.Escalated, error: noVerdict };
     } else if (!gateError) {
       outcome = { kind: SettleKind.Green };
     } else {
@@ -165135,7 +165281,7 @@ var readManifest = async ({ cwd, runId }) => {
 };
 var printGateFailures = ({ result }) => {
   for (const gate of result.gates) {
-    if (gate.skipped !== true && gate.exitCode !== void 0 && gate.exitCode !== 0) {
+    if (gate.skipped !== true && gate.timedOut !== true && gate.exitCode !== void 0 && gate.exitCode !== 0) {
       console.log(`
 ${bold(`[${gate.group}] ${gate.kind}`)} \u2014 exit ${gate.exitCode}
 ${gate.command}
@@ -165145,6 +165291,10 @@ ${gate.outputTail ?? ""}`);
   for (const crash of result.crashes) {
     console.log(`
 engine: ${crash}`);
+  }
+  for (const timeout of result.timeouts) {
+    console.log(`
+engine: ${timeout}`);
   }
 };
 var selfCheckCommand = async ({ flags, cwd }) => {

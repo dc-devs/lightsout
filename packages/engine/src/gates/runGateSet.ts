@@ -1,8 +1,10 @@
+import { GateEnding } from '#src/gates/common/constants/GateEnding.ts';
 import type { GateEntry } from '#src/gates/common/types/GateEntry.ts';
 import type { GateOutcome } from '#src/gates/common/types/GateOutcome.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 import { describeGateCrash } from '#src/gates/common/utils/describeGateCrash.ts';
+import { describeGateTimeout } from '#src/gates/common/utils/describeGateTimeout.ts';
 
 interface Params {
 	/** The gates to run, in the order someone else already put them in — with every command final. */
@@ -28,18 +30,25 @@ export const runGateSet = async ({ entries, label, gate, failFast = true }: Para
 	const failures: string[] = [];
 	const failedFamilies: string[] = [];
 	const crashes: string[] = [];
-	// A crash records a failure too, so it stops a fail-fast group like any red.
+	const timeouts: string[] = [];
+	// A crash or a timeout records a failure too, so it stops a fail-fast group
+	// like any red.
 	const stop = () => failFast && failures.length > 0;
 
 	// A red gate is recorded twice over: as output, which every caller reads as
 	// the reason the run stopped, and as a family, which is what a fix agent is
-	// asked to repair. A gate the runner judged a crash gets the first and not
-	// the second — nothing is broken to repair, and the run still fails closed.
+	// asked to repair. A gate the runner judged a crash or a timeout gets the
+	// first and not the second — it never returned a verdict, so nothing is known
+	// to be broken, and the run still fails closed.
 	const recordRed = ({ family, name, outcome }: { family: string; name: string; outcome: GateOutcome }) => {
-		failures.push(`${prefix}${name} failed (exit ${outcome.exitCode}):\n${outcome.stdout}\n${outcome.stderr}`);
+		const label = `${prefix}${name}`;
 
-		if (outcome.crashed) {
-			crashes.push(describeGateCrash({ label: `${prefix}${name}` }));
+		failures.push(`${label} failed (exit ${outcome.exitCode}):\n${outcome.stdout}\n${outcome.stderr}`);
+
+		if (outcome.ending === GateEnding.Crashed) {
+			crashes.push(describeGateCrash({ label }));
+		} else if (outcome.ending === GateEnding.Timeout) {
+			timeouts.push(describeGateTimeout({ label, ceilingMinutes: outcome.ceilingMinutes }));
 		} else {
 			failedFamilies.push(family);
 		}
@@ -61,6 +70,7 @@ export const runGateSet = async ({ entries, label, gate, failFast = true }: Para
 		error: failures.length > 0 ? failures.join('\n\n') : undefined,
 		failedFamilies: [...new Set(failedFamilies)],
 		crashes,
+		timeouts,
 		coordination: undefined,
 	};
 };

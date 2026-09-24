@@ -39,6 +39,7 @@ const gateResultOf = (overrides: Partial<GateRunResult> = {}): GateRunResult => 
 	error: undefined,
 	failedFamilies: [],
 	crashes: [],
+	timeouts: [],
 	coordination: undefined,
 	...overrides,
 });

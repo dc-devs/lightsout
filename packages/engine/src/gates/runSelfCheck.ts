@@ -152,7 +152,15 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 	// The shape every ending that runs no gate shares — held once rather than
 	// written out per branch, which is where one branch eventually forgets a
 	// field.
-	let result: SelfCheckResult = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: undefined, crashes: [], coordination: undefined };
+	let result: SelfCheckResult = {
+		reason: SelfCheckReason.NothingScheduled,
+		gateNames,
+		gates: [],
+		error: undefined,
+		crashes: [],
+		timeouts: [],
+		coordination: undefined,
+	};
 
 	// The empty name list is answered before any gate call at all, because an
 	// exact schedule with an empty list still runs the configured codegen command
@@ -194,11 +202,11 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 				// verdict: no gate command executed, so the answer is about the
 				// machine rather than the change, and `ranNothing` — which asks
 				// whether every observation is a skip — has nothing to say about it.
-				result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: undefined, crashes: [], coordination: run.coordination };
+				result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: undefined, crashes: [], timeouts: [], coordination: run.coordination };
 			} else {
 				result = ranNothing
 					? { ...result, gates }
-					: { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, coordination: undefined };
+					: { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, timeouts: run.timeouts, coordination: undefined };
 			}
 		}
 	}

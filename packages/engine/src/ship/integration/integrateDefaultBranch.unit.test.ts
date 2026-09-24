@@ -39,9 +39,9 @@ const conflictPath = 'shared.ts';
 
 const author = '-c user.name=t -c user.email=t@t';
 
-const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined };
+const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined };
 
-const red: GateRunResult = { error: 'test: 2 failing', failedFamilies: ['test'], crashes: [], coordination: undefined };
+const red: GateRunResult = { error: 'test: 2 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined };
 
 const git = ({ cwd, command }: { cwd: string; command: string }) => execSync(`git ${command}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -200,6 +200,66 @@ describe('integrateDefaultBranch', () => {
 		expect(failure).toEqual(expect.objectContaining({ reason: 'integration-gates-failed' }));
 		// the caller is handed the branch exactly as ship found it: back at its
 		// baseline, no merge open, nothing uncommitted left behind
+		expect(readHead({ cwd })).toBe(baselineCommit);
+		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
+	});
+
+	test('blocks a crashed gate under its own reason, spawns no repair and restores the baseline', async () => {
+		const { cwd, baselineCommit, invocations, integrate } = setupIntegration({
+			defaultBranchEdit: 'unrelated',
+			gateRuns: [
+				{
+					error: 'test: exited 139 with no verdict',
+					failedFamilies: [],
+					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					timeouts: [],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const failure = await integrate();
+
+		expect(failure).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-crashed',
+				paths: [],
+				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
+		expect(readHead({ cwd })).toBe(baselineCommit);
+		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
+	});
+
+	test('blocks a timed-out gate under its own reason, spawns no repair and restores the baseline', async () => {
+		const { cwd, baselineCommit, invocations, integrate } = setupIntegration({
+			defaultBranchEdit: 'unrelated',
+			gateRuns: [
+				{
+					error: 'test-e2e: exit -1 (timeout at the 15-minute ceiling)',
+					failedFamilies: [],
+					crashes: [],
+					timeouts: ['test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.'],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const failure = await integrate();
+
+		expect(failure).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-timed-out',
+				paths: [],
+				detail: expect.stringContaining('test-e2e timed out: every attempt ran past the 15-minute gate ceiling'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
 		expect(readHead({ cwd })).toBe(baselineCommit);
 		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
 	});

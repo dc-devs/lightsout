@@ -69,7 +69,7 @@ describe('cleanSlateStep', () => {
 	test('cleanSlateStep: a coordination failure stops escalated instead of calling the codebase not green', async () => {
 		const coordination = 'gates never started: run run-7 in /tmp/worktrees/lo-118 has held the machine for 31m, and this run waited its full 30m for it';
 		const { run, steps, stopped } = setupCleanSlateRun({
-			result: { error: coordination, failedFamilies: [], crashes: [], coordination, failures: [], gates: [] },
+			result: { error: coordination, failedFamilies: [], crashes: [], timeouts: [], coordination, failures: [], gates: [] },
 		});
 
 		const outcome = await cleanSlateStep({ run, ledgerGates: [] })();
@@ -81,5 +81,22 @@ describe('cleanSlateStep', () => {
 		expect(outcome?.error).toEqual(expect.stringContaining(coordination));
 		expect(outcome?.error).not.toMatch(/not green before implementation/i);
 		expect(steps()[0]).toEqual(expect.objectContaining({ id: 'clean-slate', status: RunStatus.Escalated }));
+	});
+
+	test('cleanSlateStep: a timed-out gate reads as a gate that did not finish, not a red codebase', async () => {
+		const timeout = 'check timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+		const { run, steps, stopped } = setupCleanSlateRun({
+			result: { error: timeout, failedFamilies: [], crashes: [], timeouts: [timeout], coordination: undefined, failures: [], gates: [] },
+		});
+
+		const outcome = await cleanSlateStep({ run, ledgerGates: [] })();
+
+		// A timed-out gate never reaches `failures`, so no exit -1 is there to find:
+		// the step has to read the `timeouts` channel to know the gate never finished.
+		expect(stopped()).toEqual(expect.objectContaining({ status: RunStatus.Failed }));
+		expect(outcome?.error).toMatch(/did not finish/i);
+		expect(outcome?.error).not.toMatch(/not green before implementation/i);
+		expect(outcome?.error).toEqual(expect.stringContaining(timeout));
+		expect(steps()[0]).toEqual(expect.objectContaining({ id: 'clean-slate', status: RunStatus.Failed }));
 	});
 });

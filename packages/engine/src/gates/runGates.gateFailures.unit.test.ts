@@ -2,7 +2,6 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
@@ -71,32 +70,6 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 	expect(failedFamilies).toStrictEqual(['generate']);
 	// no gate ran after the red generate
 	expect(readGateLog({ dir })).toStrictEqual([]);
-});
-
-test('a gate the runner could not get an exit code from is a red gate, not a crash — and is never re-run', async () => {
-	// The trigger is the gate's own deadline rather than a missing working
-	// directory: the shared gate reservation is taken in that directory before
-	// any gate runs, so a run pointed at one that does not exist now stops with a
-	// coordination reason and never reaches the runner this case is about. Both
-	// paths reach the runner's synthetic -1 through the same catch.
-	const dir = setupConsumerRepo({ scripts: { check: 'sleep 30' }, config: { timeouts: { 'gate-minutes': 0.005 } } });
-	const config = await readConfig({ cwd: dir });
-	const results: GateResult[] = [];
-
-	const { error, failedFamilies } = await runGates({ cwd: dir, config, onGateResult: (result) => results.push(result) });
-
-	expect(error ?? '').toMatch(/check failed \(exit -1\)/);
-	expect(error ?? '').toMatch(/timed out/);
-	expect(failedFamilies).toStrictEqual(['check']);
-
-	const checks = results.filter((result) => result.kind === 'check');
-
-	// a synthetic -1 buys no flake re-run
-	expect(checks.length).toBe(1);
-	expect(checks[0]?.exitCode).toBe(-1);
-	expect(checks[0]?.rerun).toBe(undefined);
-	// the runner's own error is the red gate’s evidence
-	expect(checks[0]?.outputTail ?? '').toMatch(/timed out/);
 });
 
 test('a package whose manifest cannot be resolved fails its own group only — the rest of the fan-out still runs', async () => {
