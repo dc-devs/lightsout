@@ -86,6 +86,21 @@ const trackerFreeRecord: WorkOrderState = {
 	history: [{ at: '2026-09-12T10:00:00.000Z', kind: 'plan-added', detail: 'plan 001-add-search-filters added' }],
 };
 
+/**
+ * A single-plan work order holding no plan 001, built from the ticket body: the
+ * record the queue's direct worker writes its build on, and the field that
+ * decides whether the ticket ships.
+ */
+const planlessRecord: WorkOrderState = {
+	schemaVersion: 1,
+	name: 'lo-166-x',
+	ticketRef: 'LO-166',
+	branch: 'lo-166-x',
+	mode: 'single-plan',
+	plans: [],
+	history: [],
+};
+
 const setupShow = ({ args = ['--name', 'lo-140-x'], outcome = { record } }: { args?: string[]; outcome?: PullTicketRecordResult } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-work-order-show-command-'));
@@ -218,6 +233,37 @@ describe('workOrderShowCommand', () => {
 		expect(heading).not.toMatch(/ticket/i);
 		// the rest of the record still reads exactly as it does with a tracker
 		expect(planLineOf({ logged, id: '001-add-search-filters' })).toContain('Add search filters');
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test.each([
+		{ progress: 'failed' as const, finishedAt: '2026-09-12T11:00:00.000Z', wording: 'its implementation failed' },
+		{ progress: 'implemented' as const, finishedAt: '2026-09-12T11:00:00.000Z', wording: 'implemented' },
+	])('shows the build from the ticket body with its progress wording when the record carries one', async ({ progress, finishedAt, wording }) => {
+		const { context, logged, errors, exitCodes } = setupShow({
+			args: ['--name', 'lo-166-x'],
+			outcome: { record: { ...planlessRecord, ticketBodyBuild: { runId: 'run-166', progress, startedAt: '2026-09-12T10:30:00.000Z', finishedAt } } },
+		});
+
+		await expect(workOrderShowCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const ticketBodyLines = logged.filter((line) => /ticket body/i.test(line));
+
+		// the build from the ticket body decides whether a plan-less ticket ships,
+		// so it gets exactly one line, worded like a plan's progress
+		expect(ticketBodyLines).toHaveLength(1);
+		expect(ticketBodyLines[0]).toContain(wording);
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('prints no ticket body line for a record without a build from the ticket body', async () => {
+		const { context, logged, errors, exitCodes } = setupShow({ args: ['--name', 'lo-166-x'], outcome: { record: planlessRecord } });
+
+		await expect(workOrderShowCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged.filter((line) => /ticket body/i.test(line))).toStrictEqual([]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

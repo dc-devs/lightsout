@@ -1,7 +1,7 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
+import { type LightsoutConfig, PlanProgress, RunStatus, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
@@ -125,6 +125,44 @@ const setupPrefixedBranchWorkOrder = (options: Omit<Parameters<typeof setupTicke
 	const record = { ...params.record, branch: `feature/${workOrderName}` };
 
 	writeFileSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'), JSON.stringify(record));
+
+	return { cwd, params: { ...params, record } };
+};
+
+/** The build from the ticket body the record on disk carries once the call has returned. */
+const ticketBodyBuildAt = ({ cwd }: { cwd: string }): WorkOrderState['ticketBodyBuild'] =>
+	(JSON.parse(readFileSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'), 'utf8')) as WorkOrderState).ticketBodyBuild;
+
+/**
+ * A single-plan work order holding no plan at all, optionally carrying an
+ * earlier build from the ticket body — written to disk as well as handed in,
+ * because the body-build lifecycle reads and rewrites the record there.
+ *
+ * A build that fails keeps the fixture's passing run and turns it red, so the
+ * run id the lifecycle handed it is the one its manifest reports.
+ */
+const setupPlanlessWorkOrder = ({
+	ticketBodyBuild,
+	leftover,
+	build = 'passes',
+}: {
+	ticketBodyBuild?: WorkOrderState['ticketBodyBuild'];
+	leftover?: string[];
+	build?: 'passes' | 'fails';
+} = {}) => {
+	const { cwd, params } = setupTicketPlanBuild({ mocks, plans: [], mode: WorkOrderMode.SinglePlan, leftover });
+	const record: WorkOrderState = { ...params.record, ...(ticketBodyBuild === undefined ? {} : { ticketBodyBuild }) };
+	const passes = mockRunDirectWork.getMockImplementation();
+
+	writeFileSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'), JSON.stringify(record));
+
+	if (build === 'fails' && passes !== undefined) {
+		mockRunDirectWork.mockImplementation(async (call) => {
+			const passed = await passes(call);
+
+			return { ok: false, error: 'the gates stayed red', manifest: { ...passed.manifest, status: RunStatus.Failed } };
+		});
+	}
 
 	return { cwd, params: { ...params, record } };
 };
@@ -263,5 +301,89 @@ describe('buildWorkOrderPlans', () => {
 		// single-plan plan 001 alone
 		expect(outcome).toEqual({ open: expect.stringContaining('001-search-index') });
 		expect(mockRunDirectWork).not.toHaveBeenCalled();
+	});
+
+	test('buildWorkOrderPlans: a single-plan work order holding no plan 001 is built from the ticket body and answers success once the build is recorded', async () => {
+		const { cwd, params } = setupPlanlessWorkOrder();
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ cwd, ticketBody: 'Build search.', ticketRef: 'LO-7' }));
+		// the recorded build is what the ship check reads, so the success answer
+		// stands on the record rather than on the run alone
+		expect(ticketBodyBuildAt({ cwd })?.progress).toBe('implemented');
+		expect(outcome).toStrictEqual({});
+	});
+
+	test('buildWorkOrderPlans: a failed build of a work order holding no plan 001 parks saying the queue builds it again and records it failed', async () => {
+		const { cwd, params } = setupPlanlessWorkOrder({ build: 'fails' });
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		// a resumed run records nothing on a record with no plan 001, so the park
+		// names the rebuild on the next pickup rather than a resume
+		expect(outcome.error).toEqual(expect.stringContaining('the gates stayed red'));
+		expect(outcome.error).toEqual(expect.stringContaining('from the ticket body again'));
+		expect(outcome.error).toEqual(expect.not.stringContaining('lightsout resume'));
+		expect(ticketBodyBuildAt({ cwd })?.progress).toBe('failed');
+	});
+
+	test('buildWorkOrderPlans: a work order holding no plan 001 whose build from the ticket body is implemented is not rebuilt', async () => {
+		const { params } = setupPlanlessWorkOrder({
+			ticketBodyBuild: {
+				runId: 'run-passed',
+				progress: PlanProgress.Implemented,
+				startedAt: '2026-01-02T00:00:00.000Z',
+				finishedAt: '2026-01-03T00:00:00.000Z',
+			},
+		});
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		expect(mockRunDirectWork).not.toHaveBeenCalled();
+		expect(outcome).toStrictEqual({});
+	});
+
+	test('buildWorkOrderPlans: a work order holding no plan 001 whose earlier build failed is built again over the leftover work', async () => {
+		const { cwd, params } = setupPlanlessWorkOrder({
+			ticketBodyBuild: { runId: 'run-old', progress: PlanProgress.Failed, startedAt: '2026-01-02T00:00:00.000Z', finishedAt: '2026-01-03T00:00:00.000Z' },
+			leftover: ['packages/engine/src/search/readIndex.ts'],
+		});
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		// no plan owns the leftover work, so it is neither parked on as a stalled
+		// build nor committed — the rebuild runs over whatever the tree holds
+		expect(mockRunDirectWork).toHaveBeenCalledTimes(1);
+		expect(mockCommitTicketWork).not.toHaveBeenCalled();
+		expect(ticketBodyBuildAt({ cwd })?.runId).not.toBe('run-old');
+		expect(outcome).toStrictEqual({});
+	});
+
+	test('buildWorkOrderPlans: a passed build of a work order holding no plan 001 whose record could not be written parks rather than answer success', async () => {
+		const { cwd, params } = setupPlanlessWorkOrder();
+		const passes = mockRunDirectWork.getMockImplementation();
+
+		mockRunDirectWork.mockImplementationOnce(async (call) => {
+			rmSync(join(cwd, '.lightsout', 'work-orders', workOrderName, 'state.json'));
+
+			return passes === undefined ? Promise.reject(new Error('the fixture arranged no build')) : passes(call);
+		});
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: true });
+
+		// the ship check reads the recorded build, so a pass the record never took
+		// is not a ticket that may ship
+		expect(mockRunDirectWork).toHaveBeenCalledTimes(1);
+		expect(outcome).toEqual({ error: expect.stringContaining(workOrderName) });
+	});
+
+	test('buildWorkOrderPlans: without the body fallback a single-plan work order holding no plan 001 parks without building', async () => {
+		const { params } = setupPlanlessWorkOrder();
+
+		const outcome = await buildWorkOrderPlans({ ...params, allowTicketBodyBuild: false });
+
+		expect(mockRunDirectWork).not.toHaveBeenCalled();
+		expect(outcome.error).toEqual(expect.stringContaining('plan 001'));
 	});
 });

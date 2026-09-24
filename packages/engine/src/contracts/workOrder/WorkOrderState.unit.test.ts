@@ -110,6 +110,37 @@ const setupTrackerFreeWorkOrderState = () => {
 	return { state, plan };
 };
 
+const setupPlanlessWorkOrderState = () => {
+	const state = {
+		schemaVersion: 1,
+		name: 'lo-166-ship-tickets-without-plan',
+		ticketRef: 'LO-166',
+		branch: 'lo-166-ship-tickets-without-plan',
+		mode: 'single-plan',
+		plans: [],
+		history: [{ at: '2026-09-20T09:00:00.000Z', kind: 'mode-changed', detail: 'mode set to single-plan' }],
+	};
+	const implementingBuild = {
+		runId: 'run-body-build-001',
+		progress: 'implementing',
+		startedAt: '2026-09-21T09:00:00.000Z',
+	};
+	const implementedBuild = {
+		runId: 'run-body-build-002',
+		progress: 'implemented',
+		startedAt: '2026-09-21T10:00:00.000Z',
+		finishedAt: '2026-09-21T10:45:00.000Z',
+	};
+	const failedBuild = {
+		runId: 'run-body-build-003',
+		progress: 'failed',
+		startedAt: '2026-09-21T11:00:00.000Z',
+		finishedAt: '2026-09-21T11:20:00.000Z',
+	};
+
+	return { state, implementingBuild, implementedBuild, failedBuild };
+};
+
 describe('WorkOrderState', () => {
 	test('WorkOrderState: refuses plans out of ascending number order under the renamed contract', () => {
 		const { state, firstPlan, secondPlan } = setupWorkOrderState();
@@ -240,5 +271,44 @@ describe('WorkOrderState', () => {
 
 		expect(prefixedBranch.success).toBe(true);
 		expect(prefixedBranch.data).toStrictEqual({ ...state, name: 'lo-1-x', branch: 'feature/lo-1-x' });
+	});
+
+	test('accepts a record carrying a ticket body build at each progress it may hold and returns it unchanged', () => {
+		const { state, implementingBuild, implementedBuild, failedBuild } = setupPlanlessWorkOrderState();
+		const implementingRecord = { ...state, ticketBodyBuild: implementingBuild };
+		const implementedRecord = { ...state, ticketBodyBuild: implementedBuild };
+		const failedRecord = { ...state, ticketBodyBuild: failedBuild };
+
+		const implementing = WorkOrderState.safeParse(implementingRecord);
+		const implemented = WorkOrderState.safeParse(implementedRecord);
+		const failed = WorkOrderState.safeParse(failedRecord);
+		const withoutBuild = WorkOrderState.safeParse(state);
+
+		expect(implementing.success).toBe(true);
+		expect(implementing.data).toStrictEqual(implementingRecord);
+		expect(implemented.success).toBe(true);
+		expect(implemented.data).toStrictEqual(implementedRecord);
+		expect(failed.success).toBe(true);
+		expect(failed.data).toStrictEqual(failedRecord);
+		expect(withoutBuild.success).toBe(true);
+		expect(withoutBuild.data).toStrictEqual(state);
+	});
+
+	test('refuses a ticket body build at a progress outside implementing, implemented and failed or carrying an undeclared key', () => {
+		const { state, implementingBuild, implementedBuild } = setupPlanlessWorkOrderState();
+		const { runId: _runId, ...withoutRunId } = implementedBuild;
+
+		const planning = WorkOrderState.safeParse({ ...state, ticketBodyBuild: { ...implementingBuild, progress: 'planning' } });
+		const ready = WorkOrderState.safeParse({ ...state, ticketBodyBuild: { ...implementingBuild, progress: 'ready' } });
+		const undeclaredKey = WorkOrderState.safeParse({
+			...state,
+			ticketBodyBuild: { ...implementedBuild, startCommit: '9c4e2f7a1b3d5e6f8091a2b3c4d5e6f708192a3b' },
+		});
+		const missingRunId = WorkOrderState.safeParse({ ...state, ticketBodyBuild: withoutRunId });
+
+		expect(planning.success).toBe(false);
+		expect(ready.success).toBe(false);
+		expect(undeclaredKey.success).toBe(false);
+		expect(missingRunId.success).toBe(false);
 	});
 });
