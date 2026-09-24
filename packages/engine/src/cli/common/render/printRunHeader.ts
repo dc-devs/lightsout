@@ -1,3 +1,4 @@
+import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
@@ -8,6 +9,8 @@ interface Params {
 	config: LightsoutConfig;
 	driver: Driver;
 	cwd: string;
+	/** The absolute path of the config file the run loaded — not always under `cwd`, which is where the run builds. */
+	configPath: string;
 }
 
 const describeStandardsPacks = ({ value }: { value: string[] | false | undefined }) => {
@@ -22,10 +25,11 @@ const describeStandardsPacks = ({ value }: { value: string[] | false | undefined
 	return value.join(', ');
 };
 
-export const printRunHeader = ({ config, driver, cwd }: Params): void => {
+export const printRunHeader = ({ config, driver, cwd, configPath }: Params): void => {
 	const coverage = config.gates['test-coverage'] === false ? 'off (explicit)' : config.gates['test-coverage'];
 
 	console.log(`  cwd: ${cwd}`);
+	printConfigSource({ configPath });
 	console.log(`  standards packs: ${describeStandardsPacks({ value: config['standards-packs'] })}`);
 	console.log(
 		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,

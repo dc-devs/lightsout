@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
@@ -67,12 +68,12 @@ const setupShell = ({
 		print: ({ result: finished }) => printed.push(finished),
 	});
 
-	return { command, seen, printed, ...captured };
+	return { command, cwd, seen, printed, ...captured };
 };
 
 describe('runBatchedCommand', () => {
 	test('resolves the effective config, announces the run, hands off, prints the result, and exits 0 on ok', async () => {
-		const { command, seen, printed, logged, exitCodes } = setupShell({ args: ['--max-batches', '2'] });
+		const { command, cwd, seen, printed, logged, exitCodes } = setupShell({ args: ['--max-batches', '2'] });
 
 		await expect(command).rejects.toThrow(/process\.exit/);
 
@@ -80,6 +81,7 @@ describe('runBatchedCommand', () => {
 		expect(seen.maxBatches).toBe(2);
 		expect(seen.existing).toBeUndefined();
 		expect(logged[0]).toBe('lightsout: refactor starting run');
+		expect(logged[1]).toBe(`  config: ${join(cwd, 'lightsout.config.json')}`);
 		expect(printed).toStrictEqual([{ ok: true, manifest: manifestOf({ status: RunStatus.Passed }) }]);
 		expect(exitCodes).toStrictEqual([0]);
 	});

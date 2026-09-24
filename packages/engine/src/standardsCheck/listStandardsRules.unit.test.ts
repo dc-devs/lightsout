@@ -271,7 +271,8 @@ describe('listStandardsRules', () => {
 
 		// types that lie, code nothing uses, a tree that breaks across
 		// filesystems, doc tags another tool owns, and tests that are silently
-		// weaker than they read. Everything about layout ships advisory.
+		// weaker than they read or can never pass at all. Everything about
+		// layout ships advisory.
 		expect(blocking).toStrictEqual([
 			'brittle-doc-tags',
 			'case-collision',
@@ -284,6 +285,7 @@ describe('listStandardsRules', () => {
 			'test-mock-prefix',
 			'test-mock-untyped',
 			'test-mock-wrapper-untyped',
+			'test-never-passing-assertion',
 			'test-shared-let',
 			'test-strict-equal-matcher',
 			'type-assertion',

@@ -155,12 +155,14 @@ describe('testCoverageToThresholdCommand', () => {
 	});
 
 	test('--run resumes the named run: its manifest reaches the pipeline and the banner says so', async () => {
-		const { context, logged } = setupCommand({ args: ['--run', 'run-parked-01'], parkedRunId: 'run-parked-01' });
+		const { context, cwd, logged } = setupCommand({ args: ['--run', 'run-parked-01'], parkedRunId: 'run-parked-01' });
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(pipelineParams()?.existing).toEqual(expect.objectContaining({ runId: 'run-parked-01' }));
 		expect(logged[0]).toBe('lightsout: test-coverage-to-threshold resuming run run-parked-01');
+		// a resumed run re-reads the config, and names the file it re-read
+		expect(logged[1]).toBe(`  config: ${join(cwd, 'lightsout.config.json')}`);
 	});
 
 	test('a --run naming no run on disk stops before any work starts', async () => {
@@ -245,7 +247,7 @@ describe('testCoverageToThresholdCommand', () => {
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged[1]).toBe('\ntest-coverage-to-threshold run-1234 — PASSED · 1 set aside');
+		expect(logged[2]).toBe('\ntest-coverage-to-threshold run-1234 — PASSED · 1 set aside');
 		expect(logged).toContain(`⤫ ${'batch-1'.padEnd(48)}declined (1 file(s) set aside)`);
 		expect(logged).toContain('\nset aside batch-1');
 		expect(logged).toContain('  src/x.ts');

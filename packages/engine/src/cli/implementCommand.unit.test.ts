@@ -97,6 +97,8 @@ test('implementCommand: a plan path that does not exist prints the run header, r
 	expect(logged[1]).toBe('  plan: ghost.md');
 	// the run header names the target repo, got: ${JSON.stringify(logged)}
 	expect(logged.some((line) => line === `  cwd: ${cwd}`)).toBeTruthy();
+	// and the absolute path of the config file it loaded
+	expect(logged).toContain(`  config: ${join(cwd, 'lightsout.config.json')}`);
 	// the resolved harness rides the header
 	expect(logged.some((line) => /^ {2}harness: claude-code · model: harness default/.test(line))).toBeTruthy();
 	// the pipeline's failure reaches stderr, got: ${JSON.stringify(errors)}

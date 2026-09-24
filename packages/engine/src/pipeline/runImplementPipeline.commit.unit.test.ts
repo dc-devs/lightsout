@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
@@ -67,6 +67,47 @@ const setupPassingRun = async () => {
 	};
 
 	return { dir, driver, config: await readConfig({ cwd: dir }) };
+};
+
+/** What the stub commit-message agent reports it spent — distinct figures, so the ledger line is plainly this call's. */
+const commitMessageSpend = { inputTokens: 21, outputTokens: 8, cacheReadTokens: 340, cacheCreationTokens: 5, costUsd: 0.07 };
+
+/**
+ * The passing run again, with its commit-message agent answering on contract.
+ *
+ * The seat is told apart from the implementer by `roleOf`, so the summary goes
+ * only to the call that writes the commit message, and that call alone reports
+ * usage — any ledger line carrying these figures can only be its own.
+ */
+const setupSummarizedRun = async () => {
+	const dir = setupCommittingRepo();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: withTestChangeReview({
+			invoke: async ({ prompt }) => {
+				const role = roleOf(prompt);
+
+				if (role === 'commit-message') {
+					return { text: JSON.stringify({ summary: 'add the feature' }), exitCode: 0, usage: commitMessageSpend };
+				}
+
+				if (role !== 'implement') {
+					return { text: report(), exitCode: 0 };
+				}
+
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+
+				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			},
+		}),
+	};
+	const readLedger = ({ runId }: { runId: string }) =>
+		readFileSync(join(runDirFor({ cwd: dir, runId }), 'agents.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+	return { dir, driver, config: await readConfig({ cwd: dir }), readLedger };
 };
 
 /** That same run, already finished and committed — the state a resume walks back into. */
@@ -289,5 +330,26 @@ describe('runImplementPipeline', () => {
 			carriedTheStrayFile: committedPaths({ cwd: dir }).includes('stray.txt'),
 			leftBehind: dirtyPaths({ cwd: dir }),
 		}).toStrictEqual({ baseline: [], passed: true, commits: 1, carriedTheStrayFile: true, leftBehind: [] });
+	});
+
+	test("commits under the agent's summary and bills the commit-message call to the run", async () => {
+		const { dir, driver, config, readLedger } = await setupSummarizedRun();
+
+		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
+
+		const ledger = readLedger({ runId: result.manifest.runId });
+
+		expect({
+			passed: result.ok,
+			// the engine owns the prefix; the agent's line is what closes the subject
+			subjectEndsWithSummary: headSubject({ cwd: dir }).endsWith('add the feature'),
+			namesTheRunInItsBody: headBody({ cwd: dir }).includes(`lightsout run ${result.manifest.runId}`),
+			commitMessageSpend: ledger.filter((line) => line.step === 'commit-message'),
+		}).toEqual({
+			passed: true,
+			subjectEndsWithSummary: true,
+			namesTheRunInItsBody: true,
+			commitMessageSpend: [expect.objectContaining({ step: 'commit-message', ...commitMessageSpend })],
+		});
 	});
 });

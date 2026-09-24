@@ -1,6 +1,6 @@
-import { join } from 'node:path';
 import { parseConfig } from '#src/common/config/parseConfig.ts';
 import { readConfigFile } from '#src/common/config/readConfigFile.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 
 interface Params {
@@ -16,7 +16,7 @@ interface Params {
  * one; it differs only in treating absence as an answer rather than an error.
  */
 export const readConfig = async ({ cwd }: Params): Promise<LightsoutConfig> => {
-	const configPath = join(cwd, 'lightsout.config.json');
+	const configPath = resolveConfigPath({ cwd });
 	const raw = await readConfigFile({ configPath });
 
 	if (raw === undefined) {

@@ -21,7 +21,8 @@ interface CommittingRun {
 
 interface CommitRunWorkParams {
 	run: CommittingRun;
-	subject?: string;
+	driver: Driver;
+	address?: { reference: string; fallbackSubject: string; context: string; unit?: string };
 	resumed: boolean;
 }
 
@@ -85,8 +86,8 @@ const armDirectRun = ({ uncommitted }: { uncommitted?: string }) => {
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
 	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
-	mockCommitRunWork.mockImplementation(({ run, subject, resumed }) => {
-		seen.subject = subject;
+	mockCommitRunWork.mockImplementation(({ run, address, resumed }) => {
+		seen.subject = address?.fallbackSubject;
 		seen.resumed = resumed;
 		seen.statusAtCommit = run.current().status;
 
@@ -231,5 +232,18 @@ describe('runDirectWork', () => {
 			resumed: seen.resumed,
 			subject: seen.subject,
 		}).toStrictEqual({ ok: true, status: RunStatus.Passed, gates: [], workers: 0, commits: 1, resumed: true, subject: 'LO-70 Drain the backlog' });
+	});
+
+	test.each([
+		{ entry: 'a first run', setup: () => Promise.resolve(setupDirectCommit()) },
+		{ entry: 'a run re-entered with verify passed', setup: () => setupResumedDirectCommit({ status: RunStatus.Passed }) },
+	])("hands the commit step the run's driver on a first run and on a re-entered one", async ({ setup }) => {
+		const { run } = await setup();
+
+		await run();
+
+		// the commit-message agent runs on the harness the run already holds, so the
+		// commit step must be handed that very driver on either way into it
+		expect(mockCommitRunWork.mock.calls.map((call) => call[0])).toEqual([expect.objectContaining({ driver })]);
 	});
 });

@@ -19,15 +19,19 @@ const setupHeader = ({ config = {}, driverName = 'claude-code' }: { config?: Par
 	return { config: fullConfig, driver, cwd: '/repo', logged };
 };
 
+/** The config every header below reports loading, beside the `/repo` cwd. */
+const configPath = '/repo/lightsout.config.json';
+
 const lineFor = ({ logged, label }: { logged: string[]; label: string }) => logged.find((line) => line.startsWith(`  ${label}:`));
 
 test('printRunHeader: a minimal config renders exactly the always-present lines, with every default spelled out', () => {
 	const { config, driver, cwd, logged } = setupHeader();
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(logged).toStrictEqual([
 		'  cwd: /repo',
+		'  config: /repo/lightsout.config.json',
 		'  standards packs: lightsout-defaults (none configured — set to false to disable, or list pack roots)',
 		'  harness: claude-code · model: harness default · effort: harness default · permissions: write',
 		'  timeouts: agent 60m · supervisor 15m · gate 15m',
@@ -35,10 +39,20 @@ test('printRunHeader: a minimal config renders exactly the always-present lines,
 	]);
 });
 
+test('printRunHeader: the config line names the file the run loaded, which need not sit under the cwd the run builds in', () => {
+	const { config, driver, logged } = setupHeader();
+
+	// an isolated run builds in its worktree but reads the config of the checkout it was launched from
+	printRunHeader({ config, driver, cwd: '/worktrees/lo-1', configPath });
+
+	expect(lineFor({ logged, label: 'cwd' })).toBe('  cwd: /worktrees/lo-1');
+	expect(lineFor({ logged, label: 'config' })).toBe('  config: /repo/lightsout.config.json');
+});
+
 test('printRunHeader: the harness line names the resolved harness, model, effort, and permissions', () => {
 	const { config, driver, cwd, logged } = setupHeader({ driverName: 'codex', config: { model: 'gpt-5.2', effort: 'high', permissions: 'full-access' } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'harness' })).toBe('  harness: codex · model: gpt-5.2 · effort: high · permissions: full-access');
 });
@@ -46,7 +60,7 @@ test('printRunHeader: the harness line names the resolved harness, model, effort
 test('printRunHeader: an explicit package list is printed verbatim, in config order', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': ['standards/house', '/opt/acme-standards'] } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: standards/house, /opt/acme-standards');
 });
@@ -54,7 +68,7 @@ test('printRunHeader: an explicit package list is printed verbatim, in config or
 test('printRunHeader: standards turned off explicitly are announced as such', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': false } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: none (explicit)');
 });
@@ -62,7 +76,7 @@ test('printRunHeader: standards turned off explicitly are announced as such', ()
 test('printRunHeader: an empty package list is still a configured list — the line prints with nothing after the label', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': [] } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	// an empty array is a list, not an absent key — it must not fall through to
 	// the unset wording that promises the bundled defaults
@@ -72,7 +86,7 @@ test('printRunHeader: an empty package list is still a configured list — the l
 test('printRunHeader: configured timeouts replace the 60m/15m/15m defaults', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 5, 'gate-minutes': 20 } } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'timeouts' })).toBe('  timeouts: agent 90m · supervisor 5m · gate 20m');
 });
@@ -80,7 +94,7 @@ test('printRunHeader: configured timeouts replace the 60m/15m/15m defaults', () 
 test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) in place of a command', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { gates: { check: 'pnpm check', test: 'pnpm test:unit', 'test-coverage': false } } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'gates (root)' })).toBe('  gates (root): check=[pnpm check] test=[pnpm test:unit] coverage=[off (explicit)]');
 });
@@ -92,7 +106,7 @@ test('printRunHeader: the opt-in generate, build, and format lines print only wh
 		},
 	});
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'generate (before every gate set)' })).toBe('  generate (before every gate set): [pnpm gen]');
 	expect(lineFor({ logged, label: 'gates (root, opt-in)' })).toBe('  gates (root, opt-in): build=[pnpm build]');
@@ -102,7 +116,7 @@ test('printRunHeader: the opt-in generate, build, and format lines print only wh
 test('printRunHeader: granted agent commands print as bracketed prefixes', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { 'agent-commands': ['pnpm db:migrate', 'npx prisma'] } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'agent commands (granted, prefix match)' })).toBe('  agent commands (granted, prefix match): [pnpm db:migrate] [npx prisma]');
 });
@@ -110,7 +124,7 @@ test('printRunHeader: granted agent commands print as bracketed prefixes', () =>
 test('printRunHeader: an empty grant list prints no agent commands line at all', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { 'agent-commands': [] } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	// an empty grant list is the same as none — the header stays quiet
 	expect(logged.some((line) => line.includes('agent commands'))).toBe(false);
@@ -119,7 +133,7 @@ test('printRunHeader: an empty grant list prints no agent commands line at all',
 test('printRunHeader: generated path prefixes print as the never-attributed list', () => {
 	const { config, driver, cwd, logged } = setupHeader({ config: { generated: ['src/generated', 'prisma/client'] } });
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'generated (never attributed)' })).toBe('  generated (never attributed): src/generated, prisma/client');
 });
@@ -129,7 +143,7 @@ test('printRunHeader: package-scoped gates print with no coverage entry when non
 		config: { 'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' } },
 	});
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
 		'  gates (per package): check=[pnpm --filter {package} check] test=[pnpm --filter {package} test]',
@@ -143,7 +157,7 @@ test('printRunHeader: a scoped coverage gate is appended to the per-package line
 		},
 	});
 
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 
 	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
 		'  gates (per package): check=[pnpm --filter {package} check] test=[pnpm --filter {package} test] coverage=[pnpm --filter {package} coverage]',

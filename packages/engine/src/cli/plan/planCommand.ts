@@ -3,6 +3,7 @@ import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
+import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { describeMissingPlanAddress } from '#src/cli/common/utils/describeMissingPlanAddress.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
@@ -104,7 +105,10 @@ export const planCommand = async ({ flags, rest, cwd: launchingCwd }: CommandCon
 
 	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
 		const name = await getRequiredFlag({ flags, name: 'name' });
-		const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+		const { config, driver, configPath } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+
+		printConfigSource({ configPath });
+
 		const standards = await readPlanningStandards({ cwd, config });
 
 		if (subcommand === 'draft') {

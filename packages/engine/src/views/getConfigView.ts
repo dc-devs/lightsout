@@ -1,7 +1,7 @@
-import { join } from 'node:path';
 import { z } from 'zod';
 import { parseConfig } from '#src/common/config/parseConfig.ts';
 import { readConfigFile } from '#src/common/config/readConfigFile.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import type { ConfigView } from '#src/contracts/index.ts';
 import { listStandardsRules } from '#src/standardsCheck/index.ts';
 import { type LoadedStandardsPack, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
@@ -65,7 +65,7 @@ interface Params {
  * @throws {Error} When the file exists but fails to parse — surfaced by the route's error boundary with the zod message, which is the actionable answer.
  */
 export const getConfigView = async ({ cwd }: Params): Promise<ConfigView> => {
-	const configPath = join(cwd, 'lightsout.config.json');
+	const configPath = resolveConfigPath({ cwd });
 	const raw = await readConfigFile({ configPath });
 
 	if (raw === undefined) {

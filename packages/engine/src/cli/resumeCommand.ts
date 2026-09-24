@@ -15,6 +15,7 @@ import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarne
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import { recordPlanCommandRun } from '#src/plan/index.ts';
@@ -172,7 +173,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	const { resumable, config, driver } = await prepareResumedRun({ cwd, manifest, loaded, willShip: shipIntent.willShip });
 
 	console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath: resolveConfigPath({ cwd }) });
 
 	// Everything that touches source acts on the workspace; only the run's own
 	// records stay in the checkout the command was launched from.

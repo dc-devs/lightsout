@@ -60,7 +60,7 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 const finishRun = async ({ run, resumed }: { run: PipelineRun; resumed: boolean }): Promise<PipelineResult> => {
 	await recheckUnreachable({ run });
 
-	const uncommitted = await commitRunWork({ run, resumed });
+	const uncommitted = await commitRunWork({ run, driver: run.driver, resumed });
 	let result: PipelineResult;
 
 	if (uncommitted === undefined) {
