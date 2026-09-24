@@ -76,9 +76,10 @@ const hashOf = ({ content }: { content: string }) => createHash('sha256').update
  * Which role a stub invocation is answering.
  *
  * The test-change reviewer is a read-only judge with no heading `roleOf` knows,
- * so it would fall through to the executor. The other two read-only judges are
- * named by their own task headings first, which leaves read-only permissions as
- * an unambiguous name for the reviewer.
+ * so it would fall through to the executor. The other read-only agents — two
+ * judges and the commit-message writer — are named by their own task headings
+ * first, which leaves read-only permissions as an unambiguous name for the
+ * reviewer.
  */
 const roleFor = ({ prompt, permissions }: { prompt: string; permissions?: string }) => {
 	// the ledger writer is the unit-test-writer role with a different
@@ -93,6 +94,12 @@ const roleFor = ({ prompt, permissions }: { prompt: string; permissions?: string
 
 	if (prompt.includes('# Failing step')) {
 		return 'supervisor';
+	}
+
+	// the commit-message agent runs read-only as well, so its staged-change
+	// heading has to name it before permissions are read
+	if (roleOf(prompt) === 'commit-message') {
+		return 'commit-message';
 	}
 
 	return permissions === 'read-only' ? 'test-review' : roleOf(prompt);
@@ -144,6 +151,10 @@ const setupReviewRun = async ({ executorEdit, movedTo, verdicts = [], evidence }
 
 			if (role === 'supervisor') {
 				return { text: verdict(), exitCode: 0 };
+			}
+
+			if (role === 'commit-message') {
+				return { text: JSON.stringify({ summary: 'add the widget' }), exitCode: 0 };
 			}
 
 			if (role === 'test-review') {

@@ -25423,6 +25423,14 @@ var StandardsView = external_exports.object({
   })
 });
 
+// src/contracts/work/CommitMessage.ts
+var CommitMessage = external_exports.object({
+  /** One line of 1 to 64 characters saying what the staged change does. */
+  summary: external_exports.string().min(1, "a commit summary says what the change does in at least one character").max(64, "a commit summary is at most 64 characters").regex(/^[^\r\n]*$/u, "a commit summary is one line, with no line break"),
+  /** Optional plain prose, at most 1200 characters. */
+  body: external_exports.string().max(1200, "a commit body is at most 1200 characters").optional()
+});
+
 // src/contracts/work/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
@@ -26907,6 +26915,33 @@ var estimatePlanScope = ({ facts, executorFileLimit }) => {
 
 // src/plan/draft/legacy/authorPhaseFiles.ts
 import { join as join16 } from "node:path";
+
+// src/agents/prompts/commitMessage.md
+var commitMessage_default = '# Role: Commit Message Writer\n\nYou write the one-line summary, and when it is needed a short body, of one git\ncommit. The commit is read in the history far more often than the ticket that\nasked for the change, so the summary has to say what the change does to a\nreader who has never seen that ticket.\n\n## Inputs\n\nYour task message contains:\n\n- the ticket reference the engine puts in front of your summary;\n- the reason the work was done \u2014 a plan\'s title, a ticket\'s body, or a\n  ticket\'s title;\n- the list of staged files, with how many lines each one gained and lost;\n- the staged diff itself. A large diff can be cut at the engine\'s limit, and a\n  note directly after it says so.\n\nThat is the whole of your input: you are given no tools, and there is nothing\nto investigate.\n\n## Decide\n\n- The summary says what the staged change DOES \u2014 imperative, and lowercase\n  first, in the style of `print which configuration file a run read`.\n- The summary is one line of at most 64 characters.\n- Never restate the ticket reference: the engine adds it in front of your\n  summary.\n- Describe the diff. Never copy the words of the reason or of the ticket \u2014 they\n  say why the work was asked for, not what the change does.\n- The body is optional plain prose of at most 1200 characters. Write one only\n  when the change needs more than the summary to be understood. No headings, no\n  bullet trailers, and no `lightsout` lines \u2014 the engine writes those itself.\n- When the diff was cut, the file list is the complete record of what changed:\n  describe the change from both, and never claim the change is smaller than the\n  file list shows.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"summary": "print which configuration file a run read",\n	"body": "The run\'s first progress line now names the file its settings came from, so a run that read an unexpected file says so before it spends anything."\n}\n```\n';
+
+// src/agents/buildCommitMessageInvocation.ts
+var buildCommitMessageInvocation = ({ reference, context, stat: stat16, diff, truncated }) => {
+  const sections = [
+    `# Ticket
+
+${reference}`,
+    `# Why this work was done
+
+${context}`,
+    `# Files changed
+
+${stat16}`,
+    `# Staged change
+
+${diff}`,
+    ...truncated ? ["The staged change above was cut at the engine's limit. The file list above is complete \u2014 it names every file this commit changes."] : [],
+    "Remember: your entire final message must be exactly one JSON object carrying the summary \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: commitMessage_default,
+    prompt: sections.join("\n\n")
+  };
+};
 
 // src/agents/common/utils/changedFilesSection.ts
 var changedFilesSection = ({ changedFiles }) => changedFiles === void 0 || changedFiles.length === 0 ? void 0 : `# Previously changed files
@@ -142676,12 +142711,6 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// src/commit/buildRunCommitMessage.ts
-var buildRunCommitMessage = ({ subject, runId }) => `${subject}
-
-lightsout run ${runId}
-`;
-
 // src/commit/commitWorkOrderWork.ts
 import { mkdir as mkdir23, writeFile as writeFile18 } from "node:fs/promises";
 import { join as join102 } from "node:path";
@@ -142719,7 +142748,13 @@ var discardGeneratedChanges = async ({ cwd, paths }) => {
   }
   return void 0;
 };
-var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
+var commitWorkOrderWork = async ({
+  cwd,
+  composeMessage,
+  runDir,
+  generated = [],
+  onProgress
+}) => {
   const changed = await readGitChangedFiles({ cwd });
   if (changed === void 0) {
     return { error: `git could not read the tree at ${cwd}` };
@@ -142736,19 +142771,20 @@ var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgr
   if (sourcePaths.length === 0) {
     return { committed: false };
   }
-  const messagePath = join102(runDir, "commit-message.txt");
-  await mkdir23(runDir, { recursive: true });
-  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
-`, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A -- .", cwd });
   if (stageFailure !== void 0) {
     return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
   }
+  const message = await composeMessage({ cwd });
+  const messagePath = join102(runDir, "commit-message.txt");
+  await mkdir23(runDir, { recursive: true });
+  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
+`, "utf8");
   const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
   if (commitFailure !== void 0) {
     return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
   }
-  return { committed: true };
+  return { committed: true, message };
 };
 
 // src/commit/common/utils/describeUnownedEdits.ts
@@ -142762,13 +142798,13 @@ var describeUnownedEdits = async ({ cwd, manifest, generated }) => {
   return stray.length === 0 ? void 0 : `${cwd} holds changes this run did not make: ${stray.join(", ")} \u2014 commit or stash them before resuming, or they ride into this ticket's commit`;
 };
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 import { basename as basename41, extname } from "node:path";
 
 // src/common/utils/readRunLabel.ts
 var readRunLabel = async ({ cwd }) => await readWorkOrderTicketRef({ cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "work";
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 var readUnit = async ({ cwd, plan, planName }) => {
   const name = planName ?? await planNameFromPath({ cwd, planPath: plan });
   const stem = basename41(plan, extname(plan));
@@ -142795,15 +142831,105 @@ var readTicketFacts = async ({
   }
   return { ticketRef: read.record?.ticketRef, title: read.record?.plans.find((plan) => plan.id === planId)?.title };
 };
-var readRunCommitSubject = async ({ cwd, manifest, onProgress }) => {
+var readRunCommitAddress = async ({ cwd, manifest, onProgress }) => {
   const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
   const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
   const reference = ticketRef ?? await readRunLabel({ cwd });
-  return title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
+  return {
+    reference,
+    unit,
+    fallbackSubject: title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`,
+    context: title === void 0 ? `Plan ${unit}` : `Plan ${unit}: ${title}`
+  };
+};
+
+// src/commit/buildRunCommitMessage.ts
+var buildRunCommitMessage = ({ subject, body, unit, runId }) => {
+  const prose = body?.trim() ?? "";
+  const trailers = [...unit === void 0 ? [] : [`lightsout plan ${unit}`], ...runId === void 0 ? [] : [`lightsout run ${runId}`]];
+  const paragraphs = [subject, ...prose === "" ? [] : [prose], ...trailers.length === 0 ? [] : [trailers.join("\n")]];
+  return `${paragraphs.join("\n\n")}
+`;
+};
+
+// src/common/git/readGitStagedChange.ts
+var readGitStagedChange = async ({ cwd, maxDiffLength }) => {
+  const diffCommand = "git -c core.quotePath=false diff --cached --no-color --no-ext-diff";
+  const [stat16, diff] = await Promise.all([
+    runCommand({ command: `${diffCommand} --stat=1000 -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0),
+    runCommand({ command: `${diffCommand} -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0)
+  ]);
+  if (stat16?.exitCode !== 0 || diff?.exitCode !== 0) {
+    return void 0;
+  }
+  const truncated = diff.stdout.length > maxDiffLength;
+  return { stat: stat16.stdout, diff: truncated ? diff.stdout.slice(0, maxDiffLength) : diff.stdout, truncated };
+};
+
+// src/commit/composeCommitMessage.ts
+var askForSummary = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  change
+}) => {
+  const timeoutMs = 18e4;
+  try {
+    return await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation: buildCommitMessageInvocation({ reference: address.reference, context: address.context, ...change }),
+      contract: CommitMessage,
+      model: config2.model,
+      effort: config2.effort,
+      permissions: Permissions.ReadOnly,
+      timeoutMs
+    });
+  } catch (error51) {
+    return { ok: false, failure: messageOf({ error: error51 }), usage: void 0 };
+  }
+};
+var stripReference = ({ summary, reference }) => {
+  const rest = summary.slice(reference.length);
+  const repeats = reference !== "" && summary.slice(0, reference.length).toLowerCase() === reference.toLowerCase() && /^(?::|\s|$)/u.test(rest);
+  return (repeats ? rest.replace(/^\s*:?\s*/u, "") : summary).trim();
+};
+var readAnswer = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  onUsage
+}) => {
+  const maxDiffLength = 6e4;
+  const change = await readGitStagedChange({ cwd, maxDiffLength });
+  if (change === void 0) {
+    return { failure: `the staged change in ${cwd} could not be read, so no agent described it` };
+  }
+  const outcome = await askForSummary({ cwd, driver, config: config2, address, change });
+  await onUsage?.({ usage: outcome.usage });
+  if (!outcome.ok) {
+    return { failure: `the harness did not describe this commit (${outcome.failure})` };
+  }
+  const summary = stripReference({ summary: outcome.report.summary, reference: address.reference });
+  return summary === "" ? { failure: `the harness's summary only repeated ${address.reference}` } : { summary, body: outcome.report.body };
+};
+var composeCommitMessage = async ({ cwd, driver, config: config2, address, runId, onUsage, onProgress }) => {
+  const answer = await readAnswer({ cwd, driver, config: config2, address, onUsage });
+  let subject = address.fallbackSubject;
+  let body;
+  if (answer.summary !== void 0) {
+    subject = address.reference === "" ? answer.summary : `${address.reference}: ${answer.summary}`;
+    body = answer.body;
+  } else {
+    onProgress?.(`${answer.failure} \u2014 committing under '${address.fallbackSubject}' instead`);
+  }
+  return buildRunCommitMessage({ subject, body, unit: address.unit, runId });
 };
 
 // src/commit/commitRunWork.ts
-var commitRunWork = async ({ run, subject, resumed }) => {
+var commitRunWork = async ({ run, driver, address, resumed }) => {
   const manifest = run.current();
   const generated = run.config.generated ?? [];
   const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
@@ -142817,13 +142943,22 @@ var commitRunWork = async ({ run, subject, resumed }) => {
   } catch {
     return `${run.cwd} could not be read, so this run's records could not be found \u2014 nothing was committed`;
   }
-  const line = subject ?? await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) });
+  const onProgress = (message) => run.progress(message);
+  const resolved = address ?? await readRunCommitAddress({ cwd: run.cwd, manifest, config: run.config, onProgress });
   const committed = await commitWorkOrderWork({
     cwd: run.cwd,
-    message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
+    composeMessage: ({ cwd }) => composeCommitMessage({
+      cwd,
+      driver,
+      config: run.config,
+      address: resolved,
+      runId: manifest.runId,
+      onUsage: ({ usage: usage2 }) => run.recordUsage({ step: "commit-message", usage: usage2 }),
+      onProgress
+    }),
     runDir,
     generated,
-    onProgress: (message) => run.progress(message)
+    onProgress
   });
   if ("error" in committed) {
     return committed.error;
@@ -142835,12 +142970,13 @@ var commitRunWork = async ({ run, subject, resumed }) => {
     run.progress("nothing left to commit \u2014 this unit\u2019s work is already in the branch\u2019s history");
     return void 0;
   }
+  const [subject = ""] = committed.message.split("\n");
   const sha = await readGitHeadCommit({ cwd: run.cwd });
   if (sha === void 0) {
     return `the work in ${run.cwd} was committed but git could not name the commit \u2014 resume the run so the tree is checked again`;
   }
-  await run.update({ patch: { commits: [...manifest.commits, { sha, subject: line, runId: manifest.runId }] } });
-  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${line}`);
+  await run.update({ patch: { commits: [...manifest.commits, { sha, subject, runId: manifest.runId }] } });
+  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${subject}`);
   return void 0;
 };
 
@@ -159273,7 +159409,7 @@ var recheckUnreachable = async ({ run }) => {
 };
 var finishRun = async ({ run, resumed }) => {
   await recheckUnreachable({ run });
-  const uncommitted = await commitRunWork({ run, resumed });
+  const uncommitted = await commitRunWork({ run, driver: run.driver, resumed });
   let result;
   if (uncommitted === void 0) {
     await removeApprovedTests({ run });
@@ -159744,9 +159880,9 @@ var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => 
 };
 
 // src/direct/common/utils/finishDirectRun.ts
-var finishDirectRun = async ({ run, ticketRef, ticketBody, resumed }) => {
-  const subject = `${ticketRef} ${headingOf({ text: ticketBody })}`.trim();
-  const uncommitted = await commitRunWork({ run, subject, resumed });
+var finishDirectRun = async ({ run, driver, ticketRef, ticketBody, resumed }) => {
+  const address = { reference: ticketRef, fallbackSubject: `${ticketRef} ${headingOf({ text: ticketBody })}`.trim(), context: ticketBody };
+  const uncommitted = await commitRunWork({ run, driver, address, resumed });
   if (uncommitted !== void 0) {
     return stopDirectRun({ run, record: nextStepRecord({ run, id: "commit" }), status: RunStatus.Failed, error: uncommitted });
   }
@@ -159880,7 +160016,7 @@ var buildAndVerify = async ({
       return stopDirectOnCrash({ run, record: record3, crashes, gateError });
     }
     if (gateError === void 0) {
-      return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+      return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
     }
     errorContext = gateError;
     if (attempt === maxCheapFixRetries) {
@@ -159907,7 +160043,7 @@ var executeDirectWork = async ({
   const stop = ({ record: record3, status, error: error51 }) => stopDirectRun({ run, record: record3, status, error: error51 });
   await run.update({ patch: { status: RunStatus.Running } });
   if (run.current().steps.some((step) => step.id === "verify" && step.status === RunStatus.Passed)) {
-    return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+    return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
   }
   const redBaseline = existing === void 0 ? await runPreflightGate({
     run: {
@@ -161970,7 +162106,9 @@ var settleWorkerOutcome = async ({
   defaultBranch,
   ticket,
   workOrderRunDir,
-  generated,
+  config: config2,
+  driver,
+  coordinatorRunId,
   worked,
   onProgress
 }) => {
@@ -161981,11 +162119,12 @@ var settleWorkerOutcome = async ({
     await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
     return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
   }
+  const address = { reference: ticket.identifier, fallbackSubject: `${ticket.identifier} ${ticket.title}`, context: ticket.title };
   const committed = await commitWorkOrderWork({
     cwd: worktreePath,
-    message: `${ticket.identifier} ${ticket.title}`,
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: coordinatorRunId, onProgress }),
     runDir: workOrderRunDir,
-    generated,
+    generated: config2.generated,
     onProgress
   });
   if ("error" in committed) {
@@ -162037,12 +162176,16 @@ var findStalledPlanRefusal = ({ record: record3, plan }) => {
 
 // src/queue/workers/common/utils/commitPlanWork.ts
 var commitPlanWork = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, onProgress } = step;
-  const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
-  const runId = plan.implementation?.runId;
+  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, driver, onProgress } = step;
+  const address = {
+    reference: ticket.identifier,
+    fallbackSubject: `${ticket.identifier} ${plan.id}: ${plan.title}`,
+    context: `Plan ${plan.id}: ${plan.title}`,
+    unit: plan.id
+  };
   const committed = await commitWorkOrderWork({
     cwd,
-    message: runId === void 0 ? subject : buildRunCommitMessage({ subject, runId }),
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: plan.implementation?.runId, onProgress }),
     runDir: workOrderRunDir,
     generated: config2.generated,
     onProgress
@@ -162513,7 +162656,9 @@ var runQueueWorkOrder = async ({
     defaultBranch,
     ticket,
     workOrderRunDir,
-    generated: config2.generated,
+    config: config2,
+    driver,
+    coordinatorRunId,
     worked,
     onProgress
   });

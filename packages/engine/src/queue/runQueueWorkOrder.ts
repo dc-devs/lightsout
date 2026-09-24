@@ -185,7 +185,9 @@ export const runQueueWorkOrder = async ({
 		defaultBranch,
 		ticket,
 		workOrderRunDir,
-		generated: config.generated,
+		config,
+		driver,
+		coordinatorRunId,
 		worked,
 		onProgress,
 	});

@@ -10,7 +10,8 @@ import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
  * A stub harness that implements each phase for real (a source file per phase,
  * a test file per source file) and pushes the phase number it was handed onto
  * `seen`. `failAt` returns a failed report for that phase; `parkAt` reports a
- * rate limit instead.
+ * rate limit instead. The commit-message agent answers off contract, so a
+ * phase's commit keeps its template subject.
  */
 export const createPhaseDriver = ({
 	dir,
@@ -32,6 +33,14 @@ export const createPhaseDriver = ({
 
 			if (role === 'standards-review') {
 				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			// Prose the commit-message contract refuses, so every phase commits under
+			// its template subject — the one that names the phase. Read from the system
+			// prompt as well, because the re-emit rung keeps the role's system prompt
+			// but not its task heading.
+			if (role === 'commit-message' || systemPrompt?.startsWith('# Role: Commit Message Writer')) {
+				return { text: 'The phase is committed.', exitCode: 0 };
 			}
 
 			if (role === 'write-tests') {
