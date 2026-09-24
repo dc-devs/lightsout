@@ -31,6 +31,8 @@ const setupPlan = ({ create = [], modify = [], earlierModify = [], remove = [], 
 		malformedLedgerLines: [],
 		proseFiles: [],
 		malformedProseLines: [],
+		renames: [],
+		malformedRenameLines: [],
 		lines: [],
 	};
 

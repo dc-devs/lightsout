@@ -369,3 +369,31 @@ test('buildPlanWriterInvocation: the documentation, ledger and phase-authoring b
 		'## Verified facts',
 	]);
 });
+
+test('buildPlanWriterInvocation: a rename-only phase declaration obliges the phase file to carry its Renames section, and any other forbids one', () => {
+	const phaseInvocation = (declaration: PhaseDeclaration) =>
+		writerInvocation({
+			outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
+			overviewText: '# Foo — Overview',
+			declaration,
+		});
+	// the writing rules alone, cut before the inlined overview, so no match can
+	// come from the declaration's JSON or the overview text
+	const writingRulesOf = ({ prompt }: { prompt: string }) =>
+		prompt.slice(prompt.indexOf('### Writing against the declaration'), prompt.indexOf('### The settled overview'));
+
+	const renameOnly = writingRulesOf(phaseInvocation({ ...declarationRow(), renamesOnly: true }));
+	const ordinary = writingRulesOf(phaseInvocation(declarationRow()));
+
+	// both briefs carry the writing rules at all — a missing heading would leave the slice empty
+	expect(renameOnly.startsWith('### Writing against the declaration')).toBeTruthy();
+	expect(ordinary.startsWith('### Writing against the declaration')).toBeTruthy();
+	// the rename-only phase must carry its Renames section, create nothing and state no ledger rows
+	expect(renameOnly).toMatch(/rename-only/i);
+	expect(renameOnly).toMatch(/`## Renames`/);
+	expect(renameOnly).not.toMatch(/no `## Renames`/);
+	expect(renameOnly).toMatch(/nothing under Files to Create/i);
+	expect(renameOnly).toMatch(/no Acceptance Tests rows/i);
+	// any other phase is told its file carries no Renames section
+	expect(ordinary).toMatch(/no `## Renames` section/);
+});

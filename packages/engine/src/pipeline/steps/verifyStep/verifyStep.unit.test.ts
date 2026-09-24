@@ -165,6 +165,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -190,6 +191,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -215,6 +217,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -245,6 +248,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -279,6 +283,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -310,6 +315,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
@@ -336,6 +342,7 @@ describe('verifyStep', () => {
 			planContent: '# Plan',
 			id: 'verify-implement',
 			acceptanceTests: () => [],
+			renames: [],
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 

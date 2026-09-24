@@ -26,8 +26,16 @@ interface Params {
  * the files a ledger row has to reach. `getPlanWrittenPaths` rather than the
  * whole heading set: a deleted file and a move's source are named by a heading
  * but written by nobody, so no test can state their behaviour.
+ *
+ * A rename-only file — one carrying a `## Renames` section — has none: a rename
+ * adds no behaviour a new test could state, so it is asked for no row and no
+ * prose-files excuse.
  */
 const getCoverablePaths = ({ plan }: { plan: ParsedPlan }) => {
+	if (plan.renames.length > 0) {
+		return [];
+	}
+
 	const excused = new Set(plan.proseFiles.map((file) => file.path));
 
 	return [...new Set(getPlanWrittenPaths({ plan }))].filter((path) => isPlanSourceFile({ path }) && !excused.has(path));

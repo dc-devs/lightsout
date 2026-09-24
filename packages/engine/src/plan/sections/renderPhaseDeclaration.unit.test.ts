@@ -30,6 +30,14 @@ const setupBudgetContrast = () => {
 	return { budgeted, unbudgeted };
 };
 
+/** A rename-only phase beside one that is not — the contrast the Renames only bullet turns on. */
+const setupRenamesOnlyContrast = () => {
+	const { declaration: renameOnly } = setupDeclaration({ renamesOnly: true });
+	const { declaration: plain } = setupDeclaration({ number: 2, file: 'phase2-wiring.md', scope: 'the wiring' });
+
+	return { renameOnly, plain };
+};
+
 /**
  * A rendered block read back the way the lint reads an overview: pasted into a
  * `## Phase Declarations` section beside the `## Phases` rows that join to it,
@@ -102,5 +110,21 @@ describe('renderPhaseDeclaration', () => {
 		expect(parseBack({ block: unbudgetedBlock, rows: '| 2 | `phase2-wiring.md` | the wiring | 1 | 2 |' })[0]).toEqual(
 			expect.objectContaining({ fileBudget: undefined }),
 		);
+	});
+
+	test('renders the Renames only bullet only for a rename-only phase, and it parses back', () => {
+		const { renameOnly, plain } = setupRenamesOnlyContrast();
+
+		const renameOnlyBlock = renderPhaseDeclaration({ declaration: renameOnly });
+		const plainBlock = renderPhaseDeclaration({ declaration: plain });
+		const [renameOnlyParsed] = parseBack({ block: renameOnlyBlock, rows: '| 1 | `phase1-core.md` | the core | 1 | 2 |' });
+		const [plainParsed] = parseBack({ block: plainBlock, rows: '| 2 | `phase2-wiring.md` | the wiring | 1 | 2 |' });
+
+		expect(renameOnlyBlock).toMatch(/^-\s+\*\*Renames only:\*\*\s+yes\s*$/m);
+		expect(plainBlock).not.toMatch(/Renames only/i);
+		expect({ renamesOnly: renameOnlyParsed?.renamesOnly, plainCarriesRenamesOnly: Object.hasOwn(plainParsed ?? {}, 'renamesOnly') }).toStrictEqual({
+			renamesOnly: true,
+			plainCarriesRenamesOnly: false,
+		});
 	});
 });

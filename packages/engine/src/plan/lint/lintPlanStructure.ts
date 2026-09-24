@@ -16,6 +16,7 @@ import { checkHandoffDeclared } from '#src/plan/lint/checkHandoffDeclared.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
+import { checkRenames } from '#src/plan/lint/checkRenames.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
 import { readPhaseFiles } from '#src/plan/lint/common/utils/readPhaseFiles.ts';
@@ -199,7 +200,10 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: P
 			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),
 			...(phase.plan.variant === PlanFileKind.Implementable
-				? await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })
+				? [
+						...(await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })),
+						...checkRenames({ plan: phase.plan, phase: phase.base }),
+					]
 				: []),
 			...checkDecisionLog({ plan: phase.plan, phase: phase.base, decisions, phased, syncCommand }),
 			...checkGlobalConstraints({ plan: phase.plan, phase: phase.base, decisions, syncCommand }),

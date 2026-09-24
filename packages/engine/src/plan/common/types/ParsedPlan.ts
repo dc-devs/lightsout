@@ -1,4 +1,4 @@
-import type { LedgerRow, ProseFile } from '#src/contracts/index.ts';
+import type { LedgerRow, ProseFile, RenameRule } from '#src/contracts/index.ts';
 import type { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 
 /** A parsed plan file: its `##` sections plus the paths and scripts the checks key off. */
@@ -26,6 +26,10 @@ export interface ParsedPlan {
 	sectionRanges: Map<string, { start: number; end: number }>;
 	/** `## File Budget` — the touched-file allowance this plan or phase declares for itself, absent when it takes the configured default. */
 	fileBudget?: number;
+	/** `## Renames`, in declared order; empty when the section is absent. A file with at least one rename is rename-only. */
+	renames: RenameRule[];
+	/** 1-based line numbers of `## Renames` bullets that did not name exactly two spans. */
+	malformedRenameLines: number[];
 	mirrorPaths: string[];
 	verificationCommands: string[];
 	/** `## Acceptance Tests` — one row per criterion; empty when the section is absent. */

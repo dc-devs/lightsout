@@ -21,7 +21,7 @@ interface Params {
  * escalate.
  */
 export const formatAndVerify = async ({ context, record }: Params): Promise<RepairOutcome> => {
-	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
+	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames } = context;
 	const failures: GateResult[] = [];
 	const error = await runFormatter({
 		cwd: run.cwd,
@@ -38,7 +38,7 @@ export const formatAndVerify = async ({ context, record }: Params): Promise<Repa
 		return { record: next, result: { error, failedFamilies: ['format'], crashes: [], timeouts: [], coordination: undefined, failures, gates: [] } };
 	}
 
-	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
+	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames });
 
 	if ('rateLimited' in result) {
 		return { parked: await run.stop({ record: next, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };

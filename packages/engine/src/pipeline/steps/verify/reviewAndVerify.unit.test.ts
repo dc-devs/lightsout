@@ -1,5 +1,5 @@
 import { expect, jest, test } from '@jest/globals';
-import type { AcceptanceTestRecord, GateResult, RunManifest } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord, GateResult, RenameRule, RunManifest } from '#src/contracts/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
@@ -20,6 +20,20 @@ const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?
 
 jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
 	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
+}));
+// -------------------------
+// The rename check has its own tests against a real repository. Here it is only
+// the judgment a rename-only checkpoint asks in place of the review.
+interface RenameCheckParams {
+	run: PipelineRun;
+	checkpoint: string;
+	renames: RenameRule[];
+}
+
+const mockCheckRenameOnlyChanges = jest.fn<(params: RenameCheckParams) => Promise<{ error?: string }>>();
+
+jest.mock('#src/pipeline/renameCheck/index.ts', () => ({
+	checkRenameOnlyChanges: (params: RenameCheckParams) => mockCheckRenameOnlyChanges(params),
 }));
 // -------------------------
 interface GateParams {
@@ -86,6 +100,7 @@ test('reviewAndVerify: a refused review returns the review family with no gate r
 		planContent: '# Plan',
 		overviewContent: '# Overview',
 		acceptanceTests: refused.acceptanceTests,
+		renames: [],
 	});
 
 	// A weakened or approved-away test makes a gate prove the wrong thing, so the
@@ -121,6 +136,7 @@ test('reviewAndVerify: a refused review returns the review family with no gate r
 		planContent: '# Plan',
 		overviewContent: '# Overview',
 		acceptanceTests: clean.acceptanceTests,
+		renames: [],
 	});
 
 	// The rows reach the gate run resolved at call time, so the mapping proved is
@@ -145,6 +161,7 @@ test('reviewAndVerify: a refused review carries no coordination reason', async (
 		planContent: '# Plan',
 		overviewContent: '# Overview',
 		acceptanceTests,
+		renames: [],
 	});
 
 	// The review is judgment about the diff, reached before any gate is spent, so
@@ -160,4 +177,122 @@ test('reviewAndVerify: a refused review carries no coordination reason', async (
 		}),
 	);
 	expect(mockRunVerificationGates).not.toHaveBeenCalled();
+});
+
+const renames: RenameRule[] = [{ from: 'widgetName', to: 'gadgetName', line: 12 }];
+
+/**
+ * One checkpoint of a rename-only plan: the rename check answers where the
+ * review would, and the review is wired to pass so that a call reaching it is
+ * visible only as a call, never as a changed verdict.
+ */
+const setupRenameCheckpoint = ({ renameCheck = {} }: { renameCheck?: { error?: string } } = {}) => {
+	mockCheckRenameOnlyChanges.mockResolvedValue(renameCheck);
+	mockReviewTestChanges.mockResolvedValue({});
+	mockRunVerificationGates.mockResolvedValue(greenGates);
+	mockApproveRunnerSnapshots.mockResolvedValue(0);
+
+	const manifest = { runId: 'run-1', steps: [], changedFiles: [], packages: [] } as unknown as RunManifest;
+	const run = {
+		cwd: '/tmp/lightsout-review-and-verify',
+		current: () => manifest,
+		progress: () => {},
+	} as unknown as PipelineRun;
+
+	return { run, acceptanceTests: () => [] };
+};
+
+test('reviewAndVerify: a rename-only checkpoint refused by the rename check goes red under rename-check with no review and no gate', async () => {
+	const { run, acceptanceTests } = setupRenameCheckpoint({
+		renameCheck: { error: 'rename check refused this checkpoint and no gate ran: packages/engine/src/widget.ts added 3 ×1, removed 2 ×1' },
+	});
+
+	const refusal = await reviewAndVerify({
+		run,
+		id: 'verify-implement',
+		coverage: false,
+		final: false,
+		planContent: '# Plan',
+		overviewContent: '# Overview',
+		acceptanceTests,
+		renames,
+	});
+
+	// A change the renames do not explain is refused before any gate is spent,
+	// in the same shape a refused review takes, so the checkpoint's fix role
+	// repairs it under the budget it already has.
+	expect({
+		refusal,
+		reviewCalls: mockReviewTestChanges.mock.calls.length,
+		gateCalls: mockRunVerificationGates.mock.calls.length,
+	}).toStrictEqual({
+		refusal: {
+			error: 'rename check refused this checkpoint and no gate ran: packages/engine/src/widget.ts added 3 ×1, removed 2 ×1',
+			failedFamilies: ['rename-check'],
+			crashes: [],
+			timeouts: [],
+			coordination: undefined,
+			failures: [],
+		},
+		reviewCalls: 0,
+		gateCalls: 0,
+	});
+});
+
+test('reviewAndVerify: a rename-only checkpoint runs the rename check in place of the test-change review, and any other runs the review', async () => {
+	const renameOnly = setupRenameCheckpoint();
+
+	const renameOnlyResult = await reviewAndVerify({
+		run: renameOnly.run,
+		id: 'verify-tests',
+		coverage: true,
+		final: true,
+		planContent: '# Plan',
+		overviewContent: '# Overview',
+		acceptanceTests: renameOnly.acceptanceTests,
+		renames,
+	});
+
+	// A passing rename check hands over to every gate, coverage included, and
+	// no agent is asked to read the rename's test edits.
+	expect({
+		result: renameOnlyResult,
+		renameCheckCalls: mockCheckRenameOnlyChanges.mock.calls,
+		reviewCalls: mockReviewTestChanges.mock.calls.length,
+		gateCalls: mockRunVerificationGates.mock.calls.length,
+	}).toStrictEqual({
+		result: greenGates,
+		renameCheckCalls: [[{ run: renameOnly.run, checkpoint: 'verify-tests', renames }]],
+		reviewCalls: 0,
+		gateCalls: 1,
+	});
+
+	const other = setupRenameCheckpoint();
+
+	const otherResult = await reviewAndVerify({
+		run: other.run,
+		id: 'verify-tests',
+		coverage: true,
+		final: true,
+		planContent: '# Plan',
+		overviewContent: '# Overview',
+		acceptanceTests: other.acceptanceTests,
+		renames: [],
+	});
+
+	// Every plan with no renames is judged exactly as before: the review runs,
+	// then the gates, and the rename check is never asked. The counts carry the
+	// rename-only entry above, so the rename check still holds its one call and
+	// the gates their second.
+	expect({
+		result: otherResult,
+		renameCheckCalls: mockCheckRenameOnlyChanges.mock.calls.length,
+		reviewCalls: mockReviewTestChanges.mock.calls,
+		gateCalls: mockRunVerificationGates.mock.calls.length,
+	}).toStrictEqual({
+		result: greenGates,
+		renameCheckCalls: 1,
+		reviewCalls: [[{ run: other.run, checkpoint: 'verify-tests', planContent: '# Plan', overviewContent: '# Overview' }]],
+		gateCalls: 2,
+	});
 });
