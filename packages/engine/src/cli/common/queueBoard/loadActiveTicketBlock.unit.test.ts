@@ -15,6 +15,7 @@ import {
 	type ShippingProgress,
 	ShippingStepId,
 } from '#src/contracts/index.ts';
+import { QueueWorker } from '#src/queue/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
@@ -35,8 +36,11 @@ const beforeBuild = '2026-09-10T09:50:00.000Z';
 /** The branch the ticket builds and ships. */
 const branch = 'lo-9-board-links';
 
-/** The plan folder an auto-plan ticket's session writes, named for its branch. */
-const planName = 'lo-9-board-links';
+/** The ticket's work order — the folder its runs are filed in and its auto-plan session writes. */
+const workOrderName = 'lo-9-board-links';
+
+/** A second ticket the queue builds at the same time, whose runs share the repository's state directory. */
+const otherWorkOrderName = 'lo-10-board-filters';
 
 /** When the Shipping Now ticket entered the ship lane. */
 const enteredShippingAt = '2026-09-10T10:20:00.000Z';
@@ -101,7 +105,7 @@ const ticketOf = (overrides: Partial<QueueBoardTicket> & Pick<QueueBoardTicket, 
 
 /** A planning record with verify-facts passed, so a block drawn for any other plan folder reads differently. */
 const planningRecord = (): PlanningProgress => ({
-	name: planName,
+	name: workOrderName,
 	updatedAt: '2026-09-10T10:08:00.000Z',
 	steps: [
 		{
@@ -132,27 +136,32 @@ const shippingRecord = ({ startedAt }: { startedAt: string }): ShippingProgress 
 });
 
 /**
- * A worktree holding the given runs, an optional run lock and an optional
- * planning record, plus each seeded run's block as `loadRunProgressBlock` draws
- * it — the lines the binder must hand back untouched.
+ * A worktree holding the given runs filed under the ticket's own work order,
+ * `otherTicketRuns` filed under a second ticket's work order in the same shared
+ * state directory, an optional run lock and an optional planning record, plus
+ * each seeded run's block as `loadRunProgressBlock` draws it — the lines the
+ * binder must hand back untouched.
  */
 const setupWorktree = async ({
 	seeded = [],
+	otherTicketRuns = [],
 	lock,
 	withPlanningRecord = false,
 }: {
 	seeded?: SeededRun[];
+	otherTicketRuns?: SeededRun[];
 	lock?: { runId: string; pid: number };
 	withPlanningRecord?: boolean;
 } = {}) => {
 	jest.spyOn(Date, 'now').mockReturnValue(pinnedNow);
 
 	const worktreePath = await freshCwd();
+	const filed = [...seeded.map((run) => ({ run, folder: workOrderName })), ...otherTicketRuns.map((run) => ({ run, folder: otherWorkOrderName }))];
 
 	await mkdir(join(worktreePath, '.lightsout'), { recursive: true });
 
-	for (const run of seeded) {
-		await seedRunDir({ cwd: worktreePath, manifest: manifestOf(run) });
+	for (const { run, folder } of filed) {
+		await seedRunDir({ cwd: worktreePath, manifest: { ...manifestOf(run), planName: `${folder}/001-board-links` } });
 	}
 
 	if (lock !== undefined) {
@@ -160,7 +169,7 @@ const setupWorktree = async ({
 	}
 
 	if (withPlanningRecord) {
-		const planDir = planWorkspaceFolder({ cwd: worktreePath, name: planName });
+		const planDir = planWorkspaceFolder({ cwd: worktreePath, name: workOrderName });
 
 		await mkdir(planDir, { recursive: true });
 		await writeFile(join(planDir, 'planning-progress.json'), `${JSON.stringify(planningRecord(), null, '\t')}\n`, 'utf8');
@@ -168,13 +177,13 @@ const setupWorktree = async ({
 
 	const blocks: Record<string, string[]> = {};
 
-	for (const run of seeded) {
+	for (const { run } of filed) {
 		const { lines } = await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId });
 
 		blocks[run.runId] = lines;
 	}
 
-	const planningBlock = await loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+	const planningBlock = await loadPlanningProgressBlock({ cwd: worktreePath, name: workOrderName });
 
 	return { worktreePath, blocks, planningBlock };
 };
@@ -210,7 +219,7 @@ const setupShippingWorktree = async ({ shipStartedAt, onDisk = true }: { shipSta
 describe('loadActiveTicketBlock', () => {
 	test("shows the run the worktree's lock names while its process is alive", async () => {
 		const { worktreePath, blocks } = await setupWorktree({ seeded: [runs.a, runs.b], lock: { runId: runs.a.runId, pid: process.pid } });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -219,7 +228,7 @@ describe('loadActiveTicketBlock', () => {
 
 	test("shows the most recently created run when no live process holds the worktree's lock", async () => {
 		const { worktreePath, blocks } = await setupWorktree({ seeded: [runs.a, runs.b], lock: { runId: runs.a.runId, pid: deadPid } });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -228,7 +237,7 @@ describe('loadActiveTicketBlock', () => {
 
 	test("never shows a run created before the ticket's build started, even one the lock names", async () => {
 		const { worktreePath, blocks } = await setupWorktree({ seeded: [runs.early, runs.c], lock: { runId: runs.early.runId, pid: process.pid } });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -237,7 +246,7 @@ describe('loadActiveTicketBlock', () => {
 
 	test('gives a one-line notice when no engine run has started in the worktree since the build began', async () => {
 		const { worktreePath } = await setupWorktree({ seeded: [runs.early] });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -246,7 +255,14 @@ describe('loadActiveTicketBlock', () => {
 
 	test('shows the planning block for an auto-plan ticket that has no engine run yet', async () => {
 		const { worktreePath, planningBlock } = await setupWorktree({ withPlanningRecord: true });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, planName });
+		const ticket = ticketOf({
+			lane: QueueLane.Building,
+			enteredAt: buildStartedAt,
+			buildStartedAt,
+			worktreePath,
+			worker: QueueWorker.AutoPlan,
+			workOrderName,
+		});
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -299,6 +315,7 @@ describe('loadActiveTicketBlock', () => {
 			enteredAt: '2026-09-10T10:15:00.000Z',
 			buildStartedAt,
 			worktreePath,
+			workOrderName,
 			reason: 'Which tracker field holds the link?',
 			question: 'Which tracker field holds the link?',
 		});
@@ -314,5 +331,41 @@ describe('loadActiveTicketBlock', () => {
 		const lines = await loadActiveTicketBlock({ ticket });
 
 		expect(lines).toEqual([expect.stringMatching(/worktree/i)]);
+	});
+
+	test('two tickets building at once each show the run filed under their own work order', async () => {
+		const { worktreePath, blocks } = await setupWorktree({ seeded: [runs.a], otherTicketRuns: [runs.b] });
+		const ownTicket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
+		const otherTicket = ticketOf({
+			identifier: 'LO-10',
+			lane: QueueLane.Building,
+			enteredAt: buildStartedAt,
+			buildStartedAt,
+			worktreePath,
+			branch: otherWorkOrderName,
+			workOrderName: otherWorkOrderName,
+		});
+
+		const [ownLines, otherLines] = await Promise.all([loadActiveTicketBlock({ ticket: ownTicket }), loadActiveTicketBlock({ ticket: otherTicket })]);
+
+		expect({ ownLines, otherLines }).toStrictEqual({ ownLines: blocks[runs.a.runId], otherLines: blocks[runs.b.runId] });
+	});
+
+	test("gives the no-run notice when the only run since the build began is another ticket's", async () => {
+		const { worktreePath } = await setupWorktree({ otherTicketRuns: [runs.b] });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
+
+		const lines = await loadActiveTicketBlock({ ticket });
+
+		expect(lines).toEqual([expect.stringContaining(worktreePath)]);
+	});
+
+	test('gives a one-line notice when the board recorded no work order for the ticket', async () => {
+		const { worktreePath } = await setupWorktree({ seeded: [runs.a] });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+
+		const lines = await loadActiveTicketBlock({ ticket });
+
+		expect(lines).toEqual([expect.stringMatching(/no work order.*LO-9/i)]);
 	});
 });

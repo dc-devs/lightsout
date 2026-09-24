@@ -101,17 +101,19 @@ const setupQueueCheckout = async ({
 };
 
 /**
- * A live queue whose one active ticket is Building in a worktree holding one failed run and no lock. The ticket
+ * A live queue whose one active ticket is Building, its work order folder holding one failed run and no lock. The ticket
  * records no build start, so the run is bound from when it entered the lane. `expected` is `status --run` for that
  * run in that worktree, minus its leading blank line.
  */
 const setupLiveBuildingQueue = async () => {
 	const worktree = await freshCwd();
+	const workOrderName = 'ex-102-api-changes';
 
 	await seedRunDir({
 		cwd: worktree,
 		manifest: {
 			runId: worktreeRunId,
+			planName: `${workOrderName}/001-api-changes`,
 			createdAt: '2026-09-10T09:01:00.000Z',
 			updatedAt: '2026-09-10T09:04:00.000Z',
 			status: RunStatus.Failed,
@@ -132,6 +134,7 @@ const setupLiveBuildingQueue = async () => {
 		identifier: 'EX-102',
 		title: 'API changes',
 		lane: QueueLane.Building,
+		workOrderName,
 		worktreePath: worktree,
 		enteredAt: '2026-09-10T09:00:00.000Z',
 	};

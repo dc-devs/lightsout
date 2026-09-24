@@ -24457,14 +24457,16 @@ var QueueBoardTicket = external_exports.object({
   /** The queue worker value that builds the ticket. */
   worker: external_exports.string().optional(),
   /**
-   * Set only for an auto-plan ticket: the work order's label, which is the
-   * folder under the work-orders directory the worker's session writes in.
+   * The work order's label — its folder under the work-orders directory —
+   * recorded for every ticket the board places from a work order, whatever
+   * worker builds it.
    *
-   * The label rather than the branch, because a plan address is built from the
-   * label and a branch carrying a prefix would not parse as one. The plan the
-   * session is writing is the one inside that folder still being planned.
+   * The label rather than the branch, because a plan address and a runs folder
+   * are both named by the label, and a branch carrying a template prefix names
+   * neither. Absent on an entry the queue left behind before a work order
+   * existed, and on a board written by an engine older than this field.
    */
-  planName: external_exports.string().optional(),
+  workOrderName: external_exports.string().optional(),
   branch: external_exports.string().optional(),
   worktreePath: external_exports.string().optional(),
   /** ISO time the ticket entered its current lane. */
@@ -161161,24 +161163,12 @@ import { dirname as dirname28 } from "node:path";
 
 // src/queue/board/toQueueBoardTickets.ts
 import { join as join140 } from "node:path";
-
-// src/queue/common/constants/QueueWorker.ts
-var QueueWorker = {
-  /** Build straight from the ticket body; the repo's gates are the only bar. */
-  Direct: "direct",
-  /** Implement the plan already published to the ticket. */
-  Plan: "plan",
-  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
-  AutoPlan: "auto-plan"
-};
-
-// src/queue/board/toQueueBoardTickets.ts
 var describeWork = ({ ticket, name, branch, worktreePath }) => ({
   identifier: ticket.identifier,
   title: ticket.title,
   url: ticket.url,
   worker: ticket.worker,
-  planName: ticket.worker === QueueWorker.AutoPlan ? name : void 0,
+  workOrderName: name,
   branch,
   worktreePath
 });
@@ -161196,10 +161186,19 @@ var placeBuild = ({ build, live: live2 }) => {
   return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
 var placeOutcome = ({ outcome }) => {
+  let lane;
+  let reason;
   if (outcome.ready) {
-    return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+    lane = QueueLane.Shipped;
+    reason = outcome.reconciliationFailure;
+  } else if (outcome.open === void 0) {
+    lane = QueueLane.Parked;
+    reason = outcome.error;
+  } else {
+    lane = QueueLane.Blocked;
+    reason = outcome.open;
   }
-  return outcome.open === void 0 ? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error } : { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+  return { ...describeWork(outcome), lane, reason };
 };
 var placeSettled = ({ settled: settled2 }) => [
   ...settled2.outcomes.map((outcome) => placeOutcome({ outcome })),
@@ -161349,6 +161348,16 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
     const message = error51 instanceof Error ? error51.message : String(error51);
     onProgress?.(`the branch state for ${branch} could not be recorded as '${phase}': ${message}`);
   }
+};
+
+// src/queue/common/constants/QueueWorker.ts
+var QueueWorker = {
+  /** Build straight from the ticket body; the repo's gates are the only bar. */
+  Direct: "direct",
+  /** Implement the plan already published to the ticket. */
+  Plan: "plan",
+  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
+  AutoPlan: "auto-plan"
 };
 
 // src/queue/common/utils/isParkedOutcome.ts
@@ -166098,33 +166107,35 @@ var loadShippingBlock = async ({ ticket, worktreePath }) => {
   }
   return lines;
 };
-var findBuildRun = async ({ ticket, worktreePath }) => {
+var findBuildRun = async ({ ticket, worktreePath, workOrderName }) => {
   const since = Date.parse(ticket.buildStartedAt ?? ticket.enteredAt);
-  const candidates = (await listRuns({ cwd: worktreePath })).filter((run) => Date.parse(run.createdAt) >= since).sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
+  const candidates = (await listRuns({ cwd: worktreePath, workOrderName })).filter((run) => Date.parse(run.createdAt) >= since).sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
   const lock = await readRunLock({ cwd: worktreePath });
   const locked = lock !== void 0 && isPidAlive({ pid: lock.pid }) ? candidates.find((run) => run.runId === lock.runId) : void 0;
   return locked ?? candidates[0];
 };
-var loadPlanningBlock = async ({ worktreePath, planName }) => {
-  const read = await readWorkOrderState({ cwd: worktreePath, name: planName });
+var loadPlanningBlock = async ({ worktreePath, workOrderName }) => {
+  const read = await readWorkOrderState({ cwd: worktreePath, name: workOrderName });
   if ("error" in read) {
     return [read.error];
   }
   const { record: record3 } = read;
   if (record3 === void 0) {
-    return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+    return loadPlanningProgressBlock({ cwd: worktreePath, name: workOrderName });
   }
   const waiting = findNextPlanToPlan({ record: record3 });
-  return waiting === void 0 ? [`no plan in ${planName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName: planName, planId: waiting.id }) });
+  return waiting === void 0 ? [`no plan in ${workOrderName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName, planId: waiting.id }) });
 };
 var loadBuildBlock = async ({ ticket, worktreePath }) => {
-  const run = await findBuildRun({ ticket, worktreePath });
-  const { planName } = ticket;
+  const { workOrderName } = ticket;
+  const run = workOrderName === void 0 ? void 0 : await findBuildRun({ ticket, worktreePath, workOrderName });
   let lines;
-  if (run !== void 0) {
+  if (workOrderName === void 0) {
+    lines = [`the board recorded no work order for ${ticket.identifier}`];
+  } else if (run !== void 0) {
     lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
-  } else if (planName !== void 0) {
-    lines = await loadPlanningBlock({ worktreePath, planName });
+  } else if (ticket.worker === QueueWorker.AutoPlan) {
+    lines = await loadPlanningBlock({ worktreePath, workOrderName });
   } else {
     lines = [`no engine run has started in ${worktreePath} since ${ticket.identifier}'s build began`];
   }
