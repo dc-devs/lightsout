@@ -101,7 +101,7 @@ const setupReadyBranch = async ({ number = 70, content = 'export const value = 1
 	writeRepoFile({ cwd: worktreePath, path: 'work.ts', content });
 	execSync(`git add -A && git ${author} commit -qm work`, { cwd: worktreePath, stdio: 'ignore' });
 
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockTakeGateHold.mockResolvedValue(undefined);
 

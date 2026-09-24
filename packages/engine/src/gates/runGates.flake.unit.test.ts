@@ -4,6 +4,7 @@ import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { FrictionRecord, GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/gates/index.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -135,6 +136,24 @@ test('a worker crash beside a failing test is a real failure — not re-run, not
 	expect(result.failedFamilies).toStrictEqual(['test']);
 	expect(result.crashes).toStrictEqual([]);
 	expect(results.filter((result) => result.crashed)).toHaveLength(0);
+});
+
+test('a codegen command that crashes on every attempt is reported as a crash, not the generate family', async () => {
+	const dir = setupConsumerRepo({ scripts: { generate: crashWithTallyCommand, check: `${gateLogCommand({ kind: 'check' })} root` } });
+	const config = await readConfig({ cwd: dir });
+
+	const result = await runGates({ cwd: dir, config });
+
+	// codegen that died never returned a verdict, so there is nothing for a fix
+	// agent to repair — and still no gate runs behind it
+	expect({ failedFamilies: result.failedFamilies, crashes: result.crashes.length, timeouts: result.timeouts }).toStrictEqual({
+		failedFamilies: [],
+		crashes: 1,
+		timeouts: [],
+	});
+	expect(result.crashes[0]).toMatch(/^generate crashed/);
+	expect(result.error ?? '').toMatch(/generate failed/);
+	expect(readGateLog({ dir })).toStrictEqual([]);
 });
 
 test('every crashing attempt is written to the command log and the friction ledger', async () => {

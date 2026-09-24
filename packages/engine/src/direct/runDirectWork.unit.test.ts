@@ -49,7 +49,7 @@ const setupDirectRun = ({ agentCommands }: { agentCommands?: string[] } = {}) =>
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false }, 'agent-commands': agentCommands };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 	const run = ({
 		answeredQuestion,
@@ -90,7 +90,7 @@ const setupContinuedDirectRun = async () => {
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 	const existing = await createRun({
 		cwd,
@@ -168,7 +168,7 @@ describe('runDirectWork', () => {
 	test('stops before spending an agent when the repo is not green to begin with — a red gate then is not the agent’s doing', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -239,9 +239,9 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -254,8 +254,8 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -269,8 +269,8 @@ describe('runDirectWork', () => {
 		const coordination = 'another run holds this machine: run 20260908-a in /tmp/trees/lo-71, held for 31m — waited 30m';
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: coordination, failedFamilies: [], crashes: [], coordination });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: coordination, failedFamilies: [], crashes: [], timeouts: [], coordination });
 
 		const result = await run();
 
@@ -289,10 +289,11 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 		const coordination = 'another run holds this machine: run 20260908-a in /tmp/trees/lo-71, held for 31m — waited 30m';
 
-		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined }).mockResolvedValue({
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
 			error: 'signal=SIGSEGV',
 			failedFamilies: [],
 			crashes: ['gate [root] testCoverage never returned a verdict'],
+			timeouts: [],
 			coordination,
 		});
 
@@ -305,10 +306,11 @@ describe('runDirectWork', () => {
 	test('stops without spending a fix attempt when a gate crashed rather than failed, so no worker is sent at a suite that is not broken', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined }).mockResolvedValue({
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
 			error: 'signal=SIGSEGV',
 			failedFamilies: [],
 			crashes: ['gate [root] testCoverage never returned a verdict'],
+			timeouts: [],
 			coordination: undefined,
 		});
 
@@ -327,7 +329,7 @@ describe('runDirectWork', () => {
 		mockRunGates.mockImplementation(({ step, onProgress }) => {
 			onProgress?.(`${step} is running`);
 
-			return Promise.resolve({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+			return Promise.resolve({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 		});
 
 		await run({ onProgress: (message) => progress.push(message) });
@@ -386,7 +388,7 @@ describe('runDirectWork', () => {
 	test('a first direct run still mints its run and still refuses a red baseline', async () => {
 		const { cwd, run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 

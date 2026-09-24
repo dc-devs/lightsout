@@ -140,7 +140,13 @@ const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	mockReadGitChangedFiles.mockResolvedValue(changed);
 	mockReadGitHeadCommit.mockResolvedValue(head);
 	mockReadConfig.mockResolvedValue(checkoutConfig);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['test'], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({
+		error: gateError,
+		failedFamilies: gateError === undefined ? [] : ['test'],
+		crashes: [],
+		timeouts: [],
+		coordination: undefined,
+	});
 
 	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 

@@ -38,7 +38,7 @@ const setupPreflightGate = ({ steps = [], gateError, gateProgress }: { steps?: S
 			onProgress?.(gateProgress);
 		}
 
-		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], coordination: undefined };
+		return { error: gateError, failedFamilies: gateError === undefined ? [] : ['check'], crashes: [], timeouts: [], coordination: undefined };
 	});
 
 	const progress: string[] = [];
@@ -123,6 +123,7 @@ describe('runPreflightGate', () => {
 			error: 'gates never started',
 			failedFamilies: [],
 			crashes: [],
+			timeouts: [],
 			coordination: 'run-9999-zzzz holds the machine in /repo-sibling, held for 31m',
 		});
 

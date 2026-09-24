@@ -164,7 +164,7 @@ const setupQueueShipping = async ({ shipBlock }: { shipBlock?: { reason: ShipBlo
 		leftBehind: [],
 		merged: [],
 	} satisfies ParkedWork);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shipBlock === undefined ? shippedResult : { status: ShipStatus.Blocked, ...shipBlock, failingChecks: [] });
 	mockSetTicketLabel.mockResolvedValue(undefined);
 

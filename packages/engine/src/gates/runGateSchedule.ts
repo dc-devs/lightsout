@@ -1,6 +1,7 @@
 import { resolveGates } from '#src/common/config/resolveGates.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import { GateEnding } from '#src/gates/common/constants/GateEnding.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import type { GateEntry } from '#src/gates/common/types/GateEntry.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
@@ -9,6 +10,7 @@ import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 import { buildGateEntries } from '#src/gates/common/utils/buildGateEntries.ts';
 import { buildGateStages } from '#src/gates/common/utils/buildGateStages.ts';
 import { describeGateCrash } from '#src/gates/common/utils/describeGateCrash.ts';
+import { describeGateTimeout } from '#src/gates/common/utils/describeGateTimeout.ts';
 import { mergeGateRunResults } from '#src/gates/common/utils/mergeGateRunResults.ts';
 import { rootGateCommands } from '#src/gates/common/utils/rootGateCommands.ts';
 import { stageCountOf } from '#src/gates/common/utils/stageCountOf.ts';
@@ -17,7 +19,8 @@ import { runPackageGates } from '#src/gates/runPackageGates.ts';
 
 /**
  * The codegen command's red as a result, or nothing when it passed or was never
- * configured.
+ * configured. A crash or a timeout is reported through its own channel, never
+ * as the `generate` family.
  *
  * It runs once, before any group fans out — gates verify, generate mutates, and
  * parallel per-package gates must never race a generator. That makes it a
@@ -37,21 +40,31 @@ const runGenerate = async ({ gate, command }: { gate: RunGate; command: string |
 
 	return {
 		error: `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`,
-		failedFamilies: generated.crashed ? [] : ['generate'],
-		crashes: generated.crashed ? [describeGateCrash({ label: 'generate' })] : [],
+		failedFamilies: generated.ending === GateEnding.Failed ? ['generate'] : [],
+		crashes: generated.ending === GateEnding.Crashed ? [describeGateCrash({ label: 'generate' })] : [],
+		timeouts: generated.ending === GateEnding.Timeout ? [describeGateTimeout({ label: 'generate', ceilingMinutes: generated.ceilingMinutes })] : [],
 		coordination: undefined,
 	};
 };
 
-/** One line saying why a suite stopped appearing in the log — a held tier reads as a broken runner without it. */
-const heldTierMessage = ({ failedFamilies }: { failedFamilies: string[] }) =>
-	`gate: expensive gates not started — a cheap gate is red (${failedFamilies.length > 0 ? failedFamilies.join(', ') : 'crash'})`;
+/**
+ * One line saying why a suite stopped appearing in the log — a held tier reads
+ * as a broken runner without it. With no family red, it names the no-verdict
+ * endings the stage carried instead.
+ */
+const heldTierMessage = ({ stageResult }: { stageResult: GateRunResult }) => {
+	const noVerdict = [...(stageResult.crashes.length > 0 ? ['crash'] : []), ...(stageResult.timeouts.length > 0 ? ['timeout'] : [])];
+	const reds = stageResult.failedFamilies.length > 0 ? stageResult.failedFamilies : noVerdict;
+
+	return `gate: expensive gates not started — a cheap gate is red (${reds.join(', ')})`;
+};
 
 /** What an override earns when nothing it named could run: the engine saying the checkpoint had no gates, never a family a fix agent is handed. */
 const overrideMatchedNothing = ({ gates }: { gates: string[] }): GateRunResult => ({
 	error: `gate-overrides named no gate this run could execute: ${gates.join(', ')} — every named gate is absent from the group(s) that ran at this checkpoint`,
 	failedFamilies: [],
 	crashes: [],
+	timeouts: [],
 	coordination: undefined,
 });
 
@@ -112,9 +125,9 @@ interface Params {
  * Stages are how a schedule holds work back. A `tiered` run has two — the cheap
  * gates, then the expensive ones — and every group in scope finishes the first
  * before any group starts the second, so one package's red lint never costs
- * another package its end-to-end suite. A stage that came back red, a crash
- * included, ends the run: the checkpoint has its verdict, or produced none at
- * all, and either way the expensive tier would buy nothing.
+ * another package its end-to-end suite. A stage that came back red, a crash or
+ * a timeout included, ends the run: the checkpoint has its verdict, or produced
+ * none at all, and either way the expensive tier would buy nothing.
  *
  * Split out of `runGates` so the shared gate reservation's lifecycle has
  * somewhere to sit: what a run schedules is a separate decision from whether
@@ -163,7 +176,7 @@ export const runGateSchedule = async ({
 
 		if (stageResult.error !== undefined) {
 			if (stage + 1 < stageCount) {
-				onProgress?.(heldTierMessage({ failedFamilies: stageResult.failedFamilies }));
+				onProgress?.(heldTierMessage({ stageResult }));
 			}
 
 			break;

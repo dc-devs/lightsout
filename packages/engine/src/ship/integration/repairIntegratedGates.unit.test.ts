@@ -25,7 +25,7 @@ jest.mock('#src/ship/runPreShip.ts', () => ({
 }));
 // -------------------------
 
-const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined };
+const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined };
 
 /** The exact commit the fetched default branch was pinned to — what preparation must be measured against on every pass. */
 const baseCommit = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
@@ -89,7 +89,9 @@ describe('repairIntegratedGates', () => {
 	// and a hook that fails stops verification. Each half is arranged and acted
 	// separately below.
 	test('prepares each repaired tree against the same pinned base before verifying', async () => {
-		const { order, repair } = setupRepair({ gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }, green] });
+		const { order, repair } = setupRepair({
+			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
+		});
 
 		const settled = await repair();
 
@@ -110,7 +112,7 @@ describe('repairIntegratedGates', () => {
 
 	test("hands the failing gate's own output to the repair attempt", async () => {
 		const { invocations, repair } = setupRepair({
-			gateRuns: [{ error: 'test failed: expected 1, received 2', failedFamilies: ['test'], crashes: [], coordination: undefined }, green],
+			gateRuns: [{ error: 'test failed: expected 1, received 2', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
 		});
 
 		const settled = await repair();
@@ -121,7 +123,7 @@ describe('repairIntegratedGates', () => {
 
 	test('stops at the repair allowance and names the families that stayed red', async () => {
 		const { invocations, repair } = setupRepair({
-			gateRuns: [{ error: 'test: 3 failing\ncheck: 2 errors', failedFamilies: ['test', 'check'], crashes: [], coordination: undefined }],
+			gateRuns: [{ error: 'test: 3 failing\ncheck: 2 errors', failedFamilies: ['test', 'check'], crashes: [], timeouts: [], coordination: undefined }],
 		});
 
 		const settled = await repair();
@@ -140,6 +142,7 @@ describe('repairIntegratedGates', () => {
 					error: 'test: exited 139 with no verdict',
 					failedFamilies: [],
 					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					timeouts: [],
 					coordination: undefined,
 				},
 			],

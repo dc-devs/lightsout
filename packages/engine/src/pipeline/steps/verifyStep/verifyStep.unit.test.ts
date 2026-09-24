@@ -157,7 +157,7 @@ describe('verifyStep', () => {
 		const gateError =
 			'gate-overrides named no gate this run could execute: check, test-e2e — every named gate is absent from the group(s) that ran at this checkpoint';
 		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
-			result: { error: gateError, failedFamilies: [], crashes: [], coordination: undefined, failures: [] },
+			result: { error: gateError, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [] },
 		});
 
 		const escalation = await verifyStep({
@@ -182,7 +182,7 @@ describe('verifyStep', () => {
 		const coordination =
 			'another gate run holds this machine: run run-7 in worktree /repo/.worktrees/lo-42, holding the reservation for 31m — the wait of 30m expired';
 		const { run, agentSinks, roleInvocations, stopped } = setupVerifyRun({
-			result: { error: 'gates did not run', failedFamilies: [], crashes: [], coordination, failures: [] },
+			result: { error: 'gates did not run', failedFamilies: [], crashes: [], timeouts: [], coordination, failures: [] },
 		});
 
 		const escalation = await verifyStep({
@@ -206,8 +206,8 @@ describe('verifyStep', () => {
 
 	test('verifyStep: an ordinary red with a failed family still spends the cheap repair budget', async () => {
 		const { run, manifest, agentSinks, roleInvocations, stopped } = setupRepairableRun({
-			red: { error: 'test suite failed', failedFamilies: ['test'], crashes: [], coordination: undefined, failures: [] },
-			green: { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [] },
+			red: { error: 'test suite failed', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined, failures: [] },
+			green: { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [] },
 		});
 
 		const outcome = await verifyStep({
@@ -235,7 +235,7 @@ describe('verifyStep', () => {
 			'another gate run holds this machine: run run-7 in worktree /repo/.worktrees/lo-42, holding the reservation for 31m — the wait of 30m expired';
 		const holdFailure = "the 'queue-blocked-gate-timed-out' label could not be written: the tracker answered 403 forbidden";
 		const { run, stopped } = setupVerifyRun({
-			result: { error: 'gates did not run', failedFamilies: [], crashes: [], coordination, failures: [] },
+			result: { error: 'gates did not run', failedFamilies: [], crashes: [], timeouts: [], coordination, failures: [] },
 			ticketRef: 'LO-118',
 			holdFailure,
 		});

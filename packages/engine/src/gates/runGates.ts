@@ -66,9 +66,9 @@ interface Params {
  * share one machine: four of them starting `pnpm test` in the same second is
  * what makes a suite that passes alone time out or die under load. The
  * reservation is taken around the WHOLE scheduled run — the codegen command,
- * every stage, every package group and every crash re-run — because the settled
- * decision is the whole run, and because codegen mutates the tree and must be
- * inside it. A schedule that runs no stage at all takes none and waits for
+ * every stage, every package group and every crash or timeout re-run — because
+ * the settled decision is the whole run, and because codegen mutates the tree
+ * and must be inside it. A schedule that runs no stage at all takes none and waits for
  * nothing: there is nothing to serialise, and a repository whose checkpoint is
  * off must behave exactly as it does today.
  *
@@ -80,7 +80,9 @@ interface Params {
  * A gate whose red is nothing but the known jest worker crash is re-run before
  * its exit code is believed, and if it never recovers it is reported through
  * `crashes` as well as `error` — red, but never as a family a fix agent is
- * asked to repair.
+ * asked to repair. A gate that runs past its ceiling is re-run once under the
+ * same reservation, and if it runs past it again it is reported through
+ * `timeouts` as well as `error` — likewise never as a family.
  *
  * Two invariants this function keeps, neither of which the type system can.
  * First, no other lock is acquired while the reservation is held and the
@@ -124,5 +126,7 @@ export const runGates = async ({
 		run: ({ onGateSpawn, onGateExit }) => runGateSchedule({ ...scheduleParams, gate: createGateRunner({ ...runnerParams, onGateSpawn, onGateExit }) }),
 	});
 
-	return 'coordination' in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], coordination: outcome.coordination } : outcome.held;
+	return 'coordination' in outcome
+		? { error: outcome.coordination, failedFamilies: [], crashes: [], timeouts: [], coordination: outcome.coordination }
+		: outcome.held;
 };

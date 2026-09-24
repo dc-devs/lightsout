@@ -31,6 +31,7 @@ const coordinationGates: GateRunResult = {
 	error: coordinationReason,
 	failedFamilies: [],
 	crashes: [],
+	timeouts: [],
 	coordination: coordinationReason,
 };
 
@@ -39,6 +40,7 @@ const redGates: GateRunResult = {
 	error: 'unit tests failed: 3 failing in src/one.unit.test.ts',
 	failedFamilies: ['test'],
 	crashes: [],
+	timeouts: [],
 	coordination: undefined,
 };
 
