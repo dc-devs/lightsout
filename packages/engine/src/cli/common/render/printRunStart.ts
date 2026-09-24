@@ -11,15 +11,16 @@ interface Params {
 	config: LightsoutConfig;
 	driver: Driver;
 	cwd: string;
+	configPath: string;
 }
 
 /** The startup lines: what the run was started from, followed by the harness header every run prints. */
-export const printRunStart = ({ target, overviewPath, packages, startPhase, config, driver, cwd }: Params): void => {
+export const printRunStart = ({ target, overviewPath, packages, startPhase, config, driver, cwd, configPath }: Params): void => {
 	console.log(`lightsout: starting run`);
 	console.log(
 		'overviewPath' in target
 			? `  overview: ${target.overviewPath}${startPhase === undefined ? '' : `\n  start phase: ${startPhase}`}`
 			: `  plan: ${target.planPath}${overviewPath ? `\n  overview: ${overviewPath}` : ''}${packages ? `\n  packages flag: ${packages.join(', ')}` : ''}`,
 	);
-	printRunHeader({ config, driver, cwd });
+	printRunHeader({ config, driver, cwd, configPath });
 };

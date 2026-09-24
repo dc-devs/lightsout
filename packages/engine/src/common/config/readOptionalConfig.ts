@@ -1,6 +1,6 @@
-import { join } from 'node:path';
 import { parseConfig } from '#src/common/config/parseConfig.ts';
 import { readConfigFile } from '#src/common/config/readConfigFile.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 
 interface Params {
@@ -25,7 +25,7 @@ interface Params {
  * broken one gets told.
  */
 export const readOptionalConfig = async ({ cwd }: Params): Promise<LightsoutConfig | undefined> => {
-	const configPath = join(cwd, 'lightsout.config.json');
+	const configPath = resolveConfigPath({ cwd });
 	const raw = await readConfigFile({ configPath });
 
 	return raw === undefined ? undefined : parseConfig({ raw, configPath });

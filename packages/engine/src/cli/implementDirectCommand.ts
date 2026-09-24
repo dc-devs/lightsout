@@ -5,6 +5,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
 import { openDirectWorkspace } from '#src/cli/common/implementRun/openDirectWorkspace.ts';
 import { readBodyBuildPlanName } from '#src/cli/common/implementRun/readBodyBuildPlanName.ts';
+import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
@@ -12,6 +13,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
@@ -108,11 +110,22 @@ const prepareDirectRun = async ({
 	return typeof planName === 'object' ? planName : { ticketRef, config, driver, driverName, planName };
 };
 
-/** The startup line: which checkout the run builds in, on which branch, from which ticket file. */
-const printDirectRunHeader = ({ workspace, ticketRef, ticketPath }: { workspace: RunWorkspace; ticketRef: string; ticketPath: string }) => {
+/** The startup lines: which checkout the run builds in, on which branch, from which ticket file — and which config file it read. */
+const printDirectRunHeader = ({
+	workspace,
+	ticketRef,
+	ticketPath,
+	configPath,
+}: {
+	workspace: RunWorkspace;
+	ticketRef: string;
+	ticketPath: string;
+	configPath: string;
+}) => {
 	const where = workspace.isolated ? `${workspace.cwd} on ${workspace.branch}` : `${workspace.cwd} — the checkout this was launched from`;
 
 	console.log(`lightsout: building ${ticketRef} from ${ticketPath} in ${where}`);
+	printConfigSource({ configPath });
 };
 
 /**
@@ -168,7 +181,7 @@ export const implementDirectCommand = async ({ flags, cwd }: CommandContext): Pr
 
 	const { ticketRef, config, driver, driverName, planName } = prepared;
 
-	printDirectRunHeader({ workspace, ticketRef, ticketPath });
+	printDirectRunHeader({ workspace, ticketRef, ticketPath, configPath: resolveConfigPath({ cwd }) });
 
 	const built = await runDirectBuild({
 		cwd: workspace.cwd,
