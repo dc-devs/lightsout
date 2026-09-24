@@ -44,9 +44,9 @@ const verifyCandidate = async ({
 
 	// A gate run that never started is not a red one. No command executed, so
 	// there is nothing to hand an integrator and nothing to repair — the same
-	// refusal the crash below states, for the other reason a gate can produce no
-	// verdict. Its own reason, because a ticket-backed ship takes a durable hold
-	// on this one and on no other.
+	// refusal the crash and the timeout below state, for the other reasons a gate
+	// can produce no verdict. Its own reason, because a ticket-backed ship takes a
+	// durable hold on this one and on no other.
 	if (gates.coordination !== undefined) {
 		return {
 			blocked: {
@@ -60,11 +60,26 @@ const verifyCandidate = async ({
 	if (gates.crashes.length > 0) {
 		return {
 			blocked: {
-				reason: ShipBlockReason.IntegrationGatesFailed,
+				reason: ShipBlockReason.IntegrationGatesCrashed,
 				detail: [
 					'a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
 					'No repair was attempted and no repair attempt was spent.',
 					gates.crashes.join('\n'),
+					gates.error ?? '',
+				].join('\n\n'),
+				paths: [],
+			},
+		};
+	}
+
+	if (gates.timeouts.length > 0) {
+		return {
+			blocked: {
+				reason: ShipBlockReason.IntegrationGatesTimedOut,
+				detail: [
+					'a gate ran past its own time ceiling (timeouts.gate-minutes) — not a verdict about the code.',
+					'No repair was attempted and no repair attempt was spent.',
+					gates.timeouts.join('\n'),
 					gates.error ?? '',
 				].join('\n\n'),
 				paths: [],
@@ -89,10 +104,10 @@ const verifyCandidate = async ({
  * scope: the commits being integrated are not this branch's, and nothing has
  * narrowed which packages they touched.
  *
- * A gate that CRASHED is not handed to the agent and spends no attempt. Its red
- * is a toolchain fault rather than a verdict about the code, and presenting it
- * as one would spend a repair on a suite that is not broken — the same refusal
- * `runDirectWork` states.
+ * A gate that CRASHED, or that ran past its own ceiling, is not handed to the
+ * agent and spends no attempt. Neither reached a verdict about the code, and
+ * presenting either as a red would spend a repair on a suite that is not broken
+ * — the same refusal `runDirectWork` states. Each blocks under its own reason.
  *
  * @returns undefined once the gates are green, else why the allowance ran out and which families stayed red
  */

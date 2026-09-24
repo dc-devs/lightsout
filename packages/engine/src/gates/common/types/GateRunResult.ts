@@ -4,7 +4,8 @@ export interface GateRunResult {
 	 * Gate kinds that went red on evidence about the code — what a fix agent
 	 * is asked to repair. A gate that only crashed is deliberately absent: its
 	 * red is a toolchain fault, and handing it over would spend a repair on a
-	 * suite that is not broken.
+	 * suite that is not broken. A gate that timed out is absent for the same
+	 * reason: it never returned a verdict.
 	 */
 	failedFamilies: string[];
 	/**
@@ -15,6 +16,16 @@ export interface GateRunResult {
 	 * reads nothing but `error` still fails closed.
 	 */
 	crashes: string[];
+	/**
+	 * One `describeGateTimeout` line per gate whose every attempt ran past the
+	 * gate ceiling, `timeouts.gate-minutes`. Empty when a timeout cleared on its
+	 * re-run. A non-empty list always comes with `error`, and a timed-out gate is
+	 * never in `failedFamilies`.
+	 *
+	 * Required rather than optional, so the compiler finds every literal that
+	 * builds one of these.
+	 */
+	timeouts: string[];
 	/**
 	 * Why this gate run never started — the machine was held by another gate run
 	 * of the same repository, or the shared reservation could not be written at

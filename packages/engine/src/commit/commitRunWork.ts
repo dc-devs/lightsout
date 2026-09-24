@@ -1,16 +1,18 @@
-import { buildRunCommitMessage } from '#src/commit/buildRunCommitMessage.ts';
 import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
+import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
 import { describeUnownedEdits } from '#src/commit/common/utils/describeUnownedEdits.ts';
-import { readRunCommitSubject } from '#src/commit/common/utils/readRunCommitSubject.ts';
+import { readRunCommitAddress } from '#src/commit/common/utils/readRunCommitAddress.ts';
+import { composeCommitMessage } from '#src/commit/composeCommitMessage.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
-import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
+import type { AgentUsage, LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import { resolveRunDir } from '#src/runState/index.ts';
 
 /**
  * The slice of a run this step touches, structural on purpose: the implement
  * pipeline's `PipelineRun` and the direct pipeline's `RunState` share no
- * declared type, and the commit needs nothing of either beyond these five.
+ * declared type, and the commit needs nothing of either beyond these six.
  */
 interface CommittingRun {
 	cwd: string;
@@ -18,12 +20,16 @@ interface CommittingRun {
 	current(): RunManifest;
 	progress(message: string): void;
 	update({ patch }: { patch: Partial<RunManifest> }): Promise<void>;
+	/** Bills the commit-message agent call to the run. */
+	recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void>;
 }
 
 interface Params {
 	run: CommittingRun;
-	/** The subject a pipeline that builds no plan supplies for itself — the direct pipeline's ticket heading. Omitted by a plan run, whose subject is read from the plan the manifest names. */
-	subject?: string;
+	/** The harness the pipeline already holds — the commit-message agent runs on it. */
+	driver: Driver;
+	/** The address a pipeline that builds no plan supplies for itself — the direct run's. Omitted by a plan run, whose address is read from the plan the manifest names. */
+	address?: CommitAddress;
 	/** Whether this run continues work that was parked — it adopted an existing manifest, or its caller knows the sequence it belongs to was resumed. Only such a run's tree is compared for edits the run does not own. */
 	resumed: boolean;
 }
@@ -45,7 +51,7 @@ interface Params {
  *
  * @returns undefined when the work is in history, or the one sentence saying why it is not
  */
-export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<string | undefined> => {
+export const commitRunWork = async ({ run, driver, address, resumed }: Params): Promise<string | undefined> => {
 	const manifest = run.current();
 	const generated = run.config.generated ?? [];
 	const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
@@ -70,13 +76,23 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 		return `${run.cwd} could not be read, so this run's records could not be found — nothing was committed`;
 	}
 
-	const line = subject ?? (await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) }));
+	const onProgress = (message: string) => run.progress(message);
+	const resolved = address ?? (await readRunCommitAddress({ cwd: run.cwd, manifest, config: run.config, onProgress }));
 	const committed = await commitWorkOrderWork({
 		cwd: run.cwd,
-		message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
+		composeMessage: ({ cwd }) =>
+			composeCommitMessage({
+				cwd,
+				driver,
+				config: run.config,
+				address: resolved,
+				runId: manifest.runId,
+				onUsage: ({ usage }) => run.recordUsage({ step: 'commit-message', usage }),
+				onProgress,
+			}),
 		runDir,
 		generated,
-		onProgress: (message) => run.progress(message),
+		onProgress,
 	});
 
 	if ('error' in committed) {
@@ -93,6 +109,9 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 		return undefined;
 	}
 
+	// The subject recorded is the one that landed — the agent's, or the template
+	// it fell back to — which only the committed message can say.
+	const [subject = ''] = committed.message.split('\n');
 	const sha = await readGitHeadCommit({ cwd: run.cwd });
 
 	// Never passed over: the result block reads the recorded commits, so a run
@@ -103,8 +122,8 @@ export const commitRunWork = async ({ run, subject, resumed }: Params): Promise<
 		return `the work in ${run.cwd} was committed but git could not name the commit — resume the run so the tree is checked again`;
 	}
 
-	await run.update({ patch: { commits: [...manifest.commits, { sha, subject: line, runId: manifest.runId }] } });
-	run.progress(`committed ${sha.slice(0, 7)} — ${line}`);
+	await run.update({ patch: { commits: [...manifest.commits, { sha, subject, runId: manifest.runId }] } });
+	run.progress(`committed ${sha.slice(0, 7)} — ${subject}`);
 
 	return undefined;
 };

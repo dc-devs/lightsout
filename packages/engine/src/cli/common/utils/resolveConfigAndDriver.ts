@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
-import { join } from 'node:path';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 
@@ -20,9 +20,15 @@ interface Params {
  * returned config is the EFFECTIVE config — its top-level
  * harness/model/effort are overwritten with this command's resolved values, so
  * downstream reads of `config.model` are already per-command.
+ *
+ * @returns the effective config and driver, and the absolute path of the config
+ *   file read — `undefined` alongside an `undefined` config, when there was none
  */
-export const resolveConfigAndDriver = async ({ cwd, command }: Params): Promise<{ config: LightsoutConfig | undefined; driver: Driver }> => {
-	const configPath = join(cwd, 'lightsout.config.json');
+export const resolveConfigAndDriver = async ({
+	cwd,
+	command,
+}: Params): Promise<{ config: LightsoutConfig | undefined; driver: Driver; configPath: string | undefined }> => {
+	const configPath = resolveConfigPath({ cwd });
 	const present = await stat(configPath).then(
 		() => true,
 		() => false,
@@ -36,5 +42,5 @@ export const resolveConfigAndDriver = async ({ cwd, command }: Params): Promise<
 	const driver = getDriver({ name: driverName });
 	const config = loaded ? { ...loaded, harness: driverName, model, effort } : undefined;
 
-	return { config, driver };
+	return { config, driver, configPath: present ? configPath : undefined };
 };

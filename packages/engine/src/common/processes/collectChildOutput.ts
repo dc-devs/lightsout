@@ -11,6 +11,8 @@ interface Params {
 	timeout?: { ms: number; message: string };
 	/** Called once per complete stdout line as it arrives (blank lines skipped). Full stdout is still collected and returned. */
 	onStdoutLine?: (line: string) => void;
+	/** Called once when the deadline fires, before the promise rejects — never on a normal close or a spawn error. */
+	onTimeout?: () => void;
 }
 
 /**
@@ -18,7 +20,9 @@ interface Params {
  * optionally stream complete stdout lines as they arrive, arm a SIGKILL
  * deadline, and settle on close. A non-zero exit is a result, not an
  * exception — only a spawn error or the deadline rejects; a signalled death
- * carries no code, so it reports -1.
+ * carries no code, so it reports -1. The deadline reports itself through
+ * `onTimeout` before it rejects, so a caller can tell it from a spawn error
+ * without reading the error's text.
  *
  * Every process the engine runs goes through here — consumer gate commands and
  * harness spawns alike — so the settle rules (what counts as failure, when the
@@ -26,7 +30,7 @@ interface Params {
  * rather than re-derived per caller. What differs between callers is how the
  * child is spawned, which is the caller's business.
  */
-export const collectChildOutput = ({ child, timeout, onStdoutLine }: Params): Promise<CommandResult> => {
+export const collectChildOutput = ({ child, timeout, onStdoutLine, onTimeout }: Params): Promise<CommandResult> => {
 	return new Promise<CommandResult>((resolve, reject) => {
 		let stdout = '';
 		let stderr = '';
@@ -65,6 +69,7 @@ export const collectChildOutput = ({ child, timeout, onStdoutLine }: Params): Pr
 
 			escalation.unref();
 			child.once('close', () => clearTimeout(escalation));
+			onTimeout?.();
 			reject(new Error(timeout?.message ?? 'timed out'));
 		};
 

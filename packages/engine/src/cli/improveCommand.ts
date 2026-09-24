@@ -1,5 +1,6 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
+import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
@@ -15,7 +16,10 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 		return exitCli({ code: 1 });
 	}
 
-	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
+	const { config, driver, configPath } = await resolveConfigAndDriver({ cwd, command: 'improve' });
+
+	printConfigSource({ configPath });
+
 	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model, effort: config?.effort });
 
 	if (result.status === PromptImprovementStatus.NoFriction) {

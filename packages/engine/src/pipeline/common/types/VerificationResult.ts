@@ -12,7 +12,7 @@ import type { GateRunResult } from '#src/gates/index.ts';
  * other.
  */
 export interface VerificationResult extends GateRunResult {
-	/** The red gates the step shows and the fix role reads — a crashed gate is deliberately absent. */
+	/** The red gates the step shows and the fix role reads — a crashed or timed-out gate is deliberately absent. */
 	failures: GateResult[];
 	/**
 	 * Every gate this checkpoint observed, which the acceptance check and the

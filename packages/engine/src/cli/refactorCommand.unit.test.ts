@@ -153,12 +153,14 @@ describe('refactorCommand', () => {
 	});
 
 	test('--run resumes the named run: its manifest reaches the pipeline and the banner says so', async () => {
-		const { context, logged } = setupRefactor({ args: ['--run', 'run-parked-01'], parkedRunId: 'run-parked-01' });
+		const { context, cwd, logged } = setupRefactor({ args: ['--run', 'run-parked-01'], parkedRunId: 'run-parked-01' });
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(pipelineParams()?.existing).toEqual(expect.objectContaining({ runId: 'run-parked-01' }));
 		expect(logged[0]).toBe('lightsout: refactor resuming run run-parked-01');
+		// a resumed run re-reads the config, and names the file it re-read
+		expect(logged[1]).toBe(`  config: ${join(cwd, 'lightsout.config.json')}`);
 	});
 
 	test('a --run naming no run on disk stops before any work starts', async () => {
@@ -243,7 +245,7 @@ describe('refactorCommand', () => {
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged[1]).toBe('\nrefactor run-1234 — PASSED · 1 declined');
+		expect(logged[2]).toBe('\nrefactor run-1234 — PASSED · 1 declined');
 		expect(logged).toContain(`⤫ ${'batch-1'.padEnd(48)}declined (2 site(s) persist)`);
 		expect(logged).toContain('\ndeclined batch-1');
 		// the agent's own words: a decline a reader cannot read is indistinguishable from skipped work
@@ -268,7 +270,7 @@ describe('refactorCommand', () => {
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// an unfinished run has not weighed its declines either, so the count stays off the status line
-		expect(logged[1]).toBe('\nrefactor run-1234 — PAUSED-RATE-LIMIT');
+		expect(logged[2]).toBe('\nrefactor run-1234 — PAUSED-RATE-LIMIT');
 		expect(logged).toContain('\nno burn-down until the run completes — resume to finish and measure');
 		expect(logged.join('\n')).not.toMatch(/size\s+4 → 4/);
 		// what stopped it is the last thing said — on stdout, because a pause is

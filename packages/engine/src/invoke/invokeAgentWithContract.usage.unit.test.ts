@@ -250,6 +250,12 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 					return { text: report(), exitCode: 0, usage: stubUsage(300) };
 				}
 
+				// The commit-message agent reports no usage here, so the ledger this
+				// case pins stays the four working roles' spend.
+				if (role === 'commit-message') {
+					return { text: JSON.stringify({ summary: 'change the feature' }), exitCode: 0 };
+				}
+
 				writeSource({ dir: dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage: stubUsage(100) };

@@ -25,7 +25,7 @@ const mockPlanDedupCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanGradeCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanPublishCommand = jest.fn<(params: unknown) => Promise<void>>();
 const mockPlanSyncDecisionsCommand = jest.fn<(params: unknown) => Promise<void>>();
-const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config?: LightsoutConfig; driver: Driver }>>();
+const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config?: LightsoutConfig; driver: Driver; configPath?: string }>>();
 const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | undefined>>();
 
 // -------------------------
@@ -83,7 +83,7 @@ const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<s
 		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(repoConfig));
 	}
 
-	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
+	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver, configPath: join(cwd, 'lightsout.config.json') });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
 
 	for (const mock of [
@@ -267,7 +267,7 @@ describe('planCommand', () => {
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 	});
 
-	test.each(['draft', 'dedup', 'grade', 'lint', 'publish', 'sync-decisions', 'verify-facts'])(
+	test.each(['lint', 'publish', 'sync-decisions', 'verify-facts'])(
 		'%s addresses a plan by name and says nothing about the folder, whatever its label spells',
 		async (subcommand) => {
 			const { context, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner/001-banner'], repoConfig: trackerRepoConfig });
@@ -277,6 +277,20 @@ describe('planCommand', () => {
 			// A label is only a label now: which ticket the work belongs to is the
 			// work order record's answer, so there is nothing to advise about.
 			expect(logged).toStrictEqual([]);
+			expect(exitCodes).toStrictEqual([]);
+		},
+	);
+
+	test.each(['draft', 'dedup', 'grade'])(
+		'%s names the config file it read and says nothing about the folder, whatever its label spells',
+		async (subcommand) => {
+			const { context, cwd, logged, exitCodes } = setupPlan({ args: [subcommand, '--name', 'rate-limit-banner/001-banner'], repoConfig: trackerRepoConfig });
+
+			await planCommand(context);
+
+			// an agent run reports which checkout's config it read, since every
+			// worktree carries its own copy — and that line is all it prints here
+			expect(logged).toStrictEqual([`  config: ${join(cwd, 'lightsout.config.json')}`]);
 			expect(exitCodes).toStrictEqual([]);
 		},
 	);

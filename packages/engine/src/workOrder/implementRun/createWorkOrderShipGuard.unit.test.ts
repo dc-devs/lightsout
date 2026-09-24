@@ -188,6 +188,41 @@ describe('createWorkOrderShipGuard', () => {
 		expect(refusals).toEqual([undefined, expect.stringContaining('001-search-basics')]);
 	});
 
+	test('authorizes a single-plan ticket holding no plan 001 only once its build from the ticket body is implemented', async () => {
+		// Two arrangements, because the row is about the difference between them:
+		// the same plan-less ticket answers differently on its build's progress alone.
+		const planless = recordOf({ mode: WorkOrderMode.SinglePlan, plans: [] });
+		const implemented = await setupGuard({
+			record: {
+				...planless,
+				ticketBodyBuild: {
+					runId: 'run-body-1',
+					progress: PlanProgress.Implemented,
+					startedAt: '2026-01-04T00:00:00.000Z',
+					finishedAt: '2026-01-04T01:00:00.000Z',
+				},
+			},
+		});
+		const failed = await setupGuard({
+			record: {
+				...planless,
+				ticketBodyBuild: {
+					runId: 'run-body-1',
+					progress: PlanProgress.Failed,
+					startedAt: '2026-01-04T00:00:00.000Z',
+					finishedAt: '2026-01-04T01:00:00.000Z',
+				},
+			},
+		});
+
+		const refusals = [
+			await implemented.guard.authorize({ cwd: implemented.cwd, branch: implemented.branch }),
+			await failed.guard.authorize({ cwd: failed.cwd, branch: failed.branch }),
+		];
+
+		expect(refusals).toEqual([undefined, expect.stringContaining('run-body-1')]);
+	});
+
 	test('authorizes a multiple-plan ticket only while its ship request covers exactly its implemented non-excluded plans', async () => {
 		const { guard, cwd, branch } = await setupGuard({ record: recordOf({ plans: authorizedPlans, shipRequest: ['001-search-basics', '002-fix-x'] }) });
 
@@ -258,6 +293,24 @@ describe('createWorkOrderShipGuard', () => {
 				history: [firstEvent, expect.objectContaining({ kind: 'shipped' })],
 			}),
 		);
+	});
+
+	test('records a ticket that shipped with no plans as shipped from the ticket body', async () => {
+		const { guard, cwd, branch, recordPath } = await setupGuard({ record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [] }) });
+
+		await guard.recordShipped({ cwd, branch, mergeCommit });
+
+		const stored = readRecordAt({ recordPath });
+		const shippedDetail = stored.history.at(-1)?.detail ?? '';
+
+		expect(stored).toEqual(
+			expect.objectContaining({
+				shipped: { at: expect.any(String), planIds: [], mergeCommit },
+				history: [firstEvent, expect.objectContaining({ kind: 'shipped', detail: expect.stringContaining(mergeCommit) })],
+			}),
+		);
+		expect(shippedDetail).toMatch(/ticket body/);
+		expect(shippedDetail.trimEnd()).not.toMatch(/with$/);
 	});
 
 	test('records nothing for a branch whose ticket has no record', async () => {

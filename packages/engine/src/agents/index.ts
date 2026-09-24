@@ -1,3 +1,4 @@
+export { buildCommitMessageInvocation } from '#src/agents/buildCommitMessageInvocation.ts';
 export { buildDirectWorkerInvocation } from '#src/agents/buildDirectWorkerInvocation.ts';
 export { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutorInvocation.ts';
 export { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/index.ts';

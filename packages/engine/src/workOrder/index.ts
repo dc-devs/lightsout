@@ -24,7 +24,13 @@ export { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
 export { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
 export { findPlanImplementationBlocker } from '#src/workOrder/findPlanImplementationBlocker.ts';
 export { findWorkOrderByTicketRef } from '#src/workOrder/findWorkOrderByTicketRef.ts';
-export { createWorkOrderShipGuard, readWorkOrderRunTerms, runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/index.ts';
+export {
+	createWorkOrderShipGuard,
+	readWorkOrderRunTerms,
+	runWorkOrderBodyBuildLifecycle,
+	runWorkOrderPlanLifecycle,
+} from '#src/workOrder/implementRun/index.ts';
+export { isPlanlessWorkOrder } from '#src/workOrder/isPlanlessWorkOrder.ts';
 export { listWorkOrders } from '#src/workOrder/listWorkOrders.ts';
 export { publishWorkOrderPlan } from '#src/workOrder/publishWorkOrderPlan.ts';
 export { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';

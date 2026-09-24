@@ -46,7 +46,11 @@ test('improveCommand: no recorded friction reports there is nothing to improve f
 
 	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
 
-	expect(logged).toStrictEqual(['no friction recorded — nothing to improve from']);
+	// a repo with no config says so, rather than naming a file nothing was read from
+	expect(logged).toStrictEqual([
+		'  config: none — this checkout has no lightsout.config.json, so every setting is its default',
+		'no friction recorded — nothing to improve from',
+	]);
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([0]);
 });
@@ -121,6 +125,7 @@ test('improveCommand: a complete report is printed file by file and exits 0', as
 	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
 
 	expect(logged).toStrictEqual([
+		'  config: none — this checkout has no lightsout.config.json, so every setting is its default',
 		'\nimprove: complete (1 friction entries considered)',
 		'  tightened the executor scope wording',
 		'  ~ src/agents/prompts/executor.md — named the scope rule',
@@ -130,7 +135,7 @@ test('improveCommand: a complete report is printed file by file and exits 0', as
 });
 
 test("improveCommand: a config on disk is loaded, and the improve entry's own model and effort are what reach the harness", async () => {
-	const { context, argvPath, exitCodes } = setupImproveRun({
+	const { context, argvPath, logged, exitCodes } = setupImproveRun({
 		report: changeReport(),
 		config: {
 			gates: { check: 'true', test: 'true', 'test-coverage': false },
@@ -145,6 +150,8 @@ test("improveCommand: a config on disk is loaded, and the improve entry's own mo
 
 	const argv = spawnedArgv({ argvPath });
 
+	// the run names the file it read, absolute, before anything else
+	expect(logged[0]).toBe(`  config: ${join(context.cwd, 'lightsout.config.json')}`);
 	expect(argv).toContain('--model improve-model --effort high');
 	expect(argv).not.toContain('global-model');
 	expect(exitCodes).toStrictEqual([0]);

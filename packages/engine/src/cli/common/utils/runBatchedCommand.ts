@@ -1,9 +1,11 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
@@ -77,6 +79,7 @@ export const runBatchedCommand = async <Result extends BatchedRunResult>({ flags
 	}
 
 	console.log(`lightsout: ${command} ${existing ? `resuming run ${existing.runId}` : 'starting run'}`);
+	printConfigSource({ configPath: resolveConfigPath({ cwd }) });
 
 	let result: Result;
 

@@ -69,7 +69,7 @@ jest.mock('#src/common/utils/consultSupervisor.ts', () => ({
 
 const checkpoint = 'verify-implement';
 
-const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] };
+const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [], gates: [] };
 
 interface SetupParams {
 	/** What each formatter pass answers, in order; the last entry is repeated once the list is spent. */

@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { type LightsoutConfig, PlanProgress, RunManifest, RunStatus, WorkOrderMode, type WorktreeOwner } from '#src/contracts/index.ts';
+import { type AgentUsage, type LightsoutConfig, PlanProgress, RunManifest, RunStatus, WorkOrderMode, type WorktreeOwner } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { writeWorktreeRecord } from '#src/worktree/index.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -58,14 +59,16 @@ export const manifestOf = ({ plan, changedFiles, branch }: { plan: string; chang
 /**
  * A stand-in for the run the commit step is handed: the structural slice it
  * declares, holding the manifest in memory so a case reads back what was
- * patched.
+ * patched, and collecting every usage line the run is billed.
  */
 export const createCommitRun = ({ cwd, manifest, config }: { cwd: string; manifest: RunManifest; config: LightsoutConfig }) => {
 	let current = manifest;
 	const progress: string[] = [];
+	const usageRecords: { step: string; usage?: AgentUsage }[] = [];
 
 	return {
 		progress,
+		usageRecords,
 		manifestNow: () => current,
 		run: {
 			cwd,
@@ -76,6 +79,9 @@ export const createCommitRun = ({ cwd, manifest, config }: { cwd: string; manife
 			},
 			update: async ({ patch }: { patch: Partial<RunManifest> }) => {
 				current = { ...current, ...patch };
+			},
+			recordUsage: async ({ step, usage }: { step: string; usage?: AgentUsage }) => {
+				usageRecords.push({ step, usage });
 			},
 		},
 	};
@@ -89,6 +95,10 @@ export const createCommitRun = ({ cwd, manifest, config }: { cwd: string; manife
  * Git stays real in every case built on this — the commit, the staging and the
  * tree reads are what the commit step is about. A case that needs git to stop
  * answering stubs that one read in its own file.
+ *
+ * The harness is a stub that answers every invocation with `answer`. Without
+ * one it answers prose the commit-message contract refuses, so a case that is
+ * not about the agent commits under its template subject through the fallback.
  */
 export const setupCommitRun = async ({
 	branch = workOrderName,
@@ -100,6 +110,7 @@ export const setupCommitRun = async ({
 	owner,
 	branchOnManifest = true,
 	detached = false,
+	answer = 'I could not decide on a summary for this change.',
 }: {
 	/** Repo-relative files left uncommitted — what the run's work looks like in the tree. */
 	dirty?: Record<string, string>;
@@ -117,6 +128,8 @@ export const setupCommitRun = async ({
 	branchOnManifest?: boolean;
 	/** Whether the checkout stands on a commit rather than on a branch, which is where every branch read answers nothing. */
 	detached?: boolean;
+	/** The final text the stub harness answers every invocation with. */
+	answer?: string;
 } = {}) => {
 	// The work order record is this helper's own arrangement — `record` decides
 	// whether one exists, is corrupt, or is absent — so the repo seeds none.
@@ -153,5 +166,15 @@ export const setupCommitRun = async ({
 
 	const manifest = manifestOf({ plan, changedFiles, branch: branchOnManifest ? branch : undefined });
 
-	return { cwd, ...createCommitRun({ cwd, manifest, config: configOf({ generated }) }) };
+	const invocations: DriverInvocation[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return { text: answer, exitCode: 0 };
+		},
+	};
+
+	return { cwd, driver, invocations, ...createCommitRun({ cwd, manifest, config: configOf({ generated }) }) };
 };

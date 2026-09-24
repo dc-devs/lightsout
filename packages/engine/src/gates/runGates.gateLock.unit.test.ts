@@ -128,7 +128,7 @@ describe('runGates', () => {
 
 		const result = await runGates({ cwd: dir, config, schedule: { kind: GateScheduleKind.Off }, onProgress: (message) => progress.push(message) });
 
-		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 		// nothing was reserved, so nothing had to be waited for or released
 		expect(existsSync(gateLockPath({ dir }))).toBe(false);
 		expect(progress).toStrictEqual([]);

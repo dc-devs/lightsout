@@ -143,3 +143,51 @@ test('collectChildOutput: a child that declines SIGTERM is killed outright once 
 	// it, holding its pipes and still billing.
 	expect(child.signalCode).toBe('SIGKILL');
 });
+
+test('collectChildOutput: the deadline reports that it fired before it rejects', async () => {
+	const events: string[] = [];
+	const child = shellChild({ script: 'sleep 30' });
+	const closed = new Promise<void>((resolve) => {
+		child.once('close', () => resolve());
+	});
+
+	const error = await getRejectionError({
+		promise: collectChildOutput({
+			child,
+			timeout: { ms: 50, message: 'gate timed out after 50ms' },
+			onTimeout: () => events.push('timeout'),
+		}).catch((rejection: unknown) => {
+			events.push('rejected');
+
+			throw rejection;
+		}),
+	});
+
+	// wait for the kill to land, so a late second report would be seen too
+	await closed;
+
+	expect(error.message).toBe('gate timed out after 50ms');
+	// the report comes first, so a caller's flag is already set when its catch runs
+	expect(events).toStrictEqual(['timeout', 'rejected']);
+});
+
+test('collectChildOutput: a child that settles before its deadline, or never spawns, reports no timeout', async () => {
+	const timeouts: string[] = [];
+	const timeout = { ms: 1000, message: 'timed out' };
+
+	const [exited, neverSpawned] = await Promise.allSettled([
+		collectChildOutput({ child: shellChild({ script: 'exit 0' }), timeout, onTimeout: () => timeouts.push('exited') }),
+		collectChildOutput({
+			child: spawn('lightsout-no-such-binary', [], { stdio: ['ignore', 'pipe', 'pipe'] }),
+			timeout,
+			onTimeout: () => timeouts.push('never-spawned'),
+		}),
+	]);
+
+	// outlast both deadlines, so a timer left armed after settling would have fired
+	await new Promise((resolve) => setTimeout(resolve, timeout.ms + 100));
+
+	expect(exited).toStrictEqual({ status: 'fulfilled', value: { exitCode: 0, stdout: '', stderr: '' } });
+	expect(neverSpawned.status === 'rejected' ? String(neverSpawned.reason) : neverSpawned.status).toMatch(/ENOENT/);
+	expect(timeouts).toStrictEqual([]);
+});

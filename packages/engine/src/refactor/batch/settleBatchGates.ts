@@ -1,4 +1,5 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
+import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
 import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
@@ -33,8 +34,10 @@ interface Params {
  * one guided retry before escalating. Rate limits park at whichever stage they
  * happen in, so nothing is lost and the run resumes where it stopped.
  *
- * A gate run that never got the machine ends the settle before either stage
- * spends anything: not one command executed, so there is nothing for a fix agent
+ * A gate run that reached no verdict — it never got the machine, a gate
+ * crashed, or a gate ran past its ceiling — ends the settle before either stage
+ * spends anything more, whether it is the first gate run or a re-run inside the
+ * cheap loop: no command returned a verdict, so there is nothing for a fix agent
  * to repair and nothing for a supervisor to rule on.
  *
  * Separate from the batch loop because the loop's job is what to DO with the
@@ -57,7 +60,7 @@ export const settleBatchGates = async ({
 	let result = await gates();
 	let outcome: SettleOutcome | undefined;
 
-	for (let retry = 1; outcome === undefined && result.error && result.coordination === undefined && retry <= maxCheapFixRetries; retry += 1) {
+	for (let retry = 1; outcome === undefined && result.error && describeGateNoVerdict({ result }) === undefined && retry <= maxCheapFixRetries; retry += 1) {
 		onProgress(`${batchId}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
 		const fix = await invokeFix({ label: `fix-${retry}`, gateError: result.error });
@@ -75,8 +78,10 @@ export const settleBatchGates = async ({
 
 	// Undefined here means the loop ran to its end rather than parking on a rate limit.
 	if (outcome === undefined) {
-		if (result.coordination !== undefined) {
-			outcome = { kind: SettleKind.Escalated, error: result.coordination };
+		const noVerdict = describeGateNoVerdict({ result });
+
+		if (noVerdict !== undefined) {
+			outcome = { kind: SettleKind.Escalated, error: noVerdict };
 		} else if (!gateError) {
 			outcome = { kind: SettleKind.Green };
 		} else {

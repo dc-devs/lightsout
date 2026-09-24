@@ -59,7 +59,7 @@ jest.mock('#src/pipeline/steps/verify/approveRunnerSnapshots.ts', () => ({
 }));
 // -------------------------
 
-const greenGates: GateOutcome = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] };
+const greenGates: GateOutcome = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [], gates: [] };
 
 /**
  * One verification checkpoint's collaborators, with the acceptance mapping held
@@ -111,6 +111,7 @@ test('reviewAndVerify: a refused review returns the review family with no gate r
 		error: 'test-change review refused this checkpoint: packages/engine/src/widget.unit.test.ts — the assertion was weakened',
 		failedFamilies: ['test-review'],
 		crashes: [],
+		timeouts: [],
 		coordination: undefined,
 		failures: [],
 	});
@@ -229,6 +230,7 @@ test('reviewAndVerify: a rename-only checkpoint refused by the rename check goes
 			error: 'rename check refused this checkpoint and no gate ran: packages/engine/src/widget.ts added 3 ×1, removed 2 ×1',
 			failedFamilies: ['rename-check'],
 			crashes: [],
+			timeouts: [],
 			coordination: undefined,
 			failures: [],
 		},

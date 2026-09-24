@@ -12,6 +12,7 @@ import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandSh
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
@@ -131,7 +132,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		return exitCli({ code: 1 });
 	}
 
-	printRunStart({ target, overviewPath, packages, startPhase, config, driver, cwd: workspace.cwd });
+	printRunStart({ target, overviewPath, packages, startPhase, config, driver, cwd: workspace.cwd, configPath: resolveConfigPath({ cwd }) });
 
 	// The record's own bookkeeping around the run: the plan is marked implementing
 	// under the id the pipeline is handed, and the outcome is recorded against it.

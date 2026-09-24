@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
+import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
 import { type AgentUsage, type LightsoutConfig, SupervisorDecision } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
@@ -85,8 +86,9 @@ const consultBatchSupervisor = async ({
  * `gateError` stays a plain string: it is the red that survived the cheap
  * retries, and reaching here at all means that red was evidence. The re-run
  * after the guided fix answers a whole verdict, because it can come back having
- * never got the machine — and that escalates naming coordination rather than
- * reporting gates still red, which no command would have established.
+ * reached none — never got the machine, crashed, or ran past its ceiling — and
+ * that escalates naming the reason rather than reporting gates still red, which
+ * no command would have established.
  */
 export const superviseBatch = async ({
 	cwd,
@@ -117,7 +119,7 @@ export const superviseBatch = async ({
 
 	let outcome: SettleOutcome | undefined;
 	let remainingError: string | undefined = gateError;
-	let coordination: string | undefined;
+	let noVerdict: string | undefined;
 
 	if (!verdict.ok && verdict.rateLimited) {
 		outcome = { kind: SettleKind.Parked };
@@ -132,14 +134,14 @@ export const superviseBatch = async ({
 			const rerun = await gates();
 
 			remainingError = rerun.error;
-			coordination = rerun.coordination;
+			noVerdict = describeGateNoVerdict({ result: rerun });
 		}
 	}
 
 	// Undefined here means nothing was rate limited, so the gates' own answer decides.
 	if (outcome === undefined) {
-		if (coordination !== undefined) {
-			outcome = { kind: SettleKind.Escalated, error: coordination };
+		if (noVerdict !== undefined) {
+			outcome = { kind: SettleKind.Escalated, error: noVerdict };
 		} else if (remainingError) {
 			const diagnosis = ruling ? `\nsupervisor (${ruling.decision}): ${ruling.diagnosis}` : '';
 

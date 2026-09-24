@@ -86,3 +86,54 @@ test('runVerificationGates: no coverage gate ran, so the changed-files-executed 
 	expect(result.failedFamilies).toStrictEqual([]);
 	expect(readGateLog({ dir })).toStrictEqual(['root check']);
 });
+
+/**
+ * A two-package consumer repo whose `check` gate is one planted script: it
+ * exits red at once for `@acme/api` and outlives the gate ceiling for
+ * `@acme/web`. The ceiling is small enough that both of web's attempts time
+ * out quickly, and large enough that api's red lands well inside it. The `test`
+ * gate passes, because it shares the cheap stage with `check` and a second red
+ * family would hide the one this case is about.
+ */
+const setupScopedTimeoutRun = async () => {
+	const dir = setupConsumerRepo({
+		config: {
+			timeouts: { 'gate-minutes': 0.02 },
+			'package-gates': { check: 'node check.cjs {package}', test: 'echo {package}' },
+		},
+	});
+
+	writeFileSync(
+		join(dir, 'check.cjs'),
+		"if (process.argv[2] === '@acme/web') { setTimeout(() => {}, 30_000); } else { console.error('api check is red'); process.exit(1); }\n",
+	);
+	for (const pkg of ['api', 'web']) {
+		mkdirSync(join(dir, 'packages', pkg), { recursive: true });
+		writeFileSync(join(dir, 'packages', pkg, 'package.json'), JSON.stringify({ name: `@acme/${pkg}` }));
+	}
+	seedRunFolder({ cwd: dir, runId });
+
+	const run = {
+		cwd: dir,
+		config: await readConfig({ cwd: dir }),
+		current: () => ({ runId, changedFiles: [], packages: ['api', 'web'], currentStep: 'verify-implement', unreachableChangedFiles: [] }),
+		progress: () => {},
+	};
+
+	return { run: run as unknown as PipelineRun };
+};
+
+test('runVerificationGates: a timed-out gate is kept out of failures even when its family failed in another group', async () => {
+	const { run } = await setupScopedTimeoutRun();
+
+	const result = await runVerificationGates({ run, checkpoint: 'verify-implement', rows: [] });
+
+	// `check` is a red family because api failed it; web's `check` ran past the
+	// ceiling on every attempt, which is no verdict about the code — so only
+	// api's observation is offered as failing evidence
+	expect({
+		failedFamilies: result.failedFamilies,
+		failingGroups: result.failures.map((observation) => `${observation.group} ${observation.kind}`),
+		timeoutCount: result.timeouts.length,
+	}).toStrictEqual({ failedFamilies: ['check'], failingGroups: ['api check'], timeoutCount: 1 });
+});

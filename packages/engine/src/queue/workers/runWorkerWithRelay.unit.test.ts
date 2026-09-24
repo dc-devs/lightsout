@@ -14,6 +14,7 @@ import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { WorkOrderPlanOutcome } from '#src/workOrder/index.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -66,7 +67,24 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+// The direct worker builds through the body-build lifecycle, which owns the
+// record writes and is covered by its own tests. By default it hands the run a
+// fixed id and answers the run's result, so every case written before it keeps
+// its meaning; the cases that state the lifecycle's part arm it themselves.
+interface BodyBuildLifecycleParams {
+	cwd: string;
+	workOrderName: string;
+	run: (params: { runId: string }) => Promise<PipelineResult>;
+}
+
+const mockRunWorkOrderBodyBuildLifecycle = jest.fn<(params: BodyBuildLifecycleParams) => Promise<WorkOrderPlanOutcome>>(async ({ run }) => ({
+	result: await run({ runId: 'run-body-1' }),
+}));
+
+jest.mock('#src/workOrder/index.ts', () => ({
+	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
+	runWorkOrderBodyBuildLifecycle: (params: BodyBuildLifecycleParams) => mockRunWorkOrderBodyBuildLifecycle(params),
+}));
 // -------------------------
 
 const settings = queueSettingsFixture();
@@ -109,6 +127,20 @@ const manifestOf = (status: RunStatus): RunManifest => ({
 	unreachableChangedFiles: [],
 	coverageExcludedChangedFiles: [],
 });
+
+/** Lifecycle answers that leave a direct build unrecorded: a refusal before the run, and a record write that failed after a passed run. */
+const unrecordedBodyBuilds: { answer: (params: BodyBuildLifecycleParams) => Promise<WorkOrderPlanOutcome>; stated: string; directRuns: number }[] = [
+	{
+		answer: () => Promise.resolve({ refusal: 'work order lo-70-drain now holds plan 001, so its build from the ticket body is not recorded' }),
+		stated: 'work order lo-70-drain now holds plan 001, so its build from the ticket body is not recorded',
+		directRuns: 0,
+	},
+	{
+		answer: async ({ run }) => ({ result: await run({ runId: 'run-body-1' }), recordError: 'the record of lo-70-drain could not be written: ENOENT' }),
+		stated: 'the record of lo-70-drain could not be written: ENOENT',
+		directRuns: 1,
+	},
+];
 
 /** A relay on a pair of streams, typing each queued answer as its prompt appears. */
 const setupRelay = ({ answers = [] }: { answers?: string[] } = {}) => {
@@ -275,4 +307,52 @@ describe('runWorkerWithRelay', () => {
 
 		expect(outcome).toEqual({ error: expect.stringContaining('could not be relayed'), unanswered: true });
 	});
+
+	test('the direct worker builds through the body-build lifecycle under the run id it is handed', async () => {
+		const { relay, coordinatorRunDir } = setupRelay();
+
+		mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
+		mockRunWorkOrderBodyBuildLifecycle.mockImplementationOnce(async ({ run }) => ({ result: await run({ runId: 'run-handed' }) }));
+
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
+
+		relay.close();
+
+		expect(outcome).toStrictEqual({});
+		expect(mockRunWorkOrderBodyBuildLifecycle).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/tmp/lo-70-drain', workOrderName: 'lo-70-drain' }));
+		expect(mockRunDirectWork).toHaveBeenCalledWith(expect.objectContaining({ runId: 'run-handed' }));
+	});
+
+	test('parks a failed direct build with the run’s own error even when its record write failed too', async () => {
+		const { relay, coordinatorRunDir } = setupRelay();
+
+		mockRunDirectWork.mockResolvedValue({ ok: false, manifest: manifestOf(RunStatus.Failed), error: 'tsc: 3 errors' });
+		mockRunWorkOrderBodyBuildLifecycle.mockImplementationOnce(async ({ run }) => ({
+			result: await run({ runId: 'run-body-1' }),
+			recordError: 'the record of lo-70-drain could not be written: ENOENT',
+		}));
+
+		const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
+
+		relay.close();
+
+		expect(outcome).toStrictEqual({ error: 'tsc: 3 errors' });
+	});
+
+	test.each(unrecordedBodyBuilds)(
+		'parks a direct worker whose body-build lifecycle refused or could not record its passed build',
+		async ({ answer, stated, directRuns }) => {
+			const { relay, coordinatorRunDir } = setupRelay();
+
+			mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
+			mockRunWorkOrderBodyBuildLifecycle.mockImplementationOnce(answer);
+
+			const outcome = await runWorker({ relay, coordinatorRunDir, ticket: ticketOf(QueueWorker.Direct) });
+
+			relay.close();
+
+			expect(outcome).toStrictEqual({ error: stated });
+			expect(mockRunDirectWork).toHaveBeenCalledTimes(directRuns);
+		},
+	);
 });

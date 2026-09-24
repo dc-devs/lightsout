@@ -70,6 +70,7 @@ describe('getCoverageAttemptStop', () => {
 				error: 'another run holds the machine',
 				failedFamilies: [],
 				crashes: [],
+				timeouts: [],
 				coordination: 'another run holds the machine',
 			},
 		});

@@ -17,19 +17,22 @@ const setupConsumerDir = ({ config }: { config?: Record<string, unknown> } = {})
 test('resolveConfigAndDriver: only a genuinely absent config file is non-fatal — claude-code driver, no config', async () => {
 	const { cwd } = setupConsumerDir();
 
-	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
+	const { config, driver, configPath } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 
 	expect(config).toBe(undefined);
 	expect(driver.name).toBe('claude-code');
+	// no file was read, so there is no path to report
+	expect(configPath).toBe(undefined);
 });
 
 test('resolveConfigAndDriver: global harness and model land in the effective config and the driver', async () => {
 	const { cwd } = setupConsumerDir({ config: { harness: 'codex', model: 'gpt-5.2', gates: { check: 'c', test: 't', 'test-coverage': false } } });
 
-	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+	const { config, driver, configPath } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
 	expect(driver.name).toBe('codex');
 	expect(config).toStrictEqual({ harness: 'codex', model: 'gpt-5.2', effort: undefined, gates: { check: 'c', test: 't', 'test-coverage': false } });
+	expect(configPath).toBe(join(cwd, 'lightsout.config.json'));
 });
 
 test('resolveConfigAndDriver: a per-command harness override drops the global model from the effective config (decision 7)', async () => {

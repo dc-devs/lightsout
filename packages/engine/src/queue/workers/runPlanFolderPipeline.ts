@@ -5,6 +5,7 @@ import { runPhasesPipeline } from '#src/phases/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { pathExists, planWorkspaceDir, recordPlanCommandRun } from '#src/plan/index.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import { toWorkerOutcome } from '#src/queue/workers/common/utils/toWorkerOutcome.ts';
 import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
 
 interface Params {
@@ -59,17 +60,8 @@ export const runPlanFolderPipeline = async ({ cwd, name, config, driver, onProgr
 			}),
 	});
 
-	if ('refusal' in outcome) {
-		return { error: outcome.refusal };
-	}
-
-	const { result, recordError } = outcome;
-
-	if (result.ok) {
-		return recordError === undefined ? {} : { error: recordError };
-	}
-
-	const stated = result.error ?? `the run ended ${result.manifest.status}`;
-
-	return { error: `${stated} — \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+	return toWorkerOutcome({
+		outcome,
+		onFailedRun: ({ stated, result }) => ({ error: `${stated} — \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` }),
+	});
 };

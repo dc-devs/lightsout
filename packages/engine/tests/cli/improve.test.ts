@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runCli } from '#tests/helpers/runCli.ts';
@@ -11,7 +12,10 @@ test('cli: improve with no config and no friction reports nothing to improve and
 
 	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
 
-	expect(stdout).toBe('no friction recorded — nothing to improve from\n');
+	// no config file, so the run says there is none rather than naming a path
+	expect(stdout).toBe(
+		'  config: none — this checkout has no lightsout.config.json, so every setting is its default\nno friction recorded — nothing to improve from\n',
+	);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
@@ -21,7 +25,7 @@ test('cli: improve resolves a commands.improve driver override from the config a
 
 	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
 
-	expect(stdout).toBe('no friction recorded — nothing to improve from\n');
+	expect(stdout).toBe(`  config: ${join(cwd, 'lightsout.config.json')}\nno friction recorded — nothing to improve from\n`);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });

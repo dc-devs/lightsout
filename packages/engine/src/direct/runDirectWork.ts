@@ -2,6 +2,7 @@ import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts'
 import { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoordinationStop.ts';
+import { describeGateNoVerdictStop } from '#src/common/utils/describeGateNoVerdictStop.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import { createDirectRun } from '#src/direct/common/utils/createDirectRun.ts';
@@ -55,26 +56,31 @@ const stopDirectOnCoordination = ({ run, record, coordination }: { run: RunState
 };
 
 /**
- * End a direct run on a gate that crashed instead of failing.
+ * End a direct run on a gate that crashed, or ran past its own time ceiling,
+ * instead of failing.
  *
- * A crashed gate reached no verdict, so there is nothing to repair and nothing
- * the next attempt would do differently — it stops without spending an attempt,
- * rather than handing the worker a suite that is not broken.
+ * Neither reached a verdict, so there is nothing to repair and nothing the next
+ * attempt would do differently — it stops without spending an attempt, rather
+ * than handing the worker a red no gate command established.
  */
-const stopDirectOnCrash = ({ run, record, crashes, gateError }: { run: RunState; record: StepRecord; crashes: string[]; gateError: string | undefined }) => {
-	run.progress('a gate crashed rather than failed — no fix attempted');
+const stopDirectOnNoVerdict = ({
+	run,
+	record,
+	crashes,
+	timeouts,
+	gateError,
+}: {
+	run: RunState;
+	record: StepRecord;
+	crashes: string[];
+	timeouts: string[];
+	gateError: string | undefined;
+}) => {
+	const { ending, reason } = describeGateNoVerdictStop({ stepId: 'verify', crashes, timeouts });
 
-	return stopDirectRun({
-		run,
-		record,
-		status: RunStatus.Escalated,
-		error: [
-			'verify: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
-			'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
-			crashes.join('\n'),
-			gateError ?? '',
-		].join('\n\n'),
-	});
+	run.progress(`a gate ${ending} rather than failed — no fix attempted`);
+
+	return stopDirectRun({ run, record, status: RunStatus.Escalated, error: [reason, gateError ?? ''].join('\n\n') });
 };
 
 /**
@@ -111,18 +117,18 @@ const buildAndVerify = async ({
 			return stopped;
 		}
 
-		const { record, gateError, crashes, coordination } = await verifyDirectWork({ run });
+		const { record, gateError, crashes, timeouts, coordination } = await verifyDirectWork({ run });
 
 		if (coordination !== undefined) {
 			return stopDirectOnCoordination({ run, record, coordination });
 		}
 
-		if (crashes.length > 0) {
-			return stopDirectOnCrash({ run, record, crashes, gateError });
+		if (crashes.length > 0 || timeouts.length > 0) {
+			return stopDirectOnNoVerdict({ run, record, crashes, timeouts, gateError });
 		}
 
 		if (gateError === undefined) {
-			return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+			return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
 		}
 
 		errorContext = gateError;
@@ -175,7 +181,7 @@ const executeDirectWork = async ({
 	await run.update({ patch: { status: RunStatus.Running } });
 
 	if (run.current().steps.some((step) => step.id === 'verify' && step.status === RunStatus.Passed)) {
-		return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+		return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
 	}
 
 	const redBaseline =

@@ -93,7 +93,14 @@ export const reviewAndVerify = async ({
 	}
 
 	if (judgment.error !== undefined) {
-		return { error: judgment.error, failedFamilies: [judgment.family], crashes: [], coordination: undefined, failures: [] };
+		return {
+			error: judgment.error,
+			failedFamilies: [judgment.family],
+			crashes: [],
+			timeouts: [],
+			coordination: undefined,
+			failures: [],
+		};
 	}
 
 	const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });

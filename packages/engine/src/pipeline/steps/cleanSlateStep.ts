@@ -71,7 +71,7 @@ export const cleanSlateStep = ({ run, ledgerGates }: Params): PipelineStep['run'
 
 		// No acceptance rows here: the ledger's tests have not been written yet, so
 		// every one of them would read as a test that never ran.
-		const { error, coordination, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: 'clean-slate', rows: [] });
+		const { error, coordination, timeouts, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: 'clean-slate', rows: [] });
 
 		// A gate run that never started is a third case with a third first move,
 		// and it is answered before the timeout-versus-red discrimination below:
@@ -85,8 +85,10 @@ export const cleanSlateStep = ({ run, ledgerGates }: Params): PipelineStep['run'
 			// A gate that never finished is a different problem from a gate that
 			// ran and went red, and the two want different first moves from a
 			// human: raise the ceiling or free the machine, versus fix the code.
-			// `createGateRunner` records a timeout or a failed spawn as exit -1.
-			const ranOut = failures.some((failure) => failure.exitCode === -1);
+			// A gate that ran past its ceiling is reported through `timeouts` and
+			// never reaches `failures`; a gate that failed to spawn is an ordinary
+			// red that `createGateRunner` records as exit -1.
+			const ranOut = timeouts.length > 0 || failures.some((failure) => failure.exitCode === -1);
 			const headline = ranOut
 				? 'A gate did not finish, so the codebase was never proved green — this is a timeout or a gate that could not start, not a failing test.'
 				: 'Codebase is not green before implementation — fix this first.';
