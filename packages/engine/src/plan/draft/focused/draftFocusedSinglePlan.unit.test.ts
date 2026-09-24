@@ -29,6 +29,13 @@ const planCreating = ({ extra }: { extra: number }) => {
 	return cleanPlanBody().replace('## Files to Modify', `${creates}\n## Files to Modify`);
 };
 
+/** The clean single skeleton with `extra` further modified files — one created file, so only the touched count can bust a ceiling, and 70 is the touched one. The touched count is 1 + `extra`, because the skeleton's modified `src/index.js` is a barrel the lint does not count. */
+const planTouching = ({ extra }: { extra: number }) => {
+	const modifies = Array.from({ length: extra }, (_, index) => `### \`src/modified${index}.ts\`\n\nRe-export \`modified${index}\`.\n`).join('\n');
+
+	return cleanPlanBody().replace('## Patterns to Mirror', `${modifies}\n## Patterns to Mirror`);
+};
+
 /** The default script: the one writer authors a structurally clean plan, and any repair spawn edits nothing so the loop stops. */
 const cleanSingle: Respond = ({ role, path }) => (role === 'single' ? cleanPlanBody() : unchangedFixReport({ path }));
 
@@ -213,5 +220,53 @@ describe('draftFocusedSinglePlan', () => {
 			variant: result.variant,
 			overviewSpawns: roles.filter((role) => role === 'overview').length,
 		}).toStrictEqual({ single: false, overview: true, phase: true, variant: 'overview', overviewSpawns: 1 });
+	});
+
+	test('escalates once to a focused phased re-draft when the touched-file ceiling is busted', async () => {
+		// One created file and 71 distinct touched paths: the created-file ceiling
+		// holds, so only the touched-file ceiling can send the draft back as phased.
+		const { context, planDir, roles, messages } = setupFocusedSingle({
+			name: 'focused-touched-escalated',
+			respond: ({ role, path }) => {
+				if (role === 'single') {
+					return planTouching({ extra: 70 });
+				}
+
+				return role === 'overview'
+					? overviewBody({ rows: [phaseRow()] })
+					: role === 'phase'
+						? cleanPlanBody({ reference: true })
+						: unchangedFixReport({ path });
+			},
+		});
+
+		const result = await draftFocusedSinglePlan({ context });
+
+		expectStatus(result, 'complete');
+		expect({
+			single: existsSync(join(planDir, 'plan.md')),
+			overview: existsSync(join(planDir, 'overview.md')),
+			variant: result.variant,
+			overviewSpawns: roles.filter((role) => role === 'overview').length,
+			reportedTouchedCount: messages.some((message) => message.includes('re-drafting phased') && /\b71\b/.test(message)),
+		}).toStrictEqual({ single: false, overview: true, variant: 'overview', overviewSpawns: 1, reportedTouchedCount: true });
+	});
+
+	test('tells the single-plan writer the touched-file ceiling the lint applies', async () => {
+		const { context, spawns } = setupFocusedSingle({ name: 'focused-touched-ceiling' });
+
+		const result = await draftFocusedSinglePlan({ context });
+
+		expectStatus(result, 'complete');
+
+		const [writer] = spawns;
+		const systemPrompt = writer.systemPrompt ?? '';
+
+		// The writer reads the same number the lint refuses at, substituted rather
+		// than left as a token the lint would later flag in the written plan.
+		expect({
+			unsubstituted: systemPrompt.includes('{{touchedFileCeiling}}'),
+			statesCeiling: /touched[- ]file ceiling[^.]*\b70\b/i.test(systemPrompt),
+		}).toStrictEqual({ unsubstituted: false, statesCeiling: true });
 	});
 });

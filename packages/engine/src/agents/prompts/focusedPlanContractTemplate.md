@@ -50,9 +50,14 @@ will not reach A:
   how many source files it touches in total (created, modified, modified from an
   earlier phase, deleted, and both sides of every move). Above {{fileLimit}} the plan is
   still legal, but it must carry a `## File Budget` covering its real count,
-  because {{fileLimit}} is where the implementing agent stops. A phase that creates three
-  files and renames an import across two hundred is legitimate work; a phase that
-  authors that many from scratch is not.
+  because {{fileLimit}} is where the implementing agent stops. A plan or phase that
+  touches more than {{touchedFileCeiling}} source files is refused and must be split:
+  neither the config nor a `## File Budget` raises that ceiling. The one exemption
+  is a rename-only plan or phase — its `## Renames` section, plus the
+  `**Renames only:** yes` bullet on the overview. A phase that creates three files
+  and renames an import across two hundred is legitimate work only as a rename-only
+  phase, with the rename gathered into a phase of its own; a phase that authors
+  that many from scratch is not.
 - **What counts as a source file.** Every path the plan names except test files,
   `index` barrels, and `.d.ts` declaration files. A hand-authored type-only
   module — a `.ts` file exporting one interface — DOES count: it still has to be
@@ -183,6 +188,8 @@ subheading names exactly two paths in backticks, old then new.>
 source files. A single integer on its own line: the total source files this plan
 touches. It must cover the real count, and it does NOT raise the created-file
 ceiling, which is fixed at {{createdFileCeiling}}.>
+<Nor does it raise the touched-file ceiling, which is fixed at
+{{touchedFileCeiling}} for every plan that is not rename-only.>
 
 ## Renames
 
@@ -331,7 +338,9 @@ cross-boundary bullets once and leave the pairing to it.
 <!-- **File budget:** is optional: include it only when that phase file carries a
 `## File Budget`, and repeat the same integer. It must cover that phase's Touches
 count, and it never raises the created-file ceiling, which is fixed at
-{{createdFileCeiling}}. **Renames only:** is optional too: write it, reading
+{{createdFileCeiling}}. It never raises the touched-file ceiling of
+{{touchedFileCeiling}} either; only a phase declared `**Renames only:** yes` is
+exempt from that one. **Renames only:** is optional too: write it, reading
 `yes`, only for a phase whose file carries a `## Renames` section. -->
 
 ## Cross-Phase Dependencies

@@ -18,6 +18,9 @@ The task message provides:
   yet.
 - **Created-file ceiling** — the hard per-phase limit every phase must come in
   under. No declaration raises it.
+- **Touched-file ceiling** — the hard per-phase limit on touched source files.
+  No `## File Budget` raises it; only a phase declared `- **Renames only:** yes`
+  is exempt from it.
 - **Breakdown findings to resolve** — the typed findings saying which declared
   phases are too large or malformed, each with its exact `fix` string.
 - **Reference files** (Read on demand) — absolute paths of the plan's own
@@ -40,6 +43,10 @@ The task message provides:
 4. Hold every one of these:
    - every phase's declared `Creates` count is at or under the ceiling named in
      the findings;
+   - every phase's declared `Touches` count is at or under the touched-file
+     ceiling, unless its block reads `- **Renames only:** yes`. Add that bullet
+     only to a phase whose whole work is renaming — never as a way around the
+     ceiling;
    - phase numbers run 1..n in table order, with no gaps and no duplicates;
    - every row's filename reads `phase<N>-<slug>.md`, agreeing with its number;
    - every `## Phases` row has a `### Phase <N> — ` block and vice versa;

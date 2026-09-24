@@ -292,8 +292,10 @@ node "<plugin-root>/dist/cli.mjs" plan draft --name <name>
 Pass `--scope single|phased` only to override the engine's estimate. On a facts
 error, correct facts.json, re-run verify-facts and re-draft. On remaining
 structural issues on a phased plan, resplit the overview's `## Phases` table and
-its `## Phase Declarations` to spread the creates across more phases, then
-re-run draft.
+its `## Phase Declarations` to spread the creates and the touched files across
+more phases — no phase may pass the created-file ceiling or the touched-file
+ceiling of 70 — then re-run draft. A phase whose whole work is renaming may
+instead be declared rename-only, with the `- **Renames only:** yes` bullet.
 
 **6. Grill it yourself.** Generate the same relentless stream of edge-case
 questions against the drafted plan; grilling intensity never drops. The pass

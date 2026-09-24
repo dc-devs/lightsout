@@ -1,5 +1,6 @@
 import { buildFocusedPlanWriterInvocation } from '#src/agents/index.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
 import { PlanDraftReport, PlanDraftStatus } from '#src/contracts/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import type { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
@@ -69,7 +70,7 @@ export const authorFocusedPlanFiles = async ({
 			facts,
 			decisions,
 			outputs,
-			limits: { executorFileLimit, createdFileCeiling },
+			limits: { executorFileLimit, createdFileCeiling, touchedFileCeiling },
 			standards,
 			lintCommand: lint?.command,
 			syncCommand: sync?.command,
