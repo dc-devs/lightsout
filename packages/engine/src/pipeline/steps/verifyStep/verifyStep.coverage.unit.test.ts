@@ -117,7 +117,7 @@ const setupFormattingReentry = () => {
 test('verifyStep: a rate-limited reviewer parks the run on the re-entry that owes a formatter pass', async () => {
 	const { run, manifest, buildFix, roleInvocations, stopped } = setupFormattingReentry();
 
-	const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+	const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 	// The formatter settles the tree first, so the reviewer reads the bytes the
 	// gates would see. When that reviewer is throttled it said nothing about the
@@ -139,7 +139,7 @@ test('verifyStep: the reviewer is told which checkpoint it is judging, and is ha
 	// harness throttled, so the checkpoint runs its whole sequence
 	mockReviewTestChanges.mockResolvedValue({});
 
-	await verifyStep({ run, planContent: '# Plan', overviewContent: '# Overview', id: checkpoint, acceptanceTests: () => [], buildFix })();
+	await verifyStep({ run, planContent: '# Plan', overviewContent: '# Overview', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 	// The reviewer rules on whether a change to a test is one the plan's own work
 	// makes necessary, so the plan is the whole standard it judges against — and

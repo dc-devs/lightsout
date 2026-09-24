@@ -24,6 +24,11 @@ export interface PhaseDeclaration {
 	scripts: string[];
 	/** The phase's declared `## File Budget`, absent when it takes the configured default. */
 	fileBudget?: number;
+	/**
+	 * Present and `true` only when the declaration block carries `- **Renames only:** yes`, so the phase file must carry a `## Renames` section.
+	 * Omitted rather than `false` otherwise, so a declaration that says nothing about renames reads exactly as it did before the bullet existed.
+	 */
+	renamesOnly?: boolean;
 	/** 1-based line of this phase's row in the overview's `## Phases` table; absent for a declaration block with no matching row. */
 	rowLine?: number;
 	/** 1-based inclusive line range of this phase's `### Phase <N>` block; absent for a table row with no matching block. */

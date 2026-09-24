@@ -44,6 +44,8 @@ const planWith = ({ base, create = [], modify = [], mentions = [], handsForward 
 		malformedLedgerLines: [],
 		proseFiles: [],
 		malformedProseLines: [],
+		renames: [],
+		malformedRenameLines: [],
 		lines: [
 			...[...create, ...modify].map((path) => `### \`${path}\``),
 			...mentions.map((token) => `- this phase builds against \`${token}\``),

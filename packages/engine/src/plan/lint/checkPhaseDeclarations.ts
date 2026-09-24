@@ -172,6 +172,25 @@ const nameDefects = ({ declaration, phase, overviewBase }: { declaration: PhaseD
 	return defects;
 };
 
+/** Whether the overview declares the phase rename-only, against whether its own file carries a `## Renames` section. */
+const renamesDefects = ({ declaration, phase, overviewBase }: { declaration: PhaseDeclaration; phase: PhaseFile; overviewBase: string }) => {
+	const declared = declaration.renamesOnly === true;
+	const own = phase.plan.renames.length > 0;
+
+	return declared === own
+		? []
+		: [
+				{
+					phase: overviewBase,
+					issue: declared
+						? `${declaration.file} is declared rename-only, but its own file carries no '## Renames' section`
+						: `${declaration.file} carries a '## Renames' section, but its declaration has no 'Renames only' bullet`,
+					location: `${overviewBase} → Phase Declarations`,
+					fix: 'the two copies must agree — write the Renames only bullet exactly when the phase file declares its renames, since the implementing agent is handed the phase file',
+				},
+			];
+};
+
 /**
  * DeclarationConsistent — anything a phase declares in the overview must appear
  * in that phase's own file, and the two must agree about the phase set and its
@@ -186,7 +205,11 @@ export const checkPhaseDeclarations = ({ declarations, phases, overviewBase, cou
 		const phase = phases.find((candidate) => candidate.base === declaration.file);
 
 		if (phase) {
-			defects.push(...numberDefects({ declaration, phase, overviewBase, counts }), ...nameDefects({ declaration, phase, overviewBase }));
+			defects.push(
+				...numberDefects({ declaration, phase, overviewBase, counts }),
+				...nameDefects({ declaration, phase, overviewBase }),
+				...renamesDefects({ declaration, phase, overviewBase }),
+			);
 		}
 	}
 

@@ -1,5 +1,6 @@
-import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { FixBuilder } from '#src/pipeline/steps/common/types/FixBuilder.ts';
 
 /**
  * Everything one verification checkpoint carries — through its gates, and
@@ -26,5 +27,10 @@ export interface VerifyContext {
 	acceptanceTests: () => AcceptanceTestRecord[];
 	/** True only at the run's last verification, where an acceptance test no gate proved is a failure rather than a skip. */
 	final?: boolean;
-	buildFix: ({ errorContext }: { errorContext: string }) => { systemPrompt: string; prompt: string };
+	/**
+	 * The plan's declared renames, empty for every plan that is not rename-only.
+	 * Non-empty turns the checkpoint's test-change review into the rename check.
+	 */
+	renames: RenameRule[];
+	buildFix: FixBuilder;
 }

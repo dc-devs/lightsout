@@ -10,10 +10,10 @@ import { runCheapRepairs } from '#src/pipeline/steps/verifyStep/common/utils/run
 import { runGuidedRepair } from '#src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts';
 import { withResult } from '#src/pipeline/steps/verifyStep/common/utils/withResult.ts';
 
-/** The first entry into the checkpoint when no formatter pass is owed: the review, then the gates. */
+/** The first entry into the checkpoint when no formatter pass is owed: the review (or the rename check), then the gates. */
 const enterVerification = async ({ context, record }: { context: VerifyContext; record: StepRecord }): Promise<RepairOutcome> => {
-	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
-	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
+	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames } = context;
+	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames });
 
 	if ('rateLimited' in result) {
 		return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
@@ -95,7 +95,9 @@ const runVerificationStep = async ({ context }: { context: VerifyContext }) => {
  *
  * The review runs before the gates and can itself go red, under the
  * `test-review` family, without a gate being spent. It rides this budget rather
- * than opening one of its own.
+ * than opening one of its own. A rename-only checkpoint runs the rename check
+ * where the review would run, and its refusal goes red the same way under the
+ * `rename-check` family.
  */
 export const verifyStep = ({
 	run,
@@ -106,9 +108,10 @@ export const verifyStep = ({
 	coverage,
 	acceptanceTests,
 	final,
+	renames,
 	buildFix,
 }: VerifyContext): PipelineStep['run'] => {
-	const context: VerifyContext = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, buildFix };
+	const context: VerifyContext = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, renames, buildFix };
 
 	return () => runVerificationStep({ context });
 };

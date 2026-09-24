@@ -18,11 +18,13 @@ const bullet = ({ label, values }: { label: string; values: string[] }) =>
  * The exact inverse of the block half of `parsePhaseDeclarations`: a header
  * pairing the phase number with the filename in a backtick span, then the
  * `Creates`, `Exports` and `Scripts` bullets, then the optional `File budget`
- * one. The header's separator is the em dash that parser accepts.
+ * and `Renames only` ones. The header's separator is the em dash that parser
+ * accepts.
  *
- * The file-budget bullet is written only when the record carries a budget: a
- * bullet stating a budget the phase file never declared is precisely the
- * disagreement the consistency check reports.
+ * The file-budget bullet is written only when the record carries a budget, and
+ * the renames-only bullet only when the record is rename-only: a bullet stating
+ * something the phase file does not back is precisely the disagreement the
+ * consistency check reports.
  */
 export const renderPhaseDeclaration = ({ declaration }: Params): string => {
 	const bullets = [
@@ -30,6 +32,7 @@ export const renderPhaseDeclaration = ({ declaration }: Params): string => {
 		bullet({ label: 'Exports', values: declaration.exports }),
 		bullet({ label: 'Scripts', values: declaration.scripts }),
 		...(declaration.fileBudget === undefined ? [] : [`- **File budget:** ${declaration.fileBudget}`]),
+		...(declaration.renamesOnly === true ? ['- **Renames only:** yes'] : []),
 	];
 
 	return `### Phase ${declaration.number} — \`${declaration.file}\`\n\n${bullets.join('\n')}`;

@@ -1,7 +1,7 @@
 import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
-import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
 import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
@@ -18,6 +18,8 @@ interface Params {
 	skipRefactor?: boolean;
 	/** Read at every call rather than captured once, so a re-invocation names the ledger rows as they now stand. */
 	acceptanceTests: () => AcceptanceTestRecord[];
+	/** The plan's declared renames, handed on so the verification context stays complete. */
+	renames: RenameRule[];
 }
 
 /**
@@ -28,7 +30,16 @@ interface Params {
  * `sourceFiles`: the gate judges findings on the test files a run wrote, so a
  * run whose only changed files are tests still has standards to answer for.
  */
-export const buildRefactorSteps = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor, acceptanceTests }: Params): PipelineStep[] =>
+export const buildRefactorSteps = ({
+	run,
+	gitPrefix,
+	planContent,
+	overviewContent,
+	standards,
+	skipRefactor,
+	acceptanceTests,
+	renames,
+}: Params): PipelineStep[] =>
 	skipRefactor
 		? []
 		: [
@@ -52,6 +63,7 @@ export const buildRefactorSteps = ({ run, gitPrefix, planContent, overviewConten
 						// verification — and the last one is where every acceptance test
 						// must be proven against the finished tree.
 						final: true,
+						renames,
 						buildFix: ({ errorContext }) =>
 							buildRefactorExecutorInvocation({
 								scope: RefactorScope.Feature,

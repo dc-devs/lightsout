@@ -197,6 +197,7 @@ describe('verifyStep', () => {
 			id: checkpoint,
 			acceptanceTests: () => [],
 			final: false,
+			renames: [],
 			buildFix,
 		})();
 
@@ -215,7 +216,7 @@ describe('verifyStep', () => {
 		].join('\n');
 		const { run, buildFix, manifest } = setupTestReviewRun({ reviews: [{ error: refusal }] });
 
-		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A refusal has to stop the checkpoint before the gates, not alongside
 		// them: the gates are exactly what a weakened test would have talked
@@ -230,7 +231,7 @@ describe('verifyStep', () => {
 			'the test-change review refused this checkpoint’s changes; no gate ran.\n- packages/engine/src/gates/runGates.unit.test.ts: the mock neuters the subject';
 		const { run, buildFix, roleInvocations, fixErrorContexts } = setupTestReviewRun({ reviews: [{ error: refusal }] });
 
-		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// Two mechanical turns of the checkpoint's own fix role and no more: the
 		// review rides the repair budget the checkpoint already has, rather than
@@ -243,7 +244,7 @@ describe('verifyStep', () => {
 	test('verifyStep: a rate-limited reviewer parks the run', async () => {
 		const { run, buildFix, roleInvocations, stopped } = setupTestReviewRun({ reviews: [{ rateLimited: true }] });
 
-		const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A reviewer the harness throttled said nothing about the tests. There is
 		// no verdict to repair and no failure to escalate, so the run pauses and a
@@ -272,7 +273,7 @@ describe('verifyStep', () => {
 			},
 		});
 
-		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => manifest.acceptanceTests, buildFix })();
+		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => manifest.acceptanceTests, renames: [], buildFix })();
 
 		// The second verification has to prove the name the mapping carries NOW.
 		// A list read once when the steps were built would hand the same stale row

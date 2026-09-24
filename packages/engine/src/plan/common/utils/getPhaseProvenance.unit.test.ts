@@ -29,6 +29,8 @@ const planWith = ({ base, create = [], remove = [], move = [] }: PhaseSpec): Pha
 	malformedLedgerLines: [],
 	proseFiles: [],
 	malformedProseLines: [],
+	renames: [],
+	malformedRenameLines: [],
 	lines: [],
 });
 

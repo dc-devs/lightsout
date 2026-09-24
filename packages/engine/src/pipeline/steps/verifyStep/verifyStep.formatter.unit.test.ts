@@ -142,7 +142,7 @@ describe('verifyStep', () => {
 		const formatError = 'prettier exited 2: packages/engine/src/gates/runGates.ts — unterminated string literal';
 		const { run, manifest, buildFix, stopped } = setupFormatterRun({ formatterAnswers: [formatError] });
 
-		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A tree the formatter could not settle is not a tree anything else may
 		// read: a review would judge diffs the formatter was about to rewrite, and
@@ -160,7 +160,7 @@ describe('verifyStep', () => {
 		const formatError = 'biome exited 1: packages/engine/src/gates/runGates.ts — expected `)` but found `;`';
 		const { run, buildFix, fixErrorContexts } = setupFormatterRun({ formatterAnswers: [formatError] });
 
-		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A format red rides the repair budget the checkpoint already has, and each
 		// mechanical turn is handed the formatter's own complaint — an agent given
@@ -172,7 +172,7 @@ describe('verifyStep', () => {
 		const formatError = 'prettier exited 2: packages/engine/src/gates/runGates.ts — unterminated string literal';
 		const { run, buildFix } = setupFormatterRun({ formatterAnswers: [formatError, undefined] });
 
-		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// The format family is repairable like any other, so a red that clears on
 		// the re-entry carries on into the review and the gates rather than ending

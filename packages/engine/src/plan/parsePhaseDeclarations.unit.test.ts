@@ -273,4 +273,93 @@ describe('parsePhaseDeclarations', () => {
 			{ file: 'phase4-ghost.md', rowLine: undefined, blockRange: { start: 25, end: 30 } },
 		]);
 	});
+
+	test('a Renames only bullet saying yes declares the phase rename-only, and anything else declares nothing', () => {
+		const { plan } = setupOverview({
+			rows: `| 1 | \`phase1-rename.md\` | the rename | 0 | 4 |
+| 2 | \`phase2-shouted.md\` | the shouted rename | 0 | 4 |
+| 3 | \`phase3-plain.md\` | the plain phase | 0 | 4 |
+| 4 | \`phase4-no.md\` | the declined rename | 0 | 4 |
+| 5 | \`phase5-other.md\` | the unclear rename | 0 | 4 |`,
+			declarations: `### Phase 1 — \`phase1-rename.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+- **File budget:** 4
+- **Renames only:** yes
+
+### Phase 2 — \`phase2-shouted.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+- **RENAMES ONLY:**  YES
+
+### Phase 3 — \`phase3-plain.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+
+### Phase 4 — \`phase4-no.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+- **Renames only:** no
+
+### Phase 5 — \`phase5-other.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+- **Renames only:** true`,
+		});
+
+		const declarations = parsePhaseDeclarations({ plan });
+
+		// the key is omitted rather than set to false, so every existing
+		// strict-equality fixture of a declaration stays valid
+		expect(
+			declarations.map((declaration) => ({
+				file: declaration.file,
+				carriesRenamesOnly: Object.hasOwn(declaration, 'renamesOnly'),
+				renamesOnly: declaration.renamesOnly,
+			})),
+		).toStrictEqual([
+			{ file: 'phase1-rename.md', carriesRenamesOnly: true, renamesOnly: true },
+			{ file: 'phase2-shouted.md', carriesRenamesOnly: true, renamesOnly: true },
+			{ file: 'phase3-plain.md', carriesRenamesOnly: false, renamesOnly: undefined },
+			{ file: 'phase4-no.md', carriesRenamesOnly: false, renamesOnly: undefined },
+			{ file: 'phase5-other.md', carriesRenamesOnly: false, renamesOnly: undefined },
+		]);
+	});
+
+	test('an orphan block keeps its Renames only declaration, and a row with no block declares nothing', () => {
+		const { plan } = setupOverview({
+			rows: '| 1 | `phase1-lonely.md` | the lonely | 0 | 4 |',
+			declarations: `### Phase 2 — \`phase2-ghost.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+- **Renames only:** yes`,
+		});
+
+		const declarations = parsePhaseDeclarations({ plan });
+
+		// the orphan is reported rather than repaired, so what it declares survives
+		expect(
+			declarations.map((declaration) => ({
+				file: declaration.file,
+				number: declaration.number,
+				carriesRenamesOnly: Object.hasOwn(declaration, 'renamesOnly'),
+				renamesOnly: declaration.renamesOnly,
+			})),
+		).toStrictEqual([
+			{ file: 'phase1-lonely.md', number: 1, carriesRenamesOnly: false, renamesOnly: undefined },
+			{ file: 'phase2-ghost.md', number: 0, carriesRenamesOnly: true, renamesOnly: true },
+		]);
+	});
 });

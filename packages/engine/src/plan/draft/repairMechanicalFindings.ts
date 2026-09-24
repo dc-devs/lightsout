@@ -21,32 +21,46 @@ interface Params {
 }
 
 /**
- * The stamped rows with each matched row's declared budget replaced by the
- * budget its own phase file states.
+ * The stamped rows with two facts on each matched row replaced by what its own
+ * phase file states: the declared budget, and whether the phase is rename-only.
  *
  * With both copies rendered from one record, one of them has to be
  * authoritative, and it is the phase file's — that is the file the implementing
- * agent is handed. `stampPhaseCounts` deliberately does not stamp this bullet,
+ * agent is handed. `stampPhaseCounts` deliberately does not stamp these bullets,
  * and it is right not to: the check it serves has to be able to see the two
  * copies disagree. Here the question is different, so the answer is. What
  * survives is the defect that actually needs judgment — a budget below the
  * phase's own touched count, where shrinking the phase and raising the number
  * are both choices no code can make.
  *
+ * A phase file with no renames drops the `renamesOnly` key outright rather than
+ * setting it to false, so the rendered block carries no bullet at all.
+ *
  * The substitution is defined only over rows a phase file was found for, so a
  * row naming a file this deliverable does not have is left exactly as parsed and
  * is not rendered at all.
  */
-const withOwnBudgets = async ({ declarations, phasePaths }: { declarations: PhaseDeclaration[]; phasePaths: string[] }) => {
-	const budgets = new Map<string, number | undefined>();
+const withOwnDeclarations = async ({ declarations, phasePaths }: { declarations: PhaseDeclaration[]; phasePaths: string[] }) => {
+	const owned = new Map<string, { fileBudget?: number; renamesOnly: boolean }>();
 
 	for (const phasePath of phasePaths) {
 		const base = basename(phasePath);
+		const plan = parsePlan({ content: await readFile(phasePath, 'utf8'), base });
 
-		budgets.set(base, parsePlan({ content: await readFile(phasePath, 'utf8'), base }).fileBudget);
+		owned.set(base, { fileBudget: plan.fileBudget, renamesOnly: plan.renames.length > 0 });
 	}
 
-	return declarations.map((declaration) => (budgets.has(declaration.file) ? { ...declaration, fileBudget: budgets.get(declaration.file) } : declaration));
+	return declarations.map((declaration) => {
+		const own = owned.get(declaration.file);
+
+		if (own === undefined) {
+			return declaration;
+		}
+
+		const { renamesOnly: _renamesOnly, ...rest } = declaration;
+
+		return { ...rest, fileBudget: own.fileBudget, ...(own.renamesOnly ? { renamesOnly: true } : {}) };
+	});
 };
 
 /**
@@ -84,7 +98,7 @@ export const repairMechanicalFindings = async ({ cwd, name, planPaths, decisions
 		files.push(
 			await syncPhaseSections({
 				overviewPath,
-				declarations: await withOwnBudgets({ declarations: stamped, phasePaths }),
+				declarations: await withOwnDeclarations({ declarations: stamped, phasePaths }),
 				phaseFiles: phasePaths.map((path) => basename(path)),
 			}),
 		);
