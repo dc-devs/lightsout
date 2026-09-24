@@ -57,7 +57,7 @@ describe('getStandardsPackView', () => {
 		// only place the page's claim about it is pinned. Every rule ships both
 		// sides of its proof, judgment-only ones included, which is why
 		// `withFixtures` matches `rules` rather than `checked`.
-		expect(view.totals).toStrictEqual({ rules: 111, checked: 52, judgment: 59, documents: 24, withFixtures: 111 });
+		expect(view.totals).toStrictEqual({ rules: 112, checked: 53, judgment: 59, documents: 24, withFixtures: 112 });
 	});
 
 	test('says the default pack is the one a run loads when the config names none', async () => {
