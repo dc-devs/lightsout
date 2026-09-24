@@ -10,14 +10,16 @@ export const QueueBoardTicket = z.object({
 	/** The queue worker value that builds the ticket. */
 	worker: z.string().optional(),
 	/**
-	 * Set only for an auto-plan ticket: the work order's label, which is the
-	 * folder under the work-orders directory the worker's session writes in.
+	 * The work order's label — its folder under the work-orders directory —
+	 * recorded for every ticket the board places from a work order, whatever
+	 * worker builds it.
 	 *
-	 * The label rather than the branch, because a plan address is built from the
-	 * label and a branch carrying a prefix would not parse as one. The plan the
-	 * session is writing is the one inside that folder still being planned.
+	 * The label rather than the branch, because a plan address and a runs folder
+	 * are both named by the label, and a branch carrying a template prefix names
+	 * neither. Absent on an entry the queue left behind before a work order
+	 * existed, and on a board written by an engine older than this field.
 	 */
-	planName: z.string().optional(),
+	workOrderName: z.string().optional(),
 	branch: z.string().optional(),
 	worktreePath: z.string().optional(),
 	/** ISO time the ticket entered its current lane. */

@@ -33,6 +33,9 @@ const beforeBuild = '2026-09-10T09:50:00.000Z';
 /** The branch the ticket builds. */
 const branch = 'lo-9-board-links';
 
+/** The ticket's work order — the folder under the work-orders directory its runs are filed in. */
+const workOrderName = branch;
+
 /**
  * Phase children whose short ids and plan titles all differ, so each one's
  * block reads differently from every other's. A was updated after B although B
@@ -97,10 +100,14 @@ const ticketOf = (overrides: Partial<QueueBoardTicket> & Pick<QueueBoardTicket, 
 	...overrides,
 });
 
+/** A plan address inside the given work order, which files a seeded run under that work order's runs folder. */
+const planAddressIn = ({ name }: { name: string }) => `${name}/001-board-links`;
+
 /**
- * A worktree holding the given runs and an optional run lock, plus each seeded
- * run's block as `loadRunProgressBlock` draws it — the lines the binder must
- * hand back untouched.
+ * A worktree holding the given runs, filed under the ticket's own work order,
+ * and an optional run lock, plus each seeded run's block as
+ * `loadRunProgressBlock` draws it — the lines the binder must hand back
+ * untouched.
  */
 const setupWorktree = async ({
 	seeded = [],
@@ -119,11 +126,14 @@ const setupWorktree = async ({
 	await mkdir(join(worktreePath, '.lightsout'), { recursive: true });
 
 	for (const run of seeded) {
-		await seedRunDir({ cwd: worktreePath, manifest: { ...manifestOf(run), parentRunId: run.parentRunId, pipeline: run.pipeline } });
+		await seedRunDir({
+			cwd: worktreePath,
+			manifest: { ...manifestOf(run), parentRunId: run.parentRunId, pipeline: run.pipeline, planName: planAddressIn({ name: workOrderName }) },
+		});
 	}
 
 	if (unreadable !== undefined) {
-		const runDir = runDirFor({ cwd: worktreePath, runId: unreadable });
+		const runDir = runDirFor({ cwd: worktreePath, runId: unreadable, workOrderName });
 
 		await mkdir(runDir, { recursive: true });
 		await writeFile(join(runDir, 'manifest.json'), '{ "runId": "', 'utf8');
@@ -144,6 +154,64 @@ const setupWorktree = async ({
 	return { worktreePath, blocks };
 };
 
+/** A second ticket the queue builds at the same time, whose runs share the repository's state directory. */
+const otherWorkOrderName = 'lo-12-board-search';
+
+/**
+ * Another ticket's phased build: a coordinator and a running phase child, both
+ * created after this ticket's own family, so a binder reading every work
+ * order's runs picks this family as the newest.
+ */
+const otherCoordinatorRun: SeededRun = {
+	runId: 'eeee6666-other-coord',
+	plan: 'plans/other-overview/plan.md',
+	createdAt: '2026-09-10T10:10:00.000Z',
+	updatedAt: '2026-09-10T10:29:30.000Z',
+	status: RunStatus.Running,
+	pipeline: PipelineKind.Phases,
+};
+
+const otherPhaseRun: SeededRun = {
+	runId: 'abab7777-other-phase',
+	plan: 'plans/other-phase/plan.md',
+	createdAt: '2026-09-10T10:12:00.000Z',
+	updatedAt: '2026-09-10T10:29:45.000Z',
+	status: RunStatus.Running,
+	parentRunId: otherCoordinatorRun.runId,
+};
+
+/**
+ * A worktree whose state directory files each seeded run under the work order
+ * its plan address names, with a run lock, plus each run's block as
+ * `loadRunProgressBlock` draws it.
+ */
+const setupWorkOrderFolders = async ({ seeded, lock }: { seeded: (SeededRun & { planName: string })[]; lock: { runId: string; pid: number } }) => {
+	jest.spyOn(Date, 'now').mockReturnValue(pinnedNow);
+
+	const worktreePath = await freshCwd();
+
+	await mkdir(join(worktreePath, '.lightsout'), { recursive: true });
+
+	for (const run of seeded) {
+		await seedRunDir({
+			cwd: worktreePath,
+			manifest: { ...manifestOf(run), parentRunId: run.parentRunId, pipeline: run.pipeline, planName: run.planName },
+		});
+	}
+
+	await writeFile(join(worktreePath, '.lightsout', 'lock.json'), JSON.stringify({ ...lock, startedAt: buildStartedAt }), 'utf8');
+
+	const blocks: Record<string, string[]> = {};
+
+	for (const run of seeded) {
+		const { lines } = await loadRunProgressBlock({ cwd: worktreePath, runId: run.runId });
+
+		blocks[run.runId] = lines;
+	}
+
+	return { worktreePath, blocks };
+};
+
 describe('loadActiveTicketBlock', () => {
 	test('a phased build shows the coordinator block and the going phase child block, separated by one blank line', async () => {
 		const parent = coordinatorRun.runId;
@@ -152,7 +220,7 @@ describe('loadActiveTicketBlock', () => {
 			seeded: [coordinatorRun, going, { ...runs.b, parentRunId: parent, updatedAt: '2026-09-10T10:27:00.000Z' }],
 			lock: { runId: going.runId, pid: process.pid },
 		});
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -168,7 +236,7 @@ describe('loadActiveTicketBlock', () => {
 			seeded: [coordinatorRun, recent, { ...runs.b, parentRunId: parent }],
 			lock: { runId: parent, pid: deadPid },
 		});
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -181,7 +249,7 @@ describe('loadActiveTicketBlock', () => {
 		const older = { ...coordinatorRun, createdAt: beforeBuild };
 		const child = { ...runs.a, parentRunId: older.runId };
 		const { worktreePath, blocks } = await setupWorktree({ seeded: [older, child] });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
@@ -193,12 +261,29 @@ describe('loadActiveTicketBlock', () => {
 	test('a phase child whose coordinator manifest cannot be read still shows its own block', async () => {
 		const orphan = { ...runs.a, parentRunId: corruptCoordinatorRunId };
 		const { worktreePath, blocks } = await setupWorktree({ seeded: [orphan], unreadable: corruptCoordinatorRunId });
-		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath });
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
 
 		const lines = await loadActiveTicketBlock({ ticket });
 
 		// One half-written coordinator must not take the whole board down: the
 		// phase the reader can see is still shown.
 		expect(lines).toStrictEqual(blocks[orphan.runId]);
+	});
+
+	test("a phased build shows its own coordinator and phase child while another ticket's phase is newer", async () => {
+		const own = { planName: planAddressIn({ name: workOrderName }) };
+		const other = { planName: planAddressIn({ name: otherWorkOrderName }) };
+		const ownChild = { ...runs.a, parentRunId: coordinatorRun.runId, ...own };
+		const { worktreePath, blocks } = await setupWorkOrderFolders({
+			seeded: [{ ...coordinatorRun, ...own }, ownChild, { ...otherCoordinatorRun, ...other }, { ...otherPhaseRun, ...other }],
+			lock: { runId: coordinatorRun.runId, pid: deadPid },
+		});
+		const ticket = ticketOf({ lane: QueueLane.Building, enteredAt: buildStartedAt, buildStartedAt, worktreePath, workOrderName });
+
+		const lines = await loadActiveTicketBlock({ ticket });
+
+		// The other ticket's family was created later and its phase is going too,
+		// but its runs sit in another work order's folder, which this ticket never reads.
+		expect(lines).toStrictEqual([...blocks[coordinatorRun.runId], '', ...blocks[ownChild.runId]]);
 	});
 });

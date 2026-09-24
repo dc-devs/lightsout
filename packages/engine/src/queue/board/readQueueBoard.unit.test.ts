@@ -17,7 +17,7 @@ const recordedBoard: QueueBoard = {
 			url: 'https://linear.app/lightsout/issue/LO-1',
 			lane: QueueLane.Blocked,
 			worker: 'auto-plan',
-			planName: 'lo-1-show-the-board',
+			workOrderName: 'lo-1-show-the-board',
 			branch: 'lo-1-show-the-board',
 			worktreePath: '/worktrees/lo-1-show-the-board',
 			enteredAt: '2026-09-10T09:20:00.000Z',
