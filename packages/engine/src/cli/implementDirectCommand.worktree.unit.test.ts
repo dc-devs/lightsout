@@ -30,7 +30,13 @@ type ResolveRunWorkspaceParams = {
 	onProgress?: (message: string) => void;
 };
 type DirectWorkParams = { cwd: string; ticketBody: string; ticketRef: string; willShip?: boolean };
-type CommitParams = { cwd: string; message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
+type CommitParams = {
+	cwd: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
+	runDir: string;
+	generated: string[] | undefined;
+	onProgress: (message: string) => void;
+};
 type ExitAfterImplementParams = {
 	config: LightsoutConfig;
 	cwd: string;
@@ -50,7 +56,7 @@ const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<Pipeline
 
 jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
@@ -148,7 +154,7 @@ const setupImplementDirectWorktree = ({
 		seedRunFolder({ cwd: checkout, runId: manifestOf(RunStatus.Passed).runId, pipeline: 'direct' });
 	}
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockCommitTicketWork.mockResolvedValue({ committed: true, message: 'LO-70: stub subject\n\nlightsout run stub\n' });
 	mockExitAfterImplement.mockResolvedValue(undefined);
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, workspace, ...captured };

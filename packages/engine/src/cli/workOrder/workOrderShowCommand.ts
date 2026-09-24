@@ -18,6 +18,8 @@ const renderWorkOrderState = ({ record }: { record: WorkOrderState }) => [
 
 		return `  ${plan.id} — ${plan.title} — ${describePlanProgress({ progress: plan.progress })}${excluded}`;
 	}),
+	// A work order holding no plan 001 ships on its build from the ticket body, so that build is shown like a plan.
+	...(record.ticketBodyBuild === undefined ? [] : [`  built from the ticket body — ${describePlanProgress({ progress: record.ticketBodyBuild.progress })}`]),
 	record.shipRequest === undefined
 		? 'no ship request is pending, so this work order stays open'
 		: `ship request: ${record.shipRequest.planIds.join(', ')} — the work order ships once every one of them is implemented`,

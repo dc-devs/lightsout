@@ -25,7 +25,7 @@ jest.mock('#src/ship/runPreShip.ts', () => ({
 }));
 // -------------------------
 
-const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined };
+const green: GateRunResult = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined };
 
 /** The exact commit the fetched default branch was pinned to — what preparation must be measured against on every pass. */
 const baseCommit = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
@@ -89,7 +89,9 @@ describe('repairIntegratedGates', () => {
 	// and a hook that fails stops verification. Each half is arranged and acted
 	// separately below.
 	test('prepares each repaired tree against the same pinned base before verifying', async () => {
-		const { order, repair } = setupRepair({ gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }, green] });
+		const { order, repair } = setupRepair({
+			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
+		});
 
 		const settled = await repair();
 
@@ -110,7 +112,7 @@ describe('repairIntegratedGates', () => {
 
 	test("hands the failing gate's own output to the repair attempt", async () => {
 		const { invocations, repair } = setupRepair({
-			gateRuns: [{ error: 'test failed: expected 1, received 2', failedFamilies: ['test'], crashes: [], coordination: undefined }, green],
+			gateRuns: [{ error: 'test failed: expected 1, received 2', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
 		});
 
 		const settled = await repair();
@@ -121,7 +123,7 @@ describe('repairIntegratedGates', () => {
 
 	test('stops at the repair allowance and names the families that stayed red', async () => {
 		const { invocations, repair } = setupRepair({
-			gateRuns: [{ error: 'test: 3 failing\ncheck: 2 errors', failedFamilies: ['test', 'check'], crashes: [], coordination: undefined }],
+			gateRuns: [{ error: 'test: 3 failing\ncheck: 2 errors', failedFamilies: ['test', 'check'], crashes: [], timeouts: [], coordination: undefined }],
 		});
 
 		const settled = await repair();
@@ -133,13 +135,14 @@ describe('repairIntegratedGates', () => {
 		expect(mockRunGates).toHaveBeenCalledTimes(3);
 	});
 
-	test('attempts no repair for a gate that crashed instead of failing', async () => {
+	test('blocks a crashed gate under its own reason without spending a repair', async () => {
 		const { invocations, repair } = setupRepair({
 			gateRuns: [
 				{
 					error: 'test: exited 139 with no verdict',
 					failedFamilies: [],
 					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					timeouts: [],
 					coordination: undefined,
 				},
 			],
@@ -148,7 +151,40 @@ describe('repairIntegratedGates', () => {
 
 		const settled = await repair();
 
-		expect(settled).toEqual(expect.objectContaining({ reason: 'integration-gates-failed', detail: expect.stringContaining('SIGSEGV') }));
+		expect(settled).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-crashed',
+				paths: [],
+				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+			}),
+		);
+		expect(invocations).toStrictEqual([]);
+		expect(mockRunGates).toHaveBeenCalledTimes(1);
+	});
+
+	test('blocks a timed-out gate under its own reason without spending a repair', async () => {
+		const { invocations, repair } = setupRepair({
+			gateRuns: [
+				{
+					error: 'test-e2e: exit -1 (timeout at the 15-minute ceiling)',
+					failedFamilies: [],
+					crashes: [],
+					timeouts: ['test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.'],
+					coordination: undefined,
+				},
+			],
+			uncalledDriver: true,
+		});
+
+		const settled = await repair();
+
+		expect(settled).toEqual(
+			expect.objectContaining({
+				reason: 'integration-gates-timed-out',
+				paths: [],
+				detail: expect.stringContaining('test-e2e timed out: every attempt ran past the 15-minute gate ceiling'),
+			}),
+		);
 		expect(invocations).toStrictEqual([]);
 		expect(mockRunGates).toHaveBeenCalledTimes(1);
 	});

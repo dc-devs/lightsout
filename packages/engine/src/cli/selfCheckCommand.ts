@@ -78,15 +78,21 @@ const readManifest = async ({ cwd, runId }: { cwd: string; runId: string }) => {
 /** What the gates found, as evidence about the code: the command that went red and the output it left. */
 const printGateFailures = ({ result }: { result: SelfCheckResult }) => {
 	for (const gate of result.gates) {
-		if (gate.skipped !== true && gate.exitCode !== undefined && gate.exitCode !== 0) {
+		// A timed-out attempt never returned a verdict, so it is not evidence about the code.
+		if (gate.skipped !== true && gate.timedOut !== true && gate.exitCode !== undefined && gate.exitCode !== 0) {
 			console.log(`\n${bold(`[${gate.group}] ${gate.kind}`)} — exit ${gate.exitCode}\n${gate.command}\n${gate.outputTail ?? ''}`);
 		}
 	}
 
-	// A crash is the engine's own failure rather than evidence about the code, so
-	// it is printed as one and never handed over as something to repair.
+	// A crash or a timeout is the engine's own failure rather than evidence about
+	// the code, so it is printed as one and never handed over as something to
+	// repair.
 	for (const crash of result.crashes) {
 		console.log(`\nengine: ${crash}`);
+	}
+
+	for (const timeout of result.timeouts) {
+		console.log(`\nengine: ${timeout}`);
 	}
 };
 

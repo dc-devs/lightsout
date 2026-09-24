@@ -1,6 +1,7 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderMode } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -19,6 +20,20 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
+/**
+ * The mode a new record is created in, by the worker the queue selected.
+ *
+ * A ticket the queue builds from the ticket body has exactly one implementation,
+ * which is what single-plan mode describes, so its record starts there whatever
+ * the repository default says; an auto-plan ticket is planned first, so it keeps
+ * the default. Keyed by every worker, so a new one is a type error until placed.
+ */
+const creationModeByWorker: Record<QueueWorker, WorkOrderMode | undefined> = {
+	[QueueWorker.Direct]: WorkOrderMode.SinglePlan,
+	[QueueWorker.Plan]: WorkOrderMode.SinglePlan,
+	[QueueWorker.AutoPlan]: undefined,
+};
+
 /** The work order this ticket already has, or the one the single writer of a name just wrote — or the sentence saying neither happened. */
 const nameOne = async ({ cwd, config, env, driver, ticket, onProgress }: Omit<Params, 'tickets'> & { ticket: RunnableTicket }) => {
 	const existing = await findWorkOrderByTicketRef({ cwd, ticketRef: ticket.identifier });
@@ -30,7 +45,15 @@ const nameOne = async ({ cwd, config, env, driver, ticket, onProgress }: Omit<Pa
 	// A creation that FAILS is caught here rather than thrown: this runs inside
 	// the drain's scan loop, so one tracker timeout or one lock it could not take
 	// would otherwise end a whole wave.
-	const created = await createWorkOrder({ cwd, ticketRef: ticket.identifier, config, env, driver, onProgress }).catch((thrown: unknown) => ({
+	const created = await createWorkOrder({
+		cwd,
+		ticketRef: ticket.identifier,
+		mode: creationModeByWorker[ticket.worker],
+		config,
+		env,
+		driver,
+		onProgress,
+	}).catch((thrown: unknown) => ({
 		error: `no work order could be created for ${ticket.identifier}: ${messageOf({ error: thrown })}`,
 	}));
 
@@ -48,6 +71,10 @@ const nameOne = async ({ cwd, config, env, driver, ticket, onProgress }: Omit<Pa
  * left-behind entry and the drain never builds it: the queue does not invent a
  * name for work the one writer declined to name, and a left-behind entry is
  * already how every other per-ticket problem in a drain is reported.
+ *
+ * A record the queue creates for a ticket it builds from the ticket body is
+ * created in single-plan mode whatever `plan.default-work-order-mode` says; an
+ * auto-plan ticket's record keeps the repository default.
  *
  * It is sequential rather than parallel: creation writes a record under its own
  * lock and a name collision has to be refused against every name already

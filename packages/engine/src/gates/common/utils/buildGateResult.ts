@@ -10,6 +10,7 @@ interface Params {
 	result: CommandResult;
 	durationMs: number;
 	crashed: boolean;
+	timedOut: boolean;
 	rerun?: boolean;
 	/** Absolute path of this execution's per-test evidence slot, recorded relative to the checkout. Absent for a run with no run folder. */
 	evidenceDir?: string;
@@ -20,7 +21,7 @@ interface Params {
  * commands.jsonl record adds only the log-specific `at`/`step` on top of it, so
  * building it twice is how the two would drift.
  */
-export const buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, rerun, evidenceDir }: Params): GateResult => {
+export const buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, timedOut, rerun, evidenceDir }: Params): GateResult => {
 	const outputTailChars = 2000;
 
 	return {
@@ -31,6 +32,7 @@ export const buildGateResult = ({ cwd, kind, group, command, result, durationMs,
 		durationMs,
 		...(rerun ? { rerun: true } : {}),
 		...(crashed ? { crashed: true } : {}),
+		...(timedOut ? { timedOut: true } : {}),
 		...(evidenceDir ? { testResultsDir: relative(cwd, evidenceDir) } : {}),
 		...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
 	};

@@ -46,6 +46,20 @@ export const ShipBlockReason = {
 	 * other.
 	 */
 	IntegrationGatesUnavailable: 'integration-gates-unavailable',
+	/**
+	 * A gate on the integrated branch died in the known jest worker crash on
+	 * every attempt, so no verdict about the code exists and no repair was spent.
+	 *
+	 * Separate from `IntegrationGatesFailed` so that a failure and a crash no
+	 * longer share one reason.
+	 */
+	IntegrationGatesCrashed: 'integration-gates-crashed',
+	/**
+	 * A gate on the integrated branch ran past its `timeouts.gate-minutes`
+	 * ceiling on every attempt, so no verdict about the code exists and no repair
+	 * was spent.
+	 */
+	IntegrationGatesTimedOut: 'integration-gates-timed-out',
 	/** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
 	ChecksMissing: 'checks-missing',
 	/**

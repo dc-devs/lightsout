@@ -1,6 +1,6 @@
 import { RunStatus, type StepRecord, SupervisorDecision } from '#src/contracts/index.ts';
 import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
-import { stopOnGateCrash } from '#src/pipeline/common/utils/stopOnGateCrash.ts';
+import { stopOnGateNoVerdict } from '#src/pipeline/common/utils/stopOnGateNoVerdict.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { reviewAndVerify } from '#src/pipeline/steps/verify/index.ts';
 import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
@@ -64,9 +64,10 @@ const runVerificationStep = async ({ context }: { context: VerifyContext }) => {
 		return stopOnGateCoordination({ run, stepId: id, record, coordination: result.coordination, error: result.error });
 	}
 
-	// Both repair stages step aside for a crash, so one check here catches it wherever it appeared.
-	if (result.crashes.length > 0) {
-		return stopOnGateCrash({ run, stepId: id, record, crashes: result.crashes, error: result.error });
+	// Both repair stages step aside for a crash and for a timeout, so one check here catches them wherever they appeared. The
+	// order is coordination, then crash, then timeout; the stop carries the full gate output, which names any other gate too.
+	if (result.crashes.length > 0 || result.timeouts.length > 0) {
+		return stopOnGateNoVerdict({ run, stepId: id, record, crashes: result.crashes, timeouts: result.timeouts, error: result.error });
 	}
 
 	if (result.error) {

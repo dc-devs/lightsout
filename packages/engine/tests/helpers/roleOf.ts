@@ -5,7 +5,13 @@
  * classifies as 'fix'.
  */
 export const roleOf = (prompt: string) => {
-	// Checked first: the standards reviewer runs alongside the refactor gate and
+	// Checked first: the commit-message call carries the staged diff, and a diff
+	// can hold any other role's heading as a line it changed.
+	if (prompt.includes('# Staged change')) {
+		return 'commit-message';
+	}
+
+	// Checked before the working roles: the standards reviewer runs alongside the refactor gate and
 	// the refactor batches, so a stub that mistook it for the role it runs beside
 	// would answer the wrong agent.
 	if (prompt.includes('# Files in scope for the standards review')) {

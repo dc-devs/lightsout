@@ -23,7 +23,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 interface CommitTicketWorkParams {
 	cwd: string;
-	message: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
 	runDir: string;
 	generated: string[] | undefined;
 	onProgress?: (message: string) => void;
@@ -73,7 +73,7 @@ interface RunWorkerWithRelayParams {
 const mockCreateWorktree = jest.fn<(params: CreateWorktreeParams) => Promise<string | WorktreeFailure>>();
 const mockSetTicketStatus = jest.fn<(params: { statusName: string }) => Promise<QueueFailure | undefined>>();
 const mockRunWorkerWithRelay = jest.fn<(params: RunWorkerWithRelayParams) => Promise<WorkerOutcome>>();
-const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork = jest.fn<(params: CommitTicketWorkParams) => Promise<{ committed: false } | { committed: true; message: string } | QueueFailure>>();
 const mockReadGitCommitsAhead = jest.fn<(params: { cwd: string; defaultBranch: string }) => Promise<number | undefined>>();
 
 jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateWorktreeParams) => mockCreateWorktree(params) }));
@@ -132,7 +132,7 @@ const setupTicketRun = () => {
 	mockCreateWorktree.mockResolvedValue('/tmp/worktrees/lo-70-drain-the-backlog');
 	mockSetTicketStatus.mockResolvedValue(undefined);
 	mockRunWorkerWithRelay.mockResolvedValue({});
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockCommitTicketWork.mockResolvedValue({ committed: true, message: 'LO-70: stub subject\n\nlightsout run stub\n' });
 	mockReadGitCommitsAhead.mockResolvedValue(1);
 
 	const relay = new TerminalQuestionRelay({ settings, trackerSettings, input: new PassThrough(), output: new PassThrough() });

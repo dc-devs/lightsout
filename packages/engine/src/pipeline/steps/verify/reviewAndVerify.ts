@@ -51,7 +51,7 @@ export const reviewAndVerify = async ({
 	}
 
 	if (review.error !== undefined) {
-		return { error: review.error, failedFamilies: ['test-review'], crashes: [], coordination: undefined, failures: [] };
+		return { error: review.error, failedFamilies: ['test-review'], crashes: [], timeouts: [], coordination: undefined, failures: [] };
 	}
 
 	const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });

@@ -1,6 +1,7 @@
-import { commitWorkOrderWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork, composeCommitMessage } from '#src/commit/index.ts';
 import { readGitCommitsAhead } from '#src/common/git/readGitCommitsAhead.ts';
-import { BranchPhase } from '#src/contracts/index.ts';
+import { BranchPhase, type LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import { writeBranchState } from '#src/queue/branchState/index.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
@@ -17,8 +18,12 @@ interface Params {
 	ticket: RunnableTicket;
 	/** The ticket's directory under the coordinator run, where the commit message file is written. */
 	workOrderRunDir: string;
-	/** The configured generated paths, discarded before the commit. */
-	generated: string[] | undefined;
+	/** The run's config: its generated paths are discarded before the commit, and its model and effort drive the commit-message agent. */
+	config: LightsoutConfig;
+	/** The harness the queue already holds — the commit-message agent runs on it. */
+	driver: Driver;
+	/** The queue (coordinator) run, named on the final commit's `lightsout run` line. */
+	coordinatorRunId: string;
 	/** What the ticket's worker amounted to. */
 	worked: WorkerOutcome;
 	onProgress?: (message: string) => void;
@@ -49,7 +54,9 @@ export const settleWorkerOutcome = async ({
 	defaultBranch,
 	ticket,
 	workOrderRunDir,
-	generated,
+	config,
+	driver,
+	coordinatorRunId,
 	worked,
 	onProgress,
 }: Params): Promise<Pick<WorkOrderRunOutcome, 'ready' | 'error' | 'open' | 'unanswered'>> => {
@@ -66,11 +73,12 @@ export const settleWorkerOutcome = async ({
 		return { ready: false, open: worked.open, error: undefined, unanswered: undefined };
 	}
 
+	const address = { reference: ticket.identifier, fallbackSubject: `${ticket.identifier} ${ticket.title}`, context: ticket.title };
 	const committed = await commitWorkOrderWork({
 		cwd: worktreePath,
-		message: `${ticket.identifier} ${ticket.title}`,
+		composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config, address, runId: coordinatorRunId, onProgress }),
 		runDir: workOrderRunDir,
-		generated,
+		generated: config.generated,
 		onProgress,
 	});
 

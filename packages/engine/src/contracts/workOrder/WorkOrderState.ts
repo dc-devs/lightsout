@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
 import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
 import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
@@ -17,6 +18,16 @@ const WorkOrderStateShape = z
 		mode: z.enum(WorkOrderMode),
 		/** Every plan the work order has ever held, excluded ones included, in ascending number order. */
 		plans: z.array(WorkOrderPlan),
+		/** The latest build from the ticket body of a single-plan work order that holds no plan 001. Each build replaces it whole. */
+		ticketBodyBuild: z
+			.object({
+				runId: z.string(),
+				progress: z.enum([PlanProgress.Implementing, PlanProgress.Implemented, PlanProgress.Failed]),
+				startedAt: z.string(),
+				finishedAt: z.string().optional(),
+			})
+			.strict()
+			.optional(),
 		/** The human's explicit request to ship, bound to the exact plans it was approved for. */
 		shipRequest: z
 			.object({ planIds: z.array(PlanId).min(1), requestedAt: z.string() })

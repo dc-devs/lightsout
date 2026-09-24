@@ -36,6 +36,7 @@ interface SelfCheckResult {
 	gates: GateResult[];
 	error: string | undefined;
 	crashes: string[];
+	timeouts: string[];
 	coordination: string | undefined;
 }
 
@@ -56,6 +57,15 @@ const redGate: GateResult = { kind: 'check', group: 'api', command: 'pnpm check'
 const silentRedGate: GateResult = { kind: 'test', group: 'api', command: 'pnpm test --filter api', exitCode: 1 };
 const passingGate: GateResult = { kind: 'build', group: 'root', command: 'pnpm build', exitCode: 0 };
 const skippedGate: GateResult = { kind: 'check', group: 'web', command: 'pnpm lint', skipped: true, reason: 'no "check" script' };
+/** A gate stopped by its ceiling — exit -1 with the runner's own error text, and no verdict about the code. */
+const timedOutGate: GateResult = {
+	kind: 'test-e2e',
+	group: 'web',
+	command: 'pnpm test:e2e --filter web',
+	exitCode: -1,
+	outputTail: 'command timed out',
+	timedOut: true,
+};
 
 /** One answer from the gate run, defaulting to a green run of one gate. */
 const endingOf = ({
@@ -64,6 +74,7 @@ const endingOf = ({
 	gates = [],
 	error,
 	crashes = [],
+	timeouts = [],
 	coordination,
 }: {
 	reason: SelfCheckResult['reason'];
@@ -71,8 +82,9 @@ const endingOf = ({
 	gates?: GateResult[];
 	error?: string;
 	crashes?: string[];
+	timeouts?: string[];
 	coordination?: string;
-}): SelfCheckResult => ({ reason, gateNames, gates, error, crashes, coordination });
+}): SelfCheckResult => ({ reason, gateNames, gates, error, crashes, timeouts, coordination });
 
 /**
  * A consumer repo holding one seeded run per step the case exercises, with the
@@ -322,5 +334,32 @@ describe('selfCheckCommand', () => {
 		// and the gates that did run and went red still end the check at 1, with
 		// their own evidence printed
 		expect(output).toContain('src/thing.ts:3 unused import');
+	});
+
+	test("selfCheckCommand: prints a timeout as the engine's own line and leaves the timed-out gate out of the evidence", async () => {
+		const { contexts, logged, exitCodes } = await setupSelfCheck({
+			steps: ['implement'],
+			results: [
+				endingOf({
+					reason: SelfCheckReason.Ran,
+					gateNames: ['check', 'test-e2e'],
+					error: 'check failed in [api]: exit 1',
+					gates: [redGate, timedOutGate],
+					timeouts: ['[web] test-e2e timed out: every attempt ran past the 15-minute gate ceiling'],
+				}),
+			],
+		});
+
+		await expect(selfCheckCommand(contexts[0])).rejects.toThrow(/process\.exit/);
+
+		const output = logged.join('\n');
+
+		// a timeout is the engine's own failure rather than evidence about the
+		// code, so its line is printed as the engine's and its command is never
+		// handed over as something to repair — while the real red beside it still is
+		expect(exitCodes).toStrictEqual([1]);
+		expect(output).toContain('engine: [web] test-e2e timed out: every attempt ran past the 15-minute gate ceiling');
+		expect(output).not.toContain('pnpm test:e2e --filter web');
+		expect(output).toContain('pnpm check');
 	});
 });

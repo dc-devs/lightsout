@@ -22889,7 +22889,7 @@ var WorkOrderMode = {
 var ConfigPlan = external_exports.object({
   /** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
   contract: external_exports.boolean().optional(),
-  /** The mode a work order's own record is created with: `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a work order that already has one. */
+  /** The mode a work order's own record is created with: `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a work order that already has one. The queue creates the record of a ticket it builds from the ticket body in `single-plan` mode whatever this key says. */
   "default-work-order-mode": external_exports.enum(WorkOrderMode).optional(),
   /** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
   worktree: external_exports.boolean().optional(),
@@ -23408,12 +23408,14 @@ var GateResult = external_exports.object({
   /** 'root' or the package directory name. */
   group: external_exports.string(),
   command: external_exports.string(),
-  /** Absent when skipped. -1 = spawn failure or timeout. */
+  /** Absent when skipped. -1 = spawn failure or timeout; `timedOut` tells the two apart. */
   exitCode: external_exports.number().optional(),
   durationMs: external_exports.number().optional(),
   rerun: external_exports.boolean().optional(),
   /** Present (always `true`) when this red was the known jest worker crash rather than evidence about the code. */
   crashed: external_exports.literal(true).optional(),
+  /** Present (always `true`) when this attempt was stopped by the gate ceiling rather than returning an exit code. */
+  timedOut: external_exports.literal(true).optional(),
   /** Present (always `true`) only on a scoped skip; absent otherwise. */
   skipped: external_exports.literal(true).optional(),
   /** Skip reason, e.g. `no "check" script`. */
@@ -24455,14 +24457,16 @@ var QueueBoardTicket = external_exports.object({
   /** The queue worker value that builds the ticket. */
   worker: external_exports.string().optional(),
   /**
-   * Set only for an auto-plan ticket: the work order's label, which is the
-   * folder under the work-orders directory the worker's session writes in.
+   * The work order's label — its folder under the work-orders directory —
+   * recorded for every ticket the board places from a work order, whatever
+   * worker builds it.
    *
-   * The label rather than the branch, because a plan address is built from the
-   * label and a branch carrying a prefix would not parse as one. The plan the
-   * session is writing is the one inside that folder still being planned.
+   * The label rather than the branch, because a plan address and a runs folder
+   * are both named by the label, and a branch carrying a template prefix names
+   * neither. Absent on an entry the queue left behind before a work order
+   * existed, and on a board written by an engine older than this field.
    */
-  planName: external_exports.string().optional(),
+  workOrderName: external_exports.string().optional(),
   branch: external_exports.string().optional(),
   worktreePath: external_exports.string().optional(),
   /** ISO time the ticket entered its current lane. */
@@ -24900,6 +24904,20 @@ var ShipBlockReason = {
    * other.
    */
   IntegrationGatesUnavailable: "integration-gates-unavailable",
+  /**
+   * A gate on the integrated branch died in the known jest worker crash on
+   * every attempt, so no verdict about the code exists and no repair was spent.
+   *
+   * Separate from `IntegrationGatesFailed` so that a failure and a crash no
+   * longer share one reason.
+   */
+  IntegrationGatesCrashed: "integration-gates-crashed",
+  /**
+   * A gate on the integrated branch ran past its `timeouts.gate-minutes`
+   * ceiling on every attempt, so no verdict about the code exists and no repair
+   * was spent.
+   */
+  IntegrationGatesTimedOut: "integration-gates-timed-out",
   /** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
   ChecksMissing: "checks-missing",
   /**
@@ -25423,6 +25441,14 @@ var StandardsView = external_exports.object({
   })
 });
 
+// src/contracts/work/CommitMessage.ts
+var CommitMessage = external_exports.object({
+  /** One line of 1 to 64 characters saying what the staged change does. */
+  summary: external_exports.string().min(1, "a commit summary says what the change does in at least one character").max(64, "a commit summary is at most 64 characters").regex(/^[^\r\n]*$/u, "a commit summary is one line, with no line break"),
+  /** Optional plain prose, at most 1200 characters. */
+  body: external_exports.string().max(1200, "a commit body is at most 1200 characters").optional()
+});
+
 // src/contracts/work/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
@@ -25530,6 +25556,13 @@ var WorkOrderStateShape = external_exports.object({
   mode: external_exports.enum(WorkOrderMode),
   /** Every plan the work order has ever held, excluded ones included, in ascending number order. */
   plans: external_exports.array(WorkOrderPlan),
+  /** The latest build from the ticket body of a single-plan work order that holds no plan 001. Each build replaces it whole. */
+  ticketBodyBuild: external_exports.object({
+    runId: external_exports.string(),
+    progress: external_exports.enum([PlanProgress.Implementing, PlanProgress.Implemented, PlanProgress.Failed]),
+    startedAt: external_exports.string(),
+    finishedAt: external_exports.string().optional()
+  }).strict().optional(),
   /** The human's explicit request to ship, bound to the exact plans it was approved for. */
   shipRequest: external_exports.object({ planIds: external_exports.array(PlanId).min(1), requestedAt: external_exports.string() }).strict().optional(),
   /** What actually shipped. A state file carrying it is history: nothing changes it again. */
@@ -25740,7 +25773,7 @@ var relayShutdownSignals = ({ child }) => {
 };
 
 // src/common/processes/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+var collectChildOutput = ({ child, timeout, onStdoutLine, onTimeout }) => {
   return new Promise((resolve19, reject) => {
     let stdout = "";
     let stderr = "";
@@ -25763,6 +25796,7 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
       const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
       escalation.unref();
       child.once("close", () => clearTimeout(escalation));
+      onTimeout?.();
       reject(new Error(timeout?.message ?? "timed out"));
     };
     const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
@@ -25790,14 +25824,15 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
 };
 
 // src/common/processes/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs, env, onSpawn }) => {
+var runCommand = ({ command, cwd, timeoutMs, env, onSpawn, onTimeout }) => {
   const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env, detached: true });
   if (child.pid !== void 0) {
     onSpawn?.({ pid: child.pid });
   }
   return collectChildOutput({
     child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0,
+    onTimeout
   });
 };
 
@@ -26907,6 +26942,33 @@ var estimatePlanScope = ({ facts, executorFileLimit }) => {
 
 // src/plan/draft/legacy/authorPhaseFiles.ts
 import { join as join16 } from "node:path";
+
+// src/agents/prompts/commitMessage.md
+var commitMessage_default = '# Role: Commit Message Writer\n\nYou write the one-line summary, and when it is needed a short body, of one git\ncommit. The commit is read in the history far more often than the ticket that\nasked for the change, so the summary has to say what the change does to a\nreader who has never seen that ticket.\n\n## Inputs\n\nYour task message contains:\n\n- the ticket reference the engine puts in front of your summary;\n- the reason the work was done \u2014 a plan\'s title, a ticket\'s body, or a\n  ticket\'s title;\n- the list of staged files, with how many lines each one gained and lost;\n- the staged diff itself. A large diff can be cut at the engine\'s limit, and a\n  note directly after it says so.\n\nThat is the whole of your input: you are given no tools, and there is nothing\nto investigate.\n\n## Decide\n\n- The summary says what the staged change DOES \u2014 imperative, and lowercase\n  first, in the style of `print which configuration file a run read`.\n- The summary is one line of at most 64 characters.\n- Never restate the ticket reference: the engine adds it in front of your\n  summary.\n- Describe the diff. Never copy the words of the reason or of the ticket \u2014 they\n  say why the work was asked for, not what the change does.\n- The body is optional plain prose of at most 1200 characters. Write one only\n  when the change needs more than the summary to be understood. No headings, no\n  bullet trailers, and no `lightsout` lines \u2014 the engine writes those itself.\n- When the diff was cut, the file list is the complete record of what changed:\n  describe the change from both, and never claim the change is smaller than the\n  file list shows.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"summary": "print which configuration file a run read",\n	"body": "The run\'s first progress line now names the file its settings came from, so a run that read an unexpected file says so before it spends anything."\n}\n```\n';
+
+// src/agents/buildCommitMessageInvocation.ts
+var buildCommitMessageInvocation = ({ reference, context, stat: stat16, diff, truncated }) => {
+  const sections = [
+    `# Ticket
+
+${reference}`,
+    `# Why this work was done
+
+${context}`,
+    `# Files changed
+
+${stat16}`,
+    `# Staged change
+
+${diff}`,
+    ...truncated ? ["The staged change above was cut at the engine's limit. The file list above is complete \u2014 it names every file this commit changes."] : [],
+    "Remember: your entire final message must be exactly one JSON object carrying the summary \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: commitMessage_default,
+    prompt: sections.join("\n\n")
+  };
+};
 
 // src/agents/common/utils/changedFilesSection.ts
 var changedFilesSection = ({ changedFiles }) => changedFiles === void 0 || changedFiles.length === 0 ? void 0 : `# Previously changed files
@@ -137806,9 +137868,21 @@ var stageCountOf = ({ schedule }) => stageCounts[schedule.kind];
 // src/gates/createGateRunner.ts
 import { mkdir as mkdir18, rm as rm6 } from "node:fs/promises";
 
+// src/gates/common/constants/GateEnding.ts
+var GateEnding = {
+  /** Exit 0. */
+  Passed: "passed",
+  /** A red that is evidence about the code — a gate that failed to spawn included. */
+  Failed: "failed",
+  /** The known jest worker crash, with no failing test beside it. */
+  Crashed: "crashed",
+  /** Stopped by its own ceiling, `timeouts.gate-minutes`, before it returned an exit code. */
+  Timeout: "timeout"
+};
+
 // src/gates/common/utils/buildGateResult.ts
 import { relative as relative9 } from "node:path";
-var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, rerun, evidenceDir }) => {
+var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed, timedOut, rerun, evidenceDir }) => {
   const outputTailChars = 2e3;
   return {
     kind,
@@ -137818,10 +137892,36 @@ var buildGateResult = ({ cwd, kind, group, command, result, durationMs, crashed,
     durationMs,
     ...rerun ? { rerun: true } : {},
     ...crashed ? { crashed: true } : {},
+    ...timedOut ? { timedOut: true } : {},
     ...evidenceDir ? { testResultsDir: relative9(cwd, evidenceDir) } : {},
     ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
   };
+};
+
+// src/gates/common/utils/classifyGateEnding.ts
+var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
+var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
+var testKinds = /* @__PURE__ */ new Set(["test", "testCoverage", "extraTests"]);
+var jestReported = /\bTest Suites:[ \t]+/;
+var isWorkerCrash = ({ kind, result }) => {
+  const output = `${result.stdout}
+${result.stderr}`;
+  if (result.exitCode === -1 || reportedTestFailure.test(output)) {
+    return false;
+  }
+  return jestWorkerSigsegv.test(output) || testKinds.has(kind) && jestReported.test(output);
+};
+var classifyGateEnding = ({ kind, result, timedOut }) => {
+  let ending = GateEnding.Failed;
+  if (timedOut) {
+    ending = GateEnding.Timeout;
+  } else if (result.exitCode === 0) {
+    ending = GateEnding.Passed;
+  } else if (isWorkerCrash({ kind, result })) {
+    ending = GateEnding.Crashed;
+  }
+  return ending;
 };
 
 // src/gates/testResults/checkAcceptanceTests.ts
@@ -138028,18 +138128,7 @@ var writeJestReporter = async ({ cwd, runId }) => {
 
 // src/gates/createGateRunner.ts
 var maxCrashAttempts = 3;
-var jestWorkerSigsegv = /A jest worker process \(pid=\d+\) was terminated by another process: signal=SIGSEGV, exitCode=null\./;
-var reportedTestFailure = /\bTests:[ \t]+[^\n]*\d+ failed/;
-var testKinds = /* @__PURE__ */ new Set(["test", "testCoverage", "extraTests"]);
-var jestReported = /\bTest Suites:[ \t]+/;
-var isWorkerCrash = ({ kind, result }) => {
-  const output = `${result.stdout}
-${result.stderr}`;
-  if (result.exitCode === 0 || result.exitCode === -1 || reportedTestFailure.test(output)) {
-    return false;
-  }
-  return jestWorkerSigsegv.test(output) || testKinds.has(kind) && jestReported.test(output);
-};
+var maxTimeoutAttempts = 2;
 var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
   if (!runId) {
     return void 0;
@@ -138050,73 +138139,108 @@ var prepareEvidence = async ({ cwd, runId, step, kind, group }) => {
   await mkdir18(dir, { recursive: true });
   return { dir, env: { [testReporterEnv.reporter]: reporterPath, [testReporterEnv.resultsDir]: dir } };
 };
-var recordCrashFriction = async ({
+var spawnAttempt = async ({
+  command,
   cwd,
-  runId,
-  step,
-  kind,
-  group,
-  crashed
+  timeoutMs,
+  env,
+  onGateSpawn,
+  onGateExit
 }) => {
-  if (!crashed || !runId) {
-    return;
-  }
-  await appendFriction({
-    cwd,
-    runId,
-    step: step ?? "gates",
-    friction: [
-      {
-        area: FrictionArea.Environment,
-        detail: `gate [${group}] ${kind} crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+  let result;
+  let timedOut = false;
+  let spawnedPid;
+  try {
+    result = await runCommand({
+      command,
+      cwd,
+      timeoutMs,
+      env,
+      onSpawn: ({ pid }) => {
+        spawnedPid = pid;
+        onGateSpawn?.({ pid });
+      },
+      onTimeout: () => {
+        timedOut = true;
       }
-    ]
-  });
+    });
+  } catch (error51) {
+    result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
+  }
+  if (spawnedPid !== void 0) {
+    onGateExit?.({ pid: spawnedPid });
+  }
+  return { result, timedOut };
+};
+var noVerdictPolicy = ({ ending, ceilingMinutes }) => {
+  const policies = {
+    [GateEnding.Crashed]: {
+      allowance: maxCrashAttempts,
+      suffix: "jest worker crash",
+      rerun: "jest worker crash, not a test failure",
+      friction: `crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+    },
+    [GateEnding.Timeout]: {
+      allowance: maxTimeoutAttempts,
+      suffix: `timeout at the ${ceilingMinutes}-minute ceiling`,
+      rerun: `ran past its ${ceilingMinutes}-minute ceiling, not a verdict about the code`,
+      friction: `timed out: it ran past its ${ceilingMinutes}-minute ceiling (timeouts.gate-minutes) without returning an exit code \u2014 not a verdict about the code, re-run up to ${maxTimeoutAttempts} times.`
+    }
+  };
+  return policies[ending];
 };
 var createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, onProgress, onGateSpawn, onGateExit }) => {
+  const ceilingMinutes = timeoutMs / 6e4;
   const executeOnce = async ({ kind, command, group, rerun }) => {
     const evidence = await prepareEvidence({ cwd, runId, step, kind, group });
     const startedAt = Date.now();
-    let result;
-    let spawnedPid;
-    try {
-      result = await runCommand({
-        command,
-        cwd,
-        timeoutMs,
-        env: evidence?.env,
-        onSpawn: ({ pid }) => {
-          spawnedPid = pid;
-          onGateSpawn?.({ pid });
-        }
-      });
-    } catch (error51) {
-      result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
-    }
-    if (spawnedPid !== void 0) {
-      onGateExit?.({ pid: spawnedPid });
-    }
-    const crashed = isWorkerCrash({ kind, result });
+    const { result, timedOut } = await spawnAttempt({ command, cwd, timeoutMs, env: evidence?.env, onGateSpawn, onGateExit });
+    const ending = classifyGateEnding({ kind, result, timedOut });
+    const policy = noVerdictPolicy({ ending, ceilingMinutes });
     onProgress?.(
-      `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${crashed ? " (jest worker crash)" : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
+      `gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode}${policy ? ` (${policy.suffix})` : ""} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`
     );
-    const gateResult = buildGateResult({ cwd, kind, group, command, result, durationMs: Date.now() - startedAt, crashed, rerun, evidenceDir: evidence?.dir });
+    const gateResult = buildGateResult({
+      cwd,
+      kind,
+      group,
+      command,
+      result,
+      durationMs: Date.now() - startedAt,
+      crashed: ending === GateEnding.Crashed,
+      timedOut: ending === GateEnding.Timeout,
+      rerun,
+      evidenceDir: evidence?.dir
+    });
     if (runId) {
       await appendCommandLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, ...gateResult } });
     }
-    await recordCrashFriction({ cwd, runId, step, kind, group, crashed });
+    if (policy && runId) {
+      await appendFriction({
+        cwd,
+        runId,
+        step: step ?? "gates",
+        friction: [{ area: FrictionArea.Environment, detail: `gate [${group}] ${kind} ${policy.friction}` }]
+      });
+    }
     onGateResult?.(gateResult);
-    return { result, crashed };
+    return { result, ending };
   };
   return async ({ kind, command, group }) => {
-    let attempt = 1;
+    const executions = /* @__PURE__ */ new Map();
     let outcome = await executeOnce({ kind, command, group });
-    while (outcome.crashed && attempt < maxCrashAttempts) {
-      attempt += 1;
-      onProgress?.(`gate [${group}] ${kind}: jest worker crash, not a test failure \u2014 re-running (attempt ${attempt} of ${maxCrashAttempts})`);
-      outcome = await executeOnce({ kind, command, group, rerun: true });
-    }
-    return outcome.crashed ? { ...outcome.result, crashed: true } : outcome.result;
+    let rerun = false;
+    do {
+      const count2 = (executions.get(outcome.ending) ?? 0) + 1;
+      const policy = noVerdictPolicy({ ending: outcome.ending, ceilingMinutes });
+      executions.set(outcome.ending, count2);
+      rerun = policy !== void 0 && count2 < policy.allowance;
+      if (policy && rerun) {
+        onProgress?.(`gate [${group}] ${kind}: ${policy.rerun} \u2014 re-running (attempt ${count2 + 1} of ${policy.allowance})`);
+        outcome = await executeOnce({ kind, command, group, rerun: true });
+      }
+    } while (rerun);
+    return { ...outcome.result, ending: outcome.ending, ceilingMinutes };
   };
 };
 
@@ -138178,6 +138302,9 @@ var buildGateStages = ({ entries, schedule, coverage }) => {
 // src/gates/common/utils/describeGateCrash.ts
 var describeGateCrash = ({ label: label2 }) => `${label2} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
 
+// src/gates/common/utils/describeGateTimeout.ts
+var describeGateTimeout = ({ label: label2, ceilingMinutes }) => `${label2} timed out: every attempt ran past the ${ceilingMinutes}-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.`;
+
 // src/gates/common/utils/mergeGateRunResults.ts
 var mergeGateRunResults = ({ results }) => {
   const errors = results.flatMap((result) => result.error === void 0 ? [] : [result.error]);
@@ -138185,6 +138312,7 @@ var mergeGateRunResults = ({ results }) => {
     error: errors.length > 0 ? errors.join("\n\n") : void 0,
     failedFamilies: [...new Set(results.flatMap((result) => result.failedFamilies))],
     crashes: results.flatMap((result) => result.crashes),
+    timeouts: results.flatMap((result) => result.timeouts),
     // A constant rather than a fold: the inputs here are the groups of a stage
     // and the stages of a checkpoint, and the reservation is taken around the
     // whole schedule — so no input this is ever given can carry a coordination
@@ -138209,13 +138337,17 @@ var runGateSet = async ({ entries, label: label2, gate, failFast = true }) => {
   const failures = [];
   const failedFamilies = [];
   const crashes = [];
+  const timeouts = [];
   const stop = () => failFast && failures.length > 0;
   const recordRed = ({ family, name, outcome }) => {
-    failures.push(`${prefix}${name} failed (exit ${outcome.exitCode}):
+    const label3 = `${prefix}${name}`;
+    failures.push(`${label3} failed (exit ${outcome.exitCode}):
 ${outcome.stdout}
 ${outcome.stderr}`);
-    if (outcome.crashed) {
-      crashes.push(describeGateCrash({ label: `${prefix}${name}` }));
+    if (outcome.ending === GateEnding.Crashed) {
+      crashes.push(describeGateCrash({ label: label3 }));
+    } else if (outcome.ending === GateEnding.Timeout) {
+      timeouts.push(describeGateTimeout({ label: label3, ceilingMinutes: outcome.ceilingMinutes }));
     } else {
       failedFamilies.push(family);
     }
@@ -138233,6 +138365,7 @@ ${outcome.stderr}`);
     error: failures.length > 0 ? failures.join("\n\n") : void 0,
     failedFamilies: [...new Set(failedFamilies)],
     crashes,
+    timeouts,
     coordination: void 0
   };
 };
@@ -138288,7 +138421,7 @@ var runPackageGates = async ({
   try {
     manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
   } catch (error51) {
-    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"], crashes: [], coordination: void 0 };
+    return { error: messageOf({ error: error51 }), failedFamilies: ["package-manifest"], crashes: [], timeouts: [], coordination: void 0 };
   }
   const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
@@ -138344,16 +138477,22 @@ var runGenerate = async ({ gate, command }) => {
     error: `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
 ${generated.stderr}`,
-    failedFamilies: generated.crashed ? [] : ["generate"],
-    crashes: generated.crashed ? [describeGateCrash({ label: "generate" })] : [],
+    failedFamilies: generated.ending === GateEnding.Failed ? ["generate"] : [],
+    crashes: generated.ending === GateEnding.Crashed ? [describeGateCrash({ label: "generate" })] : [],
+    timeouts: generated.ending === GateEnding.Timeout ? [describeGateTimeout({ label: "generate", ceilingMinutes: generated.ceilingMinutes })] : [],
     coordination: void 0
   };
 };
-var heldTierMessage = ({ failedFamilies }) => `gate: expensive gates not started \u2014 a cheap gate is red (${failedFamilies.length > 0 ? failedFamilies.join(", ") : "crash"})`;
+var heldTierMessage = ({ stageResult }) => {
+  const noVerdict = [...stageResult.crashes.length > 0 ? ["crash"] : [], ...stageResult.timeouts.length > 0 ? ["timeout"] : []];
+  const reds = stageResult.failedFamilies.length > 0 ? stageResult.failedFamilies : noVerdict;
+  return `gate: expensive gates not started \u2014 a cheap gate is red (${reds.join(", ")})`;
+};
 var overrideMatchedNothing = ({ gates }) => ({
   error: `gate-overrides named no gate this run could execute: ${gates.join(", ")} \u2014 every named gate is absent from the group(s) that ran at this checkpoint`,
   failedFamilies: [],
   crashes: [],
+  timeouts: [],
   coordination: void 0
 });
 var runGateStage = async ({
@@ -138406,7 +138545,7 @@ var runGateSchedule = async ({
     stageResults.push(stageResult);
     if (stageResult.error !== void 0) {
       if (stage + 1 < stageCount) {
-        onProgress?.(heldTierMessage({ failedFamilies: stageResult.failedFamilies }));
+        onProgress?.(heldTierMessage({ stageResult }));
       }
       break;
     }
@@ -138448,7 +138587,7 @@ var runGates = async ({
     onProgress,
     run: ({ onGateSpawn, onGateExit }) => runGateSchedule({ ...scheduleParams, gate: createGateRunner({ ...runnerParams, onGateSpawn, onGateExit }) })
   });
-  return "coordination" in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], coordination: outcome.coordination } : outcome.held;
+  return "coordination" in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], timeouts: [], coordination: outcome.coordination } : outcome.held;
 };
 
 // src/gates/runBatchGates.ts
@@ -138540,7 +138679,15 @@ var scheduledGateNames = ({ config: config2, coverage, checkpoint }) => {
 };
 var runSelfCheck = async ({ cwd, config: config2, coverage, checkpoint, wholeRepository, runId, step, onProgress }) => {
   const gateNames = scheduledGateNames({ config: config2, coverage, checkpoint });
-  let result = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: void 0, crashes: [], coordination: void 0 };
+  let result = {
+    reason: SelfCheckReason.NothingScheduled,
+    gateNames,
+    gates: [],
+    error: void 0,
+    crashes: [],
+    timeouts: [],
+    coordination: void 0
+  };
   if (gateNames.length > 0) {
     const resolved = await resolveScope({ cwd, config: config2, wholeRepository });
     if ("reason" in resolved) {
@@ -138567,9 +138714,9 @@ var runSelfCheck = async ({ cwd, config: config2, coverage, checkpoint, wholeRep
       const gates = collector.observed();
       const ranNothing = gates.every((observation) => observation.skipped === true);
       if (run.coordination !== void 0) {
-        result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: void 0, crashes: [], coordination: run.coordination };
+        result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: void 0, crashes: [], timeouts: [], coordination: run.coordination };
       } else {
-        result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, coordination: void 0 };
+        result = ranNothing ? { ...result, gates } : { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, timeouts: run.timeouts, coordination: void 0 };
       }
     }
   }
@@ -138621,11 +138768,25 @@ var verifyCandidate = async ({
   if (gates.crashes.length > 0) {
     return {
       blocked: {
-        reason: ShipBlockReason.IntegrationGatesFailed,
+        reason: ShipBlockReason.IntegrationGatesCrashed,
         detail: [
           "a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
           "No repair was attempted and no repair attempt was spent.",
           gates.crashes.join("\n"),
+          gates.error ?? ""
+        ].join("\n\n"),
+        paths: []
+      }
+    };
+  }
+  if (gates.timeouts.length > 0) {
+    return {
+      blocked: {
+        reason: ShipBlockReason.IntegrationGatesTimedOut,
+        detail: [
+          "a gate ran past its own time ceiling (timeouts.gate-minutes) \u2014 not a verdict about the code.",
+          "No repair was attempted and no repair attempt was spent.",
+          gates.timeouts.join("\n"),
           gates.error ?? ""
         ].join("\n\n"),
         paths: []
@@ -140555,12 +140716,12 @@ var renderBranchTemplate = ({ template, ticketRef, title }) => {
 };
 
 // src/workOrder/common/record/buildWorkOrderState.ts
-var buildWorkOrderState = ({ name, branch, ticketRef, config: config2 }) => ({
+var buildWorkOrderState = ({ name, branch, ticketRef, mode, config: config2 }) => ({
   schemaVersion: 1,
   name,
   branch,
   ...ticketRef === void 0 ? {} : { ticketRef },
-  mode: config2.plan?.["default-work-order-mode"] ?? WorkOrderMode.SinglePlan,
+  mode: mode ?? config2.plan?.["default-work-order-mode"] ?? WorkOrderMode.SinglePlan,
   plans: [],
   history: []
 });
@@ -140694,6 +140855,7 @@ var createWorkOrder = async ({
   cwd,
   ticketRef,
   title,
+  mode,
   config: config2,
   env,
   driver,
@@ -140715,7 +140877,7 @@ var createWorkOrder = async ({
   const written = await updateLocalWorkOrderState({
     cwd,
     name: composed.name,
-    change: (current) => current === void 0 ? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, config: config2 }) : { error: takenRefusal({ name: composed.name }) }
+    change: (current) => current === void 0 ? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, mode, config: config2 }) : { error: takenRefusal({ name: composed.name }) }
   });
   return "error" in written ? written : { name: composed.name, branch, record: written.record };
 };
@@ -140919,14 +141081,29 @@ var findPlanImplementationBlocker = ({ record: record3, planId }) => {
 };
 
 // src/workOrder/readWorkOrderShipEligibility.ts
+var readTicketBodyEligibility = ({ record: record3 }) => {
+  const build = record3.ticketBodyBuild;
+  let eligibility;
+  if (build === void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `work order ${record3.name} is in single-plan mode and holds no plan 001, and no build from the ticket body has passed on it`
+    };
+  } else if (build.progress !== PlanProgress.Implemented) {
+    eligibility = {
+      eligible: false,
+      reason: `the build from the ticket body of work order ${record3.name} under run ${build.runId} has not passed, and a single-plan ticket holding no plan 001 ships once that build passed`
+    };
+  } else {
+    eligibility = { eligible: true };
+  }
+  return eligibility;
+};
 var readSinglePlanEligibility = ({ record: record3 }) => {
   const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
   let eligibility;
   if (first === void 0) {
-    eligibility = {
-      eligible: false,
-      reason: `work order ${record3.name} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`
-    };
+    eligibility = readTicketBodyEligibility({ record: record3 });
   } else if (first.exclusion !== void 0) {
     eligibility = {
       eligible: false,
@@ -141030,10 +141207,11 @@ var createWorkOrderShipGuard = ({ config: config2, env, onProgress }) => ({
           return { error: `work order ${branch} no longer has a record, so the merge ${mergeCommit} could not be recorded on it` };
         }
         const planIds = current.plans.filter((plan) => plan.exclusion === void 0).map((plan) => plan.id);
+        const shippedWith = planIds.length === 0 ? "from the ticket body" : `with ${planIds.join(", ")}`;
         return appendWorkOrderEvent({
           record: { ...current, shipped: { at, planIds, mergeCommit } },
           kind: WorkOrderEventKind.Shipped,
-          detail: `work order ${branch} shipped as ${mergeCommit} with ${planIds.join(", ")}`,
+          detail: `work order ${branch} shipped as ${mergeCommit} ${shippedWith}`,
           at
         });
       }
@@ -141093,8 +141271,63 @@ var readWorkOrderRunTerms = async ({ cwd, name, planPath }) => {
   return { refusal, shipRequest };
 };
 
-// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+// src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts
 import { randomUUID as randomUUID7 } from "node:crypto";
+
+// src/workOrder/isPlanlessWorkOrder.ts
+var isPlanlessWorkOrder = ({ record: record3 }) => record3.mode === WorkOrderMode.SinglePlan && !record3.plans.some((plan) => planNumberOf({ id: plan.id }) === 1);
+
+// src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts
+var recordImplementing = ({ cwd, workOrderName, build }) => updateLocalWorkOrderState({
+  cwd,
+  name: workOrderName,
+  change: (current) => {
+    if (current === void 0) {
+      return { error: `work order ${workOrderName} no longer has a record, so its build from the ticket body cannot be recorded as being implemented` };
+    }
+    if (!isPlanlessWorkOrder({ record: current })) {
+      return {
+        error: `work order ${workOrderName} is no longer a single-plan work order holding no plan 001, so it is not built from the ticket body \u2014 build it through its plans instead`
+      };
+    }
+    return { ...current, ticketBodyBuild: build };
+  }
+});
+var recordOutcome = async ({ cwd, workOrderName, build, result }) => {
+  const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
+  if (!result.ok && !failed) {
+    return void 0;
+  }
+  const progress = result.ok ? PlanProgress.Implemented : PlanProgress.Failed;
+  const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const updated = await updateLocalWorkOrderState({
+    cwd,
+    name: workOrderName,
+    change: (current) => current === void 0 ? { error: `work order ${workOrderName} no longer has a record, so the outcome of its build from the ticket body could not be recorded on it` } : { ...current, ticketBodyBuild: { ...build, progress, finishedAt } }
+  });
+  return "error" in updated ? updated.error : void 0;
+};
+var runWorkOrderBodyBuildLifecycle = async ({ cwd, workOrderName, run }) => {
+  const read = await readWorkOrderState({ cwd, name: workOrderName });
+  if ("error" in read) {
+    return { refusal: read.error };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0 || !isPlanlessWorkOrder({ record: record3 })) {
+    return { result: await run({ runId: randomUUID7() }) };
+  }
+  const build = { runId: randomUUID7(), progress: PlanProgress.Implementing, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const started = await recordImplementing({ cwd, workOrderName, build });
+  if ("error" in started) {
+    return { refusal: started.error };
+  }
+  const result = await run({ runId: build.runId });
+  const recordError = await recordOutcome({ cwd, workOrderName, build, result });
+  return recordError === void 0 ? { result } : { result, recordError };
+};
+
+// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+import { randomUUID as randomUUID8 } from "node:crypto";
 import { readFile as readFile39 } from "node:fs/promises";
 
 // src/workOrder/common/utils/findDivergentPlanIds.ts
@@ -141116,7 +141349,7 @@ var withPlan = ({ record: record3, plan }) => ({
   ...record3,
   plans: record3.plans.map((candidate) => candidate.id === plan.id ? plan : candidate)
 });
-var recordImplementing = ({
+var recordImplementing2 = ({
   cwd,
   workOrderName,
   planId,
@@ -141142,7 +141375,7 @@ var recordImplementing = ({
   }
 });
 var needsFreshStart = ({ plan }) => plan?.implementation === void 0 || plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed;
-var recordOutcome = async ({
+var recordOutcome2 = async ({
   cwd,
   workOrderName,
   planId,
@@ -141176,7 +141409,7 @@ var recordOutcome = async ({
 var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
   const address = name === void 0 ? void 0 : parsePlanAddress({ name });
   if (name === void 0 || address === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+    return { result: await run({ runId: resumeRunId ?? randomUUID8() }) };
   }
   const { workOrderName, planId } = address;
   const read = await readWorkOrderState({ cwd, name: workOrderName });
@@ -141185,7 +141418,7 @@ var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
   }
   const { record: record3 } = read;
   if (record3 === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+    return { result: await run({ runId: resumeRunId ?? randomUUID8() }) };
   }
   const blocker = findPlanImplementationBlocker({ record: record3, planId });
   if (blocker !== void 0) {
@@ -141205,13 +141438,13 @@ var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
       refusal: `git could not name the commit ${cwd} is standing on, and the implementation of plan ${planId} on work order ${workOrderName} is recorded against the commit it starts from`
     };
   }
-  const runId = resumeRunId ?? randomUUID7();
-  const started = await recordImplementing({ cwd, workOrderName, planId, runId, headCommit });
+  const runId = resumeRunId ?? randomUUID8();
+  const started = await recordImplementing2({ cwd, workOrderName, planId, runId, headCommit });
   if ("error" in started) {
     return { refusal: started.error };
   }
   const result = await run({ runId });
-  const recordError = await recordOutcome({ cwd, workOrderName, planId, name, result });
+  const recordError = await recordOutcome2({ cwd, workOrderName, planId, name, result });
   const note = result.ok && !await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }) ? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on work order ${workOrderName} has not finished until the whole plan runs` : void 0;
   return { result, recordError, note };
 };
@@ -142676,12 +142909,6 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// src/commit/buildRunCommitMessage.ts
-var buildRunCommitMessage = ({ subject, runId }) => `${subject}
-
-lightsout run ${runId}
-`;
-
 // src/commit/commitWorkOrderWork.ts
 import { mkdir as mkdir23, writeFile as writeFile18 } from "node:fs/promises";
 import { join as join102 } from "node:path";
@@ -142719,7 +142946,13 @@ var discardGeneratedChanges = async ({ cwd, paths }) => {
   }
   return void 0;
 };
-var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
+var commitWorkOrderWork = async ({
+  cwd,
+  composeMessage,
+  runDir,
+  generated = [],
+  onProgress
+}) => {
   const changed = await readGitChangedFiles({ cwd });
   if (changed === void 0) {
     return { error: `git could not read the tree at ${cwd}` };
@@ -142736,19 +142969,20 @@ var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgr
   if (sourcePaths.length === 0) {
     return { committed: false };
   }
-  const messagePath = join102(runDir, "commit-message.txt");
-  await mkdir23(runDir, { recursive: true });
-  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
-`, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A -- .", cwd });
   if (stageFailure !== void 0) {
     return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
   }
+  const message = await composeMessage({ cwd });
+  const messagePath = join102(runDir, "commit-message.txt");
+  await mkdir23(runDir, { recursive: true });
+  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
+`, "utf8");
   const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
   if (commitFailure !== void 0) {
     return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
   }
-  return { committed: true };
+  return { committed: true, message };
 };
 
 // src/commit/common/utils/describeUnownedEdits.ts
@@ -142762,13 +142996,13 @@ var describeUnownedEdits = async ({ cwd, manifest, generated }) => {
   return stray.length === 0 ? void 0 : `${cwd} holds changes this run did not make: ${stray.join(", ")} \u2014 commit or stash them before resuming, or they ride into this ticket's commit`;
 };
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 import { basename as basename41, extname } from "node:path";
 
 // src/common/utils/readRunLabel.ts
 var readRunLabel = async ({ cwd }) => await readWorkOrderTicketRef({ cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "work";
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 var readUnit = async ({ cwd, plan, planName }) => {
   const name = planName ?? await planNameFromPath({ cwd, planPath: plan });
   const stem = basename41(plan, extname(plan));
@@ -142795,15 +143029,105 @@ var readTicketFacts = async ({
   }
   return { ticketRef: read.record?.ticketRef, title: read.record?.plans.find((plan) => plan.id === planId)?.title };
 };
-var readRunCommitSubject = async ({ cwd, manifest, onProgress }) => {
+var readRunCommitAddress = async ({ cwd, manifest, onProgress }) => {
   const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
   const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
   const reference = ticketRef ?? await readRunLabel({ cwd });
-  return title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
+  return {
+    reference,
+    unit,
+    fallbackSubject: title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`,
+    context: title === void 0 ? `Plan ${unit}` : `Plan ${unit}: ${title}`
+  };
+};
+
+// src/commit/buildRunCommitMessage.ts
+var buildRunCommitMessage = ({ subject, body, unit, runId }) => {
+  const prose = body?.trim() ?? "";
+  const trailers = [...unit === void 0 ? [] : [`lightsout plan ${unit}`], ...runId === void 0 ? [] : [`lightsout run ${runId}`]];
+  const paragraphs = [subject, ...prose === "" ? [] : [prose], ...trailers.length === 0 ? [] : [trailers.join("\n")]];
+  return `${paragraphs.join("\n\n")}
+`;
+};
+
+// src/common/git/readGitStagedChange.ts
+var readGitStagedChange = async ({ cwd, maxDiffLength }) => {
+  const diffCommand = "git -c core.quotePath=false diff --cached --no-color --no-ext-diff";
+  const [stat16, diff] = await Promise.all([
+    runCommand({ command: `${diffCommand} --stat=1000 -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0),
+    runCommand({ command: `${diffCommand} -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0)
+  ]);
+  if (stat16?.exitCode !== 0 || diff?.exitCode !== 0) {
+    return void 0;
+  }
+  const truncated = diff.stdout.length > maxDiffLength;
+  return { stat: stat16.stdout, diff: truncated ? diff.stdout.slice(0, maxDiffLength) : diff.stdout, truncated };
+};
+
+// src/commit/composeCommitMessage.ts
+var askForSummary = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  change
+}) => {
+  const timeoutMs = 18e4;
+  try {
+    return await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation: buildCommitMessageInvocation({ reference: address.reference, context: address.context, ...change }),
+      contract: CommitMessage,
+      model: config2.model,
+      effort: config2.effort,
+      permissions: Permissions.ReadOnly,
+      timeoutMs
+    });
+  } catch (error51) {
+    return { ok: false, failure: messageOf({ error: error51 }), usage: void 0 };
+  }
+};
+var stripReference = ({ summary, reference }) => {
+  const rest = summary.slice(reference.length);
+  const repeats = reference !== "" && summary.slice(0, reference.length).toLowerCase() === reference.toLowerCase() && /^(?::|\s|$)/u.test(rest);
+  return (repeats ? rest.replace(/^\s*:?\s*/u, "") : summary).trim();
+};
+var readAnswer = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  onUsage
+}) => {
+  const maxDiffLength = 6e4;
+  const change = await readGitStagedChange({ cwd, maxDiffLength });
+  if (change === void 0) {
+    return { failure: `the staged change in ${cwd} could not be read, so no agent described it` };
+  }
+  const outcome = await askForSummary({ cwd, driver, config: config2, address, change });
+  await onUsage?.({ usage: outcome.usage });
+  if (!outcome.ok) {
+    return { failure: `the harness did not describe this commit (${outcome.failure})` };
+  }
+  const summary = stripReference({ summary: outcome.report.summary, reference: address.reference });
+  return summary === "" ? { failure: `the harness's summary only repeated ${address.reference}` } : { summary, body: outcome.report.body };
+};
+var composeCommitMessage = async ({ cwd, driver, config: config2, address, runId, onUsage, onProgress }) => {
+  const answer = await readAnswer({ cwd, driver, config: config2, address, onUsage });
+  let subject = address.fallbackSubject;
+  let body;
+  if (answer.summary !== void 0) {
+    subject = address.reference === "" ? answer.summary : `${address.reference}: ${answer.summary}`;
+    body = answer.body;
+  } else {
+    onProgress?.(`${answer.failure} \u2014 committing under '${address.fallbackSubject}' instead`);
+  }
+  return buildRunCommitMessage({ subject, body, unit: address.unit, runId });
 };
 
 // src/commit/commitRunWork.ts
-var commitRunWork = async ({ run, subject, resumed }) => {
+var commitRunWork = async ({ run, driver, address, resumed }) => {
   const manifest = run.current();
   const generated = run.config.generated ?? [];
   const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
@@ -142817,13 +143141,22 @@ var commitRunWork = async ({ run, subject, resumed }) => {
   } catch {
     return `${run.cwd} could not be read, so this run's records could not be found \u2014 nothing was committed`;
   }
-  const line = subject ?? await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) });
+  const onProgress = (message) => run.progress(message);
+  const resolved = address ?? await readRunCommitAddress({ cwd: run.cwd, manifest, config: run.config, onProgress });
   const committed = await commitWorkOrderWork({
     cwd: run.cwd,
-    message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
+    composeMessage: ({ cwd }) => composeCommitMessage({
+      cwd,
+      driver,
+      config: run.config,
+      address: resolved,
+      runId: manifest.runId,
+      onUsage: ({ usage: usage2 }) => run.recordUsage({ step: "commit-message", usage: usage2 }),
+      onProgress
+    }),
     runDir,
     generated,
-    onProgress: (message) => run.progress(message)
+    onProgress
   });
   if ("error" in committed) {
     return committed.error;
@@ -142835,12 +143168,13 @@ var commitRunWork = async ({ run, subject, resumed }) => {
     run.progress("nothing left to commit \u2014 this unit\u2019s work is already in the branch\u2019s history");
     return void 0;
   }
+  const [subject = ""] = committed.message.split("\n");
   const sha = await readGitHeadCommit({ cwd: run.cwd });
   if (sha === void 0) {
     return `the work in ${run.cwd} was committed but git could not name the commit \u2014 resume the run so the tree is checked again`;
   }
-  await run.update({ patch: { commits: [...manifest.commits, { sha, subject: line, runId: manifest.runId }] } });
-  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${line}`);
+  await run.update({ patch: { commits: [...manifest.commits, { sha, subject, runId: manifest.runId }] } });
+  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${subject}`);
   return void 0;
 };
 
@@ -143817,19 +144151,28 @@ var stopOnGateCoordination = async ({ run, stepId: stepId2, record: record3, coo
   });
 };
 
-// src/pipeline/common/utils/stopOnGateCrash.ts
-var stopOnGateCrash = ({ run, stepId: stepId2, record: record3, crashes, error: error51 }) => {
-  run.progress(`step ${stepId2}: gate crashed rather than failed \u2014 no fix attempted`);
-  return run.stop({
-    record: record3,
-    status: RunStatus.Escalated,
-    error: [
-      `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
-      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
-      crashes.join("\n"),
-      error51 ?? ""
-    ].join("\n\n")
-  });
+// src/common/utils/describeGateNoVerdictStop.ts
+var describeGateNoVerdictStop = ({ stepId: stepId2, crashes, timeouts }) => crashes.length > 0 ? {
+  ending: "crashed",
+  reason: [
+    `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
+    "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+    crashes.join("\n")
+  ].join("\n\n")
+} : {
+  ending: "timed out",
+  reason: [
+    `${stepId2}: a gate ran past its own time ceiling (timeouts.gate-minutes) \u2014 not a verdict about the code.`,
+    "No fix was attempted and no fix attempt was spent; re-running the run, or raising timeouts.gate-minutes, is the answer.",
+    timeouts.join("\n")
+  ].join("\n\n")
+};
+
+// src/pipeline/common/utils/stopOnGateNoVerdict.ts
+var stopOnGateNoVerdict = ({ run, stepId: stepId2, record: record3, crashes, timeouts, error: error51 }) => {
+  const { ending, reason } = describeGateNoVerdictStop({ stepId: stepId2, crashes, timeouts });
+  run.progress(`step ${stepId2}: gate ${ending} rather than failed \u2014 no fix attempted`);
+  return run.stop({ record: record3, status: RunStatus.Escalated, error: [reason, error51 ?? ""].join("\n\n") });
 };
 
 // src/common/fileGroups/chunkFileGroup.ts
@@ -144529,6 +144872,23 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   return { manifest, worklist };
 };
 
+// src/common/utils/describeGateNoVerdict.ts
+var describeGateNoVerdict = ({ result }) => {
+  let reason;
+  if (result.coordination !== void 0) {
+    reason = result.coordination;
+  } else if (result.crashes.length > 0) {
+    reason = [result.crashes.join("\n"), "No fix attempt was spent: a gate that crashed returned no verdict about the code.", result.error ?? ""].join("\n\n");
+  } else if (result.timeouts.length > 0) {
+    reason = [
+      result.timeouts.join("\n"),
+      "No fix attempt was spent: a gate that ran past its ceiling returned no verdict about the code.",
+      result.error ?? ""
+    ].join("\n\n");
+  }
+  return reason;
+};
+
 // src/common/utils/runPreflightGate.ts
 var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }) => {
   const steps = run.current().steps;
@@ -144542,7 +144902,7 @@ var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }
   };
   await run.setStep({ record: record3 });
   run.progress(label2);
-  const { error: gateError, coordination } = await runGates({
+  const gates = await runGates({
     cwd: run.cwd,
     config: run.config,
     coverage,
@@ -144550,12 +144910,13 @@ var runPreflightGate = async ({ run, coverage, label: label2, redBaselineError }
     step: "pre-flight",
     onProgress: (message) => run.progress(message)
   });
+  const noVerdict = describeGateNoVerdict({ result: gates });
   let result;
-  if (coordination !== void 0) {
-    result = await run.stop({ record: record3, status: RunStatus.Escalated, error: coordination });
-  } else if (gateError) {
+  if (noVerdict !== void 0) {
+    result = await run.stop({ record: record3, status: RunStatus.Escalated, error: noVerdict });
+  } else if (gates.error) {
     result = await run.stop({ record: record3, status: RunStatus.Failed, error: `${redBaselineError}
-${gateError}` });
+${gates.error}` });
   } else {
     await run.setStep({ record: { ...record3, status: RunStatus.Passed } });
   }
@@ -144814,10 +145175,13 @@ var measureCoverageBatch = async ({ cwd, config: config2, runId, batch }) => {
 };
 
 // src/coverage/batch/settleCoverageGates.ts
-var coordinationStop = ({ result }) => result.coordination === void 0 ? void 0 : { kind: CoverageBatchStopKind.Escalated, error: result.coordination };
+var noVerdictStop = ({ result }) => {
+  const error51 = describeGateNoVerdict({ result });
+  return error51 === void 0 ? void 0 : { kind: CoverageBatchStopKind.Escalated, error: error51 };
+};
 var settleCoverageGates = async ({ batchId, onProgress, invokeFix, testsOnly, gates }) => {
   let result = await gates();
-  let stop = coordinationStop({ result });
+  let stop = noVerdictStop({ result });
   for (let retry = 1; result.error && stop === void 0 && retry <= maxCheapFixRetries; retry += 1) {
     onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invokeFix({ label: `fix-${retry}`, errorContext: result.error });
@@ -144829,7 +145193,7 @@ var settleCoverageGates = async ({ batchId, onProgress, invokeFix, testsOnly, ga
         stop = { kind: CoverageBatchStopKind.Failed, error: violation };
       } else {
         result = await gates();
-        stop = coordinationStop({ result });
+        stop = noVerdictStop({ result });
       }
     }
   }
@@ -145142,7 +145506,7 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
   });
   const gates = collector.observed();
   const failures = gates.filter(
-    (observation) => observation.skipped !== true && observation.crashed !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
+    (observation) => observation.skipped !== true && observation.crashed !== true && observation.timedOut !== true && observation.exitCode !== void 0 && observation.exitCode !== 0 && result.failedFamilies.includes(observation.kind)
   );
   const coverageRan = gates.some((gate) => passedCoverage({ gate }));
   let verdict = { ...result, failures };
@@ -145156,10 +145520,10 @@ var runVerificationGates = async ({ run, coverage, checkpoint, rows, final }) =>
       onProgress: (message) => run.progress(message)
     });
     if (acceptanceError !== void 0) {
-      verdict = { error: acceptanceError, failedFamilies: ["acceptance-tests"], crashes: [], coordination: void 0, failures: [] };
+      verdict = { error: acceptanceError, failedFamilies: ["acceptance-tests"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
     } else if (coverageRan) {
       const executedError = await changedFilesExecutedError({ run, packagesDir });
-      verdict = executedError === void 0 ? { error: void 0, failedFamilies: [], crashes: [], coordination: void 0, failures: [] } : { error: executedError, failedFamilies: ["changed-files-executed"], crashes: [], coordination: void 0, failures: [] };
+      verdict = executedError === void 0 ? { error: void 0, failedFamilies: [], crashes: [], timeouts: [], coordination: void 0, failures: [] } : { error: executedError, failedFamilies: ["changed-files-executed"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
     }
   }
   return { ...verdict, gates };
@@ -145199,7 +145563,7 @@ var reviewAndVerify = async ({
     return { rateLimited: true };
   }
   if (review.error !== void 0) {
-    return { error: review.error, failedFamilies: ["test-review"], crashes: [], coordination: void 0, failures: [] };
+    return { error: review.error, failedFamilies: ["test-review"], crashes: [], timeouts: [], coordination: void 0, failures: [] };
   }
   const result = await runVerificationGates({ run, coverage, checkpoint: id, rows: acceptanceTests(), final });
   await approveRunnerSnapshots({ run });
@@ -145229,7 +145593,7 @@ var formatAndVerify = async ({ context, record: record3 }) => {
   const next = { ...record3, verification: { ...verificationOf({ record: record3 }), needsFormatting: false } };
   await run.setStep({ record: next });
   if (error51 !== void 0) {
-    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], coordination: void 0, failures, gates: [] } };
+    return { record: next, result: { error: error51, failedFamilies: ["format"], crashes: [], timeouts: [], coordination: void 0, failures, gates: [] } };
   }
   const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
   if ("rateLimited" in result) {
@@ -145301,7 +145665,7 @@ var withResult = ({ record: record3, result }) => ({
 var runCheapRepairs = async ({ context, record: record3, result }) => {
   let currentRecord = record3;
   let currentResult = result;
-  while (currentResult.error && currentResult.crashes.length === 0 && currentResult.coordination === void 0) {
+  while (currentResult.error && currentResult.crashes.length === 0 && currentResult.timeouts.length === 0 && currentResult.coordination === void 0) {
     const repairable = [...new Set(currentResult.failedFamilies)].filter(
       (family) => (currentRecord.verification?.repairAttempts[family] ?? 0) < maxCheapFixRetries
     );
@@ -145361,7 +145725,7 @@ var consultSupervisor = async ({
 
 // src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts
 var runGuidedRepair = async ({ context, record: record3, result }) => {
-  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || result.coordination !== void 0 || record3.verification?.guidedRepairAttempted) {
+  if (!result.error || result.failedFamilies.length === 0 || result.crashes.length > 0 || result.timeouts.length > 0 || result.coordination !== void 0 || record3.verification?.guidedRepairAttempted) {
     return { record: record3, result, ruling: void 0 };
   }
   const { run, id, planContent } = context;
@@ -145457,8 +145821,8 @@ var runVerificationStep = async ({ context }) => {
   if (result.coordination !== void 0) {
     return stopOnGateCoordination({ run, stepId: id, record: record3, coordination: result.coordination, error: result.error });
   }
-  if (result.crashes.length > 0) {
-    return stopOnGateCrash({ run, stepId: id, record: record3, crashes: result.crashes, error: result.error });
+  if (result.crashes.length > 0 || result.timeouts.length > 0) {
+    return stopOnGateNoVerdict({ run, stepId: id, record: record3, crashes: result.crashes, timeouts: result.timeouts, error: result.error });
   }
   if (result.error) {
     const diagnosis = record3.verification?.supervisorDiagnosis;
@@ -159012,12 +159376,12 @@ var cleanSlateStep = ({ run, ledgerGates }) => {
     const record3 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record3 });
     run.progress(`step clean-slate \u2014 attempt ${record3.attempts}`);
-    const { error: error51, coordination, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
+    const { error: error51, coordination, timeouts, failures, gates } = await runVerificationGates({ run, coverage: true, checkpoint: "clean-slate", rows: [] });
     if (coordination !== void 0) {
       return stopOnGateCoordination({ run, stepId: "clean-slate", record: record3, coordination, error: error51 });
     }
     if (error51) {
-      const ranOut = failures.some((failure) => failure.exitCode === -1);
+      const ranOut = timeouts.length > 0 || failures.some((failure) => failure.exitCode === -1);
       const headline = ranOut ? "A gate did not finish, so the codebase was never proved green \u2014 this is a timeout or a gate that could not start, not a failing test." : "Codebase is not green before implementation \u2014 fix this first.";
       return run.stop({ record: record3, status: RunStatus.Failed, error: `${headline}
 ${error51}` });
@@ -159273,7 +159637,7 @@ var recheckUnreachable = async ({ run }) => {
 };
 var finishRun = async ({ run, resumed }) => {
   await recheckUnreachable({ run });
-  const uncommitted = await commitRunWork({ run, resumed });
+  const uncommitted = await commitRunWork({ run, driver: run.driver, resumed });
   let result;
   if (uncommitted === void 0) {
     await removeApprovedTests({ run });
@@ -159744,9 +160108,9 @@ var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => 
 };
 
 // src/direct/common/utils/finishDirectRun.ts
-var finishDirectRun = async ({ run, ticketRef, ticketBody, resumed }) => {
-  const subject = `${ticketRef} ${headingOf({ text: ticketBody })}`.trim();
-  const uncommitted = await commitRunWork({ run, subject, resumed });
+var finishDirectRun = async ({ run, driver, ticketRef, ticketBody, resumed }) => {
+  const address = { reference: ticketRef, fallbackSubject: `${ticketRef} ${headingOf({ text: ticketBody })}`.trim(), context: ticketBody };
+  const uncommitted = await commitRunWork({ run, driver, address, resumed });
   if (uncommitted !== void 0) {
     return stopDirectRun({ run, record: nextStepRecord({ run, id: "commit" }), status: RunStatus.Failed, error: uncommitted });
   }
@@ -159820,6 +160184,7 @@ var verifyDirectWork = async ({
   const {
     error: gateError,
     crashes,
+    timeouts,
     coordination
   } = await runGates({
     cwd: run.cwd,
@@ -159830,7 +160195,7 @@ var verifyDirectWork = async ({
     onProgress: (message) => run.progress(message)
   });
   await run.setStep({ record: { ...record3, status: gateError ? RunStatus.Failed : RunStatus.Passed, error: gateError } });
-  return { record: record3, gateError, crashes, coordination };
+  return { record: record3, gateError, crashes, timeouts, coordination };
 };
 
 // src/direct/runDirectWork.ts
@@ -159843,19 +160208,16 @@ var stopDirectOnCoordination = ({ run, record: record3, coordination }) => {
     error: describeGateCoordinationStop({ stepId: "verify", coordination })
   });
 };
-var stopDirectOnCrash = ({ run, record: record3, crashes, gateError }) => {
-  run.progress("a gate crashed rather than failed \u2014 no fix attempted");
-  return stopDirectRun({
-    run,
-    record: record3,
-    status: RunStatus.Escalated,
-    error: [
-      "verify: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
-      "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
-      crashes.join("\n"),
-      gateError ?? ""
-    ].join("\n\n")
-  });
+var stopDirectOnNoVerdict = ({
+  run,
+  record: record3,
+  crashes,
+  timeouts,
+  gateError
+}) => {
+  const { ending, reason } = describeGateNoVerdictStop({ stepId: "verify", crashes, timeouts });
+  run.progress(`a gate ${ending} rather than failed \u2014 no fix attempted`);
+  return stopDirectRun({ run, record: record3, status: RunStatus.Escalated, error: [reason, gateError ?? ""].join("\n\n") });
 };
 var buildAndVerify = async ({
   run,
@@ -159872,15 +160234,15 @@ var buildAndVerify = async ({
     if (stopped) {
       return stopped;
     }
-    const { record: record3, gateError, crashes, coordination } = await verifyDirectWork({ run });
+    const { record: record3, gateError, crashes, timeouts, coordination } = await verifyDirectWork({ run });
     if (coordination !== void 0) {
       return stopDirectOnCoordination({ run, record: record3, coordination });
     }
-    if (crashes.length > 0) {
-      return stopDirectOnCrash({ run, record: record3, crashes, gateError });
+    if (crashes.length > 0 || timeouts.length > 0) {
+      return stopDirectOnNoVerdict({ run, record: record3, crashes, timeouts, gateError });
     }
     if (gateError === void 0) {
-      return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+      return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
     }
     errorContext = gateError;
     if (attempt === maxCheapFixRetries) {
@@ -159907,7 +160269,7 @@ var executeDirectWork = async ({
   const stop = ({ record: record3, status, error: error51 }) => stopDirectRun({ run, record: record3, status, error: error51 });
   await run.update({ patch: { status: RunStatus.Running } });
   if (run.current().steps.some((step) => step.id === "verify" && step.status === RunStatus.Passed)) {
-    return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+    return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
   }
   const redBaseline = existing === void 0 ? await runPreflightGate({
     run: {
@@ -160801,24 +161163,12 @@ import { dirname as dirname28 } from "node:path";
 
 // src/queue/board/toQueueBoardTickets.ts
 import { join as join140 } from "node:path";
-
-// src/queue/common/constants/QueueWorker.ts
-var QueueWorker = {
-  /** Build straight from the ticket body; the repo's gates are the only bar. */
-  Direct: "direct",
-  /** Implement the plan already published to the ticket. */
-  Plan: "plan",
-  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
-  AutoPlan: "auto-plan"
-};
-
-// src/queue/board/toQueueBoardTickets.ts
 var describeWork = ({ ticket, name, branch, worktreePath }) => ({
   identifier: ticket.identifier,
   title: ticket.title,
   url: ticket.url,
   worker: ticket.worker,
-  planName: ticket.worker === QueueWorker.AutoPlan ? name : void 0,
+  workOrderName: name,
   branch,
   worktreePath
 });
@@ -160836,10 +161186,19 @@ var placeBuild = ({ build, live: live2 }) => {
   return question === void 0 ? { ...work, lane: QueueLane.Building } : { ...work, lane: QueueLane.Blocked, reason: question, question };
 };
 var placeOutcome = ({ outcome }) => {
+  let lane;
+  let reason;
   if (outcome.ready) {
-    return { ...describeWork(outcome), lane: QueueLane.Shipped, reason: outcome.reconciliationFailure };
+    lane = QueueLane.Shipped;
+    reason = outcome.reconciliationFailure;
+  } else if (outcome.open === void 0) {
+    lane = QueueLane.Parked;
+    reason = outcome.error;
+  } else {
+    lane = QueueLane.Blocked;
+    reason = outcome.open;
   }
-  return outcome.open === void 0 ? { ...describeWork(outcome), lane: QueueLane.Parked, reason: outcome.error } : { ...describeWork(outcome), lane: QueueLane.Blocked, reason: outcome.open };
+  return { ...describeWork(outcome), lane, reason };
 };
 var placeSettled = ({ settled: settled2 }) => [
   ...settled2.outcomes.map((outcome) => placeOutcome({ outcome })),
@@ -160991,16 +161350,39 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
   }
 };
 
+// src/queue/common/constants/QueueWorker.ts
+var QueueWorker = {
+  /** Build straight from the ticket body; the repo's gates are the only bar. */
+  Direct: "direct",
+  /** Implement the plan already published to the ticket. */
+  Plan: "plan",
+  /** Plan the ticket headlessly with the auto-plan skill; the queue then runs the implement pipeline on the plan folder that session wrote. */
+  AutoPlan: "auto-plan"
+};
+
 // src/queue/common/utils/isParkedOutcome.ts
 var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
 
 // src/queue/nameWaveWorkOrders.ts
+var creationModeByWorker = {
+  [QueueWorker.Direct]: WorkOrderMode.SinglePlan,
+  [QueueWorker.Plan]: WorkOrderMode.SinglePlan,
+  [QueueWorker.AutoPlan]: void 0
+};
 var nameOne = async ({ cwd, config: config2, env, driver, ticket, onProgress }) => {
   const existing = await findWorkOrderByTicketRef({ cwd, ticketRef: ticket.identifier });
   if (existing !== void 0) {
     return { name: existing.name, branch: existing.record.branch };
   }
-  const created = await createWorkOrder({ cwd, ticketRef: ticket.identifier, config: config2, env, driver, onProgress }).catch((thrown) => ({
+  const created = await createWorkOrder({
+    cwd,
+    ticketRef: ticket.identifier,
+    mode: creationModeByWorker[ticket.worker],
+    config: config2,
+    env,
+    driver,
+    onProgress
+  }).catch((thrown) => ({
     error: `no work order could be created for ${ticket.identifier}: ${messageOf({ error: thrown })}`
   }));
   return "error" in created ? created : { name: created.name, branch: created.branch };
@@ -161970,7 +162352,9 @@ var settleWorkerOutcome = async ({
   defaultBranch,
   ticket,
   workOrderRunDir,
-  generated,
+  config: config2,
+  driver,
+  coordinatorRunId,
   worked,
   onProgress
 }) => {
@@ -161981,11 +162365,12 @@ var settleWorkerOutcome = async ({
     await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
     return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
   }
+  const address = { reference: ticket.identifier, fallbackSubject: `${ticket.identifier} ${ticket.title}`, context: ticket.title };
   const committed = await commitWorkOrderWork({
     cwd: worktreePath,
-    message: `${ticket.identifier} ${ticket.title}`,
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: coordinatorRunId, onProgress }),
     runDir: workOrderRunDir,
-    generated,
+    generated: config2.generated,
     onProgress
   });
   if ("error" in committed) {
@@ -162002,8 +162387,8 @@ var settleWorkerOutcome = async ({
   return { ready: true };
 };
 
-// src/queue/workers/common/utils/buildFromTicketBody.ts
-var toBuildOutcome = ({ outcome }) => {
+// src/queue/workers/common/utils/toWorkerOutcome.ts
+var toWorkerOutcome = ({ outcome, onFailedRun }) => {
   if ("refusal" in outcome) {
     return { error: outcome.refusal };
   }
@@ -162011,19 +162396,56 @@ var toBuildOutcome = ({ outcome }) => {
   if (result.ok) {
     return recordError === void 0 ? {} : { error: recordError };
   }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+  return onFailedRun({ stated: result.error ?? `the run ended ${result.manifest.status}`, result });
 };
+
+// src/queue/workers/common/utils/buildFromTicketBody.ts
 var buildFromTicketBody = async ({ step }) => {
   const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
-  onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
-  return toBuildOutcome({
-    outcome: await runWorkOrderPlanLifecycle({
-      cwd,
-      name: formatPlanAddress({ workOrderName: record3.name, planId: plan.id }),
-      run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
+  const run = ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress });
+  let outcome;
+  if (plan === void 0) {
+    onProgress?.(`${ticket.identifier} holds no plan on work order ${record3.name}, so it is built from the ticket body`);
+    outcome = await runWorkOrderBodyBuildLifecycle({ cwd, workOrderName: record3.name, run });
+  } else {
+    onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
+    outcome = await runWorkOrderPlanLifecycle({ cwd, name: formatPlanAddress({ workOrderName: record3.name, planId: plan.id }), run });
+  }
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => ({
+      error: plan === void 0 ? `${stated} \u2014 the queue builds ${ticket.identifier} from the ticket body again the next time it picks the ticket up` : `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree`
     })
   });
+};
+
+// src/queue/workers/common/utils/decideTicketOutcome.ts
+var decideTicketOutcome = ({ record: record3 }) => {
+  const eligibility = readWorkOrderShipEligibility({ record: record3 });
+  if (eligibility.eligible) {
+    return {};
+  }
+  return record3.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+};
+
+// src/queue/workers/common/utils/buildPlanlessWorkOrder.ts
+var buildPlanlessWorkOrder = async ({ step, workOrderName }) => {
+  const { cwd, record: record3 } = step;
+  if (record3.ticketBodyBuild?.progress === PlanProgress.Implemented) {
+    return decideTicketOutcome({ record: record3 });
+  }
+  const built = await buildFromTicketBody({ step });
+  if (built.error !== void 0 || built.open !== void 0) {
+    return built;
+  }
+  const reread = await readWorkOrderState({ cwd, name: workOrderName });
+  if ("error" in reread) {
+    return { error: reread.error };
+  }
+  if (reread.record === void 0) {
+    return { error: `work order ${workOrderName} no longer has a record after its build from the ticket body` };
+  }
+  return decideTicketOutcome({ record: reread.record });
 };
 
 // src/queue/workers/common/utils/findStalledPlanRefusal.ts
@@ -162037,12 +162459,16 @@ var findStalledPlanRefusal = ({ record: record3, plan }) => {
 
 // src/queue/workers/common/utils/commitPlanWork.ts
 var commitPlanWork = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, onProgress } = step;
-  const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
-  const runId = plan.implementation?.runId;
+  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, driver, onProgress } = step;
+  const address = {
+    reference: ticket.identifier,
+    fallbackSubject: `${ticket.identifier} ${plan.id}: ${plan.title}`,
+    context: `Plan ${plan.id}: ${plan.title}`,
+    unit: plan.id
+  };
   const committed = await commitWorkOrderWork({
     cwd,
-    message: runId === void 0 ? subject : buildRunCommitMessage({ subject, runId }),
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: plan.implementation?.runId, onProgress }),
     runDir: workOrderRunDir,
     generated: config2.generated,
     onProgress
@@ -162073,19 +162499,14 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
       cwd,
       name,
       label: "implement",
-      statusOf: ({ result: result2 }) => result2.manifest.status,
+      statusOf: ({ result }) => result.manifest.status,
       work: ({ level }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, level, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join147(folder, "plan.md"), runId, level, onProgress })
     })
   });
-  if ("refusal" in outcome) {
-    return { error: outcome.refusal };
-  }
-  const { result, recordError } = outcome;
-  if (result.ok) {
-    return recordError === void 0 ? {} : { error: recordError };
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => ({ error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` })
+  });
 };
 
 // src/queue/workers/buildWorkOrderPlans.ts
@@ -162135,13 +162556,6 @@ var confirmPlanImplemented = async ({ step, workOrderName }) => {
   }
   return { record: record3 };
 };
-var decideTicketOutcome = ({ record: record3 }) => {
-  const eligibility = readWorkOrderShipEligibility({ record: record3 });
-  if (eligibility.eligible) {
-    return {};
-  }
-  return record3.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
-};
 var buildWorkOrderPlans = async ({
   cwd,
   workOrderName,
@@ -162155,6 +162569,9 @@ var buildWorkOrderPlans = async ({
   allowTicketBodyBuild,
   onProgress
 }) => {
+  if (allowTicketBodyBuild && isPlanlessWorkOrder({ record: record3 })) {
+    return buildPlanlessWorkOrder({ step: { cwd, record: record3, ticket, config: config2, env, driver, driverName, workOrderRunDir, onProgress }, workOrderName });
+  }
   const leftover = await readLeftoverWork({ cwd, config: config2 });
   let current = record3;
   let settled2 = false;
@@ -162317,6 +162734,7 @@ var runAutoPlanWorker = async ({
 // src/queue/workers/runWorkerWithRelay.ts
 var runDirectWorker = async ({
   cwd,
+  workOrderName,
   ticket,
   config: config2,
   driver,
@@ -162324,21 +162742,25 @@ var runDirectWorker = async ({
   answeredQuestion,
   onProgress
 }) => {
-  const result = await runDirectWork({
+  const outcome = await runWorkOrderBodyBuildLifecycle({
     cwd,
-    ticketBody: ticket.description,
-    ticketRef: ticket.identifier,
-    driver,
-    driverName,
-    config: config2,
-    answeredQuestion,
-    onProgress
+    workOrderName,
+    run: ({ runId }) => runDirectWork({
+      cwd,
+      ticketBody: ticket.description,
+      ticketRef: ticket.identifier,
+      runId,
+      driver,
+      driverName,
+      config: config2,
+      answeredQuestion,
+      onProgress
+    })
   });
-  if (result.ok) {
-    return {};
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated };
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated }
+  });
 };
 var runPlanWorker = async ({
   cwd,
@@ -162379,7 +162801,7 @@ var runPlanWorker = async ({
     }
     if (restored.restored.length === 0) {
       onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
-      return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
+      return runDirectWorker({ cwd, workOrderName, ticket, config: config2, driver, driverName, onProgress });
     }
   }
   return runPlanFolderPipeline({ cwd, name: workOrderName, config: config2, driver, onProgress });
@@ -162404,7 +162826,7 @@ var runWorkerWithRelay = async ({
   let answeredQuestion;
   for (let turn = 0; ; turn += 1) {
     const workers = {
-      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
+      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, workOrderName, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
       [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, workOrderName, config: config2, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
       [QueueWorker.AutoPlan]: () => runAutoPlanWorker({
         cwd: worktreePath,
@@ -162513,7 +162935,9 @@ var runQueueWorkOrder = async ({
     defaultBranch,
     ticket,
     workOrderRunDir,
-    generated: config2.generated,
+    config: config2,
+    driver,
+    coordinatorRunId,
     worked,
     onProgress
   });
@@ -163637,7 +164061,7 @@ var superviseBatch = async ({
   }
   let outcome;
   let remainingError = gateError;
-  let coordination;
+  let noVerdict;
   if (!verdict.ok && verdict.rateLimited) {
     outcome = { kind: SettleKind.Parked };
   } else if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
@@ -163653,12 +164077,12 @@ ${ruling.guidance}`
     } else {
       const rerun = await gates();
       remainingError = rerun.error;
-      coordination = rerun.coordination;
+      noVerdict = describeGateNoVerdict({ result: rerun });
     }
   }
   if (outcome === void 0) {
-    if (coordination !== void 0) {
-      outcome = { kind: SettleKind.Escalated, error: coordination };
+    if (noVerdict !== void 0) {
+      outcome = { kind: SettleKind.Escalated, error: noVerdict };
     } else if (remainingError) {
       const diagnosis = ruling ? `
 supervisor (${ruling.decision}): ${ruling.diagnosis}` : "";
@@ -163691,7 +164115,7 @@ var settleBatchGates = async ({
 }) => {
   let result = await gates();
   let outcome;
-  for (let retry = 1; outcome === void 0 && result.error && result.coordination === void 0 && retry <= maxCheapFixRetries; retry += 1) {
+  for (let retry = 1; outcome === void 0 && result.error && describeGateNoVerdict({ result }) === void 0 && retry <= maxCheapFixRetries; retry += 1) {
     onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invokeFix({ label: `fix-${retry}`, gateError: result.error });
     if (!fix.ok && fix.rateLimited) {
@@ -163702,8 +164126,9 @@ var settleBatchGates = async ({
   }
   const gateError = result.error;
   if (outcome === void 0) {
-    if (result.coordination !== void 0) {
-      outcome = { kind: SettleKind.Escalated, error: result.coordination };
+    const noVerdict = describeGateNoVerdict({ result });
+    if (noVerdict !== void 0) {
+      outcome = { kind: SettleKind.Escalated, error: noVerdict };
     } else if (!gateError) {
       outcome = { kind: SettleKind.Green };
     } else {
@@ -164990,7 +165415,7 @@ var readManifest = async ({ cwd, runId }) => {
 };
 var printGateFailures = ({ result }) => {
   for (const gate of result.gates) {
-    if (gate.skipped !== true && gate.exitCode !== void 0 && gate.exitCode !== 0) {
+    if (gate.skipped !== true && gate.timedOut !== true && gate.exitCode !== void 0 && gate.exitCode !== 0) {
       console.log(`
 ${bold(`[${gate.group}] ${gate.kind}`)} \u2014 exit ${gate.exitCode}
 ${gate.command}
@@ -165000,6 +165425,10 @@ ${gate.outputTail ?? ""}`);
   for (const crash of result.crashes) {
     console.log(`
 engine: ${crash}`);
+  }
+  for (const timeout of result.timeouts) {
+    console.log(`
+engine: ${timeout}`);
   }
 };
 var selfCheckCommand = async ({ flags, cwd }) => {
@@ -165678,33 +166107,35 @@ var loadShippingBlock = async ({ ticket, worktreePath }) => {
   }
   return lines;
 };
-var findBuildRun = async ({ ticket, worktreePath }) => {
+var findBuildRun = async ({ ticket, worktreePath, workOrderName }) => {
   const since = Date.parse(ticket.buildStartedAt ?? ticket.enteredAt);
-  const candidates = (await listRuns({ cwd: worktreePath })).filter((run) => Date.parse(run.createdAt) >= since).sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
+  const candidates = (await listRuns({ cwd: worktreePath, workOrderName })).filter((run) => Date.parse(run.createdAt) >= since).sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt));
   const lock = await readRunLock({ cwd: worktreePath });
   const locked = lock !== void 0 && isPidAlive({ pid: lock.pid }) ? candidates.find((run) => run.runId === lock.runId) : void 0;
   return locked ?? candidates[0];
 };
-var loadPlanningBlock = async ({ worktreePath, planName }) => {
-  const read = await readWorkOrderState({ cwd: worktreePath, name: planName });
+var loadPlanningBlock = async ({ worktreePath, workOrderName }) => {
+  const read = await readWorkOrderState({ cwd: worktreePath, name: workOrderName });
   if ("error" in read) {
     return [read.error];
   }
   const { record: record3 } = read;
   if (record3 === void 0) {
-    return loadPlanningProgressBlock({ cwd: worktreePath, name: planName });
+    return loadPlanningProgressBlock({ cwd: worktreePath, name: workOrderName });
   }
   const waiting = findNextPlanToPlan({ record: record3 });
-  return waiting === void 0 ? [`no plan in ${planName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName: planName, planId: waiting.id }) });
+  return waiting === void 0 ? [`no plan in ${workOrderName} is waiting to be planned`] : loadPlanningProgressBlock({ cwd: worktreePath, name: formatPlanAddress({ workOrderName, planId: waiting.id }) });
 };
 var loadBuildBlock = async ({ ticket, worktreePath }) => {
-  const run = await findBuildRun({ ticket, worktreePath });
-  const { planName } = ticket;
+  const { workOrderName } = ticket;
+  const run = workOrderName === void 0 ? void 0 : await findBuildRun({ ticket, worktreePath, workOrderName });
   let lines;
-  if (run !== void 0) {
+  if (workOrderName === void 0) {
+    lines = [`the board recorded no work order for ${ticket.identifier}`];
+  } else if (run !== void 0) {
     lines = await loadRunFamilyProgressBlock({ cwd: worktreePath, runId: run.runId });
-  } else if (planName !== void 0) {
-    lines = await loadPlanningBlock({ worktreePath, planName });
+  } else if (ticket.worker === QueueWorker.AutoPlan) {
+    lines = await loadPlanningBlock({ worktreePath, workOrderName });
   } else {
     lines = [`no engine run has started in ${worktreePath} since ${ticket.identifier}'s build began`];
   }
@@ -166642,6 +167073,8 @@ var renderWorkOrderState = ({ record: record3 }) => [
     const excluded = plan.exclusion === void 0 ? "" : ` \u2014 excluded: ${plan.exclusion.reason}`;
     return `  ${plan.id} \u2014 ${plan.title} \u2014 ${describePlanProgress({ progress: plan.progress })}${excluded}`;
   }),
+  // A work order holding no plan 001 ships on its build from the ticket body, so that build is shown like a plan.
+  ...record3.ticketBodyBuild === void 0 ? [] : [`  built from the ticket body \u2014 ${describePlanProgress({ progress: record3.ticketBodyBuild.progress })}`],
   record3.shipRequest === void 0 ? "no ship request is pending, so this work order stays open" : `ship request: ${record3.shipRequest.planIds.join(", ")} \u2014 the work order ships once every one of them is implemented`,
   ...record3.shipped === void 0 ? [] : [`shipped as ${record3.shipped.mergeCommit}`]
 ];

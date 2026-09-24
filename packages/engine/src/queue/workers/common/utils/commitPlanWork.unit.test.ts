@@ -1,16 +1,23 @@
+import { execFileSync } from 'node:child_process';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
-import { config, driver, planOf, ticket, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { config, planOf, ticket, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
+import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 // Mocked Imports
 // -------------------------
 // Only the staging-and-committing half of the commit module is stubbed: git
 // commits on its own terms rather than on demand, and the claim here is about
-// the message the primitive is handed. `buildRunCommitMessage` is left real, so
-// the body asserted below is the one an actual commit would carry.
-const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed: boolean } | { error: string }>>();
+// the message the primitive's composer writes. `composeCommitMessage` and
+// `buildRunCommitMessage` are left real, so the stub awaits the composer it is
+// handed with the step's cwd — the message asserted below is the one an actual
+// commit would carry.
+const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
 jest.mock('#src/commit/index.ts', () => ({
 	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
@@ -21,20 +28,54 @@ jest.mock('#src/commit/index.ts', () => ({
 /** What the commit primitive was handed, restated here because a `jest.mock` factory may not reach outside the file. */
 interface CommitCall {
 	cwd: string;
-	message: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
 	runDir: string;
 	generated?: string[];
 	onProgress?: (message: string) => void;
 }
 
-const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+/**
+ * A leftover plan with run `run-1` recorded against it, and a stub commit
+ * primitive that asks the composer it is handed for the message, as the real one
+ * does once the change is staged.
+ *
+ * `staged` makes the step's cwd a real repo holding a staged source file;
+ * otherwise it is a directory outside any git worktree, so the staged change
+ * cannot be read. `answer` is the final text the step's driver gives every
+ * invocation; without one the driver must never be invoked.
+ */
+const setupLeftoverCommit = ({ staged = false, answer }: { staged?: boolean; answer?: string } = {}) => {
+	const invocations: DriverInvocation[] = [];
+	const messages: string[] = [];
+	const cwd = setupConsumerRepo({ git: staged });
+
+	if (staged) {
+		writeRepoFile({ cwd, path: 'src/searchIndex.ts', content: 'export const searchIndex = new Map<string, string>();\n' });
+		execFileSync('git', ['add', '-A', '--', '.'], { cwd });
+	}
+
+	const answering: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return { text: answer ?? '', exitCode: 0 };
+		},
+	};
+	const driver = answer === undefined ? createUncalledDriver({ reason: 'an unreadable staged change must not reach the agent' }) : answering;
+
+	mockCommitTicketWork.mockImplementation(async ({ cwd: worktree, composeMessage }) => {
+		const message = await composeMessage({ cwd: worktree });
+		messages.push(message);
+
+		return { committed: true, message };
+	});
 
 	const plan = planOf({
 		id: '001-search-index',
 		title: 'Search index',
 		progress: PlanProgress.Implemented,
-		runId,
+		runId: 'run-1',
 		finishedAt: '2026-01-03T00:00:00.000Z',
 	});
 	const record: WorkOrderState = {
@@ -47,7 +88,7 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		history: [],
 	};
 	const step: WorkOrderPlanStep = {
-		cwd: `/tmp/${workOrderName}`,
+		cwd,
 		record,
 		plan,
 		ticket,
@@ -55,38 +96,35 @@ const setupLeftoverCommit = ({ runId }: { runId?: string } = {}) => {
 		env: {},
 		driver,
 		driverName: driver.name,
-		workOrderRunDir: `/tmp/${workOrderName}/.lightsout/runs/run-1/ticket`,
+		workOrderRunDir: `${cwd}/.lightsout/runs/run-1/ticket`,
 	};
 
-	return { step };
+	return { step, invocations, messages };
 };
 
 describe('commitPlanWork', () => {
-	test("carries the owning plan's run id in the commit body", async () => {
-		const { step } = setupLeftoverCommit({ runId: 'run-1' });
+	test("commitPlanWork: in a tree git cannot read, commits under the template subject with the plan line and the owning plan's run line", async () => {
+		const { step, messages } = setupLeftoverCommit();
 
 		const refusal = await commitPlanWork({ step });
 
-		const [subject, blank, ...body] = (mockCommitTicketWork.mock.calls[0]?.[0].message ?? '').split('\n');
-
-		expect({ refusal, subject, blank, body: body.join('\n') }).toEqual({
+		expect({ refusal, messages }).toStrictEqual({
 			refusal: undefined,
-			subject: 'LO-7 001-search-index: Search index',
-			blank: '',
-			body: expect.stringContaining('run-1'),
+			messages: ['LO-7 001-search-index: Search index\n\nlightsout plan 001-search-index\nlightsout run run-1\n'],
 		});
 	});
 
-	test('commits under the subject alone when no run is recorded against the plan', async () => {
-		const { step } = setupLeftoverCommit();
+	test("commitPlanWork: the composer it hands over asks the step's driver and opens the subject with the ticket identifier and the agent's summary", async () => {
+		const { step, invocations, messages } = setupLeftoverCommit({ staged: true, answer: JSON.stringify({ summary: 'index the plans for search' }) });
 
 		const refusal = await commitPlanWork({ step });
 
-		// A plan the record names no run for has nothing to put in a body, so the
-		// message is the subject and nothing else — never a body naming no run.
-		expect({ refusal, message: mockCommitTicketWork.mock.calls[0]?.[0].message }).toStrictEqual({
+		// the plan line is what ties a leftover commit to its plan now that the
+		// subject describes the change rather than naming the plan
+		expect({ refusal, messages, asked: invocations.length }).toStrictEqual({
 			refusal: undefined,
-			message: 'LO-7 001-search-index: Search index',
+			messages: ['LO-7: index the plans for search\n\nlightsout plan 001-search-index\nlightsout run run-1\n'],
+			asked: 1,
 		});
 	});
 });

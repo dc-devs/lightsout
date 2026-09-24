@@ -95,13 +95,15 @@ export const runVerificationGates = async ({ run, coverage, checkpoint, rows, fi
 		onProgress: (message) => run.progress(message),
 	});
 	const gates = collector.observed();
-	// A crashed gate is red without being evidence, so it is kept out of the
-	// failure list the step shows and the fix agent reads — `crashes` is where
+	// A crashed or timed-out gate is red without being evidence, so it is kept
+	// out of the failure list the step shows and the fix agent reads — even when
+	// its family failed in another group — and `crashes` or `timeouts` is where
 	// it is reported instead.
 	const failures = gates.filter(
 		(observation) =>
 			observation.skipped !== true &&
 			observation.crashed !== true &&
+			observation.timedOut !== true &&
 			observation.exitCode !== undefined &&
 			observation.exitCode !== 0 &&
 			result.failedFamilies.includes(observation.kind),
@@ -125,14 +127,14 @@ export const runVerificationGates = async ({ run, coverage, checkpoint, rows, fi
 		});
 
 		if (acceptanceError !== undefined) {
-			verdict = { error: acceptanceError, failedFamilies: ['acceptance-tests'], crashes: [], coordination: undefined, failures: [] };
+			verdict = { error: acceptanceError, failedFamilies: ['acceptance-tests'], crashes: [], timeouts: [], coordination: undefined, failures: [] };
 		} else if (coverageRan) {
 			const executedError = await changedFilesExecutedError({ run, packagesDir });
 
 			verdict =
 				executedError === undefined
-					? { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [] }
-					: { error: executedError, failedFamilies: ['changed-files-executed'], crashes: [], coordination: undefined, failures: [] };
+					? { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [] }
+					: { error: executedError, failedFamilies: ['changed-files-executed'], crashes: [], timeouts: [], coordination: undefined, failures: [] };
 		}
 	}
 

@@ -83,11 +83,14 @@ export const createWorkOrderShipGuard = ({ config, env, onProgress }: Params): S
 				// The plans that shipped are the ones the ticket included: an excluded
 				// plan took no part in the implementation that was merged.
 				const planIds = current.plans.filter((plan) => plan.exclusion === undefined).map((plan) => plan.id);
+				// A ticket with no included plan was implemented by its build from the
+				// ticket body, which is what its history says rather than an empty list.
+				const shippedWith = planIds.length === 0 ? 'from the ticket body' : `with ${planIds.join(', ')}`;
 
 				return appendWorkOrderEvent({
 					record: { ...current, shipped: { at, planIds, mergeCommit } },
 					kind: WorkOrderEventKind.Shipped,
-					detail: `work order ${branch} shipped as ${mergeCommit} with ${planIds.join(', ')}`,
+					detail: `work order ${branch} shipped as ${mergeCommit} ${shippedWith}`,
 					at,
 				});
 			},

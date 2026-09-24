@@ -191,7 +191,7 @@ const setupQueueRun = ({
 	mockSetTicketLabel.mockResolvedValue(undefined);
 	mockReconcileShippedTicket.mockResolvedValue(undefined);
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shipBlocked ? blockedResult : shippedResult);
 	mockRunWorkerWithRelay.mockResolvedValue({});
 

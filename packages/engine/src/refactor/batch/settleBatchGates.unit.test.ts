@@ -31,6 +31,7 @@ const coordinationGates: GateRunResult = {
 	error: coordinationReason,
 	failedFamilies: [],
 	crashes: [],
+	timeouts: [],
 	coordination: coordinationReason,
 };
 
@@ -39,6 +40,29 @@ const redGates: GateRunResult = {
 	error: 'unit tests failed: 3 failing in src/one.unit.test.ts',
 	failedFamilies: ['test'],
 	crashes: [],
+	timeouts: [],
+	coordination: undefined,
+};
+
+/** A gate that died in the known jest worker crash on every attempt: no verdict, so no family failed. */
+const crashLine = 'test crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+
+const crashGates: GateRunResult = {
+	error: `${crashLine}\n\nSegmentation fault (core dumped)`,
+	failedFamilies: [],
+	crashes: [crashLine],
+	timeouts: [],
+	coordination: undefined,
+};
+
+/** A gate that ran past its own ceiling on every attempt: no verdict, so no family failed. */
+const timeoutLine = 'test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+
+const timeoutGates: GateRunResult = {
+	error: `${timeoutLine}\n\nrunCommand: timed out after 900000ms`,
+	failedFamilies: [],
+	crashes: [],
+	timeouts: [timeoutLine],
 	coordination: undefined,
 };
 
@@ -127,5 +151,58 @@ describe('settleBatchGates', () => {
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.not.stringContaining('still red') });
 		expect(fixLabels).toStrictEqual(['fix-1', 'fix-2', 'supervised-fix']);
 		expect(mockConsultSupervisor).toHaveBeenCalledTimes(1);
+	});
+
+	test('settleBatchGates: a crashed gate escalates without spending a fix or a supervisor', async () => {
+		const { run, fixLabels } = setupSettle({ gates: [crashGates] });
+
+		const outcome = await run();
+
+		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(crashLine) });
+		// a crash is no verdict about the code, so a fix agent has nothing to repair
+		expect(fixLabels).toStrictEqual([]);
+		expect(mockConsultSupervisor).not.toHaveBeenCalled();
+	});
+
+	test('settleBatchGates: a timed-out gate escalates without spending a fix or a supervisor', async () => {
+		const { run, fixLabels } = setupSettle({ gates: [timeoutGates] });
+
+		const outcome = await run();
+
+		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
+		// a gate stopped by its own ceiling is no verdict about the code either
+		expect(fixLabels).toStrictEqual([]);
+		expect(mockConsultSupervisor).not.toHaveBeenCalled();
+	});
+
+	test('settleBatchGates: a timeout on a re-run inside the cheap loop stops before the next fix', async () => {
+		const { run, fixLabels } = setupSettle({ gates: [redGates, timeoutGates] });
+
+		const outcome = await run();
+
+		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
+		// the first red earned one fix; the re-run after it reached no verdict, so
+		// a second fix would repair a red no gate command established
+		expect(fixLabels).toStrictEqual(['fix-1']);
+		expect(mockConsultSupervisor).not.toHaveBeenCalled();
+	});
+
+	test('settleBatchGates: a guided retry whose re-run timed out escalates naming the timeout rather than a red', async () => {
+		const { run, fixLabels } = setupSettle({
+			gates: [redGates, redGates, redGates, timeoutGates],
+			verdict: {
+				decision: SupervisorDecision.Retry,
+				diagnosis: 'the fixture writes to a path the test never creates',
+				guidance: 'create the fixture directory before writing to it',
+			},
+		});
+
+		const outcome = await run();
+
+		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
+		// the guided re-run ran past its ceiling, so saying the gates are still red
+		// would state a verdict no gate command returned
+		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.not.stringContaining('still red') });
+		expect(fixLabels).toStrictEqual(['fix-1', 'fix-2', 'supervised-fix']);
 	});
 });

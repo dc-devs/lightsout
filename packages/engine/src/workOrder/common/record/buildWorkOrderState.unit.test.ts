@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { type LightsoutConfig, WorkOrderMode } from '#src/contracts/index.ts';
 import { buildWorkOrderState } from '#src/workOrder/common/record/buildWorkOrderState.ts';
 
 const setupConfig = (): { config: LightsoutConfig } => ({
@@ -29,5 +29,18 @@ describe('buildWorkOrderState', () => {
 			// not present as an undefined value either — the key is simply absent
 			carriesTicketRef: false,
 		});
+	});
+
+	test.each([
+		// the queue hands single-plan for a ticket it builds from the ticket body
+		{ mode: WorkOrderMode.SinglePlan, expected: 'single-plan' },
+		// no mode handed, as for `lightsout work-order new` — the repository default stands
+		{ mode: undefined, expected: 'multiple-plan' },
+	])('a handed mode wins over the repository default, and the default stands when none is handed', ({ mode, expected }) => {
+		const { config } = setupConfig();
+
+		const state = buildWorkOrderState({ name: 'lo-166-drain', branch: 'lo-166-drain', mode, config });
+
+		expect(state.mode).toBe(expected);
 	});
 });
