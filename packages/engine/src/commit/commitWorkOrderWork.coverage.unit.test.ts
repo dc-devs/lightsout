@@ -63,7 +63,7 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 split unreadable', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 split unreadable', runDir, generated: generatedPaths });
 
 		// Guessing would restore files git never tracked or clean files it does —
 		// so the whole discard stops here, and no commit is claimed over it.
@@ -77,7 +77,7 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 split unanswered', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 split unanswered', runDir, generated: generatedPaths });
 
 		// An unanswered read must never read as "nothing is tracked": that would
 		// send `git clean` at a file git holds a committed copy of.
@@ -93,7 +93,7 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/cli.mjs', content: '// rebuilt on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 restore refused', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 restore refused', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ error: `git could not discard the generated changes in ${cwd}: error: unable to write file plugin/dist/cli.mjs` });
 		expect(headSubject({ cwd })).toBe('ignore');
@@ -105,9 +105,9 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: "plugin/dist/it's.mjs", content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 quoted name', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 quoted name', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 quoted name' });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 		expect(existsSync(join(cwd, 'plugin', 'dist', "it's.mjs"))).toBe(false);
 	});
@@ -117,9 +117,9 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 already terminated\n', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 already terminated\n', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 already terminated\n' });
 		expect(readFileSync(join(runDir, 'commit-message.txt'), 'utf8')).toBe('LO-79 already terminated\n');
 		expect(headSubject({ cwd })).toBe('LO-79 already terminated');
 	});

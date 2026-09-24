@@ -31,7 +31,7 @@ interface DirectCall {
 	config: LightsoutConfig;
 }
 
-type CommitResult = { committed: boolean } | QueueFailure;
+type CommitResult = { committed: false } | { committed: true; message: string } | QueueFailure;
 
 /**
  * The stubs a `buildWorkOrderPlans` test file declares in its own `jest.mock`
@@ -44,7 +44,9 @@ export interface TicketPlanBuildMocks {
 	runImplementPipeline: jest.Mock<(params: { planPath: string }) => Promise<PipelineResult>>;
 	runPhasesPipeline: jest.Mock<(params: { overviewPath: string }) => Promise<PipelineResult>>;
 	runDirectWork: jest.Mock<(params: DirectCall) => Promise<PipelineResult>>;
-	commitWorkOrderWork: jest.Mock<(params: { cwd: string; message: string; runDir: string }) => Promise<CommitResult>>;
+	commitWorkOrderWork: jest.Mock<
+		(params: { cwd: string; composeMessage: ({ cwd }: { cwd: string }) => Promise<string>; runDir: string }) => Promise<CommitResult>
+	>;
 	readGitChangedFiles: jest.Mock<(params: { cwd: string }) => Promise<string[] | undefined>>;
 	restoreWorkOrderPlan: jest.Mock<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>;
 }
@@ -157,7 +159,7 @@ export const setupTicketPlanBuild = ({
 	missingFolders = [],
 	restoreWrites = true,
 	build = 'passes',
-	commitResult = { committed: true },
+	commitResult,
 }: {
 	mocks: TicketPlanBuildMocks;
 	plans: WorkOrderPlan[];
@@ -217,12 +219,17 @@ export const setupTicketPlanBuild = ({
 			},
 		});
 	});
-	mocks.commitWorkOrderWork.mockImplementation(({ message }) => {
-		// The subject alone: the body carries the run id, which is asserted where
-		// the message is built rather than in this loop's ordering cases.
+	mocks.commitWorkOrderWork.mockImplementation(async ({ cwd: worktree, composeMessage }) => {
+		// Asked for as the real primitive asks once the change is staged. The
+		// fixture's harness answers nothing the commit-message contract accepts,
+		// so the message is the template subject — and the subject alone is
+		// pushed: the body carries the run id, which is asserted where the message
+		// is built rather than in this loop's ordering cases.
+		const message = await composeMessage({ cwd: worktree });
+
 		calls.push(`commit ${message.split('\n')[0]}`);
 
-		return Promise.resolve(commitResult);
+		return commitResult ?? { committed: true, message };
 	});
 	// The worktree is clean again once the leftovers have been settled, exactly
 	// as a real read of it would report.

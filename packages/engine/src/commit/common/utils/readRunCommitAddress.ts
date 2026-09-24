@@ -1,4 +1,5 @@
 import { basename, extname } from 'node:path';
+import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
@@ -81,8 +82,13 @@ interface Params {
 }
 
 /**
- * How a plan run names its unit of work: the ticket, then the unit, then the
- * plan's title when a work order's state supplies one.
+ * What a plan run's commit is addressed by: the ticket reference, the unit, the
+ * template subject and the reason the work was done.
+ *
+ * The template subject — the ticket, then the unit, then the plan's title when a
+ * work order's state supplies one — is now the fallback, used when the
+ * commit-message agent cannot answer. The reference and the unit are also what
+ * the agent-written subject and the body's `lightsout plan` line are built from.
  *
  * It reads the manifest rather than taking the facts as parameters, because the
  * manifest already carries the plan path every one of them is derived from —
@@ -94,10 +100,15 @@ interface Params {
  * reads the record rather than the repository's branch pattern, so no
  * configuration reaches this reader at all.
  */
-export const readRunCommitSubject = async ({ cwd, manifest, onProgress }: Params): Promise<string> => {
+export const readRunCommitAddress = async ({ cwd, manifest, onProgress }: Params): Promise<CommitAddress> => {
 	const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
 	const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
 	const reference = ticketRef ?? (await readRunLabel({ cwd }));
 
-	return title === undefined ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
+	return {
+		reference,
+		unit,
+		fallbackSubject: title === undefined ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`,
+		context: title === undefined ? `Plan ${unit}` : `Plan ${unit}: ${title}`,
+	};
 };

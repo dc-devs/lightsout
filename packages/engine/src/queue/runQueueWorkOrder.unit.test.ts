@@ -24,7 +24,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 interface CommitTicketWorkParams {
 	cwd: string;
-	message: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
 	runDir: string;
 	generated: string[] | undefined;
 	onProgress?: (message: string) => void;
@@ -172,7 +172,7 @@ describe('runQueueWorkOrder', () => {
 		expect(mockSetTicketStatus).toHaveBeenCalledWith(expect.objectContaining({ statusName: 'In Progress' }));
 		expect(mockCommitTicketWork).toHaveBeenCalledWith({
 			cwd: '/tmp/worktrees/lo-70-drain-the-backlog',
-			message: 'LO-70 Drain the backlog',
+			composeMessage: expect.any(Function),
 			runDir: join(coordinatorRunDir, 'work-orders', 'LO-70'),
 			// The commit step is what keeps build output off the branch, so it is
 			// handed the config's generated paths and the run's progress sink.
@@ -321,6 +321,19 @@ describe('runQueueWorkOrder', () => {
 		// must write their message files to the same place.
 		expect(mockRunWorkerWithRelay).toHaveBeenCalledWith(expect.objectContaining({ env, workOrderRunDir }));
 		expect(mockCommitTicketWork).toHaveBeenCalledWith(expect.objectContaining({ runDir: workOrderRunDir }));
+	});
+
+	test("runQueueWorkOrder: the final commit's composer names the coordinator run and falls back to the ticket's identifier and title in a tree git cannot read", async () => {
+		const { run, relay } = setupTicketRun();
+
+		await run();
+		relay.close();
+		const [[{ composeMessage }]] = mockCommitTicketWork.mock.calls as [[CommitTicketWorkParams]];
+
+		// Outside any git worktree the staged change cannot be read, so the agent is never asked.
+		const message = await composeMessage({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-not-a-repo-')) });
+
+		expect(message).toBe('LO-70 Drain the backlog\n\nlightsout run run-q\n');
 	});
 	/**
 	 * The same sequence handed a work order whose record stores a prefixed branch,

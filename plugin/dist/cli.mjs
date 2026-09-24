@@ -22889,7 +22889,7 @@ var WorkOrderMode = {
 var ConfigPlan = external_exports.object({
   /** When true the writer produces the contract shape with an acceptance-test ledger, the lint requires the ledger section, and the grade weighs each plan file and spawns readers only for heavy ones. Default false: every plan command behaves exactly as before this key existed. */
   contract: external_exports.boolean().optional(),
-  /** The mode a work order's own record is created with: `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a work order that already has one. */
+  /** The mode a work order's own record is created with: `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch. Default `single-plan`. Read only when a record is created, so changing it never rewrites a work order that already has one. The queue creates the record of a ticket it builds from the ticket body in `single-plan` mode whatever this key says. */
   "default-work-order-mode": external_exports.enum(WorkOrderMode).optional(),
   /** Whether a planning session works in its own isolated git worktree rather than the checkout it was launched from. Default true. `--worktree` and `--no-worktree` override it for one command. */
   worktree: external_exports.boolean().optional(),
@@ -25423,6 +25423,14 @@ var StandardsView = external_exports.object({
   })
 });
 
+// src/contracts/work/CommitMessage.ts
+var CommitMessage = external_exports.object({
+  /** One line of 1 to 64 characters saying what the staged change does. */
+  summary: external_exports.string().min(1, "a commit summary says what the change does in at least one character").max(64, "a commit summary is at most 64 characters").regex(/^[^\r\n]*$/u, "a commit summary is one line, with no line break"),
+  /** Optional plain prose, at most 1200 characters. */
+  body: external_exports.string().max(1200, "a commit body is at most 1200 characters").optional()
+});
+
 // src/contracts/work/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
@@ -25530,6 +25538,13 @@ var WorkOrderStateShape = external_exports.object({
   mode: external_exports.enum(WorkOrderMode),
   /** Every plan the work order has ever held, excluded ones included, in ascending number order. */
   plans: external_exports.array(WorkOrderPlan),
+  /** The latest build from the ticket body of a single-plan work order that holds no plan 001. Each build replaces it whole. */
+  ticketBodyBuild: external_exports.object({
+    runId: external_exports.string(),
+    progress: external_exports.enum([PlanProgress.Implementing, PlanProgress.Implemented, PlanProgress.Failed]),
+    startedAt: external_exports.string(),
+    finishedAt: external_exports.string().optional()
+  }).strict().optional(),
   /** The human's explicit request to ship, bound to the exact plans it was approved for. */
   shipRequest: external_exports.object({ planIds: external_exports.array(PlanId).min(1), requestedAt: external_exports.string() }).strict().optional(),
   /** What actually shipped. A state file carrying it is history: nothing changes it again. */
@@ -26907,6 +26922,33 @@ var estimatePlanScope = ({ facts, executorFileLimit }) => {
 
 // src/plan/draft/legacy/authorPhaseFiles.ts
 import { join as join16 } from "node:path";
+
+// src/agents/prompts/commitMessage.md
+var commitMessage_default = '# Role: Commit Message Writer\n\nYou write the one-line summary, and when it is needed a short body, of one git\ncommit. The commit is read in the history far more often than the ticket that\nasked for the change, so the summary has to say what the change does to a\nreader who has never seen that ticket.\n\n## Inputs\n\nYour task message contains:\n\n- the ticket reference the engine puts in front of your summary;\n- the reason the work was done \u2014 a plan\'s title, a ticket\'s body, or a\n  ticket\'s title;\n- the list of staged files, with how many lines each one gained and lost;\n- the staged diff itself. A large diff can be cut at the engine\'s limit, and a\n  note directly after it says so.\n\nThat is the whole of your input: you are given no tools, and there is nothing\nto investigate.\n\n## Decide\n\n- The summary says what the staged change DOES \u2014 imperative, and lowercase\n  first, in the style of `print which configuration file a run read`.\n- The summary is one line of at most 64 characters.\n- Never restate the ticket reference: the engine adds it in front of your\n  summary.\n- Describe the diff. Never copy the words of the reason or of the ticket \u2014 they\n  say why the work was asked for, not what the change does.\n- The body is optional plain prose of at most 1200 characters. Write one only\n  when the change needs more than the summary to be understood. No headings, no\n  bullet trailers, and no `lightsout` lines \u2014 the engine writes those itself.\n- When the diff was cut, the file list is the complete record of what changed:\n  describe the change from both, and never claim the change is smaller than the\n  file list shows.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"summary": "print which configuration file a run read",\n	"body": "The run\'s first progress line now names the file its settings came from, so a run that read an unexpected file says so before it spends anything."\n}\n```\n';
+
+// src/agents/buildCommitMessageInvocation.ts
+var buildCommitMessageInvocation = ({ reference, context, stat: stat16, diff, truncated }) => {
+  const sections = [
+    `# Ticket
+
+${reference}`,
+    `# Why this work was done
+
+${context}`,
+    `# Files changed
+
+${stat16}`,
+    `# Staged change
+
+${diff}`,
+    ...truncated ? ["The staged change above was cut at the engine's limit. The file list above is complete \u2014 it names every file this commit changes."] : [],
+    "Remember: your entire final message must be exactly one JSON object carrying the summary \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: commitMessage_default,
+    prompt: sections.join("\n\n")
+  };
+};
 
 // src/agents/common/utils/changedFilesSection.ts
 var changedFilesSection = ({ changedFiles }) => changedFiles === void 0 || changedFiles.length === 0 ? void 0 : `# Previously changed files
@@ -140555,12 +140597,12 @@ var renderBranchTemplate = ({ template, ticketRef, title }) => {
 };
 
 // src/workOrder/common/record/buildWorkOrderState.ts
-var buildWorkOrderState = ({ name, branch, ticketRef, config: config2 }) => ({
+var buildWorkOrderState = ({ name, branch, ticketRef, mode, config: config2 }) => ({
   schemaVersion: 1,
   name,
   branch,
   ...ticketRef === void 0 ? {} : { ticketRef },
-  mode: config2.plan?.["default-work-order-mode"] ?? WorkOrderMode.SinglePlan,
+  mode: mode ?? config2.plan?.["default-work-order-mode"] ?? WorkOrderMode.SinglePlan,
   plans: [],
   history: []
 });
@@ -140694,6 +140736,7 @@ var createWorkOrder = async ({
   cwd,
   ticketRef,
   title,
+  mode,
   config: config2,
   env,
   driver,
@@ -140715,7 +140758,7 @@ var createWorkOrder = async ({
   const written = await updateLocalWorkOrderState({
     cwd,
     name: composed.name,
-    change: (current) => current === void 0 ? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, config: config2 }) : { error: takenRefusal({ name: composed.name }) }
+    change: (current) => current === void 0 ? buildWorkOrderState({ name: composed.name, branch, ticketRef: naming.ticketRef, mode, config: config2 }) : { error: takenRefusal({ name: composed.name }) }
   });
   return "error" in written ? written : { name: composed.name, branch, record: written.record };
 };
@@ -140919,14 +140962,29 @@ var findPlanImplementationBlocker = ({ record: record3, planId }) => {
 };
 
 // src/workOrder/readWorkOrderShipEligibility.ts
+var readTicketBodyEligibility = ({ record: record3 }) => {
+  const build = record3.ticketBodyBuild;
+  let eligibility;
+  if (build === void 0) {
+    eligibility = {
+      eligible: false,
+      reason: `work order ${record3.name} is in single-plan mode and holds no plan 001, and no build from the ticket body has passed on it`
+    };
+  } else if (build.progress !== PlanProgress.Implemented) {
+    eligibility = {
+      eligible: false,
+      reason: `the build from the ticket body of work order ${record3.name} under run ${build.runId} has not passed, and a single-plan ticket holding no plan 001 ships once that build passed`
+    };
+  } else {
+    eligibility = { eligible: true };
+  }
+  return eligibility;
+};
 var readSinglePlanEligibility = ({ record: record3 }) => {
   const first = record3.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
   let eligibility;
   if (first === void 0) {
-    eligibility = {
-      eligible: false,
-      reason: `work order ${record3.name} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`
-    };
+    eligibility = readTicketBodyEligibility({ record: record3 });
   } else if (first.exclusion !== void 0) {
     eligibility = {
       eligible: false,
@@ -141030,10 +141088,11 @@ var createWorkOrderShipGuard = ({ config: config2, env, onProgress }) => ({
           return { error: `work order ${branch} no longer has a record, so the merge ${mergeCommit} could not be recorded on it` };
         }
         const planIds = current.plans.filter((plan) => plan.exclusion === void 0).map((plan) => plan.id);
+        const shippedWith = planIds.length === 0 ? "from the ticket body" : `with ${planIds.join(", ")}`;
         return appendWorkOrderEvent({
           record: { ...current, shipped: { at, planIds, mergeCommit } },
           kind: WorkOrderEventKind.Shipped,
-          detail: `work order ${branch} shipped as ${mergeCommit} with ${planIds.join(", ")}`,
+          detail: `work order ${branch} shipped as ${mergeCommit} ${shippedWith}`,
           at
         });
       }
@@ -141093,8 +141152,63 @@ var readWorkOrderRunTerms = async ({ cwd, name, planPath }) => {
   return { refusal, shipRequest };
 };
 
-// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+// src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts
 import { randomUUID as randomUUID7 } from "node:crypto";
+
+// src/workOrder/isPlanlessWorkOrder.ts
+var isPlanlessWorkOrder = ({ record: record3 }) => record3.mode === WorkOrderMode.SinglePlan && !record3.plans.some((plan) => planNumberOf({ id: plan.id }) === 1);
+
+// src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts
+var recordImplementing = ({ cwd, workOrderName, build }) => updateLocalWorkOrderState({
+  cwd,
+  name: workOrderName,
+  change: (current) => {
+    if (current === void 0) {
+      return { error: `work order ${workOrderName} no longer has a record, so its build from the ticket body cannot be recorded as being implemented` };
+    }
+    if (!isPlanlessWorkOrder({ record: current })) {
+      return {
+        error: `work order ${workOrderName} is no longer a single-plan work order holding no plan 001, so it is not built from the ticket body \u2014 build it through its plans instead`
+      };
+    }
+    return { ...current, ticketBodyBuild: build };
+  }
+});
+var recordOutcome = async ({ cwd, workOrderName, build, result }) => {
+  const failed = result.manifest.status === RunStatus.Failed || result.manifest.status === RunStatus.Escalated;
+  if (!result.ok && !failed) {
+    return void 0;
+  }
+  const progress = result.ok ? PlanProgress.Implemented : PlanProgress.Failed;
+  const finishedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const updated = await updateLocalWorkOrderState({
+    cwd,
+    name: workOrderName,
+    change: (current) => current === void 0 ? { error: `work order ${workOrderName} no longer has a record, so the outcome of its build from the ticket body could not be recorded on it` } : { ...current, ticketBodyBuild: { ...build, progress, finishedAt } }
+  });
+  return "error" in updated ? updated.error : void 0;
+};
+var runWorkOrderBodyBuildLifecycle = async ({ cwd, workOrderName, run }) => {
+  const read = await readWorkOrderState({ cwd, name: workOrderName });
+  if ("error" in read) {
+    return { refusal: read.error };
+  }
+  const { record: record3 } = read;
+  if (record3 === void 0 || !isPlanlessWorkOrder({ record: record3 })) {
+    return { result: await run({ runId: randomUUID7() }) };
+  }
+  const build = { runId: randomUUID7(), progress: PlanProgress.Implementing, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const started = await recordImplementing({ cwd, workOrderName, build });
+  if ("error" in started) {
+    return { refusal: started.error };
+  }
+  const result = await run({ runId: build.runId });
+  const recordError = await recordOutcome({ cwd, workOrderName, build, result });
+  return recordError === void 0 ? { result } : { result, recordError };
+};
+
+// src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts
+import { randomUUID as randomUUID8 } from "node:crypto";
 import { readFile as readFile39 } from "node:fs/promises";
 
 // src/workOrder/common/utils/findDivergentPlanIds.ts
@@ -141116,7 +141230,7 @@ var withPlan = ({ record: record3, plan }) => ({
   ...record3,
   plans: record3.plans.map((candidate) => candidate.id === plan.id ? plan : candidate)
 });
-var recordImplementing = ({
+var recordImplementing2 = ({
   cwd,
   workOrderName,
   planId,
@@ -141142,7 +141256,7 @@ var recordImplementing = ({
   }
 });
 var needsFreshStart = ({ plan }) => plan?.implementation === void 0 || plan.progress !== PlanProgress.Implementing && plan.progress !== PlanProgress.Failed;
-var recordOutcome = async ({
+var recordOutcome2 = async ({
   cwd,
   workOrderName,
   planId,
@@ -141176,7 +141290,7 @@ var recordOutcome = async ({
 var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
   const address = name === void 0 ? void 0 : parsePlanAddress({ name });
   if (name === void 0 || address === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+    return { result: await run({ runId: resumeRunId ?? randomUUID8() }) };
   }
   const { workOrderName, planId } = address;
   const read = await readWorkOrderState({ cwd, name: workOrderName });
@@ -141185,7 +141299,7 @@ var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
   }
   const { record: record3 } = read;
   if (record3 === void 0) {
-    return { result: await run({ runId: resumeRunId ?? randomUUID7() }) };
+    return { result: await run({ runId: resumeRunId ?? randomUUID8() }) };
   }
   const blocker = findPlanImplementationBlocker({ record: record3, planId });
   if (blocker !== void 0) {
@@ -141205,13 +141319,13 @@ var runWorkOrderPlanLifecycle = async ({ cwd, name, resumeRunId, run }) => {
       refusal: `git could not name the commit ${cwd} is standing on, and the implementation of plan ${planId} on work order ${workOrderName} is recorded against the commit it starts from`
     };
   }
-  const runId = resumeRunId ?? randomUUID7();
-  const started = await recordImplementing({ cwd, workOrderName, planId, runId, headCommit });
+  const runId = resumeRunId ?? randomUUID8();
+  const started = await recordImplementing2({ cwd, workOrderName, planId, runId, headCommit });
   if ("error" in started) {
     return { refusal: started.error };
   }
   const result = await run({ runId });
-  const recordError = await recordOutcome({ cwd, workOrderName, planId, name, result });
+  const recordError = await recordOutcome2({ cwd, workOrderName, planId, name, result });
   const note = result.ok && !await isWholePlanRun({ cwd, name, planPath: result.manifest.plan, pipeline: result.manifest.pipeline }) ? `this run covered one phase file of plan ${planId} and it passed; the implementation of plan ${planId} on work order ${workOrderName} has not finished until the whole plan runs` : void 0;
   return { result, recordError, note };
 };
@@ -142676,12 +142790,6 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// src/commit/buildRunCommitMessage.ts
-var buildRunCommitMessage = ({ subject, runId }) => `${subject}
-
-lightsout run ${runId}
-`;
-
 // src/commit/commitWorkOrderWork.ts
 import { mkdir as mkdir23, writeFile as writeFile18 } from "node:fs/promises";
 import { join as join102 } from "node:path";
@@ -142719,7 +142827,13 @@ var discardGeneratedChanges = async ({ cwd, paths }) => {
   }
   return void 0;
 };
-var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }) => {
+var commitWorkOrderWork = async ({
+  cwd,
+  composeMessage,
+  runDir,
+  generated = [],
+  onProgress
+}) => {
   const changed = await readGitChangedFiles({ cwd });
   if (changed === void 0) {
     return { error: `git could not read the tree at ${cwd}` };
@@ -142736,19 +142850,20 @@ var commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgr
   if (sourcePaths.length === 0) {
     return { committed: false };
   }
-  const messagePath = join102(runDir, "commit-message.txt");
-  await mkdir23(runDir, { recursive: true });
-  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
-`, "utf8");
   const stageFailure = await runOrDescribeFailure({ command: "git add -A -- .", cwd });
   if (stageFailure !== void 0) {
     return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
   }
+  const message = await composeMessage({ cwd });
+  const messagePath = join102(runDir, "commit-message.txt");
+  await mkdir23(runDir, { recursive: true });
+  await writeFile18(messagePath, message.endsWith("\n") ? message : `${message}
+`, "utf8");
   const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
   if (commitFailure !== void 0) {
     return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
   }
-  return { committed: true };
+  return { committed: true, message };
 };
 
 // src/commit/common/utils/describeUnownedEdits.ts
@@ -142762,13 +142877,13 @@ var describeUnownedEdits = async ({ cwd, manifest, generated }) => {
   return stray.length === 0 ? void 0 : `${cwd} holds changes this run did not make: ${stray.join(", ")} \u2014 commit or stash them before resuming, or they ride into this ticket's commit`;
 };
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 import { basename as basename41, extname } from "node:path";
 
 // src/common/utils/readRunLabel.ts
 var readRunLabel = async ({ cwd }) => await readWorkOrderTicketRef({ cwd }) ?? await readGitCurrentBranch({ cwd }) ?? "work";
 
-// src/commit/common/utils/readRunCommitSubject.ts
+// src/commit/common/utils/readRunCommitAddress.ts
 var readUnit = async ({ cwd, plan, planName }) => {
   const name = planName ?? await planNameFromPath({ cwd, planPath: plan });
   const stem = basename41(plan, extname(plan));
@@ -142795,15 +142910,105 @@ var readTicketFacts = async ({
   }
   return { ticketRef: read.record?.ticketRef, title: read.record?.plans.find((plan) => plan.id === planId)?.title };
 };
-var readRunCommitSubject = async ({ cwd, manifest, onProgress }) => {
+var readRunCommitAddress = async ({ cwd, manifest, onProgress }) => {
   const { unit, workOrderName, planId } = await readUnit({ cwd, plan: manifest.plan, planName: manifest.planName });
   const { ticketRef, title } = await readTicketFacts({ cwd, workOrderName, planId, onProgress });
   const reference = ticketRef ?? await readRunLabel({ cwd });
-  return title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`;
+  return {
+    reference,
+    unit,
+    fallbackSubject: title === void 0 ? `${reference} ${unit}` : `${reference} ${unit}: ${title}`,
+    context: title === void 0 ? `Plan ${unit}` : `Plan ${unit}: ${title}`
+  };
+};
+
+// src/commit/buildRunCommitMessage.ts
+var buildRunCommitMessage = ({ subject, body, unit, runId }) => {
+  const prose = body?.trim() ?? "";
+  const trailers = [...unit === void 0 ? [] : [`lightsout plan ${unit}`], ...runId === void 0 ? [] : [`lightsout run ${runId}`]];
+  const paragraphs = [subject, ...prose === "" ? [] : [prose], ...trailers.length === 0 ? [] : [trailers.join("\n")]];
+  return `${paragraphs.join("\n\n")}
+`;
+};
+
+// src/common/git/readGitStagedChange.ts
+var readGitStagedChange = async ({ cwd, maxDiffLength }) => {
+  const diffCommand = "git -c core.quotePath=false diff --cached --no-color --no-ext-diff";
+  const [stat16, diff] = await Promise.all([
+    runCommand({ command: `${diffCommand} --stat=1000 -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0),
+    runCommand({ command: `${diffCommand} -- .`, cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0)
+  ]);
+  if (stat16?.exitCode !== 0 || diff?.exitCode !== 0) {
+    return void 0;
+  }
+  const truncated = diff.stdout.length > maxDiffLength;
+  return { stat: stat16.stdout, diff: truncated ? diff.stdout.slice(0, maxDiffLength) : diff.stdout, truncated };
+};
+
+// src/commit/composeCommitMessage.ts
+var askForSummary = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  change
+}) => {
+  const timeoutMs = 18e4;
+  try {
+    return await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation: buildCommitMessageInvocation({ reference: address.reference, context: address.context, ...change }),
+      contract: CommitMessage,
+      model: config2.model,
+      effort: config2.effort,
+      permissions: Permissions.ReadOnly,
+      timeoutMs
+    });
+  } catch (error51) {
+    return { ok: false, failure: messageOf({ error: error51 }), usage: void 0 };
+  }
+};
+var stripReference = ({ summary, reference }) => {
+  const rest = summary.slice(reference.length);
+  const repeats = reference !== "" && summary.slice(0, reference.length).toLowerCase() === reference.toLowerCase() && /^(?::|\s|$)/u.test(rest);
+  return (repeats ? rest.replace(/^\s*:?\s*/u, "") : summary).trim();
+};
+var readAnswer = async ({
+  cwd,
+  driver,
+  config: config2,
+  address,
+  onUsage
+}) => {
+  const maxDiffLength = 6e4;
+  const change = await readGitStagedChange({ cwd, maxDiffLength });
+  if (change === void 0) {
+    return { failure: `the staged change in ${cwd} could not be read, so no agent described it` };
+  }
+  const outcome = await askForSummary({ cwd, driver, config: config2, address, change });
+  await onUsage?.({ usage: outcome.usage });
+  if (!outcome.ok) {
+    return { failure: `the harness did not describe this commit (${outcome.failure})` };
+  }
+  const summary = stripReference({ summary: outcome.report.summary, reference: address.reference });
+  return summary === "" ? { failure: `the harness's summary only repeated ${address.reference}` } : { summary, body: outcome.report.body };
+};
+var composeCommitMessage = async ({ cwd, driver, config: config2, address, runId, onUsage, onProgress }) => {
+  const answer = await readAnswer({ cwd, driver, config: config2, address, onUsage });
+  let subject = address.fallbackSubject;
+  let body;
+  if (answer.summary !== void 0) {
+    subject = address.reference === "" ? answer.summary : `${address.reference}: ${answer.summary}`;
+    body = answer.body;
+  } else {
+    onProgress?.(`${answer.failure} \u2014 committing under '${address.fallbackSubject}' instead`);
+  }
+  return buildRunCommitMessage({ subject, body, unit: address.unit, runId });
 };
 
 // src/commit/commitRunWork.ts
-var commitRunWork = async ({ run, subject, resumed }) => {
+var commitRunWork = async ({ run, driver, address, resumed }) => {
   const manifest = run.current();
   const generated = run.config.generated ?? [];
   const changed = manifest.changedFiles.filter((path) => !isGeneratedPath({ path, generated }));
@@ -142817,13 +143022,22 @@ var commitRunWork = async ({ run, subject, resumed }) => {
   } catch {
     return `${run.cwd} could not be read, so this run's records could not be found \u2014 nothing was committed`;
   }
-  const line = subject ?? await readRunCommitSubject({ cwd: run.cwd, manifest, config: run.config, onProgress: (message) => run.progress(message) });
+  const onProgress = (message) => run.progress(message);
+  const resolved = address ?? await readRunCommitAddress({ cwd: run.cwd, manifest, config: run.config, onProgress });
   const committed = await commitWorkOrderWork({
     cwd: run.cwd,
-    message: buildRunCommitMessage({ subject: line, runId: manifest.runId }),
+    composeMessage: ({ cwd }) => composeCommitMessage({
+      cwd,
+      driver,
+      config: run.config,
+      address: resolved,
+      runId: manifest.runId,
+      onUsage: ({ usage: usage2 }) => run.recordUsage({ step: "commit-message", usage: usage2 }),
+      onProgress
+    }),
     runDir,
     generated,
-    onProgress: (message) => run.progress(message)
+    onProgress
   });
   if ("error" in committed) {
     return committed.error;
@@ -142835,12 +143049,13 @@ var commitRunWork = async ({ run, subject, resumed }) => {
     run.progress("nothing left to commit \u2014 this unit\u2019s work is already in the branch\u2019s history");
     return void 0;
   }
+  const [subject = ""] = committed.message.split("\n");
   const sha = await readGitHeadCommit({ cwd: run.cwd });
   if (sha === void 0) {
     return `the work in ${run.cwd} was committed but git could not name the commit \u2014 resume the run so the tree is checked again`;
   }
-  await run.update({ patch: { commits: [...manifest.commits, { sha, subject: line, runId: manifest.runId }] } });
-  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${line}`);
+  await run.update({ patch: { commits: [...manifest.commits, { sha, subject, runId: manifest.runId }] } });
+  run.progress(`committed ${sha.slice(0, 7)} \u2014 ${subject}`);
   return void 0;
 };
 
@@ -159273,7 +159488,7 @@ var recheckUnreachable = async ({ run }) => {
 };
 var finishRun = async ({ run, resumed }) => {
   await recheckUnreachable({ run });
-  const uncommitted = await commitRunWork({ run, resumed });
+  const uncommitted = await commitRunWork({ run, driver: run.driver, resumed });
   let result;
   if (uncommitted === void 0) {
     await removeApprovedTests({ run });
@@ -159744,9 +159959,9 @@ var stopDirectRun = async ({ run, record: record3, status, error: error51 }) => 
 };
 
 // src/direct/common/utils/finishDirectRun.ts
-var finishDirectRun = async ({ run, ticketRef, ticketBody, resumed }) => {
-  const subject = `${ticketRef} ${headingOf({ text: ticketBody })}`.trim();
-  const uncommitted = await commitRunWork({ run, subject, resumed });
+var finishDirectRun = async ({ run, driver, ticketRef, ticketBody, resumed }) => {
+  const address = { reference: ticketRef, fallbackSubject: `${ticketRef} ${headingOf({ text: ticketBody })}`.trim(), context: ticketBody };
+  const uncommitted = await commitRunWork({ run, driver, address, resumed });
   if (uncommitted !== void 0) {
     return stopDirectRun({ run, record: nextStepRecord({ run, id: "commit" }), status: RunStatus.Failed, error: uncommitted });
   }
@@ -159880,7 +160095,7 @@ var buildAndVerify = async ({
       return stopDirectOnCrash({ run, record: record3, crashes, gateError });
     }
     if (gateError === void 0) {
-      return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+      return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
     }
     errorContext = gateError;
     if (attempt === maxCheapFixRetries) {
@@ -159907,7 +160122,7 @@ var executeDirectWork = async ({
   const stop = ({ record: record3, status, error: error51 }) => stopDirectRun({ run, record: record3, status, error: error51 });
   await run.update({ patch: { status: RunStatus.Running } });
   if (run.current().steps.some((step) => step.id === "verify" && step.status === RunStatus.Passed)) {
-    return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+    return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
   }
   const redBaseline = existing === void 0 ? await runPreflightGate({
     run: {
@@ -160995,12 +161210,25 @@ var writeBranchState = async ({ cwd, branch, phase, onProgress }) => {
 var isParkedOutcome = ({ outcome }) => !outcome.ready && outcome.open === void 0;
 
 // src/queue/nameWaveWorkOrders.ts
+var creationModeByWorker = {
+  [QueueWorker.Direct]: WorkOrderMode.SinglePlan,
+  [QueueWorker.Plan]: WorkOrderMode.SinglePlan,
+  [QueueWorker.AutoPlan]: void 0
+};
 var nameOne = async ({ cwd, config: config2, env, driver, ticket, onProgress }) => {
   const existing = await findWorkOrderByTicketRef({ cwd, ticketRef: ticket.identifier });
   if (existing !== void 0) {
     return { name: existing.name, branch: existing.record.branch };
   }
-  const created = await createWorkOrder({ cwd, ticketRef: ticket.identifier, config: config2, env, driver, onProgress }).catch((thrown) => ({
+  const created = await createWorkOrder({
+    cwd,
+    ticketRef: ticket.identifier,
+    mode: creationModeByWorker[ticket.worker],
+    config: config2,
+    env,
+    driver,
+    onProgress
+  }).catch((thrown) => ({
     error: `no work order could be created for ${ticket.identifier}: ${messageOf({ error: thrown })}`
   }));
   return "error" in created ? created : { name: created.name, branch: created.branch };
@@ -161970,7 +162198,9 @@ var settleWorkerOutcome = async ({
   defaultBranch,
   ticket,
   workOrderRunDir,
-  generated,
+  config: config2,
+  driver,
+  coordinatorRunId,
   worked,
   onProgress
 }) => {
@@ -161981,11 +162211,12 @@ var settleWorkerOutcome = async ({
     await writeBranchState({ cwd, branch, phase: BranchPhase.Open, onProgress });
     return { ready: false, open: worked.open, error: void 0, unanswered: void 0 };
   }
+  const address = { reference: ticket.identifier, fallbackSubject: `${ticket.identifier} ${ticket.title}`, context: ticket.title };
   const committed = await commitWorkOrderWork({
     cwd: worktreePath,
-    message: `${ticket.identifier} ${ticket.title}`,
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: coordinatorRunId, onProgress }),
     runDir: workOrderRunDir,
-    generated,
+    generated: config2.generated,
     onProgress
   });
   if ("error" in committed) {
@@ -162002,8 +162233,8 @@ var settleWorkerOutcome = async ({
   return { ready: true };
 };
 
-// src/queue/workers/common/utils/buildFromTicketBody.ts
-var toBuildOutcome = ({ outcome }) => {
+// src/queue/workers/common/utils/toWorkerOutcome.ts
+var toWorkerOutcome = ({ outcome, onFailedRun }) => {
   if ("refusal" in outcome) {
     return { error: outcome.refusal };
   }
@@ -162011,19 +162242,56 @@ var toBuildOutcome = ({ outcome }) => {
   if (result.ok) {
     return recordError === void 0 ? {} : { error: recordError };
   }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+  return onFailedRun({ stated: result.error ?? `the run ended ${result.manifest.status}`, result });
 };
+
+// src/queue/workers/common/utils/buildFromTicketBody.ts
 var buildFromTicketBody = async ({ step }) => {
   const { cwd, record: record3, plan, ticket, config: config2, driver, driverName, onProgress } = step;
-  onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
-  return toBuildOutcome({
-    outcome: await runWorkOrderPlanLifecycle({
-      cwd,
-      name: formatPlanAddress({ workOrderName: record3.name, planId: plan.id }),
-      run: ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress })
+  const run = ({ runId }) => runDirectWork({ cwd, ticketBody: ticket.description, ticketRef: ticket.identifier, runId, driver, driverName, config: config2, onProgress });
+  let outcome;
+  if (plan === void 0) {
+    onProgress?.(`${ticket.identifier} holds no plan on work order ${record3.name}, so it is built from the ticket body`);
+    outcome = await runWorkOrderBodyBuildLifecycle({ cwd, workOrderName: record3.name, run });
+  } else {
+    onProgress?.(`${ticket.identifier} carries no plan deliverable for plan ${plan.id}, so it is built from the ticket body`);
+    outcome = await runWorkOrderPlanLifecycle({ cwd, name: formatPlanAddress({ workOrderName: record3.name, planId: plan.id }), run });
+  }
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => ({
+      error: plan === void 0 ? `${stated} \u2014 the queue builds ${ticket.identifier} from the ticket body again the next time it picks the ticket up` : `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree`
     })
   });
+};
+
+// src/queue/workers/common/utils/decideTicketOutcome.ts
+var decideTicketOutcome = ({ record: record3 }) => {
+  const eligibility = readWorkOrderShipEligibility({ record: record3 });
+  if (eligibility.eligible) {
+    return {};
+  }
+  return record3.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
+};
+
+// src/queue/workers/common/utils/buildPlanlessWorkOrder.ts
+var buildPlanlessWorkOrder = async ({ step, workOrderName }) => {
+  const { cwd, record: record3 } = step;
+  if (record3.ticketBodyBuild?.progress === PlanProgress.Implemented) {
+    return decideTicketOutcome({ record: record3 });
+  }
+  const built = await buildFromTicketBody({ step });
+  if (built.error !== void 0 || built.open !== void 0) {
+    return built;
+  }
+  const reread = await readWorkOrderState({ cwd, name: workOrderName });
+  if ("error" in reread) {
+    return { error: reread.error };
+  }
+  if (reread.record === void 0) {
+    return { error: `work order ${workOrderName} no longer has a record after its build from the ticket body` };
+  }
+  return decideTicketOutcome({ record: reread.record });
 };
 
 // src/queue/workers/common/utils/findStalledPlanRefusal.ts
@@ -162037,12 +162305,16 @@ var findStalledPlanRefusal = ({ record: record3, plan }) => {
 
 // src/queue/workers/common/utils/commitPlanWork.ts
 var commitPlanWork = async ({ step }) => {
-  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, onProgress } = step;
-  const subject = `${ticket.identifier} ${plan.id}: ${plan.title}`;
-  const runId = plan.implementation?.runId;
+  const { cwd, record: record3, plan, ticket, workOrderRunDir, config: config2, driver, onProgress } = step;
+  const address = {
+    reference: ticket.identifier,
+    fallbackSubject: `${ticket.identifier} ${plan.id}: ${plan.title}`,
+    context: `Plan ${plan.id}: ${plan.title}`,
+    unit: plan.id
+  };
   const committed = await commitWorkOrderWork({
     cwd,
-    message: runId === void 0 ? subject : buildRunCommitMessage({ subject, runId }),
+    composeMessage: ({ cwd: worktree }) => composeCommitMessage({ cwd: worktree, driver, config: config2, address, runId: plan.implementation?.runId, onProgress }),
     runDir: workOrderRunDir,
     generated: config2.generated,
     onProgress
@@ -162073,19 +162345,14 @@ var runPlanFolderPipeline = async ({ cwd, name, config: config2, driver, onProgr
       cwd,
       name,
       label: "implement",
-      statusOf: ({ result: result2 }) => result2.manifest.status,
+      statusOf: ({ result }) => result.manifest.status,
       work: ({ level }) => phased ? runPhasesPipeline({ cwd, driver, config: config2, overviewPath, runId, level, onProgress }) : runImplementPipeline({ cwd, driver, config: config2, planPath: join147(folder, "plan.md"), runId, level, onProgress })
     })
   });
-  if ("refusal" in outcome) {
-    return { error: outcome.refusal };
-  }
-  const { result, recordError } = outcome;
-  if (result.ok) {
-    return recordError === void 0 ? {} : { error: recordError };
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return { error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` };
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => ({ error: `${stated} \u2014 \`lightsout resume --run ${result.manifest.runId}\` continues it from the worktree` })
+  });
 };
 
 // src/queue/workers/buildWorkOrderPlans.ts
@@ -162135,13 +162402,6 @@ var confirmPlanImplemented = async ({ step, workOrderName }) => {
   }
   return { record: record3 };
 };
-var decideTicketOutcome = ({ record: record3 }) => {
-  const eligibility = readWorkOrderShipEligibility({ record: record3 });
-  if (eligibility.eligible) {
-    return {};
-  }
-  return record3.mode === WorkOrderMode.MultiplePlan ? { open: eligibility.reason } : { error: eligibility.reason };
-};
 var buildWorkOrderPlans = async ({
   cwd,
   workOrderName,
@@ -162155,6 +162415,9 @@ var buildWorkOrderPlans = async ({
   allowTicketBodyBuild,
   onProgress
 }) => {
+  if (allowTicketBodyBuild && isPlanlessWorkOrder({ record: record3 })) {
+    return buildPlanlessWorkOrder({ step: { cwd, record: record3, ticket, config: config2, env, driver, driverName, workOrderRunDir, onProgress }, workOrderName });
+  }
   const leftover = await readLeftoverWork({ cwd, config: config2 });
   let current = record3;
   let settled2 = false;
@@ -162317,6 +162580,7 @@ var runAutoPlanWorker = async ({
 // src/queue/workers/runWorkerWithRelay.ts
 var runDirectWorker = async ({
   cwd,
+  workOrderName,
   ticket,
   config: config2,
   driver,
@@ -162324,21 +162588,25 @@ var runDirectWorker = async ({
   answeredQuestion,
   onProgress
 }) => {
-  const result = await runDirectWork({
+  const outcome = await runWorkOrderBodyBuildLifecycle({
     cwd,
-    ticketBody: ticket.description,
-    ticketRef: ticket.identifier,
-    driver,
-    driverName,
-    config: config2,
-    answeredQuestion,
-    onProgress
+    workOrderName,
+    run: ({ runId }) => runDirectWork({
+      cwd,
+      ticketBody: ticket.description,
+      ticketRef: ticket.identifier,
+      runId,
+      driver,
+      driverName,
+      config: config2,
+      answeredQuestion,
+      onProgress
+    })
   });
-  if (result.ok) {
-    return {};
-  }
-  const stated = result.error ?? `the run ended ${result.manifest.status}`;
-  return result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated };
+  return toWorkerOutcome({
+    outcome,
+    onFailedRun: ({ stated, result }) => result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated }
+  });
 };
 var runPlanWorker = async ({
   cwd,
@@ -162379,7 +162647,7 @@ var runPlanWorker = async ({
     }
     if (restored.restored.length === 0) {
       onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
-      return runDirectWorker({ cwd, ticket, config: config2, driver, driverName, onProgress });
+      return runDirectWorker({ cwd, workOrderName, ticket, config: config2, driver, driverName, onProgress });
     }
   }
   return runPlanFolderPipeline({ cwd, name: workOrderName, config: config2, driver, onProgress });
@@ -162404,7 +162672,7 @@ var runWorkerWithRelay = async ({
   let answeredQuestion;
   for (let turn = 0; ; turn += 1) {
     const workers = {
-      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
+      [QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, workOrderName, ticket, config: config2, driver, driverName, answeredQuestion, onProgress }),
       [QueueWorker.Plan]: () => runPlanWorker({ cwd: worktreePath, ticket, workOrderName, config: config2, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
       [QueueWorker.AutoPlan]: () => runAutoPlanWorker({
         cwd: worktreePath,
@@ -162513,7 +162781,9 @@ var runQueueWorkOrder = async ({
     defaultBranch,
     ticket,
     workOrderRunDir,
-    generated: config2.generated,
+    config: config2,
+    driver,
+    coordinatorRunId,
     worked,
     onProgress
   });
@@ -166642,6 +166912,8 @@ var renderWorkOrderState = ({ record: record3 }) => [
     const excluded = plan.exclusion === void 0 ? "" : ` \u2014 excluded: ${plan.exclusion.reason}`;
     return `  ${plan.id} \u2014 ${plan.title} \u2014 ${describePlanProgress({ progress: plan.progress })}${excluded}`;
   }),
+  // A work order holding no plan 001 ships on its build from the ticket body, so that build is shown like a plan.
+  ...record3.ticketBodyBuild === void 0 ? [] : [`  built from the ticket body \u2014 ${describePlanProgress({ progress: record3.ticketBodyBuild.progress })}`],
   record3.shipRequest === void 0 ? "no ship request is pending, so this work order stays open" : `ship request: ${record3.shipRequest.planIds.join(", ")} \u2014 the work order ships once every one of them is implemented`,
   ...record3.shipped === void 0 ? [] : [`shipped as ${record3.shipped.mergeCommit}`]
 ];

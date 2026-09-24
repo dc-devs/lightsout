@@ -34,6 +34,12 @@ const setupPolicyRun = async ({ config }: { config?: Record<string, unknown> } =
 					return { text: reviewReport(), exitCode: 0 };
 				}
 
+				// The commit-message agent runs read-only by design, so it is not one
+				// of the working roles whose permission level these cases pin.
+				if (role === 'commit-message') {
+					return { text: JSON.stringify({ summary: 'add the feature' }), exitCode: 0 };
+				}
+
 				invocations.push({ role, permissions });
 
 				if (role === 'write-tests') {

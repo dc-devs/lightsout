@@ -177,6 +177,7 @@ export {
 	StandardsView,
 } from '#src/contracts/views/index.ts';
 export {
+	CommitMessage,
 	SupervisorDecision,
 	SupervisorVerdict,
 	TestChangeReview,
