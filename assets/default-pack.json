@@ -1,6 +1,6 @@
 {
   "name": "lightsout-defaults",
-  "description": "The default TypeScript pack: architecture, style, documentation and unit-testing rules, 52 of them enforced by code.",
+  "description": "The default TypeScript pack: architecture, style, documentation and unit-testing rules, 53 of them enforced by code.",
   "homepage": "https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript",
   "isDefault": true,
   "rootPath": "packages/standards-typescript",
@@ -13,11 +13,11 @@
     "tanstack"
   ],
   "totals": {
-    "rules": 111,
-    "checked": 52,
+    "rules": 112,
+    "checked": 53,
     "judgment": 59,
     "documents": 24,
-    "withFixtures": 111
+    "withFixtures": 112
   },
   "documents": [
     {
@@ -294,6 +294,7 @@
         "test-assert-in-hook",
         "test-multiple-setups",
         "test-strict-equal-matcher",
+        "test-never-passing-assertion",
         "assertions-pin-contracts",
         "setup-factories",
         "oversized-setup-factory",
@@ -3956,6 +3957,33 @@
           "side": "fail",
           "path": "subject.unit.test.ts",
           "text": "import { expect, describe, test } from '@jest/globals';\nimport { getLabel } from './index';\n\ndescribe('getLabel', () => {\n\tdescribe('padded names', () => {\n\t\ttest('trims it', () => {\n\t\t\tconst label = getLabel({ name: ' Ada ' });\n\n\t\t\texpect(label).toBe('Ada');\n\t\t});\n\t});\n});\n"
+        }
+      ]
+    },
+    {
+      "id": "test-never-passing-assertion",
+      "set": "tests",
+      "documentPath": "tests/unit-testing",
+      "summary": "an assertion written so that it can never pass — `expect.objectContaining` pairing a key with `undefined`",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "blocking",
+      "defaultSettings": {},
+      "fixtureCounts": {
+        "pass": 1,
+        "fail": 1
+      },
+      "prose": "### Assertions That Can Never Pass\n\nAn assertion that no implementation can satisfy is found by a failed run, and whoever reads the red test has to prove by hand that the test, not the code, is wrong. Write each assertion in a form whose meaning matches how it reads.\n\n- **`expect.objectContaining` never takes an `undefined` value.** It reads as \"the object has these values\", so `expect.objectContaining({ ticketRef: undefined })` reads as \"and `ticketRef` is absent\" — but the matcher first requires every key it names to be present. An object without the key never matches, and an object read back from disk never has it: `JSON.stringify` drops a key holding `undefined`. Say what you mean instead:\n  - the key is absent — drop it from the matcher and compare `Object.hasOwn(value, 'ticketRef')` against `false`;\n  - the value is undefined, whether or not the key exists — assert `value.ticketRef` with `toBe(undefined)`.\n\n```typescript\n// ❌ never passes against a record read from disk — the key is not there to compare\nexpect(readRecord({ cwd, name })).toEqual(expect.objectContaining({ name, ticketRef: undefined }));\n\n// ✅ states absence in a form that can pass\nconst record = readRecord({ cwd, name });\n\nexpect({ name: record.name, carriesTicketRef: Object.hasOwn(record, 'ticketRef') }).toStrictEqual({ name, carriesTicketRef: false });\n```",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "subject.unit.test.ts",
+          "text": "import { expect, describe, test } from '@jest/globals';\n\ndescribe('subject', () => {\n\ttest('reads back a record written without a ticket', () => {\n\t\tconst record = JSON.parse('{\"name\":\"add-search-basics\"}');\n\n\t\texpect({ name: record.name, carriesTicketRef: Object.hasOwn(record, 'ticketRef') }).toStrictEqual({\n\t\t\tname: 'add-search-basics',\n\t\t\tcarriesTicketRef: false,\n\t\t});\n\t});\n});\n"
+        },
+        {
+          "side": "fail",
+          "path": "subject.unit.test.ts",
+          "text": "import { expect, describe, test } from '@jest/globals';\n\ndescribe('subject', () => {\n\ttest('reads back a record written without a ticket', () => {\n\t\tconst record = JSON.parse('{\"name\":\"add-search-basics\"}');\n\n\t\texpect(record).toEqual(expect.objectContaining({ name: 'add-search-basics', ticketRef: undefined }));\n\t});\n});\n"
         }
       ]
     },
