@@ -6,9 +6,10 @@ interface Params {
 }
 
 /**
- * One ticket's label, as a board cell and a detail block's heading show it:
- * `ID · Title`, linked to the ticket when the board recorded a link. With no
- * title it is the identifier alone, and with no link it is left unlinked.
+ * One ticket's label, as a detail block's heading shows it: `ID · Title`,
+ * linked to the ticket when the board recorded a link. With no title it is the
+ * identifier alone — what a board cell shows — and with no link it is left
+ * unlinked, as the board's detail list shows it.
  */
 export const formatTicketLink = ({ ticket }: Params): string => {
 	const title = ticket.title === undefined ? '' : toInlineMarkdown({ text: ticket.title });

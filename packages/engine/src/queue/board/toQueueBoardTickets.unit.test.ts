@@ -91,9 +91,9 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, at });
 
 		expect(laneRows(tickets)).toEqual([
+			{ identifier: 'LO-3', lane: 'parked', reason: 'The lint gate failed' },
 			{ identifier: 'LO-1', lane: 'shipped', reason: undefined },
 			{ identifier: 'LO-2', lane: 'shipped', reason: 'Linear refused the Done write' },
-			{ identifier: 'LO-3', lane: 'parked', reason: 'The lint gate failed' },
 		]);
 	});
 
@@ -134,9 +134,9 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, at });
 
 		expect(laneRows(tickets)).toEqual([
+			{ identifier: 'LO-5', lane: 'blocked', reason: 'Blocked by LO-9, which is not finished' },
 			{ identifier: 'LO-4', lane: 'shipped', reason: 'Linear refused the Done write' },
 			{ identifier: 'LO-6', lane: 'shipped', reason: undefined },
-			{ identifier: 'LO-5', lane: 'blocked', reason: 'Blocked by LO-9, which is not finished' },
 		]);
 	});
 
@@ -155,10 +155,10 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, at });
 
 		expect(tickets).toEqual([
-			expect.objectContaining({ identifier: 'LO-7', enteredAt: '2026-09-10T12:00:00.000Z' }),
-			expect.objectContaining({ identifier: 'LO-9', enteredAt: '2026-09-10T12:00:00.000Z' }),
 			expect.objectContaining({ identifier: 'LO-8', enteredAt: '2026-09-10T12:00:00.000Z' }),
 			expect.objectContaining({ identifier: 'LO-10', enteredAt: '2026-09-10T12:00:00.000Z' }),
+			expect.objectContaining({ identifier: 'LO-7', enteredAt: '2026-09-10T12:00:00.000Z' }),
+			expect.objectContaining({ identifier: 'LO-9', enteredAt: '2026-09-10T12:00:00.000Z' }),
 		]);
 	});
 
@@ -196,7 +196,6 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, live, at });
 
 		expect(tickets).toEqual([
-			expect.objectContaining({ identifier: 'LO-72', lane: 'building', buildStartedAt: '2026-09-10T11:00:00.000Z' }),
 			expect.objectContaining({
 				identifier: 'LO-73',
 				lane: 'blocked',
@@ -204,6 +203,7 @@ describe('toQueueBoardTickets', () => {
 				question: 'Should the board keep an empty lane?',
 				buildStartedAt: '2026-09-10T11:05:00.000Z',
 			}),
+			expect.objectContaining({ identifier: 'LO-72', lane: 'building', buildStartedAt: '2026-09-10T11:00:00.000Z' }),
 		]);
 	});
 
@@ -217,9 +217,9 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, live, at });
 
 		expect(tickets).toEqual([
+			expect.objectContaining({ identifier: 'LO-76', lane: 'blocked', reason: 'Blocked by LO-99, which is not finished' }),
 			expect.objectContaining({ identifier: 'LO-74', lane: 'ship-queue', branch: 'lo-74-ship-me', worktreePath: '/worktrees/app/lo-74-ship-me' }),
 			expect.objectContaining({ identifier: 'LO-75', lane: 'shipping-now', branch: 'lo-75-merging', worktreePath: '/worktrees/app/lo-75-merging' }),
-			expect.objectContaining({ identifier: 'LO-76', lane: 'blocked', reason: 'Blocked by LO-99, which is not finished' }),
 		]);
 	});
 
@@ -276,11 +276,11 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, live, at });
 
 		expect(tickets.map(({ identifier, workOrderName }) => ({ identifier, workOrderName }))).toStrictEqual([
+			{ identifier: 'LO-95', workOrderName: undefined },
 			{ identifier: 'LO-91', workOrderName: 'lo-91-plan-the-board' },
 			{ identifier: 'LO-92', workOrderName: 'lo-92-build-the-board' },
 			{ identifier: 'LO-93', workOrderName: 'lo-93-ship-the-board' },
 			{ identifier: 'LO-94', workOrderName: 'lo-94-ticket-id-94' },
-			{ identifier: 'LO-95', workOrderName: undefined },
 		]);
 	});
 
@@ -362,6 +362,10 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, live, at });
 
 		expect(tickets.map(({ identifier, lane }) => ({ identifier, lane }))).toStrictEqual([
+			{ identifier: 'LO-21', lane: 'parked' },
+			{ identifier: 'LO-9', lane: 'blocked' },
+			{ identifier: 'LO-3', lane: 'blocked' },
+			{ identifier: 'LO-62', lane: 'blocked' },
 			{ identifier: 'LO-90', lane: 'build-queue' },
 			{ identifier: 'LO-12', lane: 'build-queue' },
 			{ identifier: 'LO-55', lane: 'build-queue' },
@@ -369,10 +373,6 @@ describe('toQueueBoardTickets', () => {
 			{ identifier: 'LO-30', lane: 'ship-queue' },
 			{ identifier: 'LO-31', lane: 'shipping-now' },
 			{ identifier: 'LO-20', lane: 'shipped' },
-			{ identifier: 'LO-21', lane: 'parked' },
-			{ identifier: 'LO-9', lane: 'blocked' },
-			{ identifier: 'LO-3', lane: 'blocked' },
-			{ identifier: 'LO-62', lane: 'blocked' },
 		]);
 	});
 
@@ -388,9 +388,9 @@ describe('toQueueBoardTickets', () => {
 		const tickets = toQueueBoardTickets({ settled, live, at });
 
 		expect(tickets.map(({ identifier, title, url }) => ({ identifier, title, url }))).toEqual([
-			{ identifier: 'LO-86', title: 'Show the board', url: 'https://linear.app/lightsout/issue/LO-86' },
 			{ identifier: 'LO-87', title: undefined, url: undefined },
 			{ identifier: 'LO-88', title: 'Pick one label', url: 'https://linear.app/lightsout/issue/LO-88' },
+			{ identifier: 'LO-86', title: 'Show the board', url: 'https://linear.app/lightsout/issue/LO-86' },
 		]);
 	});
 });

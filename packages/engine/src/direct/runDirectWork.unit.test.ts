@@ -6,7 +6,8 @@ import { runDirectWork } from '#src/direct/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { GateRunResult } from '#src/gates/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { createRun, resolveRunDir } from '#src/runState/index.ts';
+import { createRun, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
+import { getRunProgress } from '#src/views/index.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -149,6 +150,30 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		expect((await run()).manifest.willShip).toBeUndefined();
+	});
+
+	test('lists every step it will take from its first moment, with the steps it has not reached shown pending', async () => {
+		const { cwd, run } = setupDirectRun();
+		const runId = '20260924-step-order';
+		const rowsAtStart: { id: string; status: RunStatus | undefined }[] = [];
+
+		mockRunGates.mockImplementationOnce(async () => {
+			const progress = await getRunProgress({ cwd, manifest: await readRunManifest({ cwd, runId }), lock: undefined });
+
+			rowsAtStart.push(...progress.rows.map(({ id, status }) => ({ id, status })));
+
+			return { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined };
+		});
+
+		const result = await run({ runId });
+
+		// read while the pre-flight gate runs — the first step, before any agent
+		expect(rowsAtStart).toStrictEqual([
+			{ id: 'pre-flight', status: RunStatus.Running },
+			{ id: 'implement', status: undefined },
+			{ id: 'verify', status: undefined },
+		]);
+		expect(result.manifest.stepOrder).toStrictEqual(['pre-flight', 'implement', 'verify']);
 	});
 
 	test('writes a ticket body that already ends in a newline without adding a second one', async () => {

@@ -206,8 +206,8 @@ describe('QueueBoardRecorder', () => {
 		const board = await readBoardFile();
 
 		expect(placesOf(board)).toStrictEqual([
-			{ identifier: 'LO-71', lane: 'build-queue' },
 			{ identifier: 'LO-74', lane: 'blocked' },
+			{ identifier: 'LO-71', lane: 'build-queue' },
 		]);
 	});
 
