@@ -33,10 +33,17 @@ jest.mock('#src/direct/index.ts', () => ({
 // -------------------------
 // The commit is stubbed rather than run: a refused commit is one of the cases
 // stated here, and git refuses on its own terms rather than on demand.
-const mockCommitTicketWork = jest.fn<(params: { cwd: string; message: string; runDir: string }) => Promise<{ committed: boolean } | QueueFailure>>();
+const mockCommitTicketWork =
+	jest.fn<
+		(params: {
+			cwd: string;
+			composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
+			runDir: string;
+		}) => Promise<{ committed: false } | { committed: true; message: string } | QueueFailure>
+	>();
 
 jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({
-	commitWorkOrderWork: (params: { cwd: string; message: string; runDir: string }) => mockCommitTicketWork(params),
+	commitWorkOrderWork: (params: { cwd: string; composeMessage: ({ cwd }: { cwd: string }) => Promise<string>; runDir: string }) => mockCommitTicketWork(params),
 }));
 // -------------------------
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();

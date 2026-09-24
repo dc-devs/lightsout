@@ -1,3 +1,4 @@
+export { CommitMessage } from '#src/contracts/work/CommitMessage.ts';
 export { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
 export { SupervisorVerdict } from '#src/contracts/work/SupervisorVerdict.ts';
 export { TestChangeReview } from '#src/contracts/work/TestChangeReview.ts';

@@ -122,7 +122,7 @@ const buildAndVerify = async ({
 		}
 
 		if (gateError === undefined) {
-			return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+			return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
 		}
 
 		errorContext = gateError;
@@ -175,7 +175,7 @@ const executeDirectWork = async ({
 	await run.update({ patch: { status: RunStatus.Running } });
 
 	if (run.current().steps.some((step) => step.id === 'verify' && step.status === RunStatus.Passed)) {
-		return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+		return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
 	}
 
 	const redBaseline =

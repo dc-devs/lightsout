@@ -4,13 +4,16 @@ import { headingOf } from '#src/common/utils/headingOf.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import { nextStepRecord } from '#src/direct/common/utils/nextStepRecord.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
+import type { Driver } from '#src/drivers/index.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
 
 interface Params {
 	run: RunState;
+	/** The harness the direct pipeline holds — handed to the commit step for the commit-message agent. */
+	driver: Driver;
 	/** The run's label, which prefixes the commit subject. */
 	ticketRef: string;
-	/** The frozen ticket body; its first heading is the rest of the subject. */
+	/** The frozen ticket body: the reason handed to the commit-message agent, and its first heading completes the fallback subject. */
 	ticketBody: string;
 	/** Whether this run adopted an existing manifest rather than minting one — forwarded to the commit step, which compares the tree for unowned edits only on a resume. */
 	resumed: boolean;
@@ -28,9 +31,9 @@ interface Params {
  * gate step, so the gates that did pass keep saying so and a resume pays for
  * the commit alone.
  */
-export const finishDirectRun = async ({ run, ticketRef, ticketBody, resumed }: Params): Promise<PipelineResult> => {
-	const subject = `${ticketRef} ${headingOf({ text: ticketBody })}`.trim();
-	const uncommitted = await commitRunWork({ run, subject, resumed });
+export const finishDirectRun = async ({ run, driver, ticketRef, ticketBody, resumed }: Params): Promise<PipelineResult> => {
+	const address = { reference: ticketRef, fallbackSubject: `${ticketRef} ${headingOf({ text: ticketBody })}`.trim(), context: ticketBody };
+	const uncommitted = await commitRunWork({ run, driver, address, resumed });
 
 	if (uncommitted !== undefined) {
 		return stopDirectRun({ run, record: nextStepRecord({ run, id: 'commit' }), status: RunStatus.Failed, error: uncommitted });
