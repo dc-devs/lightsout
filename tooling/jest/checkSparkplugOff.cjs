@@ -1,4 +1,3 @@
-/** Why this process must not run the suite, or undefined when it may. */
 const getSparkplugOnMessage = ({ execArgv }) =>
 	execArgv.includes('--no-sparkplug')
 		? undefined
@@ -15,14 +14,7 @@ const getSparkplugOnMessage = ({ execArgv }) =>
 				'',
 			].join('\n');
 
-/**
- * Jest runs this once per project before any worker starts, and the workers
- * inherit this process's Node flags, so checking here covers them too.
- * Throwing stops the run outright. Otherwise a run started as plain `jest`
- * would lose a suite to the crash some of the time, reported as a test failure
- * somewhere unrelated. runJest.cjs holds the evidence and says when the flag
- * can come out.
- */
+// Workers inherit the parent's Node flags, so checking the parent covers them.
 module.exports = async () => {
 	const message = getSparkplugOnMessage({ execArgv: process.execArgv });
 

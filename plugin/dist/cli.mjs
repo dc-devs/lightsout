@@ -125534,43 +125534,15 @@ var ShipBlockReason = {
   IntegrationConflict: "integration-conflict",
   /** The integrated branch did not pass the repository's own gates within the repair allowance. */
   IntegrationGatesFailed: "integration-gates-failed",
-  /**
-   * The integrated branch was never judged at all, because the shared gate
-   * reservation could not be had: another gate run held the machine for longer
-   * than the wait allows.
-   *
-   * Separate from `IntegrationGatesFailed` because no gate command ran, so
-   * there is no verdict about the code and no repair to spend — and because a
-   * ticket-backed ship takes a durable hold on exactly this reason and on no
-   * other.
-   */
+  /** Another gate run held the machine past the wait, so no gate ran. A ticket-backed ship holds on this reason. */
   IntegrationGatesUnavailable: "integration-gates-unavailable",
-  /**
-   * A gate on the integrated branch crashed on every attempt, its test runner
-   * dying without reporting a failing test, so no verdict about the code exists
-   * and no repair was spent.
-   *
-   * Separate from `IntegrationGatesFailed` so that a failure and a crash no
-   * longer share one reason.
-   */
+  /** A gate on the integrated branch crashed on every attempt; no repair was spent. */
   IntegrationGatesCrashed: "integration-gates-crashed",
-  /**
-   * A gate on the integrated branch ran past its `timeouts.gate-minutes`
-   * ceiling on every attempt, so no verdict about the code exists and no repair
-   * was spent.
-   */
+  /** A gate on the integrated branch ran past its ceiling on every attempt; no repair was spent. */
   IntegrationGatesTimedOut: "integration-gates-timed-out",
   /** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
   ChecksMissing: "checks-missing",
-  /**
-   * The branch's ticket record does not authorize shipping: a multiple-plan
-   * ticket with no satisfied ship request, a single-plan ticket whose plan 001's
-   * implementation has not finished, or a published record that diverged from
-   * this machine's copy or could not be read at all.
-   *
-   * Checked twice — once before anything is pushed, and again immediately before
-   * the merge — so a plan added while the checks were running still stops it.
-   */
+  /** The work order does not authorize shipping. Checked before the push and again before the merge. */
   WorkOrderNotAuthorized: "ticket-not-authorized"
 };
 
@@ -126483,7 +126455,7 @@ var GateEnding = {
   Passed: "passed",
   /** A red that is evidence about the code — a gate that failed to spawn included. */
   Failed: "failed",
-  /** A test runner that died without reporting a failing test — usually V8's worker crash, nodejs/node#62393. */
+  /** The test runner died without reporting a failing test. */
   Crashed: "crashed",
   /** Stopped by its own ceiling, `timeouts.gate-minutes`, before it returned an exit code. */
   Timeout: "timeout"
@@ -130887,12 +130859,7 @@ var GateResult = external_exports.object({
   reason: external_exports.string().optional(),
   /** Last 2000 chars of stdout+stderr — present only on non-zero exit. */
   outputTail: external_exports.string().optional(),
-  /**
-   * Repo-relative directory this execution's per-test results were written to.
-   * Absent on a scoped skip, and on any execution the engine had no run folder
-   * for. The checkpoint reads exactly the directory the gate it observed wrote
-   * to, so the path travels with the evidence rather than being re-derived.
-   */
+  /** Repo-relative directory this execution's per-test results were written to. */
   testResultsDir: external_exports.string().optional()
 });
 

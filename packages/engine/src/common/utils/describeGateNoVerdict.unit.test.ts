@@ -45,8 +45,6 @@ describe('describeGateNoVerdict', () => {
 
 		const reason = describeGateNoVerdict({ result }) ?? '';
 
-		// the crash leads, and the timeout line is not stated as the reason; the
-		// raw output still names the gate that ran past its ceiling
 		expect(reason.startsWith(crashLine)).toBe(true);
 		expect(reason).not.toContain(timeoutLine);
 		expect(reason).toContain(gateOutput);

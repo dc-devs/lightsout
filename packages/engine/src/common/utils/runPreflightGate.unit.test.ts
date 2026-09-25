@@ -8,11 +8,6 @@ import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 
 // Mocked Imports
 // -------------------------
-// The gates shell out to the consumer's own check/test/coverage commands —
-// another module's entry point with its own tests, and the one thing that
-// cannot run for real here. What this gate owns is observable with it stubbed:
-// whether it runs at all, what it counts, and what it does with a red result.
-
 interface RunGatesParams {
 	cwd: string;
 	config: LightsoutConfig;
@@ -29,12 +24,7 @@ jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: RunGatesParams) 
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'true' } };
 
-/**
- * A minimal stand-in for the run this gate is handed: the structural slice the
- * gate declares, recording every call instead of touching a manifest on disk.
- * `stop` returns a sentinel so the test can tell "the run ended" apart from
- * "proceed" without knowing either pipeline's result type.
- */
+/** A stand-in run. `stop` returns a sentinel so a test can tell a stopped run from one that proceeds. */
 const setupPreflightGate = ({ steps = [], gateError, gateProgress }: { steps?: StepRecord[]; gateError?: string; gateProgress?: string } = {}) => {
 	mockRunGates.mockImplementation(async ({ onProgress }) => {
 		if (gateProgress !== undefined) {
@@ -96,7 +86,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// undefined is the caller's signal to carry on
 		expect(result).toBe(undefined);
 		expect(setSteps).toStrictEqual([
 			{ id: 'pre-flight', status: 'running', attempts: 1 },
@@ -109,7 +98,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// the run's own stop result is what comes back, so the caller returns it verbatim
 		expect(result).toStrictEqual({ stopped: 'failed' });
 		expect(stops).toStrictEqual([
 			{
@@ -132,7 +120,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// the gates never ran, so nothing here is evidence about the consumer's code
 		expect(result).toStrictEqual({ stopped: 'escalated' });
 		expect(stops).toStrictEqual([
 			{
@@ -142,7 +129,7 @@ describe('runPreflightGate', () => {
 			},
 		]);
 		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
-		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		// not marked passed, so a later attempt runs the baseline again
 		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
 	});
 
@@ -158,7 +145,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// a crashed gate returned no verdict, so nothing here says the consumer's code is red
 		expect(result).toStrictEqual({ stopped: 'escalated' });
 		expect(stops).toStrictEqual([
 			{
@@ -168,7 +154,7 @@ describe('runPreflightGate', () => {
 			},
 		]);
 		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
-		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		// not marked passed, so a later attempt runs the baseline again
 		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
 	});
 
@@ -184,7 +170,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// a timed-out gate returned no verdict, so nothing here says the consumer's code is red
 		expect(result).toStrictEqual({ stopped: 'escalated' });
 		expect(stops).toStrictEqual([
 			{
@@ -196,7 +181,7 @@ describe('runPreflightGate', () => {
 			},
 		]);
 		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');
-		// no passed pre-flight step is recorded, so a later attempt runs the baseline again
+		// not marked passed, so a later attempt runs the baseline again
 		expect(setSteps).toStrictEqual([{ id: 'pre-flight', status: 'running', attempts: 1 }]);
 	});
 
@@ -205,7 +190,6 @@ describe('runPreflightGate', () => {
 
 		const result = await runPreflightGate(args);
 
-		// a resumed run must not spend the gate's minutes on a baseline it already proved
 		expect(result).toBe(undefined);
 		expect(mockRunGates).not.toHaveBeenCalled();
 		expect(setSteps).toStrictEqual([]);

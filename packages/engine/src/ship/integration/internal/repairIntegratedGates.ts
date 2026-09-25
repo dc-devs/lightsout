@@ -44,11 +44,7 @@ const verifyCandidate = async ({
 
 	const gates = await runGates({ cwd, config: integration.config, coverage: true, includeRoot: true, onProgress });
 
-	// A gate run that never started is not a red one. No command executed, so
-	// there is nothing to hand an integrator and nothing to repair — the same
-	// refusal the crash and the timeout below state, for the other reasons a gate
-	// can produce no verdict. Its own reason, because a ticket-backed ship takes a
-	// durable hold on this one and on no other.
+	// No verdict about the code (no run, a crash, a timeout): block, never repair.
 	if (gates.coordination !== undefined) {
 		return {
 			blocked: {
@@ -94,23 +90,9 @@ const verifyCandidate = async ({
 };
 
 /**
- * The bounded gate recovery: prepare the release candidate, run the
- * repository's own gates against it, and hand a red result back to the agent
- * with its exact output.
- *
- * Preparation runs before EVERY verification, this attempt's first and each
- * repaired one after it, so the version a repair changes is still measured
- * against the same pinned base. This is the single hook invocation site of a
- * verification cycle — no caller runs it a second time.
- *
- * Gates run over the whole repository with coverage, rather than over a package
- * scope: the commits being integrated are not this branch's, and nothing has
- * narrowed which packages they touched.
- *
- * A gate that CRASHED, or that ran past its own ceiling, is not handed to the
- * agent and spends no attempt. Neither reached a verdict about the code, and
- * presenting either as a red would spend a repair on a suite that is not broken
- * — the same refusal `runDirectWork` states. Each blocks under its own reason.
+ * Prepares the release candidate, runs the whole repository's gates with
+ * coverage, and hands a red result back to the agent to repair. Preparation
+ * runs before every verification, so each is measured against the same base.
  *
  * @returns undefined once the gates are green, else why the allowance ran out and which families stayed red
  */
