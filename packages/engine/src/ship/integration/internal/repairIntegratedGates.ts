@@ -1,3 +1,4 @@
+import { jestCrashCause } from '#src/common/constants/jestCrashCause.ts';
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
 import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
@@ -63,7 +64,8 @@ const verifyCandidate = async ({
 			blocked: {
 				reason: ShipBlockReason.IntegrationGatesCrashed,
 				detail: [
-					'a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
+					'a gate crashed instead of failing — not a verdict about the code.',
+					jestCrashCause,
 					'No repair was attempted and no repair attempt was spent.',
 					gates.crashes.join('\n'),
 					gates.error ?? '',

@@ -17,7 +17,7 @@ export const GateResult = z.object({
 	exitCode: z.number().optional(),
 	durationMs: z.number().optional(),
 	rerun: z.boolean().optional(),
-	/** Present (always `true`) when this red was the known jest worker crash rather than evidence about the code. */
+	/** Present (always `true`) when this red was a test runner that died without reporting a failing test, rather than evidence about the code. */
 	crashed: z.literal(true).optional(),
 	/** Present (always `true`) when this attempt was stopped by the gate ceiling rather than returning an exit code. */
 	timedOut: z.literal(true).optional(),

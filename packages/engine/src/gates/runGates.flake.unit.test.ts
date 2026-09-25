@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { jestCrashCause } from '#src/common/constants/jestCrashCause.ts';
 import type { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
 import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { runGates } from '#src/gates/runGates.ts';
@@ -178,7 +179,7 @@ test('every crashing attempt is written to the command log and the friction ledg
 	expect(friction[0]?.runId).toBe('r1');
 	expect(friction[0]?.step).toBe('verify-implement');
 	expect(friction[0]?.area).toBe('environment');
-	expect(friction[0]?.detail).toContain('SIGSEGV');
+	expect(friction[0]?.detail).toContain(jestCrashCause);
 });
 
 const ordinaryFailureCases: OrdinaryFailureCase[] = [

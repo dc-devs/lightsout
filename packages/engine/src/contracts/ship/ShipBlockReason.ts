@@ -47,8 +47,9 @@ export const ShipBlockReason = {
 	 */
 	IntegrationGatesUnavailable: 'integration-gates-unavailable',
 	/**
-	 * A gate on the integrated branch died in the known jest worker crash on
-	 * every attempt, so no verdict about the code exists and no repair was spent.
+	 * A gate on the integrated branch crashed on every attempt, its test runner
+	 * dying without reporting a failing test, so no verdict about the code exists
+	 * and no repair was spent.
 	 *
 	 * Separate from `IntegrationGatesFailed` so that a failure and a crash no
 	 * longer share one reason.

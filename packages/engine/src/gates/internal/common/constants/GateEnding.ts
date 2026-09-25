@@ -9,7 +9,7 @@ export const GateEnding = {
 	Passed: 'passed',
 	/** A red that is evidence about the code — a gate that failed to spawn included. */
 	Failed: 'failed',
-	/** The known jest worker crash, with no failing test beside it. */
+	/** A test runner that died without reporting a failing test — usually V8's worker crash, nodejs/node#62393. */
 	Crashed: 'crashed',
 	/** Stopped by its own ceiling, `timeouts.gate-minutes`, before it returned an exit code. */
 	Timeout: 'timeout',

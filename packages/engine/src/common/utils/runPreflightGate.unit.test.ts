@@ -151,7 +151,7 @@ describe('runPreflightGate', () => {
 		mockRunGates.mockResolvedValue({
 			error: 'test: exit -1 (jest worker crash)',
 			failedFamilies: [],
-			crashes: ['test crashed: every attempt died in the known jest worker crash, so this gate never returned a verdict.'],
+			crashes: ['test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'],
 			timeouts: [],
 			coordination: undefined,
 		});
@@ -164,7 +164,7 @@ describe('runPreflightGate', () => {
 			{
 				record: { id: 'pre-flight', status: 'running', attempts: 1 },
 				status: 'escalated',
-				error: expect.stringContaining('test crashed: every attempt died in the known jest worker crash, so this gate never returned a verdict.'),
+				error: expect.stringContaining('test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'),
 			},
 		]);
 		expect(stops[0]?.error).not.toContain('Codebase is not green before refactoring');

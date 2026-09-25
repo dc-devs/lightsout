@@ -78,7 +78,7 @@ interface Params {
  * no gate command executed — so no fix agent may be spent on it, while a caller
  * that reads only `error` still fails closed.
  *
- * A gate whose red is nothing but the known jest worker crash is re-run before
+ * A gate whose red is nothing but a dead test runner is re-run before
  * its exit code is believed, and if it never recovers it is reported through
  * `crashes` as well as `error` — red, but never as a family a fix agent is
  * asked to repair. A gate that runs past its ceiling is re-run once under the

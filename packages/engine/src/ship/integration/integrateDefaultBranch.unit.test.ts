@@ -212,7 +212,7 @@ describe('integrateDefaultBranch', () => {
 				{
 					error: 'test: exited 139 with no verdict',
 					failedFamilies: [],
-					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					crashes: ['test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'],
 					timeouts: [],
 					coordination: undefined,
 				},
@@ -226,7 +226,7 @@ describe('integrateDefaultBranch', () => {
 			expect.objectContaining({
 				reason: 'integration-gates-crashed',
 				paths: [],
-				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+				detail: expect.stringContaining('test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'),
 			}),
 		);
 		expect(invocations).toStrictEqual([]);

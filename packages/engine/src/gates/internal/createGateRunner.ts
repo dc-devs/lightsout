@@ -1,4 +1,5 @@
 import { mkdir, rm } from 'node:fs/promises';
+import { jestCrashCause } from '#src/common/constants/jestCrashCause.ts';
 import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
@@ -145,7 +146,7 @@ const noVerdictPolicy = ({ ending, ceilingMinutes }: { ending: GateEnding; ceili
 			allowance: maxCrashAttempts,
 			suffix: 'jest worker crash',
 			rerun: 'jest worker crash, not a test failure',
-			friction: `crashed: a jest worker was terminated by SIGSEGV with no failing test beside it — the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`,
+			friction: `crashed: Jest died without reporting a failing test — not a verdict about the code, re-run up to ${maxCrashAttempts} times. ${jestCrashCause}`,
 		},
 		[GateEnding.Timeout]: {
 			allowance: maxTimeoutAttempts,
@@ -160,7 +161,7 @@ const noVerdictPolicy = ({ ending, ceilingMinutes }: { ending: GateEnding; ceili
 
 /**
  * The engine's gate-execution policy, as a single reusable `RunGate`: run a
- * command under a hard timeout, re-run it while a known worker crash or the
+ * command under a hard timeout, re-run it while a test-runner crash or the
  * ceiling is the only thing red about it, and record the same evidence to both
  * sinks. Every re-run happens under the reservation `runGates` already holds,
  * and none of them is the fix budget — only a gate that failed spends that.
@@ -224,8 +225,10 @@ export const createGateRunner = ({ cwd, timeoutMs, runId, step, onGateResult, on
 		let outcome = await executeOnce({ kind, command, group });
 		let rerun = false;
 
-		// A jest worker can segfault inside V8 and take down whichever suite it
-		// happened to hold, and a loaded machine can hold a gate past its ceiling.
+		// A jest worker can die in V8's garbage collector (nodejs/node#62393) and
+		// take down whichever suite it happened to hold, in a repository that does
+		// not run Jest under `--no-sparkplug`, and a loaded machine can hold a gate
+		// past its ceiling.
 		// Neither red says anything about the code, so each is re-run on its own
 		// allowance — a crash more than once, because it has landed twice in a row
 		// on the same gate. Every other ending is returned immediately.

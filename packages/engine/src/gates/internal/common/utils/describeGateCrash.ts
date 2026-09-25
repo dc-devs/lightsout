@@ -10,4 +10,4 @@ interface Params {
  * failure, and two spellings of it would read as two different events.
  */
 export const describeGateCrash = ({ label }: Params): string =>
-	`${label} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
+	`${label} crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.`;

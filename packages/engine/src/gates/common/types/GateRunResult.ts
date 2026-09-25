@@ -10,7 +10,8 @@ export interface GateRunResult {
 	failedFamilies: string[];
 	/**
 	 * One operator-readable line per gate the engine could not get a verdict
-	 * out of, because every attempt died in the known jest worker crash. Empty
+	 * out of, because on every attempt its test runner died without reporting a
+	 * failing test. Empty
 	 * on every ordinary run, including one where a crash was absorbed by a
 	 * re-run. A non-empty list always comes with an `error`, so a caller that
 	 * reads nothing but `error` still fails closed.

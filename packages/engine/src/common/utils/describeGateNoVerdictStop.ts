@@ -1,3 +1,5 @@
+import { jestCrashCause } from '#src/common/constants/jestCrashCause.ts';
+
 interface Params {
 	/** The verification step the gate run belonged to. */
 	stepId: string;
@@ -30,8 +32,9 @@ export const describeGateNoVerdictStop = ({ stepId, crashes, timeouts }: Params)
 		? {
 				ending: 'crashed',
 				reason: [
-					`${stepId}: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.`,
-					'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
+					`${stepId}: a gate crashed instead of failing — not a verdict about the code.`,
+					jestCrashCause,
+					'No fix was attempted and no fix attempt was spent.',
 					crashes.join('\n'),
 				].join('\n\n'),
 			}

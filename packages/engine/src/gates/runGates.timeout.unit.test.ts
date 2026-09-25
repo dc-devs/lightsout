@@ -20,7 +20,7 @@ const hangCommand = 'sleep 30';
 const redCheckCommand = `node -e "process.stderr.write('check evidence'); process.exit(1)"`;
 const attemptScriptCommand = 'node attempts.cjs';
 
-// The known jest worker segfault as `runGates.flake.unit.test.ts` fabricates it:
+// A jest worker killed by SIGSEGV, as `runGates.flake.unit.test.ts` fabricates it:
 // the SIGSEGV line beside a tally that names no failing test.
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';
 const crashOutput = `${jestWorkerSigsegv}\nTest Suites: 1 failed, 3 passed, 4 total\nTests:       11 passed, 11 total`;

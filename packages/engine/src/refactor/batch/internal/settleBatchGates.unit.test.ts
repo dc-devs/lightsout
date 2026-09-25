@@ -46,8 +46,8 @@ const redGates: GateRunResult = {
 	coordination: undefined,
 };
 
-/** A gate that died in the known jest worker crash on every attempt: no verdict, so no family failed. */
-const crashLine = 'test crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+/** A gate whose test runner died on every attempt: no verdict, so no family failed. */
+const crashLine = 'test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.';
 
 const crashGates: GateRunResult = {
 	error: `${crashLine}\n\nSegmentation fault (core dumped)`,

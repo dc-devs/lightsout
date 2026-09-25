@@ -336,7 +336,7 @@ describe('verifyStep', () => {
 	});
 
 	test('verifyStep: a crash and a timeout in one run stop on the crash first, with the full output beside it', async () => {
-		const crash = 'test crashed: every attempt died in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+		const crash = 'test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.';
 		const timeout = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
 		const gateOutput = 'test: exit 139 (SIGSEGV)\n\ntest-e2e: exit -1 (timeout at the 15-minute ceiling)';
 		const { run, roleInvocations, stopped } = setupVerifyRun({

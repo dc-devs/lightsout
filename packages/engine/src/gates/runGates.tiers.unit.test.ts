@@ -17,7 +17,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
  */
 const redGate = ({ kind }: { kind: string }) => `${gateLogCommand({ kind })} root; exit 1`;
 
-// The known jest worker segfault, as `runGates.flake.unit.test.ts` fabricates
+// A jest worker killed by SIGSEGV, as `runGates.flake.unit.test.ts` fabricates
 // it: the SIGSEGV line beside a tally that names no failing test. The engine
 // re-runs this gate, never blames a test family for it, and still ends red.
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';

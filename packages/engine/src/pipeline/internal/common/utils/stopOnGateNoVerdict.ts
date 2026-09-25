@@ -21,15 +21,16 @@ interface Params {
  * End a verification step on a gate that crashed, or ran past its own time
  * ceiling, instead of failing.
  *
- * A jest worker killed by SIGSEGV, or a gate stopped by `timeouts.gate-minutes`,
- * is not a verdict about the code, so there is nothing here to repair: no fix
- * attempt is spent, no fix agent is handed a red nobody established, and no
- * supervisor is bought to judge a toolchain fault.
+ * A test runner that died without reporting a failing test, or a gate stopped
+ * by `timeouts.gate-minutes`, is not a verdict about the code, so there is
+ * nothing here to repair: no fix attempt is spent, no fix agent is handed a red
+ * nobody established, and no supervisor is bought to judge a toolchain fault.
  *
  * It stops rather than passes because a gate that never finished is not a green
  * gate — the run's whole claim is that its gates decided. What changes is what
- * the operator is told: the crash or the ceiling is named, so the answer reads
- * as "run it again" instead of "your tests are broken".
+ * the operator is told: the crash, with its usual cause and fix, or the ceiling
+ * is named, so the answer reads as a toolchain fault instead of "your tests are
+ * broken".
  */
 export const stopOnGateNoVerdict = ({ run, stepId, record, crashes, timeouts, error }: Params): Promise<PipelineResult> => {
 	const { ending, reason } = describeGateNoVerdictStop({ stepId, crashes, timeouts });

@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { jestCrashCause } from '#src/common/constants/jestCrashCause.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { readFriction } from '#src/runState/readFriction.ts';
@@ -105,7 +106,7 @@ test('verify: an unabsorbed crash reaches the operator through the run friction 
 	const { dir, driver, config } = await setupCrashingVerifyRun({ tally: crashOnlyTally });
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
-	const crashFriction = (await readFriction({ cwd: dir })).filter((entry) => entry.runId === result.manifest.runId && entry.detail.includes('SIGSEGV'));
+	const crashFriction = (await readFriction({ cwd: dir })).filter((entry) => entry.runId === result.manifest.runId && entry.detail.includes(jestCrashCause));
 
 	// the durable trace is what makes a rare crash countable across runs instead
 	// of a line that scrolled past on one night nobody was watching
