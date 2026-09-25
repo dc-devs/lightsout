@@ -4,6 +4,7 @@ import type ts from 'typescript';
 import { createSpecifierResolver } from '#src/common/moduleGraph/createSpecifierResolver.ts';
 import { readBarrelExportTargets } from '#src/common/moduleGraph/readBarrelExportTargets.ts';
 import type { FolderModule } from '#src/common/types/FolderModule.ts';
+import { readImportAliases } from '#src/common/workspace/readImportAliases.ts';
 
 const isBarrel = ({ path }: { path: string }) => /^index\.tsx?$/.test(posix.basename(path));
 
@@ -56,7 +57,7 @@ interface Params {
  * default one. Change one, change the other.
  */
 export const collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFrameworkLoaded }: Params): Promise<Map<string, FolderModule>> => {
-	const resolve = createSpecifierResolver({ files });
+	const resolve = createSpecifierResolver({ files, importAliases: await readImportAliases({ cwd, files }) });
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {

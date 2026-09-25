@@ -66,3 +66,19 @@ test('collectImportEdges: an alias resolving to a barrel, a repeated specifier, 
 		// NOT: a self-edge from './boundary', NOT: anything from the unreadable src/a/ghost.ts
 	]);
 });
+
+test('collectImportEdges: a # specifier resolves through the importing package’s package.json imports, where its suffix alone is ambiguous', async () => {
+	const dir = setupRepo({
+		files: {
+			'package.json': JSON.stringify({ imports: { '#src/*': './src/*' } }),
+			'src/plan/index.ts': `export { runPlanDraft } from '#src/plan/draft/index.ts';\n`,
+			'src/plan/draft/index.ts': `export const runPlanDraft = 1;\n`,
+			'src/contracts/plan/draft/index.ts': `export const PlanDraft = 1;\n`,
+		},
+	});
+	const files = ['src/plan/index.ts', 'src/plan/draft/index.ts', 'src/contracts/plan/draft/index.ts'];
+
+	const edges = await collectImportEdges({ cwd: dir, files, compiler: ts });
+
+	expect(edges).toStrictEqual([{ from: 'src/plan/index.ts', to: 'src/plan/draft/index.ts' }]);
+});
