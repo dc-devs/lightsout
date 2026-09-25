@@ -11,9 +11,6 @@ import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
 // Mocked Imports
 // -------------------------
-// The gates are the one thing this step reads a verdict from, and they have
-// their own tests. What is under test here is what the step does with a
-// verdict, so the verdict is handed to it directly.
 const mockRunVerificationGates =
 	jest.fn<(params: { run: PipelineRun; coverage?: boolean; checkpoint: string }) => Promise<GateRunResult & { failures: GateResult[] }>>();
 
@@ -21,10 +18,6 @@ jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => (
 	runVerificationGates: (params: { run: PipelineRun; coverage?: boolean; checkpoint: string }) => mockRunVerificationGates(params),
 }));
 // -------------------------
-// The durable hold a checkpoint takes when the gates never got the machine. It
-// is another module's entry point with its own tests: what is under test here is
-// whether the checkpoint takes one at all, and what it does with the sentence a
-// hold the tracker refused answers with.
 interface HoldParams {
 	cwd: string;
 	config: LightsoutConfig;
@@ -38,9 +31,6 @@ const mockTakeGateHold = jest.fn<(params: HoldParams) => Promise<string | undefi
 
 jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
 // -------------------------
-// Which ticket the checkout's branch belongs to is the work order record's
-// answer, handed here directly rather than by making a git checkout and a
-// record for it.
 interface WorkOrderTicketRefParams {
 	cwd: string;
 }
@@ -52,12 +42,7 @@ jest.mock('#src/workOrder/readWorkOrderTicketRef.ts', () => ({
 }));
 // -------------------------
 
-/**
- * A PipelineRun stub carrying only what the verification step touches: every
- * stop is captured rather than thrown, every agent event sink and role
- * invocation is recorded, and the driver throws — so an agent this test says
- * is never spawned is loud rather than silent if it is.
- */
+/** A PipelineRun stub that records stops and role invocations. Its driver throws, so an unexpected agent fails loudly. */
 const setupVerifyRun = ({
 	result,
 	ticketRef,
@@ -110,12 +95,7 @@ const setupVerifyRun = ({
 	return { run: run as unknown as PipelineRun, progress, agentSinks, roleInvocations, stopped: () => stopped };
 };
 
-/**
- * A `PipelineRun` stub for the ordinary red the repair budget is meant to be
- * spent on: the fix role answers rather than throwing, and the config carries a
- * gates block with no formatter, so the re-entry after a fix settles nothing on
- * disk and lands straight back on the gates.
- */
+/** A stub whose fix role answers. No formatter is configured, so after a fix the step goes straight back to the gates. */
 const setupRepairableRun = ({ red, green }: { red: GateRunResult & { failures: GateResult[] }; green: GateRunResult & { failures: GateResult[] } }) => {
 	mockRunVerificationGates.mockResolvedValueOnce(red);
 	mockRunVerificationGates.mockResolvedValue(green);
@@ -175,10 +155,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// An error with no failed family is the engine saying the checkpoint
-		// could not be run, not evidence about the code: there is nothing to
-		// rule on and nothing to repair, so the run escalates straight to the
-		// human with the gate's own text.
 		expect(escalation?.error).toEqual(expect.stringContaining(gateError));
 		expect(stopped()?.status).toBe(RunStatus.Escalated);
 		expect(agentSinks).toStrictEqual([]);
@@ -201,10 +177,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// No gate command executed, so the checkpoint holds no evidence about the
-		// code: the run ends for the human with the reason naming who holds the
-		// machine, and it may not read as a red that survived the repair budget —
-		// nothing was repaired, and no fix attempt was spent.
 		expect(escalation?.error).toEqual(expect.stringContaining(coordination));
 		expect(stopped()?.status).toBe(RunStatus.Escalated);
 		expect(stopped()?.error).toEqual(expect.not.stringContaining('still failing after retries'));
@@ -227,10 +199,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// A red carrying a failed family is evidence about the code, and the guard
-		// that steps aside for a gate run which never started must not touch it: the
-		// checkpoint's own fix role is invoked, the gates are re-run on the tree it
-		// left, and the green that follows passes the step rather than stopping it.
 		expect(roleInvocations).toStrictEqual(['verify-implement']);
 		expect(mockRunVerificationGates).toHaveBeenCalledTimes(2);
 		expect(manifest.steps[0]).toEqual(expect.objectContaining({ status: RunStatus.Passed }));
@@ -258,11 +226,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// The hold is taken for the ticket this checkout's branch carries, naming
-		// the run and the worktree that took it. A tracker that refused the label
-		// is reported rather than swallowed: the local record already blocks the
-		// ticket, so the person reading the run's ending has to be told why the
-		// label they would look for is not on it.
 		expect(mockTakeGateHold).toHaveBeenCalledWith(
 			expect.objectContaining({ ticketRef: 'LO-118', runId: 'run-1', worktreePath: '/tmp/lightsout-verify-step', reason: coordination }),
 		);
@@ -293,9 +256,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// A gate stopped by its own ceiling returned no verdict about the code, so
-		// the run ends for the human naming the timeout: it may not read as a red
-		// that survived the repair budget, because no fix was spent on it.
 		expect(escalation?.error).toEqual(expect.stringContaining(timeout));
 		expect(stopped()?.status).toBe(RunStatus.Escalated);
 		expect(stopped()?.error).toEqual(expect.not.stringContaining('still failing after retries'));
@@ -325,10 +285,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// Verification runs every gate, so a failed family can sit beside a gate
-		// that never finished. The failed family alone would be repaired, but the
-		// run holds no whole verdict: no fix role is invoked on it and no
-		// supervisor is consulted, and the run stops naming the timeout.
 		expect(roleInvocations).toStrictEqual([]);
 		expect(agentSinks).toStrictEqual([]);
 		expect(stopped()?.status).toBe(RunStatus.Escalated);
@@ -336,7 +292,7 @@ describe('verifyStep', () => {
 	});
 
 	test('verifyStep: a crash and a timeout in one run stop on the crash first, with the full output beside it', async () => {
-		const crash = 'test crashed: every attempt died in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+		const crash = 'test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.';
 		const timeout = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
 		const gateOutput = 'test: exit 139 (SIGSEGV)\n\ntest-e2e: exit -1 (timeout at the 15-minute ceiling)';
 		const { run, roleInvocations, stopped } = setupVerifyRun({
@@ -352,9 +308,6 @@ describe('verifyStep', () => {
 			buildFix: () => ({ systemPrompt: 'fix the gates', prompt: 'fix the gates' }),
 		})();
 
-		// The checks run coordination, then crash, then timeout, so the crash stop
-		// ends the step and leads its error. The full gate output rides beside the
-		// crash line, so the operator still reads which gate ran past its ceiling.
 		const error = stopped()?.error ?? '';
 
 		expect(stopped()?.status).toBe(RunStatus.Escalated);

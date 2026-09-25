@@ -125534,42 +125534,15 @@ var ShipBlockReason = {
   IntegrationConflict: "integration-conflict",
   /** The integrated branch did not pass the repository's own gates within the repair allowance. */
   IntegrationGatesFailed: "integration-gates-failed",
-  /**
-   * The integrated branch was never judged at all, because the shared gate
-   * reservation could not be had: another gate run held the machine for longer
-   * than the wait allows.
-   *
-   * Separate from `IntegrationGatesFailed` because no gate command ran, so
-   * there is no verdict about the code and no repair to spend — and because a
-   * ticket-backed ship takes a durable hold on exactly this reason and on no
-   * other.
-   */
+  /** Another gate run held the machine past the wait, so no gate ran. A ticket-backed ship holds on this reason. */
   IntegrationGatesUnavailable: "integration-gates-unavailable",
-  /**
-   * A gate on the integrated branch died in the known jest worker crash on
-   * every attempt, so no verdict about the code exists and no repair was spent.
-   *
-   * Separate from `IntegrationGatesFailed` so that a failure and a crash no
-   * longer share one reason.
-   */
+  /** A gate on the integrated branch crashed on every attempt; no repair was spent. */
   IntegrationGatesCrashed: "integration-gates-crashed",
-  /**
-   * A gate on the integrated branch ran past its `timeouts.gate-minutes`
-   * ceiling on every attempt, so no verdict about the code exists and no repair
-   * was spent.
-   */
+  /** A gate on the integrated branch ran past its ceiling on every attempt; no repair was spent. */
   IntegrationGatesTimedOut: "integration-gates-timed-out",
   /** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
   ChecksMissing: "checks-missing",
-  /**
-   * The branch's ticket record does not authorize shipping: a multiple-plan
-   * ticket with no satisfied ship request, a single-plan ticket whose plan 001's
-   * implementation has not finished, or a published record that diverged from
-   * this machine's copy or could not be read at all.
-   *
-   * Checked twice — once before anything is pushed, and again immediately before
-   * the merge — so a plan added while the checks were running still stops it.
-   */
+  /** The work order does not authorize shipping. Checked before the push and again before the merge. */
   WorkOrderNotAuthorized: "ticket-not-authorized"
 };
 
@@ -126208,6 +126181,9 @@ var repairCiFailure = async ({
   return { reason: ShipBlockReason.ChecksFailed, detail: `the remote check failure could not be repaired within this branch's scope: ${refusal}`, paths: [] };
 };
 
+// src/common/constants/jestCrashCause.ts
+var jestCrashCause = "The usual cause is V8's garbage-collector crash (https://github.com/nodejs/node/issues/62393), which kills a Jest worker; starting Jest as `node --no-sparkplug node_modules/jest/bin/jest.js` avoids it.";
+
 // src/common/constants/defaultGateTimeoutMinutes.ts
 var defaultGateTimeoutMinutes = 15;
 
@@ -126479,7 +126455,7 @@ var GateEnding = {
   Passed: "passed",
   /** A red that is evidence about the code — a gate that failed to spawn included. */
   Failed: "failed",
-  /** The known jest worker crash, with no failing test beside it. */
+  /** The test runner died without reporting a failing test. */
   Crashed: "crashed",
   /** Stopped by its own ceiling, `timeouts.gate-minutes`, before it returned an exit code. */
   Timeout: "timeout"
@@ -126689,7 +126665,7 @@ var noVerdictPolicy = ({ ending, ceilingMinutes }) => {
       allowance: maxCrashAttempts,
       suffix: "jest worker crash",
       rerun: "jest worker crash, not a test failure",
-      friction: `crashed: a jest worker was terminated by SIGSEGV with no failing test beside it \u2014 the known V8 worker crash, re-run up to ${maxCrashAttempts} times.`
+      friction: `crashed: Jest died without reporting a failing test \u2014 not a verdict about the code, re-run up to ${maxCrashAttempts} times. ${jestCrashCause}`
     },
     [GateEnding.Timeout]: {
       allowance: maxTimeoutAttempts,
@@ -126811,7 +126787,7 @@ var buildGateStages = ({ entries, schedule, coverage }) => {
 };
 
 // src/gates/internal/common/utils/describeGateCrash.ts
-var describeGateCrash = ({ label: label2 }) => `${label2} crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.`;
+var describeGateCrash = ({ label: label2 }) => `${label2} crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.`;
 
 // src/gates/internal/common/utils/describeGateTimeout.ts
 var describeGateTimeout = ({ label: label2, ceilingMinutes }) => `${label2} timed out: every attempt ran past the ${ceilingMinutes}-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.`;
@@ -127159,7 +127135,8 @@ var verifyCandidate = async ({
       blocked: {
         reason: ShipBlockReason.IntegrationGatesCrashed,
         detail: [
-          "a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.",
+          "a gate crashed instead of failing \u2014 not a verdict about the code.",
+          jestCrashCause,
           "No repair was attempted and no repair attempt was spent.",
           gates.crashes.join("\n"),
           gates.error ?? ""
@@ -130872,7 +130849,7 @@ var GateResult = external_exports.object({
   exitCode: external_exports.number().optional(),
   durationMs: external_exports.number().optional(),
   rerun: external_exports.boolean().optional(),
-  /** Present (always `true`) when this red was the known jest worker crash rather than evidence about the code. */
+  /** Present (always `true`) when this red was a test runner that died without reporting a failing test, rather than evidence about the code. */
   crashed: external_exports.literal(true).optional(),
   /** Present (always `true`) when this attempt was stopped by the gate ceiling rather than returning an exit code. */
   timedOut: external_exports.literal(true).optional(),
@@ -130882,12 +130859,7 @@ var GateResult = external_exports.object({
   reason: external_exports.string().optional(),
   /** Last 2000 chars of stdout+stderr — present only on non-zero exit. */
   outputTail: external_exports.string().optional(),
-  /**
-   * Repo-relative directory this execution's per-test results were written to.
-   * Absent on a scoped skip, and on any execution the engine had no run folder
-   * for. The checkpoint reads exactly the directory the gate it observed wrote
-   * to, so the path travels with the evidence rather than being re-derived.
-   */
+  /** Repo-relative directory this execution's per-test results were written to. */
   testResultsDir: external_exports.string().optional()
 });
 
@@ -146401,8 +146373,9 @@ var SupervisorDecision = {
 var describeGateNoVerdictStop = ({ stepId: stepId2, crashes, timeouts }) => crashes.length > 0 ? {
   ending: "crashed",
   reason: [
-    `${stepId2}: a gate crashed instead of failing \u2014 the known jest worker SIGSEGV, not a verdict about the code.`,
-    "No fix was attempted and no fix attempt was spent; re-running the run is the answer.",
+    `${stepId2}: a gate crashed instead of failing \u2014 not a verdict about the code.`,
+    jestCrashCause,
+    "No fix was attempted and no fix attempt was spent.",
     crashes.join("\n")
   ].join("\n\n")
 } : {

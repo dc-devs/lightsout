@@ -1,48 +1,18 @@
 {
 	"$schema": "./node_modules/nx/schemas/nx-schema.json",
 
-	// What `nx affected` diffs against. The repo has one long-lived branch.
 	"defaultBase": "main",
 
-	// No Nx Cloud, and stated rather than left to a prompt. Three reasons, in
-	// order: a gate has to be answerable offline, or `pnpm test` depends on
-	// someone else's uptime; the graph is four projects, where a local cache
-	// captures nearly all of the available win; and a remote cache would weaken
-	// the shipped-artifact check, whose whole job is to prove plugin/dist/cli.mjs
-	// regenerates from source rather than being restored from somewhere.
+	// Gates must run offline, and checkShipped must prove plugin/dist rebuilds from source.
 	"neverConnectToCloud": true,
 
-	// Two tasks at once, against Nx's default of three — for every target except
-	// the Jest suites, which opt out below with `parallelism: false`. Each suite
-	// starts its own Jest worker pool of up to eight (`maxWorkers` in
-	// tooling/jest/createJestConfig.cjs), so two suites side by side put sixteen
-	// workers on a 14-core laptop, and the known Jest worker segfault grows with
-	// the worker count. Measured on 2026-09-11 across one night of queue gates:
-	// the whole-repo test gate, two suites at a time, crashed 12 runs in 39; the
-	// engine suite alone, at eight workers, crashed none in 17.
-	//
-	// This settles one Nx process only. Several builds at once — `lightsout queue`
-	// with `max-parallel` above one — are separate processes in separate
-	// worktrees, and nothing here can see them. They divide the pool instead, via
-	// LIGHTSOUT_CONCURRENT_BUILDS in tooling/jest/createJestConfig.cjs.
 	"parallel": 2,
 
-	// The interactive terminal UI rewrites the screen as it goes. Every gate
-	// lightsout runs is captured into a run log and read back as text, so a
-	// static, appendable transcript is the only useful kind here.
+	// lightsout reads gate output back as text, so no screen-redrawing UI.
 	"tui": { "enabled": false },
 
 	"namedInputs": {
-		// Everything in the project, plus the root files that change what all of
-		// their commands mean. `default` deliberately INCLUDES fixtures: a rule's
-		// fixtures are what its unit test reads, so editing one has to miss the
-		// test cache.
-		//
-		// coverage/ is excluded because it is output, not input. Left in, running
-		// the tests changes the hash of every other target in that project, so a
-		// build would re-run for a reason that cannot affect it — and, worse, a
-		// build that happened to run while a coverage report was on disk would
-		// cache an output containing it.
+		// Fixtures are inputs: a rule's unit test reads them. coverage/ is output.
 		"default": ["{projectRoot}/**/*", "!{projectRoot}/coverage/**/*", "sharedGlobals"],
 		"sharedGlobals": [
 			"{workspaceRoot}/tsconfig.base.json",
@@ -50,11 +20,7 @@
 			"{workspaceRoot}/biome.jsonc",
 			"{workspaceRoot}/pnpm-lock.yaml"
 		],
-		// What actually ships. These exclusions mirror the filter in
-		// scripts/copyStandards.mjs one for one — the shipped standards package
-		// carries no fixtures, no co-located tests and no workspace metadata, so
-		// editing any of those must NOT rebuild plugin/standards/. If that filter
-		// changes, change this with it.
+		// Mirrors the filter in scripts/copyStandards.mjs; change both together.
 		"production": [
 			"default",
 			"!{projectRoot}/**/*.unit.test.ts",
@@ -67,22 +33,11 @@
 		]
 	},
 
-	// Caching is OFF for every target, deliberately. A cached green is
-	// indistinguishable from an executed one, and this repo has been burned by
-	// both halves of that: a cached `test:e2e` reporting 64 of 64 passing while
-	// the suite failed, and a pre-flight replaying a pass hashed on a different
-	// Node than the one in the shell. Gates here are evidence, so they run.
+	// No caching: a cached green is not evidence that a gate ran.
 	"targetDefaults": {
-		// `^default` is the whole dependency story. These packages ship SOURCE, not
-		// a built dist/, so nothing compiles ahead of anything else and no target
-		// needs to depend on another target. What a consumer depends on is its
-		// dependencies' FILES — so editing standards-contracts misses the engine's
-		// typecheck cache and the standards package's test cache, with no build
-		// step in between to model.
+		// Packages ship source, so a target depends on its dependencies' files, not their builds.
 		"typecheck": { "cache": false, "inputs": ["default", "^default"] },
-		// The Jest suites run one at a time, so a whole-repo test run never has
-		// more than one worker pool — eight workers at most — on the machine. See
-		// `parallel` above for the crash rate that decided it.
+		// One Jest suite at a time, so one worker pool (maxWorkers) holds the machine.
 		"test:unit": { "cache": false, "parallelism": false, "inputs": ["default", "^default"] },
 		"test:unit:coverage": {
 			"cache": false,
@@ -94,9 +49,6 @@
 			"cache": false,
 			"inputs": ["default", "^default", { "externalDependencies": ["esbuild"] }]
 		},
-		// The web app's Vite build. `dev` deliberately gets no entry: a
-		// long-running server is not a cacheable target, and naming it here
-		// would invite someone to try.
 		"build": {
 			"cache": false,
 			"inputs": ["default", "^default"],
@@ -108,7 +60,5 @@
 		}
 	},
 
-	// No usage telemetry, for the same reason as no Nx Cloud: gates run offline
-	// and phone home to nobody.
 	"analytics": false
 }

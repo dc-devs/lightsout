@@ -14,9 +14,6 @@ import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 
 // Mocked Imports
 // -------------------------
-// The supervisor is a real agent spawn with its own suite. Here it is a stub, so
-// these tests can say exactly whether the exception path was reached at all —
-// and, when it was, hand back the verdict the case needs.
 const mockConsultSupervisor = jest.fn<() => Promise<AgentOutcome<SupervisorVerdict>>>();
 
 jest.mock('#src/common/utils/consultSupervisor.ts', () => ({
@@ -46,8 +43,8 @@ const redGates: GateRunResult = {
 	coordination: undefined,
 };
 
-/** A gate that died in the known jest worker crash on every attempt: no verdict, so no family failed. */
-const crashLine = 'test crashed: every attempt ended in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+/** A gate whose test runner died on every attempt: no verdict, so no family failed. */
+const crashLine = 'test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.';
 
 const crashGates: GateRunResult = {
 	error: `${crashLine}\n\nSegmentation fault (core dumped)`,
@@ -75,11 +72,7 @@ interface SetupParams {
 	verdict?: SupervisorVerdict;
 }
 
-/**
- * A settle whose gates answer from a scripted list, whose fix invocations are
- * recorded rather than spawned, and whose driver throws — so an agent these
- * tests say is never spawned is loud rather than silent if it is.
- */
+/** Gates answer from a scripted list and fixes are recorded. The driver throws, so an unexpected agent fails loudly. */
 const setupSettle = ({ gates, verdict }: SetupParams) => {
 	mockConsultSupervisor.mockResolvedValue(
 		verdict ? { ok: true, report: verdict } : { ok: false, failure: 'the supervisor was not expected on this path', rateLimited: false },
@@ -87,8 +80,7 @@ const setupSettle = ({ gates, verdict }: SetupParams) => {
 
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-settle-gates-'));
 
-	// The run below already has its folder, because `createRun` makes one before
-	// a run starts and the gate evidence looks the run up by id.
+	// `createRun` makes the run folder before a run starts; gate evidence looks it up.
 	seedRunFolder({ cwd, runId: 'run-1', pipeline: 'refactor' });
 
 	const fixLabels: string[] = [];
@@ -129,8 +121,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(coordinationReason) });
-		// the gates never ran, so there is nothing for a fix agent to repair and
-		// nothing for a supervisor to rule on
 		expect(fixLabels).toStrictEqual([]);
 		expect(mockConsultSupervisor).not.toHaveBeenCalled();
 	});
@@ -148,8 +138,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(coordinationReason) });
-		// the re-run produced no verdict at all, so reporting the gates as still red
-		// after the fix attempts would state something no gate command established
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.not.stringContaining('still red') });
 		expect(fixLabels).toStrictEqual(['fix-1', 'fix-2', 'supervised-fix']);
 		expect(mockConsultSupervisor).toHaveBeenCalledTimes(1);
@@ -161,7 +149,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(crashLine) });
-		// a crash is no verdict about the code, so a fix agent has nothing to repair
 		expect(fixLabels).toStrictEqual([]);
 		expect(mockConsultSupervisor).not.toHaveBeenCalled();
 	});
@@ -172,7 +159,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
-		// a gate stopped by its own ceiling is no verdict about the code either
 		expect(fixLabels).toStrictEqual([]);
 		expect(mockConsultSupervisor).not.toHaveBeenCalled();
 	});
@@ -183,8 +169,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
-		// the first red earned one fix; the re-run after it reached no verdict, so
-		// a second fix would repair a red no gate command established
 		expect(fixLabels).toStrictEqual(['fix-1']);
 		expect(mockConsultSupervisor).not.toHaveBeenCalled();
 	});
@@ -202,8 +186,6 @@ describe('settleBatchGates', () => {
 		const outcome = await run();
 
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.stringContaining(timeoutLine) });
-		// the guided re-run ran past its ceiling, so saying the gates are still red
-		// would state a verdict no gate command returned
 		expect(outcome).toEqual({ kind: SettleKind.Escalated, error: expect.not.stringContaining('still red') });
 		expect(fixLabels).toStrictEqual(['fix-1', 'fix-2', 'supervised-fix']);
 	});

@@ -12,26 +12,20 @@ import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
-// Small enough that a hung gate costs a test about a second, large enough that
-// a gate meant to finish — a node script, a red lint — finishes well inside it.
+// About a second: short for a hung gate, long enough for one meant to finish.
 const ceilingMinutes = 0.02;
 const ceilingConfig = { timeouts: { 'gate-minutes': ceilingMinutes } };
 const hangCommand = 'sleep 30';
 const redCheckCommand = `node -e "process.stderr.write('check evidence'); process.exit(1)"`;
 const attemptScriptCommand = 'node attempts.cjs';
 
-// The known jest worker segfault as `runGates.flake.unit.test.ts` fabricates it:
-// the SIGSEGV line beside a tally that names no failing test.
+// A jest worker crash: the SIGSEGV line beside a tally that names no failing test.
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';
 const crashOutput = `${jestWorkerSigsegv}\nTest Suites: 1 failed, 3 passed, 4 total\nTests:       11 passed, 11 total`;
 
 type AttemptEnding = 'crash' | 'hang';
 
-/**
- * Plant the command `attemptScriptCommand` names: execution n ends as the nth
- * entry of `endings` says, and every execution past the list exits 0. It counts
- * its runs in a file, because each execution is a fresh process.
- */
+/** Execution n ends as `endings[n]` says, then exits 0. Counts runs in a file, since each is a fresh process. */
 const writeAttemptScript = ({ dir, endings }: { dir: string; endings: AttemptEnding[] }) => {
 	writeFileSync(
 		join(dir, 'attempts.cjs'),
@@ -100,7 +94,6 @@ describe('runGates', () => {
 
 		const checks = results.filter((gateResult) => gateResult.kind === 'check');
 
-		// one re-run and no more: a second ceiling is the most a hung gate costs
 		expect(checks.map((gateResult) => gateResult.rerun)).toStrictEqual([undefined, true]);
 		expect({ failedFamilies: result.failedFamilies, crashes: result.crashes, timeouts: result.timeouts.length }).toStrictEqual({
 			failedFamilies: [],
@@ -137,8 +130,6 @@ describe('runGates', () => {
 		const log = readCommandLog(dir, 'r1').filter((record) => record.kind === 'check');
 		const friction = readFriction({ dir }).filter((record) => record.area === 'environment');
 
-		// a timeout that clears leaves the verdict green, so these entries are the
-		// only trace that the ceiling cost the run a gate
 		expect(log.map((record) => ({ timedOut: record.timedOut, exitCode: record.exitCode }))).toStrictEqual([
 			{ timedOut: true, exitCode: -1 },
 			{ timedOut: true, exitCode: -1 },
@@ -213,7 +204,6 @@ describe('runGates', () => {
 		});
 		expect(result.timeouts[0]).toMatch(/^generate timed out/);
 		expect(result.error).toEqual(expect.any(String));
-		// no gate ran behind codegen that never finished
 		expect(readGateLog({ dir })).toStrictEqual([]);
 	});
 
@@ -249,7 +239,6 @@ describe('runGates', () => {
 		const heldLines = progress.filter((message) => /expensive gates not started/.test(message));
 
 		expect({ failedFamilies: result.failedFamilies, timeouts: result.timeouts.length }).toStrictEqual({ failedFamilies: [], timeouts: 1 });
-		// the end-to-end suite and the build were never paid for
 		expect(readGateLog({ dir })).toStrictEqual(['root check']);
 		expect(heldLines).toHaveLength(1);
 		expect(heldLines[0]).toMatch(/timeout|timed out/);
@@ -276,7 +265,6 @@ describe('runGates', () => {
 
 		const heldLines = progress.filter((message) => /expensive gates not started/.test(message));
 
-		// neither red is a family, so the line names what the stage did carry
 		expect({ failedFamilies: result.failedFamilies, crashes: result.crashes.length, timeouts: result.timeouts.length }).toStrictEqual({
 			failedFamilies: [],
 			crashes: 1,

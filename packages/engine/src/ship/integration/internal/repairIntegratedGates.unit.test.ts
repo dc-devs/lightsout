@@ -11,10 +11,7 @@ import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts
 
 // Mocked Imports
 // -------------------------
-// The repository's own gates and its release hook are other modules' entry
-// points, each covered by its own tests. The harness is NOT mocked: a scripted
-// driver answers the real contract invoker, so what the repair attempt was
-// handed is read off the invocation the harness received.
+// The harness is not mocked: a scripted driver records what the repair attempt was handed.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
 jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
@@ -47,8 +44,7 @@ interface SetupParams {
 }
 
 const setupRepair = ({ gateRuns = [green], preShipFailure, preShip = 'pnpm run pre-ship', uncalledDriver = false }: SetupParams = {}) => {
-	// One log across both stubs, because the claim under test is the ORDER —
-	// prepared, then verified — which neither call count shows on its own.
+	// One log across both stubs, because the order is what is under test.
 	const order: string[] = [];
 	const invocations: DriverInvocation[] = [];
 	let gateRun = 0;
@@ -85,10 +81,6 @@ const setupRepair = ({ gateRuns = [green], preShipFailure, preShip = 'pnpm run p
 };
 
 describe('repairIntegratedGates', () => {
-	// The ledger states one criterion, and so one test name, for both halves of
-	// the hook contract: it runs against the pinned base before every gate pass,
-	// and a hook that fails stops verification. Each half is arranged and acted
-	// separately below.
 	test('prepares each repaired tree against the same pinned base before verifying', async () => {
 		const { order, repair } = setupRepair({
 			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
@@ -142,7 +134,7 @@ describe('repairIntegratedGates', () => {
 				{
 					error: 'test: exited 139 with no verdict',
 					failedFamilies: [],
-					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					crashes: ['test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'],
 					timeouts: [],
 					coordination: undefined,
 				},
@@ -156,7 +148,7 @@ describe('repairIntegratedGates', () => {
 			expect.objectContaining({
 				reason: 'integration-gates-crashed',
 				paths: [],
-				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+				detail: expect.stringContaining('test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'),
 			}),
 		);
 		expect(invocations).toStrictEqual([]);

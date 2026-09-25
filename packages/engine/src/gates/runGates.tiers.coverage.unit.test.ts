@@ -10,16 +10,10 @@ import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
-/**
- * A gate command that logs "root <kind>" exactly as a green one does, then
- * exits 1 — so gates.log records the red execution too, and stays the whole
- * record of which gates ran.
- */
+/** Logs "root <kind>" like a green gate, then exits 1, so gates.log records red gates too. */
 const redGate = ({ kind }: { kind: string }) => `${gateLogCommand({ kind })} root; exit 1`;
 
-// The known jest worker segfault: the SIGSEGV line beside a tally that names no
-// failing test. The engine re-runs this gate, blames no test family for it, and
-// still ends red.
+// A jest worker crash: the SIGSEGV line beside a tally that names no failing test.
 const jestWorkerSigsegv = 'A jest worker process (pid=49337) was terminated by another process: signal=SIGSEGV, exitCode=null.';
 const crashTally = 'Test Suites: 1 failed, 3 passed, 4 total\\nTests:       11 passed, 11 total';
 const crashingGate = `node -e "process.stderr.write('${jestWorkerSigsegv}\\n${crashTally}'); process.exit(1)"`;
@@ -33,12 +27,7 @@ interface TieredCoverageRepoParams {
 	suite?: string;
 }
 
-/**
- * A single-package consumer carrying every verification gate kind, the coverage
- * one included: the cheap `check`, `test` and `test-coverage`, and the
- * expensive `test-e2e` and `build`. Each logs "root <kind>", so gates.log names
- * exactly which gates executed and in which order.
- */
+/** A single-package repo with every gate kind, each logging "root <kind>" to gates.log. */
 const setupTieredCoverageRepo = ({ unit, coverageGate, suite }: TieredCoverageRepoParams = {}) =>
 	setupConsumerRepo({
 		scripts: {
@@ -50,11 +39,7 @@ const setupTieredCoverageRepo = ({ unit, coverageGate, suite }: TieredCoverageRe
 		},
 	});
 
-/**
- * A monorepo consumer with two packages and one scoped template per gate kind,
- * every one of them green. No template carries a `run <script>` token, so each
- * executes rather than being script-detected and skipped.
- */
+/** Two packages, every scoped gate green. No template has a `run <script>` token, so none is skipped. */
 const setupGreenTieredMonorepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-tiers-green-mono-'));
 
@@ -94,9 +79,6 @@ describe('runGates', () => {
 
 		expect(failedFamilies).toStrictEqual(['testCoverage']);
 		expect(error ?? '').toMatch(/test-coverage failed \(exit 1\)/);
-		// the instrumented unit suite is the same suite, so it belongs to the tier
-		// the plain one does: it ran in the first stage, and its red held the
-		// end-to-end suite and the build exactly as a red check would have
 		expect(readGateLog({ dir })).toStrictEqual(['root check', 'root coverage']);
 	});
 
@@ -115,9 +97,6 @@ describe('runGates', () => {
 		});
 
 		expect(error).toBe(undefined);
-		// tiering changes when a gate may start, never which gates a run schedules:
-		// coverage still stands in for the plain unit suite, and the run is the same
-		// four gates an untiered one produces
 		expect(gates.map((gate) => gate.kind)).toStrictEqual(['check', 'testCoverage', 'test-e2e', 'build']);
 		expect(readGateLog({ dir })).toStrictEqual(['root check', 'root coverage', 'root e2e', 'root build']);
 	});
@@ -136,9 +115,6 @@ describe('runGates', () => {
 
 		expect(failedFamilies).toStrictEqual(['test-e2e']);
 		expect(error ?? '').toMatch(/test-e2e failed \(exit 1\)/);
-		// only the tier boundary stops a run, and the expensive tier has no boundary
-		// after it: the build ran behind the red suite, so one repair report carries
-		// both halves of the checkpoint
 		expect(readGateLog({ dir })).toStrictEqual(['root check', 'root coverage', 'root e2e', 'root build']);
 	});
 
@@ -159,9 +135,7 @@ describe('runGates', () => {
 
 		const log = readGateLog({ dir });
 
-		// the barrier is the claim, not the order inside it: the two package groups
-		// run in parallel, so every cheap gate across both packages lands before any
-		// expensive one, and nothing beyond that is promised
+		// the package groups run in parallel, so only the tier barrier is asserted, not order
 		expect(log.slice(0, 4).sort()).toStrictEqual(['@acme/api check', '@acme/api test', '@acme/web check', '@acme/web test']);
 		expect(log.slice(4).sort()).toStrictEqual(['@acme/api build', '@acme/api e2e', '@acme/web build', '@acme/web e2e']);
 	});
@@ -183,9 +157,6 @@ describe('runGates', () => {
 
 		const held = progress.filter((message) => /expensive gates not started/.test(message));
 
-		// a crash is red without naming a family to repair, so the line that says
-		// why a suite stopped appearing has nothing to list — it says so rather
-		// than reading as an empty pair of brackets
 		expect(held).toHaveLength(1);
 		expect(held[0] ?? '').toContain('(crash)');
 	});

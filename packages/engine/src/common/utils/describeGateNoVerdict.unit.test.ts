@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 
-const crashLine = 'test crashed: every attempt died in the known jest worker SIGSEGV, so this gate never returned a verdict.';
+const crashLine = 'test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.';
 const timeoutLine = 'test-e2e timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
 
 const setupResult = (overrides: Partial<GateRunResult> = {}): GateRunResult => ({
@@ -45,8 +45,6 @@ describe('describeGateNoVerdict', () => {
 
 		const reason = describeGateNoVerdict({ result }) ?? '';
 
-		// the crash leads, and the timeout line is not stated as the reason; the
-		// raw output still names the gate that ran past its ceiling
 		expect(reason.startsWith(crashLine)).toBe(true);
 		expect(reason).not.toContain(timeoutLine);
 		expect(reason).toContain(gateOutput);

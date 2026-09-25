@@ -17,11 +17,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 // Mocked Imports
 // -------------------------
-// The repository's own gates are another module's entry point, covered by its
-// own tests, and running real gate commands here would measure the toolchain
-// rather than the integration. Git is deliberately NOT stubbed: what this step
-// owns is the branch's real state after a merge, a recovery and a rollback, and
-// a stubbed git would prove none of it.
+// Git is not stubbed: these tests check the branch's real state after a merge and a rollback.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
 jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
@@ -46,13 +42,10 @@ const red: GateRunResult = { error: 'test: 2 failing', failedFamilies: ['test'],
 
 const git = ({ cwd, command }: { cwd: string; command: string }) => execSync(`git ${command}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
-/** The commit the checkout stands on right now. */
 const readHead = ({ cwd }: { cwd: string }) => git({ cwd, command: 'rev-parse HEAD' }).trim();
 
-/** The branch the checkout stands on right now. */
 const readBranch = ({ cwd }: { cwd: string }) => git({ cwd, command: 'rev-parse --abbrev-ref HEAD' }).trim();
 
-/** The subject line of the commit at `HEAD`. */
 const readSubject = ({ cwd }: { cwd: string }) => git({ cwd, command: 'log -1 --pretty=%s' }).trim();
 
 /** The parents of the commit at `HEAD` — two of them is what makes a commit the merge commit. */
@@ -62,10 +55,8 @@ const readParents = ({ cwd }: { cwd: string }) => git({ cwd, command: 'rev-list 
 const countBranchCommits = ({ cwd, since }: { cwd: string; since: string }) =>
 	Number(git({ cwd, command: `rev-list --count --first-parent ${since}..HEAD` }).trim());
 
-/** Uncommitted tracked and untracked paths, empty when the tree is clean. */
 const readDirtyPaths = ({ cwd }: { cwd: string }) => git({ cwd, command: 'status --porcelain' }).trim();
 
-/** Whether git still has a merge open. */
 const hasOpenMerge = ({ cwd }: { cwd: string }) => existsSync(join(cwd, '.git', 'MERGE_HEAD'));
 
 interface SetupParams {
@@ -156,13 +147,7 @@ const setupIntegration = ({
 	return { cwd, baselineCommit, invocations, integrate };
 };
 
-/**
- * A path no checkout stands on, so every git command fails to start rather than
- * answering — the one case where the process says nothing at all.
- *
- * A harness that must never be spawned goes with it: the branch was never
- * mutated, so nothing here may reach an agent or a rollback.
- */
+/** A path no checkout stands on, so every git command fails to start, with a harness that must never be spawned. */
 const setupUnreachableCheckout = () => ({
 	cwd: join(tmpdir(), 'lightsout-no-such-checkout', 'nowhere'),
 	integration: shipIntegrationFixture(),
@@ -180,16 +165,11 @@ describe('integrateDefaultBranch', () => {
 		const failure = await integrate();
 
 		expect(failure).toBeUndefined();
-		// exactly one commit on the branch, and it is the merge commit itself —
-		// the resolution did not land as a commit of its own ahead of it
 		expect(countBranchCommits({ cwd, since: baselineCommit })).toBe(1);
 		expect(readParents({ cwd })).toHaveLength(2);
-		// the message is the one git wrote for the merge, not one the engine composed
 		expect(readSubject({ cwd })).toMatch(/^Merge /);
-		// the agent's resolution is inside that single commit, and nothing is left over
 		expect(git({ cwd, command: `show HEAD:${conflictPath}` })).toContain('feature and default');
 		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
-		// one spawn settled the conflict, and green gates asked for no repair spawn
 		expect(invocations).toHaveLength(1);
 	});
 
@@ -199,8 +179,6 @@ describe('integrateDefaultBranch', () => {
 		const failure = await integrate();
 
 		expect(failure).toEqual(expect.objectContaining({ reason: 'integration-gates-failed' }));
-		// the caller is handed the branch exactly as ship found it: back at its
-		// baseline, no merge open, nothing uncommitted left behind
 		expect(readHead({ cwd })).toBe(baselineCommit);
 		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
 	});
@@ -212,7 +190,7 @@ describe('integrateDefaultBranch', () => {
 				{
 					error: 'test: exited 139 with no verdict',
 					failedFamilies: [],
-					crashes: ['test: the known jest worker SIGSEGV, not a verdict about the code'],
+					crashes: ['test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'],
 					timeouts: [],
 					coordination: undefined,
 				},
@@ -226,7 +204,7 @@ describe('integrateDefaultBranch', () => {
 			expect.objectContaining({
 				reason: 'integration-gates-crashed',
 				paths: [],
-				detail: expect.stringContaining('test: the known jest worker SIGSEGV, not a verdict about the code'),
+				detail: expect.stringContaining('test crashed: on every attempt Jest died without reporting a failing test, so this gate never returned a verdict.'),
 			}),
 		);
 		expect(invocations).toStrictEqual([]);
@@ -265,17 +243,11 @@ describe('integrateDefaultBranch', () => {
 		expect({ dirty: readDirtyPaths({ cwd }), openMerge: hasOpenMerge({ cwd }) }).toStrictEqual({ dirty: '', openMerge: false });
 	});
 
-	// The ledger states one criterion, and so one test name, for both halves of
-	// the guard: a failure arriving after the merge began restores the baseline,
-	// and git state this attempt no longer owns is never reset. Each half is
-	// arranged and acted separately below.
 	test('guards failures after mutation and refuses rollback of unrelated git state', async () => {
 		const standardsFailure = setupIntegration({ defaultBranchEdit: 'unrelated', standardsThrows: true, uncalledDriver: true });
 
 		const blocked = await standardsFailure.integrate();
 
-		// standards load after the merge already mutated the branch, so the
-		// failure is guarded rather than thrown, and the baseline is restored
 		expect(blocked).toStrictEqual({
 			reason: 'integration-unavailable',
 			detail: "the repository's standards could not be loaded: the declared standards pack could not be loaded",
@@ -300,8 +272,6 @@ describe('integrateDefaultBranch', () => {
 
 		const refused = await lostOwnership.integrate();
 
-		// the branch and the merge this attempt started are gone, so it blocks —
-		// and it destroys none of the work that took their place
 		expect(refused).toStrictEqual({
 			reason: 'integration-unavailable',
 			detail: "the integration finished against git state this ship no longer owns: the checkout is on 'unrelated-work' rather than 'lo-89-ship'",
@@ -321,8 +291,6 @@ describe('integrateDefaultBranch', () => {
 
 		const failure = await integrate();
 
-		// the gates went green on a tree the repair left a marker in, so git's own
-		// reading — not the gate result — is what ends the integration
 		expect(failure).toStrictEqual({
 			reason: 'integration-conflict',
 			detail: 'the verified tree still carries unresolved conflicts: shared.ts',
@@ -351,8 +319,6 @@ describe('integrateDefaultBranch', () => {
 
 		const failure = await integrate();
 
-		// the rollback this failure owes is destructive, so losing the branch it
-		// was owed on turns it into a sentence rather than a reset
 		expect(failure).toStrictEqual({
 			reason: 'integration-gates-failed',
 			detail: "test: 2 failing\ngit state this ship no longer owns was left untouched: the checkout is on 'unrelated-work' rather than 'lo-89-ship'",
@@ -374,15 +340,11 @@ describe('integrateDefaultBranch', () => {
 			preShip: undefined,
 		});
 
-		// A process that never answered is missing evidence, not an exception: an
-		// integration that threw here would leave the caller with no result to
-		// write and, in a later step, a merge nobody is left to put back.
 		expect(failure).toStrictEqual({
 			reason: 'integration-unavailable',
 			detail: 'git could not fetch origin: git did not answer',
 			paths: [],
 		});
-		// nothing was mutated, so no rollback and no spawn were owed
 		expect(mockRunGates).not.toHaveBeenCalled();
 	});
 });
