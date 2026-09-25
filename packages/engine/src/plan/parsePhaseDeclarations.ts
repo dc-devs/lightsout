@@ -1,7 +1,7 @@
-import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
+import { planSentinelTokens } from '#src/plan/internal/common/constants/planSentinelTokens.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { getCodeSpans } from '#src/plan/internal/common/utils/getCodeSpans.ts';
 
 interface Params {
 	/** The parsed overview file. */

@@ -1,4 +1,4 @@
-import { dim } from '#src/cli/common/terminal/dim.ts';
+import { dim } from '#src/cli/internal/common/terminal/dim.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';

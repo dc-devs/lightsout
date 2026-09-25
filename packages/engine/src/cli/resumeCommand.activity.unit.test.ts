@@ -47,19 +47,19 @@ type ExitAfterImplementParams = {
 
 const mockRunPipelineOrFailFast = jest.fn<(params: PipelineParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: PipelineParams) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
 const mockRunPhasesOrFailFast = jest.fn<(params: PipelineParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPhasesOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPhasesOrFailFast.ts', () => ({
 	runPhasesOrFailFast: (params: PipelineParams) => mockRunPhasesOrFailFast(params),
 }));
 // -------------------------
 const mockContinueDirectRun = jest.fn<(params: DirectParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/implementRun/continueDirectRun.ts', () => ({
+jest.mock('#src/cli/internal/common/implementRun/continueDirectRun.ts', () => ({
 	continueDirectRun: (params: DirectParams) => mockContinueDirectRun(params),
 }));
 // -------------------------
@@ -71,7 +71,7 @@ jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: ExitAfterImplementParams) => mockExitAfterImplement(params),
 }));
 // -------------------------

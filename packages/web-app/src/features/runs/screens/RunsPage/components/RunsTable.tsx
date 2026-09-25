@@ -17,10 +17,10 @@ import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
-import type { RunGroup } from '#src/features/runs/common/types/RunGroup.ts';
 import { filterRuns } from '#src/features/runs/common/utils/filterRuns.ts';
 import { foldPhaseChildren } from '#src/features/runs/common/utils/foldPhaseChildren.ts';
 import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts';
+import type { RunGroup } from '#src/features/runs/internal/common/types/RunGroup.ts';
 
 /** The run's title, as the way into its evidence. */
 const RunLink = ({ run }: { run: RunListing }) => (

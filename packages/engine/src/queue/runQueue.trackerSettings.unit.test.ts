@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
@@ -67,7 +67,7 @@ jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({ readGitCommitsAhead
 // -------------------------
 const mockShipOneBranch = jest.fn<(params: { outcome: WorkOrderRunOutcome }) => Promise<WorkOrderRunOutcome>>();
 
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/internal/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 // Naming a wave creates work orders, which reads the tracker and spawns a
 // harness — the work order module's own job, with its own tests. These cases

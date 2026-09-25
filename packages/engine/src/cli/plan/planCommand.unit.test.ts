@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
+import type { PlanWorktree } from '#src/cli/plan/internal/common/types/PlanWorktree.ts';
 import { planCommand } from '#src/cli/plan/planCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
@@ -50,9 +50,11 @@ jest.mock('#src/cli/plan/planDedupCommand.ts', () => ({ planDedupCommand: (param
 jest.mock('#src/cli/plan/planGradeCommand.ts', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
 jest.mock('#src/cli/plan/planPublishCommand.ts', () => ({ planPublishCommand: (params: unknown) => mockPlanPublishCommand(params) }));
 jest.mock('#src/cli/plan/planSyncDecisionsCommand.ts', () => ({ planSyncDecisionsCommand: (params: unknown) => mockPlanSyncDecisionsCommand(params) }));
-jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
+jest.mock('#src/cli/internal/common/utils/resolveConfigAndDriver.ts', () => ({
+	resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params),
+}));
 jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
-jest.mock('#src/cli/plan/common/utils/openPlanWorktree.ts', () => ({
+jest.mock('#src/cli/plan/internal/common/utils/openPlanWorktree.ts', () => ({
 	openPlanWorktree: (params: OpenPlanWorktreeParams) => mockOpenPlanWorktree(params),
 }));
 
@@ -74,6 +76,17 @@ const trackerRepoConfig = { gates, queue: queueConfigBlock, 'ticket-tracker': ti
  */
 const queueOnlyRepoConfig = { gates, queue: queueConfigBlock };
 
+/** Every subcommand the dispatcher can hand a call to. */
+const subcommandMocks = [
+	mockPlanVerifyFactsCommand,
+	mockPlanLintCommand,
+	mockPlanDraftCommand,
+	mockPlanDedupCommand,
+	mockPlanGradeCommand,
+	mockPlanPublishCommand,
+	mockPlanSyncDecisionsCommand,
+];
+
 const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<string, unknown> }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-command-'));
@@ -86,15 +99,7 @@ const setupPlan = ({ args, repoConfig }: { args: string[]; repoConfig?: Record<s
 	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver, configPath: join(cwd, 'lightsout.config.json') });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
 
-	for (const mock of [
-		mockPlanVerifyFactsCommand,
-		mockPlanLintCommand,
-		mockPlanDraftCommand,
-		mockPlanDedupCommand,
-		mockPlanGradeCommand,
-		mockPlanPublishCommand,
-		mockPlanSyncDecisionsCommand,
-	]) {
+	for (const mock of subcommandMocks) {
 		mock.mockResolvedValue(undefined);
 	}
 
@@ -336,15 +341,7 @@ describe('planCommand', () => {
 
 		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const dispatches = [
-			mockPlanVerifyFactsCommand,
-			mockPlanLintCommand,
-			mockPlanDraftCommand,
-			mockPlanDedupCommand,
-			mockPlanGradeCommand,
-			mockPlanPublishCommand,
-			mockPlanSyncDecisionsCommand,
-		].reduce((total, mock) => total + mock.mock.calls.length, 0);
+		const dispatches = subcommandMocks.reduce((total, mock) => total + mock.mock.calls.length, 0);
 		expect(errors.filter((line) => line.includes(refusal))).toHaveLength(1);
 		expect(exitCodes).toStrictEqual([1]);
 		expect(dispatches).toBe(0);

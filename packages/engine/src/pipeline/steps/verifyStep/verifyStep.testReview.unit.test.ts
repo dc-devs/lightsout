@@ -5,8 +5,8 @@ import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestReco
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
-import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { VerificationResult } from '#src/pipeline/internal/common/types/VerificationResult.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
@@ -48,7 +48,7 @@ interface GateParams {
 
 const mockRunVerificationGates = jest.fn<(params: GateParams) => Promise<VerificationResult>>();
 
-jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
+jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => ({
 	runVerificationGates: (params: GateParams) => mockRunVerificationGates(params),
 }));
 // -------------------------

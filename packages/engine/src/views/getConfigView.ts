@@ -7,7 +7,7 @@ import { listStandardsRules } from '#src/standardsCheck/listStandardsRules.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 import { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
-import { buildConfigSections } from '#src/views/common/utils/buildConfigSections.ts';
+import { buildConfigSections } from '#src/views/internal/common/utils/buildConfigSections.ts';
 
 /**
  * The file as written, keys only — what `fromConfig` is decided against.

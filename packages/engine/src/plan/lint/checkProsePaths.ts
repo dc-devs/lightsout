@@ -2,13 +2,13 @@ import { basename, join } from 'node:path';
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
-import { isPathToken } from '#src/plan/common/paths/isPathToken.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import type { RepoPathIndex } from '#src/plan/common/types/RepoPathIndex.ts';
-import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
-import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
-import { isLineInRange } from '#src/plan/lint/common/utils/isLineInRange.ts';
+import { isPathToken } from '#src/plan/internal/common/paths/isPathToken.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import type { RepoPathIndex } from '#src/plan/internal/common/types/RepoPathIndex.ts';
+import { getCodeSpans } from '#src/plan/internal/common/utils/getCodeSpans.ts';
+import { getPlanNamedPaths } from '#src/plan/internal/common/utils/getPlanNamedPaths.ts';
+import { isLineInRange } from '#src/plan/lint/internal/common/utils/isLineInRange.ts';
 
 interface Params {
 	plan: ParsedPlan;

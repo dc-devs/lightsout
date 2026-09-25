@@ -1,8 +1,8 @@
 import { brainstormPublishCommand } from '#src/cli/brainstorm/brainstormPublishCommand.ts';
-import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getPositionals } from '#src/cli/internal/common/args/getPositionals.ts';
 
 /**
  * The `brainstorm` command word, dispatching on its first positional.

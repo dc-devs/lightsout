@@ -4,8 +4,8 @@ import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
-import { PackCard } from '#src/features/packs/screens/PacksPage/components/PackCard.tsx';
-import { WriteYourOwnCard } from '#src/features/packs/screens/PacksPage/components/WriteYourOwnCard.tsx';
+import { PackCard } from '#src/features/packs/screens/PacksPage/internal/components/PackCard.tsx';
+import { WriteYourOwnCard } from '#src/features/packs/screens/PacksPage/internal/components/WriteYourOwnCard.tsx';
 
 /** The `standards-packs` entry a repo would write to load exactly these packs. */
 const buildConfigSnippet = ({ paths }: { paths: string[] }) => JSON.stringify({ 'standards-packs': paths }, null, '\t');

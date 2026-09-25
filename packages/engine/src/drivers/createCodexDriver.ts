@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildCodexArgs } from '#src/drivers/buildCodexArgs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
-import { isRateLimitMessage } from '#src/drivers/common/utils/isRateLimitMessage.ts';
-import { spawnCollect } from '#src/drivers/common/utils/spawnCollect.ts';
+import { isRateLimitMessage } from '#src/drivers/internal/common/utils/isRateLimitMessage.ts';
+import { spawnCollect } from '#src/drivers/internal/common/utils/spawnCollect.ts';
 
 /**
  * Driver for the Codex CLI in non-interactive mode (`codex exec`).

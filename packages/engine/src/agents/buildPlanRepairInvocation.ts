@@ -1,4 +1,4 @@
-import { renderDocsSurfaces } from '#src/agents/common/utils/renderDocsSurfaces.ts';
+import { renderDocsSurfaces } from '#src/agents/internal/common/utils/renderDocsSurfaces.ts';
 import planRepairPrompt from '#src/agents/prompts/planRepair.md';
 import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';

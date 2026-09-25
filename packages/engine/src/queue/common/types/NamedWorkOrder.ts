@@ -1,4 +1,4 @@
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
 
 /** One wave entry after its name is settled: the tracker ticket, the work order's label, and the branch its record stores. */
 export interface NamedWorkOrder {

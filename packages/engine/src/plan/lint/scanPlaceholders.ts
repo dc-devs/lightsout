@@ -1,4 +1,4 @@
-import { isLineInRange } from '#src/plan/lint/common/utils/isLineInRange.ts';
+import { isLineInRange } from '#src/plan/lint/internal/common/utils/isLineInRange.ts';
 
 const placeholderPatterns: { label: string; re: RegExp; skipInFence?: boolean }[] = [
 	{ label: '???', re: /\?\?\?/ },

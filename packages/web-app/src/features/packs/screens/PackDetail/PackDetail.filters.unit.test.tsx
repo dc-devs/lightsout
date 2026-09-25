@@ -4,7 +4,7 @@ import { StandardsSet, StandardsSeverity } from '@lightsout/engine/contracts';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
+import type { PackRuleFilters } from '#src/features/packs/internal/common/types/PackRuleFilters.ts';
 import { PackDetail } from '#src/features/packs/screens/PackDetail/PackDetail.tsx';
 import { buildStandardsPackRuleListing } from '#tests/helpers/buildStandardsPackRuleListing.ts';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';

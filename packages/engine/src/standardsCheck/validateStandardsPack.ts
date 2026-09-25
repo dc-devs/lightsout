@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import type { RawStandardsFinding } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
-import { checkFixtureTree } from '#src/standardsCheck/common/utils/checkFixtureTree.ts';
+import { typescriptInputKinds } from '#src/standardsCheck/internal/common/constants/typescriptInputKinds.ts';
+import { checkFixtureTree } from '#src/standardsCheck/internal/common/utils/checkFixtureTree.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {

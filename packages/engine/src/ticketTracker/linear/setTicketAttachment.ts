@@ -1,8 +1,8 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { LinearTrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
-import { collectNodes } from '#src/ticketTracker/linear/common/utils/collectNodes.ts';
-import { runLinear } from '#src/ticketTracker/linear/runLinear.ts';
+import { collectNodes } from '#src/ticketTracker/linear/internal/common/utils/collectNodes.ts';
+import { runLinear } from '#src/ticketTracker/linear/internal/runLinear.ts';
 
 interface Params {
 	settings: LinearTrackerSettings;

@@ -1,6 +1,6 @@
-import { printStandardsHealth } from '#src/cli/common/render/printStandardsHealth.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { printStandardsHealth } from '#src/cli/internal/common/render/printStandardsHealth.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { buildStandardsHealth } from '#src/standardsCheck/buildStandardsHealth.ts';
 import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';

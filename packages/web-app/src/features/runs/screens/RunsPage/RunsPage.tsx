@@ -8,8 +8,8 @@ import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOpt
 import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
 import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
-import { RunsFilterBar } from '#src/features/runs/screens/RunsPage/components/RunsFilterBar.tsx';
 import { RunsTable } from '#src/features/runs/screens/RunsPage/components/RunsTable.tsx';
+import { RunsFilterBar } from '#src/features/runs/screens/RunsPage/internal/components/RunsFilterBar.tsx';
 
 /** A sort key on its way into the URL, read back against the closed vocabulary the route validates it with. */
 const readSortKey = ({ key }: { key?: string }) => Object.values(RunsSortKey).find((candidate) => candidate === key);

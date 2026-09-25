@@ -1,5 +1,5 @@
-import { changedFilesSection } from '#src/agents/common/utils/changedFilesSection.ts';
-import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
+import { changedFilesSection } from '#src/agents/internal/common/utils/changedFilesSection.ts';
+import { selfCheckSection } from '#src/agents/internal/common/utils/selfCheckSection.ts';
 import directWorkerPrompt from '#src/agents/prompts/directWorker.md';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 

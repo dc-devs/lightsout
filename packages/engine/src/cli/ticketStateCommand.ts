@@ -1,7 +1,7 @@
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';

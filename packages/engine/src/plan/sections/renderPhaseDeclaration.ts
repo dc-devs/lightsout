@@ -1,5 +1,5 @@
-import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import { planSentinelTokens } from '#src/plan/internal/common/constants/planSentinelTokens.ts';
 
 interface Params {
 	declaration: PhaseDeclaration;

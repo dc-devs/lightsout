@@ -5,10 +5,10 @@ import { Card } from '#src/appUI/panels/Card.tsx';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
 import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
 import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
-import { RuleHeader } from '#src/features/packs/screens/RuleDetail/components/RuleHeader.tsx';
-import { RuleInThisRepo } from '#src/features/packs/screens/RuleDetail/components/RuleInThisRepo.tsx';
-import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/components/RuleSettingsCard.tsx';
-import { SeverityOverrideCard } from '#src/features/packs/screens/RuleDetail/components/SeverityOverrideCard.tsx';
+import { RuleHeader } from '#src/features/packs/screens/RuleDetail/internal/components/RuleHeader.tsx';
+import { RuleInThisRepo } from '#src/features/packs/screens/RuleDetail/internal/components/RuleInThisRepo.tsx';
+import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/internal/components/RuleSettingsCard.tsx';
+import { SeverityOverrideCard } from '#src/features/packs/screens/RuleDetail/internal/components/SeverityOverrideCard.tsx';
 
 interface Props {
 	packName: string;

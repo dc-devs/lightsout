@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { getExportName } from '#src/plan/common/naming/getExportName.ts';
-import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
+import { getExportName } from '#src/plan/common/utils/getExportName.ts';
 import { buildExportCensus } from '#src/plan/evidence/buildExportCensus.ts';
 import { detectExportCollisions } from '#src/plan/evidence/detectExportCollisions.ts';
+import type { PriorArtCandidate } from '#src/plan/internal/common/types/PriorArtCandidate.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {

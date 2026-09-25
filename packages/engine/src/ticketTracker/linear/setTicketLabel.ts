@@ -1,7 +1,7 @@
 import type { LinearClient } from '@linear/sdk';
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { LinearTrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
-import { runLinear } from '#src/ticketTracker/linear/runLinear.ts';
+import { runLinear } from '#src/ticketTracker/linear/internal/runLinear.ts';
 
 interface Params {
 	settings: LinearTrackerSettings;

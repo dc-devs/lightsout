@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
+import { configKeyDescriptions } from '#src/views/internal/common/constants/configKeyDescriptions.ts';
 import { renderConfigKeyReference } from '#src/views/renderConfigKeyReference.ts';
 
 /** The table's body — every line after the header and its delimiter. */

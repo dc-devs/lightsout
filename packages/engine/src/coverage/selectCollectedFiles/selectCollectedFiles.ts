@@ -1,12 +1,12 @@
 import { join } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { coverageScopeOf } from '#src/coverage/common/utils/coverageScopeOf.ts';
-import { resolveScopeContext } from '#src/coverage/common/utils/resolveScopeContext.ts';
-import { scopeRootOf } from '#src/coverage/common/utils/scopeRootOf.ts';
+import { coverageScopeOf } from '#src/coverage/internal/common/utils/coverageScopeOf.ts';
+import { resolveScopeContext } from '#src/coverage/internal/common/utils/resolveScopeContext.ts';
+import { scopeRootOf } from '#src/coverage/internal/common/utils/scopeRootOf.ts';
 import { loadScopeJestConfig } from '#src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts';
-import type { CoverageCollection } from '#src/coverage/selectCollectedFiles/common/types/CoverageCollection.ts';
-import { isCoverageCollectedFile } from '#src/coverage/selectCollectedFiles/common/utils/isCoverageCollectedFile.ts';
-import { readCoverageCollection } from '#src/coverage/selectCollectedFiles/common/utils/readCoverageCollection.ts';
+import type { CoverageCollection } from '#src/coverage/selectCollectedFiles/internal/common/types/CoverageCollection.ts';
+import { isCoverageCollectedFile } from '#src/coverage/selectCollectedFiles/internal/common/utils/isCoverageCollectedFile.ts';
+import { readCoverageCollection } from '#src/coverage/selectCollectedFiles/internal/common/utils/readCoverageCollection.ts';
 
 interface Params {
 	cwd: string;

@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
+import { loadRunProgressBlock } from '#src/cli/internal/common/progressBlock/loadRunProgressBlock.ts';
 import { statusCommand } from '#src/cli/statusCommand.ts';
 import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
@@ -31,10 +31,10 @@ interface WatchTargetParams {
 const mockResolveWatchTarget = jest.fn<(params: WatchTargetParams) => Promise<WatchTarget>>();
 const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/resolveWatchTarget.ts', () => ({
 	resolveWatchTarget: (params: WatchTargetParams) => mockResolveWatchTarget(params),
 }));
-jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/watchRunProgress.ts', () => ({
 	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------

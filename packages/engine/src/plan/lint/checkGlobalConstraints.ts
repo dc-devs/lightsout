@@ -2,9 +2,9 @@ import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRec
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { getComparableSection } from '#src/plan/lint/common/utils/getComparableSection.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { getComparableSection } from '#src/plan/lint/internal/common/utils/getComparableSection.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 
 interface Params {

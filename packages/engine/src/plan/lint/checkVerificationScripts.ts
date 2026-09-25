@@ -4,9 +4,9 @@ import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';
-import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { getManifestScriptKeys } from '#src/plan/internal/common/utils/getManifestScriptKeys.ts';
+import { getPlanNamedPaths } from '#src/plan/internal/common/utils/getPlanNamedPaths.ts';
 
 interface Params {
 	plan: ParsedPlan;

@@ -16,7 +16,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // leaves it as the no-op default.
 const mockEnsureBrainstormFiles = jest.fn<(params: { cwd: string; name: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/ensureBrainstormFiles.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/ensureBrainstormFiles.ts', () => ({
 	ensureBrainstormFiles: (params: { cwd: string; name: string }) => mockEnsureBrainstormFiles(params),
 }));
 // -------------------------

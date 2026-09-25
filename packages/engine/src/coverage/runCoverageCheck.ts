@@ -6,7 +6,7 @@ import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
 import type { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
+import { buildMissingSummaryMessage } from '#src/coverage/internal/common/utils/buildMissingSummaryMessage.ts';
 import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
 import { appendCommandLog } from '#src/runState/appendCommandLog.ts';
 

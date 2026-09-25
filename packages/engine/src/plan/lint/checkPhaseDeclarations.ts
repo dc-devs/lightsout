@@ -1,12 +1,12 @@
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
-import { getExportName } from '#src/plan/common/naming/getExportName.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
-import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
-import { getDeclarationDefects } from '#src/plan/lint/common/utils/getDeclarationDefects.ts';
+import { getExportName } from '#src/plan/common/utils/getExportName.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
+import { getCodeSpans } from '#src/plan/internal/common/utils/getCodeSpans.ts';
+import { getDeclarationDefects } from '#src/plan/lint/internal/common/utils/getDeclarationDefects.ts';
 
 interface Params {
 	/** Rows parsed from the overview. */

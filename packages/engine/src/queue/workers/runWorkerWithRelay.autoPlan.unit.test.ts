@@ -11,8 +11,8 @@ import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -51,7 +51,7 @@ interface BuildTicketPlansParams {
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+jest.mock('#src/queue/workers/internal/buildWorkOrderPlans.ts', () => ({
 	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------

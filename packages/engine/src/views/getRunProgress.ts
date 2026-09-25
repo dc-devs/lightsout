@@ -8,7 +8,7 @@ import { readLastProgressMessage } from '#src/runState/progress/readLastProgress
 import { readShipResult } from '#src/ship/readShipResult.ts';
 import type { RunProgress } from '#src/views/common/types/RunProgress.ts';
 import type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
-import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
+import { getRunTitle } from '#src/views/internal/common/utils/getRunTitle.ts';
 
 /** Statuses from which this run can still reach ship — a run that ended any other way never will. */
 const shippableStatuses: RunStatus[] = [RunStatus.Running, RunStatus.Pending, RunStatus.PausedRateLimit, RunStatus.PausedBudget, RunStatus.Passed];

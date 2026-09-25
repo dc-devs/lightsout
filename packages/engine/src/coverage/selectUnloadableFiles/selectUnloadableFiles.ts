@@ -3,14 +3,14 @@ import { dirname, join } from 'node:path';
 import type ts from 'typescript';
 import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { coverageScopeOf } from '#src/coverage/common/utils/coverageScopeOf.ts';
-import { resolveScopeContext } from '#src/coverage/common/utils/resolveScopeContext.ts';
-import { scopeRootOf } from '#src/coverage/common/utils/scopeRootOf.ts';
+import { coverageScopeOf } from '#src/coverage/internal/common/utils/coverageScopeOf.ts';
+import { resolveScopeContext } from '#src/coverage/internal/common/utils/resolveScopeContext.ts';
+import { scopeRootOf } from '#src/coverage/internal/common/utils/scopeRootOf.ts';
 import { loadScopeJestConfig } from '#src/coverage/loadScopeJestConfig/loadScopeJestConfig.ts';
-import type { JestModuleMode } from '#src/coverage/selectUnloadableFiles/common/types/JestModuleMode.ts';
-import { isEsmSourceFile } from '#src/coverage/selectUnloadableFiles/common/utils/isEsmSourceFile.ts';
-import { readJestModuleMode } from '#src/coverage/selectUnloadableFiles/common/utils/readJestModuleMode.ts';
-import { readNearestPackageType } from '#src/coverage/selectUnloadableFiles/common/utils/readNearestPackageType.ts';
+import type { JestModuleMode } from '#src/coverage/selectUnloadableFiles/internal/common/types/JestModuleMode.ts';
+import { isEsmSourceFile } from '#src/coverage/selectUnloadableFiles/internal/common/utils/isEsmSourceFile.ts';
+import { readJestModuleMode } from '#src/coverage/selectUnloadableFiles/internal/common/utils/readJestModuleMode.ts';
+import { readNearestPackageType } from '#src/coverage/selectUnloadableFiles/internal/common/utils/readNearestPackageType.ts';
 
 interface Params {
 	cwd: string;

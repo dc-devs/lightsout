@@ -1,5 +1,5 @@
 import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
-import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
+import { readPlanWorkspaceFile } from '#src/plan/internal/common/utils/readPlanWorkspaceFile.ts';
 
 interface Params {
 	cwd: string;

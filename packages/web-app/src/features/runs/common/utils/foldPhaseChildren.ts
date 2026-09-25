@@ -1,5 +1,5 @@
 import type { RunListing } from '@lightsout/engine';
-import type { RunGroup } from '#src/features/runs/common/types/RunGroup.ts';
+import type { RunGroup } from '#src/features/runs/internal/common/types/RunGroup.ts';
 
 interface Params {
 	runs: RunListing[];

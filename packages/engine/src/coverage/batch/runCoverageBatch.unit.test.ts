@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { runCoverageBatch } from '#src/coverage/batch/runCoverageBatch.ts';
-import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
+import type { CoverageBatch } from '#src/coverage/internal/common/types/CoverageBatch.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { DriverResult } from '#src/drivers/common/types/DriverResult.ts';
 import { report } from '#tests/helpers/report.ts';

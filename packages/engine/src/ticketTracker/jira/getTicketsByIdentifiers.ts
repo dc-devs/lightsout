@@ -1,11 +1,11 @@
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { JiraTrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
-import type { JiraIssue } from '#src/ticketTracker/jira/common/types/JiraIssue.ts';
-import { getJiraUnfinishedBlockers } from '#src/ticketTracker/jira/common/utils/getJiraUnfinishedBlockers.ts';
-import { quoteJqlString } from '#src/ticketTracker/jira/common/utils/quoteJqlString.ts';
-import { toJiraTrackerTicket } from '#src/ticketTracker/jira/common/utils/toJiraTrackerTicket.ts';
-import { runJira } from '#src/ticketTracker/jira/runJira.ts';
+import type { JiraIssue } from '#src/ticketTracker/jira/internal/common/types/JiraIssue.ts';
+import { getJiraUnfinishedBlockers } from '#src/ticketTracker/jira/internal/common/utils/getJiraUnfinishedBlockers.ts';
+import { quoteJqlString } from '#src/ticketTracker/jira/internal/common/utils/quoteJqlString.ts';
+import { toJiraTrackerTicket } from '#src/ticketTracker/jira/internal/common/utils/toJiraTrackerTicket.ts';
+import { runJira } from '#src/ticketTracker/jira/internal/runJira.ts';
 
 interface Params {
 	settings: JiraTrackerSettings;

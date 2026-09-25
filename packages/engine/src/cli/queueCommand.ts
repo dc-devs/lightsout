@@ -1,12 +1,12 @@
 import { resolve } from 'node:path';
-import { pausedExitCode } from '#src/cli/common/constants/pausedExitCode.ts';
-import { QueueBoardState } from '#src/cli/common/constants/QueueBoardState.ts';
-import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusableTicketPatternMessage.ts';
-import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
+import { pausedExitCode } from '#src/cli/internal/common/constants/pausedExitCode.ts';
+import { QueueBoardState } from '#src/cli/internal/common/constants/QueueBoardState.ts';
+import { unusableTicketPatternMessage } from '#src/cli/internal/common/constants/unusableTicketPatternMessage.ts';
+import { renderQueueBoard } from '#src/cli/internal/common/queueBoard/renderQueueBoard.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { resolveEffectiveConfigAndDriver } from '#src/cli/internal/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { toQueueBoardTickets } from '#src/queue/board/toQueueBoardTickets.ts';

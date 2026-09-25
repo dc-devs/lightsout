@@ -11,9 +11,9 @@ import { PlanFixReport } from '#src/contracts/plan/draft/PlanFixReport.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { getAgentOutcomeStatus } from '#src/invoke/getAgentOutcomeStatus.ts';
-import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import { convergeFindings } from '#src/plan/draft/common/utils/convergeFindings.ts';
+import { convergeFindings } from '#src/plan/draft/internal/common/utils/convergeFindings.ts';
+import type { PlanRepairResult } from '#src/plan/internal/common/types/PlanRepairResult.ts';
+import { createPlanAgentRunner } from '#src/plan/internal/common/utils/createPlanAgentRunner.ts';
 import { checkPhaseBreakdown } from '#src/plan/lint/checkPhaseBreakdown.ts';
 
 interface Params {

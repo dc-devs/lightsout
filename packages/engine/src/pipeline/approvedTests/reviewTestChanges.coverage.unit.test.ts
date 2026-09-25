@@ -6,7 +6,7 @@ import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestReco
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { reviewTestChanges } from '#src/pipeline/approvedTests/reviewTestChanges.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

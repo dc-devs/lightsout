@@ -1,5 +1,5 @@
 import type { StandardsTrendPoint } from '@lightsout/engine';
-import type { TrendSeries } from '#src/features/standards/common/types/TrendSeries.ts';
+import type { TrendSeries } from '#src/features/standards/internal/common/types/TrendSeries.ts';
 
 interface Params {
 	points: StandardsTrendPoint[];

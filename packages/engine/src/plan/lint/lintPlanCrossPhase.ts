@@ -1,7 +1,7 @@
-import type { CrossPhaseLintResult } from '#src/plan/common/types/CrossPhaseLintResult.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseProvenance } from '#src/plan/common/types/PhaseProvenance.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
+import type { CrossPhaseLintResult } from '#src/plan/internal/common/types/CrossPhaseLintResult.ts';
+import type { PhaseProvenance } from '#src/plan/internal/common/types/PhaseProvenance.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
 import { checkFileProvenance } from '#src/plan/lint/checkFileProvenance.ts';
 import { checkPhaseCount } from '#src/plan/lint/checkPhaseCount.ts';
 import { checkPhaseDeclarations } from '#src/plan/lint/checkPhaseDeclarations.ts';

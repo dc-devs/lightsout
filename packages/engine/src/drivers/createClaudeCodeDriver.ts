@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { buildClaudeCodeArgs } from '#src/drivers/buildClaudeCodeArgs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
-import { isRateLimitMessage } from '#src/drivers/common/utils/isRateLimitMessage.ts';
-import { spawnCollect } from '#src/drivers/common/utils/spawnCollect.ts';
-import { writeSystemPromptFile } from '#src/drivers/common/utils/writeSystemPromptFile.ts';
+import { isRateLimitMessage } from '#src/drivers/internal/common/utils/isRateLimitMessage.ts';
+import { spawnCollect } from '#src/drivers/internal/common/utils/spawnCollect.ts';
+import { writeSystemPromptFile } from '#src/drivers/internal/common/utils/writeSystemPromptFile.ts';
 
 /**
  * The final `result` event of `claude -p --output-format stream-json`

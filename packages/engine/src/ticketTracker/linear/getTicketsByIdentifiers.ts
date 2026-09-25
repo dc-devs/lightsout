@@ -1,8 +1,8 @@
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { LinearTrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
-import { collectTrackerTickets } from '#src/ticketTracker/linear/common/utils/collectTrackerTickets.ts';
-import { runLinear } from '#src/ticketTracker/linear/runLinear.ts';
+import { collectTrackerTickets } from '#src/ticketTracker/linear/internal/common/utils/collectTrackerTickets.ts';
+import { runLinear } from '#src/ticketTracker/linear/internal/runLinear.ts';
 
 interface Params {
 	settings: LinearTrackerSettings;

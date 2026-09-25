@@ -2,14 +2,14 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
 import { Tabs } from '#src/appUI/Tabs.tsx';
 import { planWorkspaceQueryOptions } from '#src/features/plans/queries/planWorkspaceQueryOptions.ts';
-import { PlanDetailTab } from '#src/features/plans/screens/PlanDetail/common/constants/PlanDetailTab.ts';
-import { DecisionsTab } from '#src/features/plans/screens/PlanDetail/components/DecisionsTab.tsx';
-import { DedupTab } from '#src/features/plans/screens/PlanDetail/components/DedupTab.tsx';
-import { FactsTab } from '#src/features/plans/screens/PlanDetail/components/FactsTab.tsx';
-import { GradeTab } from '#src/features/plans/screens/PlanDetail/components/GradeTab.tsx';
-import { NotesTab } from '#src/features/plans/screens/PlanDetail/components/NotesTab.tsx';
-import { PlanHeader } from '#src/features/plans/screens/PlanDetail/components/PlanHeader.tsx';
-import { PlanTab } from '#src/features/plans/screens/PlanDetail/components/PlanTab.tsx';
+import { PlanDetailTab } from '#src/features/plans/screens/PlanDetail/internal/common/constants/PlanDetailTab.ts';
+import { DecisionsTab } from '#src/features/plans/screens/PlanDetail/internal/components/DecisionsTab.tsx';
+import { DedupTab } from '#src/features/plans/screens/PlanDetail/internal/components/DedupTab.tsx';
+import { FactsTab } from '#src/features/plans/screens/PlanDetail/internal/components/FactsTab.tsx';
+import { GradeTab } from '#src/features/plans/screens/PlanDetail/internal/components/GradeTab.tsx';
+import { NotesTab } from '#src/features/plans/screens/PlanDetail/internal/components/NotesTab.tsx';
+import { PlanHeader } from '#src/features/plans/screens/PlanDetail/internal/components/PlanHeader.tsx';
+import { PlanTab } from '#src/features/plans/screens/PlanDetail/internal/components/PlanTab.tsx';
 
 interface Props {
 	/** The workspace's kebab folder name, which is what the URL carries. */

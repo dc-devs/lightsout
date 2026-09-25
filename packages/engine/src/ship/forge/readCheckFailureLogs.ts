@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { maskSecrets } from '#src/ship/common/utils/maskSecrets.ts';
 import type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
-import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
-import { runGh } from '#src/ship/forge/runGh.ts';
+import { parseForgeJson } from '#src/ship/forge/internal/common/utils/parseForgeJson.ts';
+import { runGh } from '#src/ship/forge/internal/runGh.ts';
+import { maskSecrets } from '#src/ship/internal/common/utils/maskSecrets.ts';
 
 interface Params {
 	prNumber: number;

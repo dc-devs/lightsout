@@ -4,7 +4,7 @@ import { expect, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import type { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
 import { readApprovedTest } from '#src/pipeline/approvedTests/readApprovedTest.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

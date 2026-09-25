@@ -1,5 +1,5 @@
 import { unlink } from 'node:fs/promises';
-import { getRunLockPath } from '#src/runState/lock/common/utils/getRunLockPath.ts';
+import { getRunLockPath } from '#src/runState/lock/internal/common/utils/getRunLockPath.ts';
 import { readRunLock } from '#src/runState/lock/readRunLock.ts';
 
 interface Params {

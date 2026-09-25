@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
-import { replaceSectionSpan } from '#src/plan/common/rewriting/replaceSectionSpan.ts';
-import { writePlanFileIfChanged } from '#src/plan/common/rewriting/writePlanFileIfChanged.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
+import { replaceSectionSpan } from '#src/plan/internal/common/rewriting/replaceSectionSpan.ts';
+import { writePlanFileIfChanged } from '#src/plan/internal/common/rewriting/writePlanFileIfChanged.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {

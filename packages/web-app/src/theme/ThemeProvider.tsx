@@ -2,8 +2,8 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import { ResolvedTheme } from '#src/common/constants/ResolvedTheme.ts';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { themeStorageKey } from '#src/common/constants/themeStorageKey.ts';
+import { ThemeContext } from '#src/theme/internal/ThemeContext.ts';
 import { resolveThemeClass } from '#src/theme/resolveThemeClass.ts';
-import { ThemeContext } from '#src/theme/ThemeContext.ts';
 
 /** The stored preference, or undefined when nothing readable is stored — a browser with storage blocked throws on the very first read. */
 const readStoredTheme = () => {

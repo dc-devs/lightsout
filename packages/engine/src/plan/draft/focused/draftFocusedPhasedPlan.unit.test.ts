@@ -5,10 +5,10 @@ import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRec
 import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
 import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
 import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { selectPhaseEvidence } from '#src/plan/draft/focused/common/utils/selectPhaseEvidence.ts';
 import { draftFocusedPhasedPlan } from '#src/plan/draft/focused/draftFocusedPhasedPlan.ts';
+import { selectPhaseEvidence } from '#src/plan/draft/focused/internal/common/utils/selectPhaseEvidence.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';

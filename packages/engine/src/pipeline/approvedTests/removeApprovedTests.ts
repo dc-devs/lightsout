@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
-import { approvedTestsDir } from '#src/pipeline/approvedTests/common/utils/approvedTestsDir.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { approvedTestsDir } from '#src/pipeline/approvedTests/internal/common/utils/approvedTestsDir.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;

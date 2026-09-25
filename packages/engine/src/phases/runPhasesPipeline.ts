@@ -4,7 +4,7 @@ import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { initializeSequence } from '#src/phases/initializeSequence.ts';
-import { runPhase } from '#src/phases/runPhase.ts';
+import { runPhase } from '#src/phases/internal/runPhase.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { createProgressSink } from '#src/runState/progress/createProgressSink.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';

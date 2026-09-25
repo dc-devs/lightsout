@@ -1,7 +1,7 @@
 import type { Effort } from '#src/contracts/Effort.ts';
 import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
-import { appendAgentLog } from '#src/runState/common/utils/appendAgentLog.ts';
+import { appendAgentLog } from '#src/runState/internal/common/utils/appendAgentLog.ts';
 
 interface Params {
 	cwd: string;

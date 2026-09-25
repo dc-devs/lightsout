@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
 
 interface Params {
 	cwd: string;

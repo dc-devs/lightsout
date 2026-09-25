@@ -1,5 +1,5 @@
 import dataset from '#assets/sprawl-dataset.json';
-import { SprawlDataset } from '#src/features/sprawl/common/contracts/SprawlDataset.ts';
+import { SprawlDataset } from '#src/features/sprawl/internal/common/contracts/SprawlDataset.ts';
 
 /** Parsed once. The JSON is a build artefact bundled into the app; it cannot change while the app runs. */
 let parsed: SprawlDataset | undefined;

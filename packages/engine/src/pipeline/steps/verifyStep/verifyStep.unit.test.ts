@@ -5,7 +5,7 @@ import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
@@ -17,7 +17,7 @@ import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 const mockRunVerificationGates =
 	jest.fn<(params: { run: PipelineRun; coverage?: boolean; checkpoint: string }) => Promise<GateRunResult & { failures: GateResult[] }>>();
 
-jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
+jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => ({
 	runVerificationGates: (params: { run: PipelineRun; coverage?: boolean; checkpoint: string }) => mockRunVerificationGates(params),
 }));
 // -------------------------

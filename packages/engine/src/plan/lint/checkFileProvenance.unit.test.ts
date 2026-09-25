@@ -5,8 +5,8 @@ import { describe, expect, test } from '@jest/globals';
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseProvenance } from '#src/plan/common/types/PhaseProvenance.ts';
-import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
+import type { PhaseProvenance } from '#src/plan/internal/common/types/PhaseProvenance.ts';
+import { getPhaseProvenance } from '#src/plan/internal/common/utils/getPhaseProvenance.ts';
 import { checkFileProvenance } from '#src/plan/lint/checkFileProvenance.ts';
 import { type PhaseSpec, phaseBody, phaseFile } from '#tests/helpers/phasePlan.ts';
 

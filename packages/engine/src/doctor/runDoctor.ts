@@ -13,8 +13,8 @@ import { checkLintRules } from '#src/doctor/checkLintRules.ts';
 import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
 import { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
 import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
-import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
+import { resolvePackageDirs } from '#src/doctor/internal/resolvePackageDirs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };

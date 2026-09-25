@@ -4,7 +4,7 @@ import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
 
 interface Params {
 	phase: PhaseFile;

@@ -13,7 +13,9 @@ import { shipScenarioFixtures } from '#tests/helpers/shipScenarioFixtures.ts';
 // stubbed is everything that would leave the machine or take half an hour: the
 // repository's own gates, the forge, and the check wait.
 jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
-jest.mock('#src/ship/waitForChecks.ts', () => ({ waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params) }));
+jest.mock('#src/ship/internal/waitForChecks.ts', () => ({
+	waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params),
+}));
 jest.mock('#src/ship/forge/common/constants/PullRequestState.ts', () => ({ PullRequestState: { Open: 'open', Merged: 'merged' } }));
 jest.mock('#src/ship/forge/createPullRequest.ts', () => ({
 	createPullRequest: (params: Parameters<typeof mockShip.createPullRequest>[0]) => mockShip.createPullRequest(params),

@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises';
-import { getVoiceMarkerPath } from '#src/voice/common/paths/getVoiceMarkerPath.ts';
+import { getVoiceMarkerPath } from '#src/voice/internal/common/paths/getVoiceMarkerPath.ts';
 
 interface Params {
 	cwd: string;

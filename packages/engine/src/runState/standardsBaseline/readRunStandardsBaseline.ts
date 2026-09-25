@@ -1,6 +1,6 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
 import { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
-import { getRunStandardsBaselinePath } from '#src/runState/standardsBaseline/getRunStandardsBaselinePath.ts';
+import { getRunStandardsBaselinePath } from '#src/runState/standardsBaseline/internal/getRunStandardsBaselinePath.ts';
 
 interface Params {
 	cwd: string;

@@ -5,11 +5,11 @@ import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
-import { getPlanWrittenPaths } from '#src/plan/common/paths/getPlanWrittenPaths.ts';
-import { isPlanSourceFile } from '#src/plan/common/paths/isPlanSourceFile.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { checkLedgerCoverage } from '#src/plan/lint/checkLedgerCoverage.ts';
-import { checkMovedAwayLedgerFiles } from '#src/plan/lint/checkMovedAwayLedgerFiles.ts';
+import { getPlanWrittenPaths } from '#src/plan/internal/common/paths/getPlanWrittenPaths.ts';
+import { isPlanSourceFile } from '#src/plan/internal/common/paths/isPlanSourceFile.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { checkLedgerCoverage } from '#src/plan/lint/internal/checkLedgerCoverage.ts';
+import { checkMovedAwayLedgerFiles } from '#src/plan/lint/internal/checkMovedAwayLedgerFiles.ts';
 
 interface Params {
 	plan: ParsedPlan;

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
-import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
-import { findJestConfigs } from '#src/doctor/common/utils/findJestConfigs.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
+import type { PackageDir } from '#src/doctor/internal/common/types/PackageDir.ts';
+import { findJestConfigs } from '#src/doctor/internal/common/utils/findJestConfigs.ts';
 
 interface Params {
 	cwd: string;

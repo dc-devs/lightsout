@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { SprawlLane } from '#src/features/sprawl/common/constants/SprawlLane.ts';
-import type { SprawlDataset } from '#src/features/sprawl/common/contracts/SprawlDataset.ts';
-import type { SprawlLaneDelta } from '#src/features/sprawl/common/contracts/SprawlLaneDelta.ts';
 import { buildSprawlLaneStates } from '#src/features/sprawl/common/rendering/buildSprawlLaneStates.ts';
+import { SprawlLane } from '#src/features/sprawl/internal/common/constants/SprawlLane.ts';
+import type { SprawlDataset } from '#src/features/sprawl/internal/common/contracts/SprawlDataset.ts';
+import type { SprawlLaneDelta } from '#src/features/sprawl/internal/common/contracts/SprawlLaneDelta.ts';
 
 const emptyDelta: SprawlLaneDelta = { files: [], folders: [], removedFiles: [], removedFolders: [], overCap: 0 };
 

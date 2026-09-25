@@ -11,7 +11,7 @@ import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
 import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 import { runQueue } from '#src/queue/runQueue.ts';
 import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';

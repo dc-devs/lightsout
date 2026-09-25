@@ -10,8 +10,8 @@ import type { SourceEvidenceEntry } from '#src/contracts/plan/evidence/SourceEvi
 import { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
 import { SourceEvidenceKind } from '#src/contracts/plan/evidence/SourceEvidenceKind.ts';
 import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
-import { wholeFileEvidenceLimit } from '#src/plan/evidence/common/constants/wholeFileEvidenceLimit.ts';
 import { extractSourceEvidence } from '#src/plan/evidence/extractSourceEvidence.ts';
+import { wholeFileEvidenceLimit } from '#src/plan/evidence/internal/common/constants/wholeFileEvidenceLimit.ts';
 import { sourceEvidencePath } from '#src/plan/evidence/sourceEvidencePath.ts';
 
 interface Params {

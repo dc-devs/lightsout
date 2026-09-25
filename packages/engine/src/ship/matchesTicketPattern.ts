@@ -1,4 +1,4 @@
-import { readTicketMatch } from '#src/ship/readTicketMatch.ts';
+import { readTicketMatch } from '#src/ship/internal/readTicketMatch.ts';
 
 interface Params {
 	branch: string;

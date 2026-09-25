@@ -9,17 +9,17 @@ import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementati
 import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
-import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 import { readMergedDecisions } from '#src/plan/decisionLog/readMergedDecisions.ts';
-import { planWriterEnvironment } from '#src/plan/draft/common/constants/planWriterEnvironment.ts';
 import { estimatePlanScope } from '#src/plan/draft/estimatePlanScope.ts';
 import { draftFocusedPhasedPlan } from '#src/plan/draft/focused/draftFocusedPhasedPlan.ts';
 import { draftFocusedSinglePlan } from '#src/plan/draft/focused/draftFocusedSinglePlan.ts';
+import { planWriterEnvironment } from '#src/plan/draft/internal/common/constants/planWriterEnvironment.ts';
+import { preflightDraftEnvironment } from '#src/plan/draft/internal/preflightDraftEnvironment.ts';
 import { draftPhasedPlan } from '#src/plan/draft/legacy/draftPhasedPlan.ts';
 import { draftSinglePlan } from '#src/plan/draft/legacy/draftSinglePlan.ts';
-import { preflightDraftEnvironment } from '#src/plan/draft/preflightDraftEnvironment.ts';
 import { collectSourceEvidence } from '#src/plan/evidence/collectSourceEvidence.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
+import type { RunPlanDraftResult } from '#src/plan/internal/common/types/RunPlanDraftResult.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { readPlanFacts } from '#src/plan/readPlanFacts.ts';
 

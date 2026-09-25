@@ -7,8 +7,8 @@ import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementati
 import { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
 import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import { draftFocusedSinglePlan } from '#src/plan/draft/focused/draftFocusedSinglePlan.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createScriptedDraftDriver, type DraftRole, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';

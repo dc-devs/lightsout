@@ -5,9 +5,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
 import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
-import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
-import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { testWriterConcurrency } from '#src/pipeline/internal/common/constants/testWriterConcurrency.ts';
+import type { TestTargetGroup } from '#src/pipeline/internal/common/types/TestTargetGroup.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runWriterBatches } from '#src/pipeline/steps/runWriterBatches.ts';
 
 // The warm-up writer: when it releases the rest of the fan-out, what happens

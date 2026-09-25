@@ -48,7 +48,7 @@ jest.mock('#src/features/app/serverFns/getRepoRoot/getRepoRootServerFn.ts', () =
 // in this page whenever that import happens to resolve — which is after the
 // first test, not the first render. Its own suite covers what it draws; here it
 // stands aside so the page's own headings are the only ones on the page.
-jest.mock('#src/features/home/components/DemoRunDetail.tsx', () => ({ DemoRunDetail: () => null }));
+jest.mock('#src/features/home/internal/components/DemoRunDetail.tsx', () => ({ DemoRunDetail: () => null }));
 // -------------------------
 // The links, which need a live router around them to resolve a path, and the
 // not-found signal the pack server function raises for a rule the pack has

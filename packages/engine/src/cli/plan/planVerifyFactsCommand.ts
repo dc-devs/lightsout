@@ -1,11 +1,11 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
-import { bold } from '#src/cli/common/terminal/bold.ts';
-import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { yellow } from '#src/cli/internal/common/terminal/yellow.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { ensureBrainstormFiles } from '#src/cli/internal/common/utils/ensureBrainstormFiles.ts';
 import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';

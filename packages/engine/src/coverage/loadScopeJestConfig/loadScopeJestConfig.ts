@@ -3,8 +3,8 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
-import type { LoadedJestConfig } from '#src/coverage/common/types/LoadedJestConfig.ts';
-import { resolveJestConfigPath } from '#src/coverage/loadScopeJestConfig/common/utils/resolveJestConfigPath.ts';
+import type { LoadedJestConfig } from '#src/coverage/internal/common/types/LoadedJestConfig.ts';
+import { resolveJestConfigPath } from '#src/coverage/loadScopeJestConfig/internal/common/utils/resolveJestConfigPath.ts';
 
 const ScopeManifest = z.looseObject({ scripts: z.record(z.string(), z.string()).optional().catch(undefined) });
 

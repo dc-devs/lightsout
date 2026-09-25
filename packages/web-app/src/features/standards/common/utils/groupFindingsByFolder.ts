@@ -1,6 +1,6 @@
 import type { StandardsFinding } from '@lightsout/engine';
-import type { FolderGroup } from '#src/features/standards/common/types/FolderGroup.ts';
-import { getFindingFolder } from '#src/features/standards/common/utils/getFindingFolder.ts';
+import type { FolderGroup } from '#src/features/standards/internal/common/types/FolderGroup.ts';
+import { getFindingFolder } from '#src/features/standards/internal/common/utils/getFindingFolder.ts';
 
 interface Params {
 	findings: StandardsFinding[];

@@ -1,15 +1,15 @@
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
-import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext.ts';
-import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
-import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
-import { admitScanned } from '#src/queue/drainLanes/common/utils/admitScanned.ts';
-import { startBuilds } from '#src/queue/drainLanes/common/utils/startBuilds.ts';
-import { startScan } from '#src/queue/drainLanes/common/utils/startScan.ts';
-import { startShip } from '#src/queue/drainLanes/common/utils/startShip.ts';
-import { writeQueuePlan } from '#src/queue/drainLanes/common/utils/writeQueuePlan.ts';
+import type { LaneContext } from '#src/queue/drainLanes/internal/common/types/LaneContext.ts';
+import type { LaneFlight } from '#src/queue/drainLanes/internal/common/types/LaneFlight.ts';
+import type { LaneState } from '#src/queue/drainLanes/internal/common/types/LaneState.ts';
+import { admitScanned } from '#src/queue/drainLanes/internal/common/utils/admitScanned.ts';
+import { startBuilds } from '#src/queue/drainLanes/internal/common/utils/startBuilds.ts';
+import { startScan } from '#src/queue/drainLanes/internal/common/utils/startScan.ts';
+import { startShip } from '#src/queue/drainLanes/internal/common/utils/startShip.ts';
+import { writeQueuePlan } from '#src/queue/drainLanes/internal/common/utils/writeQueuePlan.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
+import type { WaveSelection } from '#src/queue/internal/common/types/WaveSelection.ts';
 
 interface Params extends LaneContext {
 	/** The opening selection, straight from the startup scan and not yet reconciled against already-merged branches. */

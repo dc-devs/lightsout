@@ -1,10 +1,10 @@
 import { estimateActivityCost } from '#src/activity/estimateActivityCost.ts';
-import { printActivityReport } from '#src/cli/common/activityReport/printActivityReport.ts';
-import { resolveReportTargets } from '#src/cli/common/activityReport/resolveReportTargets.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { printActivityReport } from '#src/cli/internal/common/activityReport/printActivityReport.ts';
+import { resolveReportTargets } from '#src/cli/internal/common/activityReport/resolveReportTargets.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 import type { PlanActivityReport } from '#src/views/common/types/PlanActivityReport.ts';

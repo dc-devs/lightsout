@@ -3,8 +3,8 @@ import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
 import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import type { WorkOrderRunTerms } from '#src/workOrder/common/types/WorkOrderRunTerms.ts';
-import { isWholePlanRun } from '#src/workOrder/common/utils/isWholePlanRun.ts';
 import { findPlanImplementationBlocker } from '#src/workOrder/findPlanImplementationBlocker.ts';
+import { isWholePlanRun } from '#src/workOrder/internal/common/utils/isWholePlanRun.ts';
 import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 

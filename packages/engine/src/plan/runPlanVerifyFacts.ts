@@ -5,7 +5,7 @@ import { AuthoredFacts } from '#src/contracts/plan/facts/AuthoredFacts.ts';
 import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
-import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
+import { readPlanWorkspaceFile } from '#src/plan/internal/common/utils/readPlanWorkspaceFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { verifyFacts } from '#src/plan/verifyFacts.ts';
 

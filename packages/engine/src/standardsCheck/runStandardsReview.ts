@@ -6,7 +6,7 @@ import { StandardsReviewReport } from '#src/contracts/standardsCheck/StandardsRe
 import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
-import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
+import { createAgentHeartbeat } from '#src/standardsCheck/internal/common/utils/createAgentHeartbeat.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {

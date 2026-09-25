@@ -8,8 +8,8 @@ import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { configQueryOptions } from '#src/features/config/queries/configQueryOptions.ts';
-import { ConfigFieldRow } from '#src/features/config/screens/ConfigPage/components/ConfigFieldRow.tsx';
-import { RuleLedger } from '#src/features/config/screens/ConfigPage/components/RuleLedger.tsx';
+import { ConfigFieldRow } from '#src/features/config/screens/ConfigPage/internal/components/ConfigFieldRow.tsx';
+import { RuleLedger } from '#src/features/config/screens/ConfigPage/internal/components/RuleLedger.tsx';
 
 /** One loaded pack, as the way into what it says and which framework documents it carries. */
 const PackRow = ({ pack }: { pack: ConfigView['packs'][number] }) => (

@@ -1,5 +1,5 @@
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
 
 /**
  * What one drain amounted to.

@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises';
-import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
+import { getWorktreeRecordPath } from '#src/worktree/records/internal/common/utils/getWorktreeRecordPath.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */

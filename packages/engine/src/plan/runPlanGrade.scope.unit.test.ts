@@ -3,7 +3,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
 import type { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
 import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
-import { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
+import { gradeMemoryPath } from '#src/plan/common/utils/gradeMemoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';

@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { listCommandsServerFn } from '#src/features/commands/serverFns/listCommandsServerFn.ts';
+import { listCommandsServerFn } from '#src/features/commands/internal/serverFns/listCommandsServerFn.ts';
 
 /**
  * The whole command catalog in one query rather than one query per command.

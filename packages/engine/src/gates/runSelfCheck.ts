@@ -8,14 +8,14 @@ import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
-import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
 import type { SelfCheckResult } from '#src/gates/common/types/SelfCheckResult.ts';
-import { buildGateEntries } from '#src/gates/common/utils/buildGateEntries.ts';
 import { collectGateObservations } from '#src/gates/common/utils/collectGateObservations.ts';
 import { resolveGateSchedule } from '#src/gates/common/utils/resolveGateSchedule.ts';
-import { rootGateCommands } from '#src/gates/common/utils/rootGateCommands.ts';
-import { selfCheckGateNames } from '#src/gates/common/utils/selfCheckGateNames.ts';
+import type { GateCommands } from '#src/gates/internal/common/types/GateCommands.ts';
+import { buildGateEntries } from '#src/gates/internal/common/utils/buildGateEntries.ts';
+import { rootGateCommands } from '#src/gates/internal/common/utils/rootGateCommands.ts';
+import { selfCheckGateNames } from '#src/gates/internal/common/utils/selfCheckGateNames.ts';
 import { runGates } from '#src/gates/runGates.ts';
 
 /**

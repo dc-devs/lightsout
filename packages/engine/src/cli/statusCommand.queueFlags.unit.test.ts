@@ -43,13 +43,13 @@ const mockResolveQueueRun = jest.fn<(params: QueueRunParams) => Promise<RunListi
 const mockResolveWatchTarget = jest.fn<(params: { cwd: string; rootRunId?: string }) => Promise<WatchTarget>>();
 const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/queueBoard/resolveQueueRun.ts', () => ({
+jest.mock('#src/cli/internal/common/queueBoard/resolveQueueRun.ts', () => ({
 	resolveQueueRun: (params: QueueRunParams) => mockResolveQueueRun(params),
 }));
-jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/resolveWatchTarget.ts', () => ({
 	resolveWatchTarget: (params: { cwd: string; rootRunId?: string }) => mockResolveWatchTarget(params),
 }));
-jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/watchRunProgress.ts', () => ({
 	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------

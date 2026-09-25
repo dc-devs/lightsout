@@ -1,10 +1,10 @@
 import { publishBrainstorm } from '#src/brainstorm/publish/publishBrainstorm.ts';
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
-import { bold } from '#src/cli/common/terminal/bold.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { describeMissingPlanAddress } from '#src/cli/common/utils/describeMissingPlanAddress.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { describeMissingPlanAddress } from '#src/cli/internal/common/utils/describeMissingPlanAddress.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 

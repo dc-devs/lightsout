@@ -21,7 +21,9 @@ import { shipScenarioGit } from '#tests/helpers/shipScenarioGit.ts';
 // real contract invoker, so what a recovery attempt was handed is read off the
 // invocation it received.
 jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
-jest.mock('#src/ship/waitForChecks.ts', () => ({ waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params) }));
+jest.mock('#src/ship/internal/waitForChecks.ts', () => ({
+	waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params),
+}));
 jest.mock('#src/ship/forge/common/constants/PullRequestState.ts', () => ({ PullRequestState: { Open: 'open', Merged: 'merged' } }));
 jest.mock('#src/ship/forge/createPullRequest.ts', () => ({
 	createPullRequest: (params: Parameters<typeof mockShip.createPullRequest>[0]) => mockShip.createPullRequest(params),

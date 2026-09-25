@@ -7,9 +7,9 @@ import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFi
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
-import { coverageScopeOf } from '#src/coverage/common/utils/coverageScopeOf.ts';
-import { resolveScopeContext } from '#src/coverage/common/utils/resolveScopeContext.ts';
+import { buildMissingSummaryMessage } from '#src/coverage/internal/common/utils/buildMissingSummaryMessage.ts';
+import { coverageScopeOf } from '#src/coverage/internal/common/utils/coverageScopeOf.ts';
+import { resolveScopeContext } from '#src/coverage/internal/common/utils/resolveScopeContext.ts';
 import { selectCollectedFiles } from '#src/coverage/selectCollectedFiles/selectCollectedFiles.ts';
 import { selectUnloadableFiles } from '#src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts';
 

@@ -3,12 +3,12 @@ import { join } from 'node:path';
 import { StandardsPackRoot, StandardsSet } from '@lightsout/standards-contracts';
 import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
-import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
-import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
+import { parseDocumentFolder } from '#src/standardsPacks/internal/common/parsing/parseDocumentFolder.ts';
+import { formatSchemaIssues } from '#src/standardsPacks/internal/common/utils/formatSchemaIssues.ts';
+import { hasFile } from '#src/standardsPacks/internal/common/utils/hasFile.ts';
 
 interface Params {
 	packPath: string;

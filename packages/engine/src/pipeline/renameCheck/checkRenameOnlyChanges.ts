@@ -5,9 +5,9 @@ import { readGitCommittedFile } from '#src/common/git/readGitCommittedFile.ts';
 import { readGitWorkingChanges } from '#src/common/git/readGitWorkingChanges.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { applyRenames } from '#src/pipeline/renameCheck/common/utils/applyRenames.ts';
-import { countTokens } from '#src/pipeline/renameCheck/common/utils/countTokens.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
+import { applyRenames } from '#src/pipeline/renameCheck/internal/common/utils/applyRenames.ts';
+import { countTokens } from '#src/pipeline/renameCheck/internal/common/utils/countTokens.ts';
 
 interface Params {
 	run: PipelineRun;

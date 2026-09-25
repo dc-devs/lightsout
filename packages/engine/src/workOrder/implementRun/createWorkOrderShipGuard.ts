@@ -1,7 +1,7 @@
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
 import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
-import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
+import { appendWorkOrderEvent } from '#src/workOrder/internal/common/record/appendWorkOrderEvent.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';

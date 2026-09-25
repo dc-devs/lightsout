@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
 import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
-import type { LiveQueueBoard } from '#src/queue/board/common/types/LiveQueueBoard.ts';
-import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { LiveQueueBoard } from '#src/queue/board/internal/common/types/LiveQueueBoard.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { BuildInFlight } from '#src/queue/internal/common/types/BuildInFlight.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
 
 interface Params {
 	/** Outcomes and left-behind entries the drain has settled. With nothing else, this is the final board. */
