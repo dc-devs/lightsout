@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getAvatarUrl } from './index';
+import { getAvatarUrl } from './getAvatarUrl';
 
 // The arrangement lives in module state the factory mutates, so what a test
 // gets depends on what ran before it.

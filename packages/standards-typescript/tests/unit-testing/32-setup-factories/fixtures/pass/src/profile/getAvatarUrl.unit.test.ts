@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getAvatarUrl } from './index';
+import { getAvatarUrl } from './getAvatarUrl';
 
 const setupAvatar = ({ profile = null }: { profile?: string | null } = {}) => {
 	const userProfile = { avatar: profile };

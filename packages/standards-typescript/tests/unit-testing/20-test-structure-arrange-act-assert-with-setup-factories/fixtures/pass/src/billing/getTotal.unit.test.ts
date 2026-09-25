@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getTotal } from './index';
+import { getTotal } from './getTotal';
 
 const setupOrder = ({ quantity = 2, unitPrice = 50 }: { quantity?: number; unitPrice?: number } = {}) => {
 	return { quantity, unitPrice };

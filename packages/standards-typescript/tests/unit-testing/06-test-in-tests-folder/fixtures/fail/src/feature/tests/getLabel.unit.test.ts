@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getLabel } from '../index';
+import { getLabel } from '../getLabel';
 
 describe('getLabel', () => {
 	test('trims the name it is given', () => {

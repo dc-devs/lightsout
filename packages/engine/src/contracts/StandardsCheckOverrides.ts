@@ -1,7 +1,5 @@
 import { z } from 'zod';
-// Through the barrel, not the file: `standardsCheck` is a module of its own
-// inside contracts, and its index.ts is the path in. No cycle — nothing under
-// it reads the config.
+// No cycle — nothing under `contracts/standardsCheck/` reads the config.
 import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 /**

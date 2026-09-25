@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getTotal } from './index';
+import { getTotal } from './getTotal';
 
 describe('getTotal', () => {
 	test('multiplies the quantity by the unit price', () => {

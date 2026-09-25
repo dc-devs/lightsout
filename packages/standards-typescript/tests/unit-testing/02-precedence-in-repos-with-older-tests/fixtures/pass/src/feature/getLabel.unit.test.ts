@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getLabel } from './index';
+import { getLabel } from './getLabel';
 
 const setupLabel = ({ name = ' Ada ' }: { name?: string } = {}) => {
 	return { name };

@@ -1,5 +1,5 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { useEscapeKey } from './index';
+import { useEscapeKey } from './useEscapeKey';
 
 // Mocked Imports
 // -------------------------

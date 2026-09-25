@@ -1,5 +1,5 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { placeOrder } from './index';
+import { placeOrder } from './placeOrder';
 
 const setupOrder = () => {
 	const repository = { save: () => undefined };

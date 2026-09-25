@@ -1,5 +1,5 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { getUserData } from './index';
+import { getUserData } from './getUserData';
 
 const mockFindUser = jest.fn<(id: string) => Promise<{ id: string } | null>>();
 
