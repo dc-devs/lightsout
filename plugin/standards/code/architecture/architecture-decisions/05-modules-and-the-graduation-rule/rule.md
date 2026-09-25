@@ -11,7 +11,7 @@ A **module** is a unit of code with a public API and private internals. TypeScri
 **Every concept starts as a file and earns its folder:**
 
 - **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.
-- **Folder-module (graduated):** when a concept needs private companions — its own utils, types, or constants that serve only it — it graduates to a folder with an `index.ts` as its public API.
+- **Folder-module (graduated):** when a concept needs private companions — its own utils, types, or constants that serve only it — it graduates to a folder with an `index.ts` that lists its public API.
 - **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.
 
 **The trigger is mechanical:** *needs private companion files → folder; doesn't → file.* Never create folder ceremony for a one-file concept.
@@ -20,9 +20,10 @@ A **module** is a unit of code with a public API and private internals. TypeScri
 
 **Boundary rules for folder-modules:**
 
-1. Cross-module imports go through the module's `index.ts` **only** — never reach into another module's internals
-2. Inside a module, deep imports between its files are correct
-3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)
-4. Test imports obey the same boundary: a test OUTSIDE a module imports its `index.ts`, never its internals — including in repos that keep tests in a separate directory. (A boundary test living beside its file is inside the module; its deep import is correct.)
+1. Every import names the file that declares what it imports — never a folder's `index.ts`. The `index.ts` lists what the module makes public; it is not an import path. Importing through it loads every file it re-exports, and every file those import, for one name.
+2. Cross-module imports reach **only** the files the module's `index.ts` exports — directly or through a lower `index.ts` — never another module's internals
+3. Inside a module, imports between its files are correct
+4. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)
+5. Test imports obey the same boundary: a test OUTSIDE a module imports only the files its `index.ts` exports, never its internals — including in repos that keep tests in a separate directory. (A test living beside its file is inside the module; it imports that file directly.)
 
 The rule is recursive — a graduated component folder inside a feature folder is a module within a module.

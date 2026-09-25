@@ -1,6 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { collectPublishedFiles } from '../../../../common/modules/collectPublishedFiles.ts';
 import { getDirectory } from '../../../../common/paths/getDirectory.ts';
+import { isBarrelFile } from '../../../../common/paths/isBarrelFile.ts';
 
 /** The module that owns a common file: everything before its LAST `common` segment. */
 const getCommonOwner = ({ path }: { path: string }) => {
@@ -28,9 +30,32 @@ const getLowestCommonAncestor = ({ paths }: { paths: string[] }) => {
 	return shared.join('/');
 };
 
+/**
+ * The files each module's barrel publishes, keyed by the module's folder. A
+ * barrel holds only re-export lines, so the edges leaving it are its surface.
+ */
+const mapPublishedByOwner = ({ edges }: { edges: Array<{ from: string; to: string }> }) => {
+	const targetsByFile = new Map<string, Set<string>>();
+
+	for (const { from, to } of edges) {
+		targetsByFile.set(from, (targetsByFile.get(from) ?? new Set<string>()).add(to));
+	}
+
+	const published = new Map<string, Set<string>>();
+
+	for (const barrelPath of [...targetsByFile.keys()].filter((file) => isBarrelFile({ path: file }))) {
+		const owner = getDirectory({ path: barrelPath });
+
+		published.set(owner, new Set([...(published.get(owner) ?? []), ...collectPublishedFiles({ barrelPath, targetsByFile })]));
+	}
+
+	return published;
+};
+
 /** Each leaked file with the module that owns it and everyone outside reaching in. */
 const getLeaks = ({ edges }: { edges: Array<{ from: string; to: string }> }) => {
 	const leaks = new Map<string, { owner: string; consumers: Set<string> }>();
+	const publishedByOwner = mapPublishedByOwner({ edges });
 
 	for (const { from, to } of edges) {
 		const owner = getCommonOwner({ path: to });
@@ -38,6 +63,13 @@ const getLeaks = ({ edges }: { edges: Array<{ from: string; to: string }> }) => 
 		// No owner, or a package/repo-root common (shared by design), or an
 		// importer inside the owner (using its own common) — none is a leak.
 		if (owner === undefined || owner.split('/').pop() === 'src' || from.startsWith(`${owner}/`)) {
+			continue;
+		}
+
+		// A file the owner's barrel publishes is part of the module's public API
+		// — a type its exported functions take, say — so an outside importer
+		// naming it is using that API, not reaching past it.
+		if (publishedByOwner.get(owner)?.has(to) === true) {
 			continue;
 		}
 
@@ -53,7 +85,8 @@ export const check: StandardsCheckModule = {
 	inputKind: 'import-graph',
 	// A file under `<module>/common/…` is module-internal shared code; when an
 	// importer OUTSIDE that module reaches into it, the fix is promotion to the
-	// lowest common ancestor's `common/`. Duplicate and promotion-candidate
+	// lowest common ancestor's `common/` — unless the module's barrel publishes
+	// it, which makes it part of the module's public API. Duplicate and promotion-candidate
 	// detection belong to the name and token rules — this one is only about the
 	// boundary the import crosses.
 	run: ({ input }): RawStandardsFinding[] => {

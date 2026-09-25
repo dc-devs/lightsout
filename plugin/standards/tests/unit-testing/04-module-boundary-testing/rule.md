@@ -6,8 +6,9 @@ severity: advisory
 
 ## Module Boundary Testing
 
-**Default to testing a module's public API** — the exports its barrel
-(`index.ts`) publishes — and cover internals *through* it. A boundary test pins
+**Default to testing a module's public API** — the files its barrel
+(`index.ts`) exports, each imported from its own file — and cover internals
+*through* it. A boundary test pins
 behavior rather than internal decomposition, so a module's internals can be
 reorganized without touching a single test, and three code changes inside a
 module cost one test update instead of three.

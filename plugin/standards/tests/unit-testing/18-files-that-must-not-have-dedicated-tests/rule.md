@@ -11,7 +11,7 @@ Do **not** create test files for source files with no runtime logic — they are
 - **Pure constants** — only literal values, no computation or side effects
 - **Enums with no computed members** / string-union types
 - **Type-only files** — only `type`/`interface` declarations
-- **Barrel / re-export files** (`index.ts`)
+- **Barrel / re-export files** (`index.ts`) — a list of what a module makes public; code imports the files it lists, never the barrel
 
 A file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths — not the static value.
 
@@ -29,5 +29,5 @@ A dedicated test on that file may pin only what no other test can reach:
 - that each one arrived as a value rather than erasing to `undefined`
 
 It must not re-prove what the exported things do — that belongs to each one's own
-test file. Every barrel below the published entry is still covered by the files
-that import through it, and still must not have a dedicated test.
+test file. Every barrel below the published entry holds only that list — nothing
+imports through it — and still must not have a dedicated test.
