@@ -47,10 +47,9 @@ const readConcurrentBuilds = () => {
  * `isolatedModules: true`, and in ts-jest that is what makes it transpile-only.
  * `pnpm typecheck` is the type gate.
  *
- * `globalSetup` refuses to start on a Node version measured to crash this suite
- * often; checkNodeVersion.cjs holds the versions and the evidence, including
- * why a rare lone SIGSEGV on a permitted version is still that bug rather than
- * a test. A config that needs its own globalSetup — the e2e one builds a
+ * `globalSetup` refuses a run started without `node --no-sparkplug`, the flag
+ * that stops V8 crashing a Jest worker in garbage collection; runJest.cjs holds
+ * the evidence. A config that needs its own globalSetup — the e2e one builds a
  * bundle — calls that check itself, so neither path skips it.
  *
  * @param rootDir - the package root; every glob in the returned config anchors to it
@@ -67,16 +66,15 @@ module.exports = ({ rootDir, ...rest }) => ({
 	//
 	// Nothing bounded this before, and two layers multiplied: Nx runs several
 	// projects at once and each asked Jest for 13 workers on a 14-core machine, so
-	// one `pnpm test:unit` could start 39 worker processes. That matters because
-	// the known Jest worker segfault gets more likely the more workers there are:
-	// the crash happens during a major garbage collection, and more workers means
-	// more heap and more collections. Measured on 2026-09-04, two suites running
-	// at once: 26 workers lost 2 runs in 24, 20 lost 1, and 8 lost none, against
-	// 30 clean runs on an idle machine at 13.
+	// one `pnpm test:unit` could start 39 worker processes. Before this repo ran
+	// Jest under `--no-sparkplug` (see runJest.cjs), that made V8's worker crash
+	// more likely: the crash happens during a major garbage collection, and more
+	// workers means more heap and more collections. Measured on 2026-09-04, two
+	// suites running at once: 26 workers lost 2 runs in 24, 20 lost 1, and 8 lost
+	// none, against 30 clean runs on an idle machine at 13.
 	//
 	// Eight is the point where the cost is about two seconds a run rather than the
-	// twenty-eight a tighter cap costs, and what slips through is the case LO-39's
-	// gate retry was built to absorb. It has to be a ceiling rather than a flat
+	// twenty-eight a tighter cap costs. It has to be a ceiling rather than a flat
 	// number, because the machines differ by an order of magnitude: a 14-core
 	// laptop hosting several agents has the cores to spend, while a four-core CI
 	// runner does not. A flat eight there oversubscribed the runner badly enough
@@ -90,13 +88,10 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// nothing is the only run, and keeps the full eight.
 	maxWorkers: Math.max(1, Math.floor(Math.min(8, availableParallelism() - 1) / readConcurrentBuilds())),
 	// Recycle a worker once it passes this, rather than letting it carry a heap
-	// from one test file to the next for the whole run.
-	//
-	// The known Jest worker crash happens inside V8's major garbage collection, so
-	// how often it fires tracks how often that collection runs — and it runs when
-	// a heap has grown large. A worker that is replaced before it gets there does
-	// the same work having collected less. Unlike the worker cap above this costs
-	// no parallelism: it only restarts workers that were about to become expensive.
+	// from one test file to the next for the whole run. A worker that is replaced
+	// before its heap grows large spends less time in major garbage collection.
+	// Unlike the worker cap above this costs no parallelism: it only restarts
+	// workers that were about to become expensive.
 	workerIdleMemoryLimit: '512MB',
 	// json-summary is what `lightsout test-coverage-to-threshold` (and doctor)
 	// read to pick the worst files — every package emits it, not just the one
@@ -121,7 +116,7 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// would report a package's counter-examples as this repo's own test failures.
 	// Restating node_modules is required: naming this key replaces Jest's default.
 	testPathIgnorePatterns: ['/node_modules/', '/fixtures/'],
-	globalSetup: join(toolingDir, 'checkNodeVersion.cjs'),
+	globalSetup: join(toolingDir, 'checkSparkplugOff.cjs'),
 	setupFilesAfterEnv: [join(toolingDir, 'setupTestEnvironment.ts')],
 	transform: {
 		// Re-declares the key the ts-jest preset supplies — that is how each

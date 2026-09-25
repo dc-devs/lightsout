@@ -16,10 +16,11 @@
 	// the Jest suites, which opt out below with `parallelism: false`. Each suite
 	// starts its own Jest worker pool of up to eight (`maxWorkers` in
 	// tooling/jest/createJestConfig.cjs), so two suites side by side put sixteen
-	// workers on a 14-core laptop, and the known Jest worker segfault grows with
-	// the worker count. Measured on 2026-09-11 across one night of queue gates:
-	// the whole-repo test gate, two suites at a time, crashed 12 runs in 39; the
-	// engine suite alone, at eight workers, crashed none in 17.
+	// workers on a 14-core laptop. Before Jest ran under `--no-sparkplug` (see
+	// tooling/jest/runJest.cjs), V8's worker crash grew with the worker count.
+	// Measured on 2026-09-11 across one night of queue gates: the whole-repo test
+	// gate, two suites at a time, crashed 12 runs in 39; the engine suite alone,
+	// at eight workers, crashed none in 17.
 	//
 	// This settles one Nx process only. Several builds at once — `lightsout queue`
 	// with `max-parallel` above one — are separate processes in separate

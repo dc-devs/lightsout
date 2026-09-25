@@ -1,7 +1,7 @@
 const { join } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-const checkNodeVersion = require('../../../../tooling/jest/checkNodeVersion.cjs');
+const checkSparkplugOff = require('../../../../tooling/jest/checkSparkplugOff.cjs');
 
 const repoRoot = join(__dirname, '..', '..', '..', '..');
 
@@ -21,10 +21,10 @@ const repoRoot = join(__dirname, '..', '..', '..', '..');
 // nothing and avoids paying for a subprocess.
 //
 // Naming a globalSetup here replaces the one createJestConfig supplies, so the
-// Node version check has to be called rather than inherited. Left out, this
-// suite would be the one path that still starts on a Node measured to segfault.
+// --no-sparkplug check has to be called rather than inherited. Left out, this
+// suite would be the one path that still starts without the flag.
 module.exports = async () => {
-	await checkNodeVersion();
+	await checkSparkplugOff();
 
 	const { buildEngine } = await import(pathToFileURL(join(repoRoot, 'scripts', 'buildEngine.mjs')).href);
 
