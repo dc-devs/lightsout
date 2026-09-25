@@ -29,7 +29,7 @@ describe('module-boundary check — package scope', () => {
 			paths: ['scripts/buildDocs.mjs', 'apps/web/src/ingestion/index.ts', 'apps/web/src/ingestion/ingestRecords.ts', 'apps/web/src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'apps/web/src/ingestion/index.ts', to: 'apps/web/src/ingestion/ingestRecords.ts' },
-				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/ingestRecords.ts' },
+				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/parseRow.ts' },
 			],
 			dependencies: [
 				['.', []],
@@ -53,8 +53,8 @@ describe('module-boundary check — package scope', () => {
 			],
 			edges: [
 				{ from: 'apps/web/src/ingestion/index.ts', to: 'apps/web/src/ingestion/ingestRecords.ts' },
-				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/ingestRecords.ts' },
-				{ from: 'apps/web/src/reporting/buildReport.ts', to: 'apps/web/src/ingestion/ingestRecords.ts' },
+				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/parseRow.ts' },
+				{ from: 'apps/web/src/reporting/buildReport.ts', to: 'apps/web/src/ingestion/parseRow.ts' },
 			],
 			dependencies: [
 				['.', []],
@@ -66,11 +66,11 @@ describe('module-boundary check — package scope', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:apps/web/src/ingestion/ingestRecords.ts|apps/web/src/reporting/buildReport.ts',
-				files: [{ path: 'apps/web/src/reporting/buildReport.ts' }, { path: 'apps/web/src/ingestion/ingestRecords.ts' }],
+				siteKey: 'module-boundary:apps/web/src/ingestion/parseRow.ts|apps/web/src/reporting/buildReport.ts',
+				files: [{ path: 'apps/web/src/reporting/buildReport.ts' }, { path: 'apps/web/src/ingestion/parseRow.ts' }],
 				detail:
-					"deep-imports 'apps/web/src/ingestion/ingestRecords.ts' — an internal of module 'apps/web/src/ingestion'; import from its barrel 'apps/web/src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+					"imports 'apps/web/src/ingestion/parseRow.ts' — an internal of module 'apps/web/src/ingestion' that its barrel 'apps/web/src/ingestion/index.ts' does not export",
+				guidance: 'Outside a module, import only the files its index file exports.',
 			},
 		]);
 	});
@@ -80,7 +80,7 @@ describe('module-boundary check — package scope', () => {
 			paths: ['scripts/buildDocs.mjs', 'apps/web/src/ingestion/index.ts', 'apps/web/src/ingestion/ingestRecords.ts', 'apps/web/src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'apps/web/src/ingestion/index.ts', to: 'apps/web/src/ingestion/ingestRecords.ts' },
-				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/ingestRecords.ts' },
+				{ from: 'scripts/buildDocs.mjs', to: 'apps/web/src/ingestion/parseRow.ts' },
 			],
 			dependencies: [['.', []]],
 		});
@@ -89,11 +89,11 @@ describe('module-boundary check — package scope', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:apps/web/src/ingestion/ingestRecords.ts|scripts/buildDocs.mjs',
-				files: [{ path: 'scripts/buildDocs.mjs' }, { path: 'apps/web/src/ingestion/ingestRecords.ts' }],
+				siteKey: 'module-boundary:apps/web/src/ingestion/parseRow.ts|scripts/buildDocs.mjs',
+				files: [{ path: 'scripts/buildDocs.mjs' }, { path: 'apps/web/src/ingestion/parseRow.ts' }],
 				detail:
-					"deep-imports 'apps/web/src/ingestion/ingestRecords.ts' — an internal of module 'apps/web/src/ingestion'; import from its barrel 'apps/web/src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+					"imports 'apps/web/src/ingestion/parseRow.ts' — an internal of module 'apps/web/src/ingestion' that its barrel 'apps/web/src/ingestion/index.ts' does not export",
+				guidance: 'Outside a module, import only the files its index file exports.',
 			},
 		]);
 	});
@@ -103,7 +103,7 @@ describe('module-boundary check — package scope', () => {
 			paths: ['apps/web/src/run.ts', 'scripts/reporting/index.ts', 'scripts/reporting/format.ts', 'scripts/reporting/toRow.ts'],
 			edges: [
 				{ from: 'scripts/reporting/index.ts', to: 'scripts/reporting/format.ts' },
-				{ from: 'apps/web/src/run.ts', to: 'scripts/reporting/format.ts' },
+				{ from: 'apps/web/src/run.ts', to: 'scripts/reporting/toRow.ts' },
 			],
 			dependencies: [
 				['.', []],
@@ -115,11 +115,10 @@ describe('module-boundary check — package scope', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:apps/web/src/run.ts|scripts/reporting/format.ts',
-				files: [{ path: 'apps/web/src/run.ts' }, { path: 'scripts/reporting/format.ts' }],
-				detail:
-					"deep-imports 'scripts/reporting/format.ts' — an internal of module 'scripts/reporting'; import from its barrel 'scripts/reporting/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+				siteKey: 'module-boundary:apps/web/src/run.ts|scripts/reporting/toRow.ts',
+				files: [{ path: 'apps/web/src/run.ts' }, { path: 'scripts/reporting/toRow.ts' }],
+				detail: "imports 'scripts/reporting/toRow.ts' — an internal of module 'scripts/reporting' that its barrel 'scripts/reporting/index.ts' does not export",
+				guidance: 'Outside a module, import only the files its index file exports.',
 			},
 		]);
 	});

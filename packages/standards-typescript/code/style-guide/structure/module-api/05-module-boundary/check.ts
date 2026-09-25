@@ -5,12 +5,20 @@ import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOu
 import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
+import { getTestSubject } from '../../../../../common/paths/getTestSubject.ts';
+import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
 import { isOutsideEveryPackage } from '../../../../../common/paths/isOutsideEveryPackage.ts';
 
 const getDepth = ({ path }: { path: string }) => path.split('/').length;
 const isInside = ({ file, folder }: { file: string; folder: string }) => file.startsWith(`${folder}/`);
 
-/** One file reaching into one module: everything it deep-imported there, and the barrel it should have gone through. */
+/** One file importing through index files: every index file it names. */
+interface ThroughIndex {
+	from: string;
+	barrels: string[];
+}
+
+/** One file reaching into one module: every file it imported there that the module's barrel does not export. */
 interface Crossing {
 	from: string;
 	module: string;
@@ -29,18 +37,60 @@ const mapTargetsByFile = ({ edges }: { edges: Array<{ from: string; to: string }
 	return targets;
 };
 
+/**
+ * Every file a barrel exports, directly or through the lower barrels it
+ * re-exports from — the files code outside the module may import.
+ */
+const collectPublishedFiles = ({ barrelPath, targetsByFile }: { barrelPath: string; targetsByFile: Map<string, Set<string>> }) => {
+	const published = new Set<string>();
+	const barrels = [barrelPath];
+	const seen = new Set<string>();
+
+	for (let barrel = barrels.pop(); barrel !== undefined; barrel = barrels.pop()) {
+		if (seen.has(barrel)) {
+			continue;
+		}
+
+		seen.add(barrel);
+
+		for (const target of targetsByFile.get(barrel) ?? []) {
+			published.add(target);
+
+			if (isBarrelFile({ path: target })) {
+				barrels.push(target);
+			}
+		}
+	}
+
+	return published;
+};
+
+/** The workspace package a file belongs to: the longest package directory holding it, `.` for the repo root. */
+const getOwningPackage = ({ path, packageDirectories }: { path: string; packageDirectories: string[] }) =>
+	packageDirectories.filter((directory) => directory === '.' || path.startsWith(`${directory}/`)).sort((first, second) => second.length - first.length)[0];
+
 export const check: StandardsCheckModule = {
 	inputKind: 'import-graph',
 	/**
-	 * An import crosses a boundary when its target sits inside a module the
-	 * importer is outside of, and the target is not that module's barrel. With
-	 * nested modules the module named is the OUTERMOST one containing the target
-	 * but not the importer — the boundary crossed first. Imports into `common/`
-	 * are the placement rule's concern rather than a boundary, and a module's own
-	 * files importing each other are correct by the doc's second bullet.
+	 * Two verdicts, both about where an import points.
 	 *
-	 * Every internal one file reaches into within the same module is ONE finding:
-	 * the fix is a single edit to that file's imports.
+	 * An import through an index file: every name is imported from the file that
+	 * declares it, so a file naming a barrel of its own package is reported. A
+	 * barrel may still re-export from a lower barrel, a barrel's own test may
+	 * import it, a route the framework loads is no barrel, and another package's
+	 * entry is that package's public API.
+	 *
+	 * An import across a boundary: the target sits inside a module the importer
+	 * is outside of, and that module's barrel does not export it — directly or
+	 * through a lower barrel. With nested modules the module named is the
+	 * OUTERMOST one containing the target but not the importer — the boundary
+	 * crossed first. Imports into `common/` are the placement rule's concern
+	 * rather than a boundary, and a module's own files — its tests included —
+	 * importing each other are correct.
+	 *
+	 * Every file one importer reaches into within the same module is ONE finding,
+	 * and so is every barrel one file imports through: each fix is a single edit
+	 * to that file's imports.
 	 *
 	 * Module boundaries are a package's own architecture, so an importer
 	 * belonging to no package is skipped — and a repo whose manifests declare no
@@ -55,6 +105,7 @@ export const check: StandardsCheckModule = {
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
 		const packageDirectories = [...dependencies.keys()];
 		const targetsByFile = mapTargetsByFile({ edges });
+		const isFrameworkLoaded = ({ path }: { path: string }) => isFrameworkLoadedFile({ path, carveOut: getPathCarveOut({ carveOuts, path }) });
 		// Mapped over the whole repo rather than the scope, so a run narrowed to a
 		// handful of files still knows where every module's boundary sits.
 		const modules = mapFolderModules({
@@ -70,14 +121,34 @@ export const check: StandardsCheckModule = {
 			isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
 			// A router root's `index.tsx` is a route, so it marks no boundary and
 			// its siblings are not somebody's unexported internals.
-			isFrameworkLoaded: ({ path }) => isFrameworkLoadedFile({ path, carveOut: getPathCarveOut({ carveOuts, path }) }),
+			isFrameworkLoaded,
 		});
 		const moduleFolders = [...modules.keys()];
+		const referenceSet = new Set(referenceFiles);
+		const publishedByModule = new Map<string, Set<string>>();
 		const scope = new Set(files);
+		const throughIndex = new Map<string, ThroughIndex>();
 		const crossings = new Map<string, Crossing>();
 
 		for (const { from, to } of edges) {
-			if (!scope.has(from) || to.split('/').includes('common') || isOutsideEveryPackage({ path: from, packageDirectories })) {
+			if (!scope.has(from) || isOutsideEveryPackage({ path: from, packageDirectories })) {
+				continue;
+			}
+
+			if (
+				isBarrelFile({ path: to }) &&
+				!isBarrelFile({ path: from }) &&
+				!isFrameworkLoaded({ path: to }) &&
+				getTestSubject({ test: from, files: referenceSet }) !== to &&
+				getOwningPackage({ path: from, packageDirectories }) === getOwningPackage({ path: to, packageDirectories })
+			) {
+				const entry = throughIndex.get(from) ?? { from, barrels: [] };
+
+				throughIndex.set(from, { from, barrels: entry.barrels.includes(to) ? entry.barrels : [...entry.barrels, to] });
+				continue;
+			}
+
+			if (to.split('/').includes('common')) {
 				continue;
 			}
 
@@ -90,19 +161,37 @@ export const check: StandardsCheckModule = {
 				continue;
 			}
 
+			const published = publishedByModule.get(outermost) ?? collectPublishedFiles({ barrelPath, targetsByFile });
+
+			publishedByModule.set(outermost, published);
+
+			if (published.has(to)) {
+				continue;
+			}
+
 			const key = `${from}\0${outermost}`;
 			const crossing = crossings.get(key) ?? { from, module: outermost, barrelPath, targets: [] };
 
 			crossings.set(key, { ...crossing, targets: crossing.targets.includes(to) ? crossing.targets : [...crossing.targets, to] });
 		}
 
-		return [...crossings.values()].map(({ from, module, barrelPath, targets }) =>
-			buildRawFinding({
-				rule: 'module-boundary',
-				files: [{ path: from }, ...targets.map((path) => ({ path }))],
-				detail: `deep-imports ${targets.map((path) => `'${path}'`).join(', ')} — ${targets.length > 1 ? 'internals' : 'an internal'} of module '${module}'; import from its barrel '${barrelPath}' instead`,
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
-			}),
-		);
+		return [
+			...[...throughIndex.values()].map(({ from, barrels }) =>
+				buildRawFinding({
+					rule: 'module-boundary',
+					files: [{ path: from }, ...barrels.map((path) => ({ path }))],
+					detail: `imports through ${barrels.map((path) => `'${path}'`).join(', ')} — import each name from the file that declares it instead`,
+					guidance: 'An index file lists what its module makes public; nothing imports through it.',
+				}),
+			),
+			...[...crossings.values()].map(({ from, module, barrelPath, targets }) =>
+				buildRawFinding({
+					rule: 'module-boundary',
+					files: [{ path: from }, ...targets.map((path) => ({ path }))],
+					detail: `imports ${targets.map((path) => `'${path}'`).join(', ')} — ${targets.length > 1 ? 'internals' : 'an internal'} of module '${module}' that its barrel '${barrelPath}' does not export`,
+					guidance: 'Outside a module, import only the files its index file exports.',
+				}),
+			),
+		];
 	},
 };

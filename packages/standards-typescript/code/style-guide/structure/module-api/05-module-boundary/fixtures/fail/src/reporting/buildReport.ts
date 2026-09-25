@@ -1,3 +1,3 @@
-import { ingestRecords } from '../ingestion/ingestRecords';
+import { ingestRecords } from '../ingestion';
 
 export const buildReport = (): number => ingestRecords();

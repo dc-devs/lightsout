@@ -34,10 +34,13 @@ const readLinks = ({ input }: { input: TypeCheckerInput }) => {
  * result, the return type of a published factory.
  */
 const getPublishedNames = ({ links }: { links: ModuleLink[] }) =>
-	links.filter((link) => link.reExport && !link.star && !link.typeOnly).flatMap((link) => link.names.map((name) => ({ name: name.as, target: link.target })));
+	links
+		.filter((link) => link.reExport && !link.star && !link.typeOnly)
+		.flatMap((link) => link.names.map((name) => ({ name: name.as, from: name.from, target: link.target })));
 
 /**
- * The file that actually declares a published name.
+ * The file that actually declares a published name, and the name that file
+ * exports it under.
  *
  * A name is often published through a chain — `runState/index.ts` publishes
  * `acquireRunLock` from `runState/lock/index.ts`, which publishes it from
@@ -47,7 +50,7 @@ const getPublishedNames = ({ links }: { links: ModuleLink[] }) =>
  * looks the next one up by the name the barrel published it AS and carries on
  * with the name the target knows it by.
  */
-const getDeclaringFile = ({
+const getDeclaration = ({
 	name,
 	target,
 	links,
@@ -57,9 +60,9 @@ const getDeclaringFile = ({
 	target?: string;
 	links: Map<string, ModuleLink[]>;
 	seen: Set<string>;
-}): string | undefined => {
+}): { file: string; name: string } | undefined => {
 	if (target === undefined || !isBarrelFile({ path: target }) || seen.has(target)) {
-		return target;
+		return target === undefined ? undefined : { file: target, name };
 	}
 
 	seen.add(target);
@@ -67,8 +70,8 @@ const getDeclaringFile = ({
 	const next = (links.get(target) ?? []).filter((link) => link.reExport).find((link) => link.names.some((entry) => entry.as === name));
 
 	return next === undefined
-		? target
-		: getDeclaringFile({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
+		? { file: target, name }
+		: getDeclaration({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
 };
 
 /**
@@ -102,7 +105,7 @@ const isTestedSubject = ({
 	moduleFolders: string[];
 	tests: string[];
 }) => {
-	const file = getDeclaringFile({ name, target, links, seen: new Set() });
+	const file = getDeclaration({ name, target, links, seen: new Set() })?.file;
 
 	if (file === undefined || isBarrelFile({ path: file })) {
 		return false;
@@ -119,32 +122,64 @@ const isTestedSubject = ({
 	return tests.some((test) => test.startsWith(`${stem}.`));
 };
 
+/** One name a barrel publishes, with the file and name that declare it. */
+interface PublishedEntry {
+	/** The name the barrel publishes. */
+	name: string;
+	/** The name its target knows it by — they differ on a renamed entry. */
+	from: string;
+	target?: string;
+	declaration?: { file: string; name: string };
+}
+
 /**
- * The names something outside `folder` actually imports FROM this barrel.
+ * The entries of this barrel something outside `folder` actually imports —
+ * from the file that declares the name, or from the barrel itself.
+ *
+ * Importing the declaring file is what an entry exists to allow: code outside
+ * a module may import only the files its barrel exports, so an entry is in use
+ * exactly when something outside the module imports the name it publishes.
+ * An outer barrel passing a name through answers for importers outside ITS
+ * folder, so a name only its own nested modules use is still dead there.
  *
  * Two conservative allowances, both meaning "this run cannot say otherwise":
  * a link the compiler could not place might be pointing here, and a star import
  * takes the whole surface without naming any of it.
  */
-const getConsumedNames = ({ barrelPath, folder, links }: { barrelPath: string; folder: string; links: Map<string, ModuleLink[]> }) => {
+const getConsumedEntries = ({
+	barrelPath,
+	folder,
+	entries,
+	links,
+}: {
+	barrelPath: string;
+	folder: string;
+	entries: PublishedEntry[];
+	links: Map<string, ModuleLink[]>;
+}) => {
 	const consumed = new Set<string>();
-	let takesEverything = false;
 
 	for (const [file, fileLinks] of links) {
 		if (file.startsWith(`${folder}/`)) {
 			continue;
 		}
 
-		for (const link of fileLinks.filter((entry) => entry.target === barrelPath || !entry.resolved)) {
-			takesEverything = takesEverything || link.star;
+		for (const link of fileLinks) {
+			for (const entry of entries) {
+				const takesName = (name: string) => link.star || link.names.some((imported) => imported.from === name);
+				const fromBarrel = link.target === barrelPath && takesName(entry.name);
+				const fromDeclaringFile = entry.declaration !== undefined && link.target === entry.declaration.file && takesName(entry.declaration.name);
+				const unplaced =
+					!link.resolved && (link.star || link.names.some((imported) => imported.from === entry.name || imported.from === entry.declaration?.name));
 
-			for (const name of link.names) {
-				consumed.add(name.from);
+				if (fromBarrel || fromDeclaringFile || unplaced) {
+					consumed.add(entry.name);
+				}
 			}
 		}
 	}
 
-	return { consumed, takesEverything };
+	return consumed;
 };
 
 const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
@@ -178,22 +213,24 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 
 	return modules
 		.map(([folder, { barrelPath }]) => {
-			const { consumed, takesEverything } = getConsumedNames({ barrelPath, folder, links });
-			const orphans = takesEverything
-				? []
-				: getPublishedNames({ links: links.get(barrelPath) ?? [] })
-						.filter(
-							(entry) =>
-								!consumed.has(entry.name) && !isTestedSubject({ name: entry.name, target: entry.target, folder, links, moduleFolders, tests: input.tests }),
-						)
-						.map((entry) => entry.name);
+			const entries = getPublishedNames({ links: links.get(barrelPath) ?? [] }).map((entry) => ({
+				...entry,
+				declaration: getDeclaration({ name: entry.from, target: entry.target, links, seen: new Set() }),
+			}));
+			const consumed = getConsumedEntries({ barrelPath, folder, entries, links });
+			const orphans = entries
+				.filter(
+					(entry) =>
+						!consumed.has(entry.name) && !isTestedSubject({ name: entry.from, target: entry.target, folder, links, moduleFolders, tests: input.tests }),
+				)
+				.map((entry) => entry.name);
 
 			return orphans.length === 0
 				? undefined
 				: buildRawFinding({
 						rule: 'barrel-dead-entry',
 						files: [{ path: barrelPath }],
-						detail: `${orphans.map((name) => `'${name}'`).join(', ')} ${orphans.length > 1 ? 'are' : 'is'} exported from ${barrelPath} but nothing outside module '${folder}' imports ${orphans.length > 1 ? 'them' : 'it'} from there`,
+						detail: `${orphans.map((name) => `'${name}'`).join(', ')} ${orphans.length > 1 ? 'are' : 'is'} exported from ${barrelPath} but nothing outside module '${folder}' imports ${orphans.length > 1 ? 'them' : 'it'}`,
 						guidance: 'Deliberate public API, or dead? Only the author knows.',
 					});
 		})
@@ -204,10 +241,9 @@ export const check: StandardsCheckModule = {
 	// Resolved imports, not name mentions. Counting mentions credited a comment,
 	// a string, and an unrelated local of the same name as consumption, skipped
 	// every name under four characters, and — the case that matters — could not
-	// tell an import from a parent barrel from an import from the child it wraps.
-	// A parent's pass-through entry that nothing imports FROM THE PARENT is dead
-	// however busy the child is, and only a resolved specifier says which was
-	// which.
+	// follow a published name to the file that declares it. Code imports a name
+	// from its declaring file, so only a resolved specifier and the barrel chain
+	// behind each entry say which entry an import uses.
 	inputKind: 'type-checker',
 	// Judged only for `module`-status folders: a barrel that hides nothing marks
 	// no boundary, so nothing it lists is a public-surface claim to answer for.
