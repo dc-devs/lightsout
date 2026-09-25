@@ -1,6 +1,9 @@
 import { expect, jest, test } from '@jest/globals';
-import type { AcceptanceTestRecord, GateResult, RenameRule, RunManifest } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
 
@@ -18,9 +21,7 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?: string; rateLimited?: boolean }>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-}));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 // The rename check has its own tests against a real repository. Here it is only
 // the judgment a rename-only checkpoint asks in place of the review.
@@ -32,7 +33,7 @@ interface RenameCheckParams {
 
 const mockCheckRenameOnlyChanges = jest.fn<(params: RenameCheckParams) => Promise<{ error?: string }>>();
 
-jest.mock('#src/pipeline/renameCheck/index.ts', () => ({
+jest.mock('#src/pipeline/renameCheck/checkRenameOnlyChanges.ts', () => ({
 	checkRenameOnlyChanges: (params: RenameCheckParams) => mockCheckRenameOnlyChanges(params),
 }));
 // -------------------------

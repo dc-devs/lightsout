@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { getPlanServerFn } from '#src/features/runDetail/serverFns/index.ts';
+import { getPlanServerFn } from '#src/features/runDetail/serverFns/getPlan/getPlanServerFn.ts';
 
 interface Params {
 	/** Repo-relative plan path, exactly as the manifest recorded it. */

@@ -4,7 +4,8 @@ import { terminalWidth } from '#src/cli/common/terminal/terminalWidth.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { wrapText } from '#src/cli/common/utils/wrapText.ts';
 import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 interface Params {
 	findings: StandardsFinding[];

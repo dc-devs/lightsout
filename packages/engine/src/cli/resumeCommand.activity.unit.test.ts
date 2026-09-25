@@ -1,21 +1,21 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type ActivityLevel, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import {
-	ActivityLevelKind,
-	type LightsoutConfig,
-	PipelineKind,
-	PlanProgress,
-	type RunManifest,
-	RunStatus,
-	WorkOrderMode,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { recordPlanCommandRun } from '#src/plan/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
@@ -65,8 +65,7 @@ jest.mock('#src/cli/common/implementRun/continueDirectRun.ts', () => ({
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------

@@ -1,7 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
-import { type LightsoutConfig, RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 
 // Mocked Imports
 // -------------------------
@@ -21,7 +24,7 @@ interface RunGatesParams {
 
 const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'true' } };

@@ -1,6 +1,6 @@
 import type { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 
 /**
  * One ticket the queue is working, which is a tracker ticket plus what its

@@ -1,19 +1,17 @@
 import { join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanWriterInvocation } from '#src/agents/buildPlanWriterInvocation/buildPlanWriterInvocation.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
 import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
-import {
-	ActivityLevelKind,
-	type ConfigDocs,
-	type DecisionsRecord,
-	type Effort,
-	type Permissions,
-	PlanDraftReport,
-	type PlanFacts,
-	PlanVariant,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';

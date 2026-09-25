@@ -3,8 +3,10 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { StandardsSeverity, type StandardsSnapshot } from '#src/contracts/index.ts';
-import { readStandardsSnapshot, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
+import { readStandardsSnapshot } from '#src/standardsCheck/readStandardsSnapshot.ts';
+import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
 
 const snapshot = (overrides: Partial<StandardsSnapshot> = {}): StandardsSnapshot => ({
 	at: '2026-08-19T12:30:45.123Z',

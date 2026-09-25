@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { standardsCheckCommand } from '#src/cli/standardsCheckCommand.ts';
-import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -33,12 +35,13 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
-	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({
 	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
-	// This file reads what the command printed, never the evidence file it wrote.
-	writeStandardsSnapshot: () => Promise.resolve(),
 }));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
+	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+}));
+jest.mock('#src/standardsCheck/writeStandardsSnapshot.ts', () => ({ writeStandardsSnapshot: () => Promise.resolve() }));
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({

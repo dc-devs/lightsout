@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { ShippingProgress, ShippingStepId } from '#src/contracts/index.ts';
+import { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
 
 const setupRecords = () => {
 	const record = {

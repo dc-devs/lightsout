@@ -1,8 +1,8 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { readGitDefaultBranch } from '#src/common/git/readGitDefaultBranch.ts';
-import { ShipBlockReason } from '#src/contracts/index.ts';
-import { readForgeAuth } from '#src/ship/forge/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { readForgeAuth } from '#src/ship/forge/readForgeAuth.ts';
 import { readTicketMatch } from '#src/ship/readTicketMatch.ts';
 
 interface Params {

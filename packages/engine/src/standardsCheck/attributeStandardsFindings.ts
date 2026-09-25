@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { AttributedFindings } from '#src/standardsCheck/common/types/AttributedFindings.ts';
 
 interface Params {

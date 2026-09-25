@@ -1,4 +1,4 @@
-import type { CoverageBatchReport } from '#src/contracts/index.ts';
+import type { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
 import type { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
 
 /** One coverage batch's terminal condition, before the pipeline records it. */

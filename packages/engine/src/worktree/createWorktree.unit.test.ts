@@ -3,8 +3,12 @@ import { existsSync, realpathSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { WorktreeOwner } from '#src/contracts/index.ts';
-import { createWorktree, readWorktreeRecord, removeWorktree, resolveWorktreesRoot, writeWorktreeRecord } from '#src/worktree/index.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
+import { removeWorktree } from '#src/worktree/removeWorktree.ts';
+import { resolveWorktreesRoot } from '#src/worktree/resolveWorktreesRoot.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

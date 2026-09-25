@@ -7,9 +7,14 @@ import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
 import { readWorkOrderRecordFile } from '#src/common/workspace/readWorkOrderRecordFile.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
-import { readLiveRunLock } from '#src/runState/index.ts';
-import { createWorktree, prepareWorkOrderBranch, readBranchWorktree, readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { readLiveRunLock } from '#src/runState/lock/readLiveRunLock.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { prepareWorkOrderBranch } from '#src/worktree/prepareWorkOrderBranch.ts';
+import { readBranchWorktree } from '#src/worktree/readBranchWorktree.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	/** The checkout the command was launched from — `--cwd`, or the process directory. */

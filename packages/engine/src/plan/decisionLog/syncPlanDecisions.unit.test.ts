@@ -2,8 +2,8 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { DecisionRow } from '#src/contracts/index.ts';
-import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 import {
 	decisionLogPlanBody,
 	decisionTableRows,

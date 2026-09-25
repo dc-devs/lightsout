@@ -1,6 +1,6 @@
 import { formatTicketLink } from '#src/cli/common/queueBoard/formatTicketLink.ts';
 import { toInlineMarkdown } from '#src/cli/common/queueBoard/toInlineMarkdown.ts';
-import type { QueueBoardTicket } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
 
 interface Params {
 	ticket: QueueBoardTicket;

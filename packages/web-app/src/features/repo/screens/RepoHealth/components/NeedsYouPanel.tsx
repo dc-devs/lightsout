@@ -1,7 +1,9 @@
 import type { RunListing } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { Link } from '@tanstack/react-router';
-import { CopyButton, SettingsCard, StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 
 /**

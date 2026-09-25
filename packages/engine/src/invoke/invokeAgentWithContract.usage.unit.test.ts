@@ -1,12 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { ActivityLevel } from '#src/activity/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { type HarnessProcessMark, WorkReport } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewOneAdvisory } from '#tests/helpers/reviewOneAdvisory.ts';

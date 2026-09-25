@@ -1,4 +1,4 @@
-import type { GradedGap } from '#src/contracts/index.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { dedupeObservations } from '#src/plan/common/observations/dedupeObservations.ts';
 import { gapObservations } from '#src/plan/common/observations/gapObservations.ts';
 import { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';

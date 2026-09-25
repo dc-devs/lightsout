@@ -1,6 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { type RunLock, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { isRunLive } from '#src/runState/index.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { isRunLive } from '#src/runState/isRunLive.ts';
 
 const manifest = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	runId: 'run-parent',

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ReviewFindingRecord } from '#src/contracts/index.ts';
+import { ReviewFindingRecord } from '#src/contracts/standardsCheck/ReviewFindingRecord.ts';
 
 const setupRecord = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const record: Record<string, unknown> = {

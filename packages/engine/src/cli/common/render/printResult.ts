@@ -4,9 +4,12 @@ import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
 import { plural } from '#src/cli/common/utils/plural.ts';
-import type { RunManifest } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { type CleanupSummary, isRunPaused, type RunSummary, summarizeRun } from '#src/runState/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
+import type { RunSummary } from '#src/runState/common/types/RunSummary.ts';
+import { isRunPaused } from '#src/runState/isRunPaused.ts';
+import { summarizeRun } from '#src/runState/summarizeRun.ts';
 
 /** One labelled line of the result block — the label column every line below shares. */
 const label = ({ name, value }: { name: string; value: string }) => console.log(`${name.padEnd(10)}${value}`);

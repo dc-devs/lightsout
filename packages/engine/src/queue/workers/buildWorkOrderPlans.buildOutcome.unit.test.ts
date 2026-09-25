@@ -1,8 +1,12 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, RunStatus, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { config, planAt, planOf, setupTicketPlanBuild, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';
@@ -25,21 +29,17 @@ import { config, planAt, planOf, setupTicketPlanBuild, workOrderName } from '#te
 // build leaves behind — are read from the same record every later plan reads.
 const mockRunPhasesPipeline = jest.fn<(params: { overviewPath: string }) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: { overviewPath: string }) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: { overviewPath: string }) => mockRunPhasesPipeline(params) }));
 // -------------------------
 const mockRunImplementPipeline = jest.fn<(params: { planPath: string }) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({
 	runImplementPipeline: (params: { planPath: string }) => mockRunImplementPipeline(params),
 }));
 // -------------------------
 const mockRunDirectWork = jest.fn<(params: DirectCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({
-	runDirectWork: (params: DirectCall) => mockRunDirectWork(params),
-}));
+jest.mock('#src/direct/runDirectWork.ts', () => ({ runDirectWork: (params: DirectCall) => mockRunDirectWork(params) }));
 // -------------------------
 // The commit is stubbed rather than run: a refused commit is one of the cases
 // stated here, and git refuses on its own terms rather than on demand.
@@ -67,8 +67,7 @@ jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({
 // rules and the ship-eligibility rule stay real and read the record on disk.
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
+jest.mock('#src/workOrder/restoreWorkOrderPlan.ts', () => ({
 	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------

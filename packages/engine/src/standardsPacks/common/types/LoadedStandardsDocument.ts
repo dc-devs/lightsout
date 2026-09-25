@@ -1,4 +1,4 @@
-import type { StandardsSet } from '#src/contracts/index.ts';
+import type { StandardsSet } from '@lightsout/standards-contracts';
 
 /** One document folder, read: its intro prose and the rules it owns, in assembly order. */
 export interface LoadedStandardsDocument {

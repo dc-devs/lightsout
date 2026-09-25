@@ -1,4 +1,4 @@
-import type { RunListing } from '#src/contracts/index.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
 
 interface Params {
 	name: string;

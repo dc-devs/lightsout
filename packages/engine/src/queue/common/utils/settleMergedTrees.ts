@@ -1,10 +1,11 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { MergedParkedTree } from '#src/queue/common/types/MergedParkedTree.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
 
 interface Params {
 	/** The main repository checkout. */

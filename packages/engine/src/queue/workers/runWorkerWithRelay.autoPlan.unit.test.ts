@@ -3,9 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
@@ -35,7 +38,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // record as the only things these cases exercise.
 const mockInvokeAgentWithContract = jest.fn<(params: { invocation: { prompt: string } }) => Promise<AgentOutcome<WorkReport>>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string } }) => mockInvokeAgentWithContract(params),
 }));
 // -------------------------
@@ -80,11 +83,8 @@ type AddPlanResult = { address: string; record: WorkOrderState; notice?: string;
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
-	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
-}));
+jest.mock('#src/workOrder/addWorkOrderPlan.ts', () => ({ addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params) }));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const branch = 'lo-70-drain';

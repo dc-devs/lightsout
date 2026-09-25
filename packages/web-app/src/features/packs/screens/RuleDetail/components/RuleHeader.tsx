@@ -1,5 +1,6 @@
 import type { StandardsPackRuleView } from '@lightsout/engine';
-import { Badge, MetadataTag } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { severityBadgeVariants } from '#src/features/packs/common/constants/severityBadgeVariants.ts';
 
 interface Props {

@@ -1,4 +1,4 @@
-import type { DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';

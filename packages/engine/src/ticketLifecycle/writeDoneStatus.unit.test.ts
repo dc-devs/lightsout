@@ -3,7 +3,9 @@ import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
 import { writeDoneStatus } from '#src/ticketLifecycle/writeDoneStatus.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 
 // Mocked Imports
 // -------------------------
@@ -21,7 +23,7 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({
 	updateTicketLifecycle: (params: LifecycleParams) => mockUpdateTicketLifecycle(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
 }));
 // -------------------------

@@ -1,5 +1,6 @@
 import { appendJsonlRecords } from '#src/common/utils/appendJsonlRecords.ts';
-import { ReviewFindingRecord, type StandardsFinding } from '#src/contracts/index.ts';
+import { ReviewFindingRecord } from '#src/contracts/standardsCheck/ReviewFindingRecord.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { getReviewFindingsPath } from '#src/runState/common/paths/getReviewFindingsPath.ts';
 
 interface Params {

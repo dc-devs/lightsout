@@ -20,12 +20,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 const mockGetFriction = jest.fn<() => Promise<FrictionRecord[]>>();
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs the landing page
-	// reads are committed JSON rather than disk this test has to fake.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
-	getReader: () => ({ getFriction: () => mockGetFriction(), listRuns: () => mockListRuns() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getFriction: () => mockGetFriction(), listRuns: () => mockListRuns() }) }));
 // -------------------------
 // Only the piece that needs a live router around it is stood in for, so this one
 // route's component can be rendered on its own. Everything else — above all

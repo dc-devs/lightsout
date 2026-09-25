@@ -1,5 +1,5 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
-import type { WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 interface Params {
 	record: WorkOrderState;

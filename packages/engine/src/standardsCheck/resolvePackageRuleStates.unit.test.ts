@@ -1,7 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { LightsoutConfig, StandardsSeverity } from '#src/contracts/index.ts';
-import { resolvePackageRuleStates } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',

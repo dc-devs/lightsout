@@ -10,8 +10,12 @@ import { phaseSection } from '#src/agents/common/utils/phaseSection.ts';
 import focusedPlanContractTemplate from '#src/agents/prompts/focusedPlanContractTemplate.md';
 import focusedPlanTemplate from '#src/agents/prompts/focusedPlanTemplate.md';
 import focusedPlanWriterPrompt from '#src/agents/prompts/focusedPlanWriter.md';
-import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
-import type { ExportCollision, PhaseDeclaration } from '#src/plan/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
 
 interface Params {
 	facts: PlanFacts;

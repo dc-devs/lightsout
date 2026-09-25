@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildCommitMessageInvocation } from '#src/agents/index.ts';
+import { buildCommitMessageInvocation } from '#src/agents/buildCommitMessageInvocation.ts';
 
 /** Each input carries its own sentinel, so where it lands in the invocation — and whether it leaks into the role prompt — shows. */
 const inputs = {

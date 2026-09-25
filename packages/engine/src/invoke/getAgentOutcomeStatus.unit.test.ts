@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { RunStatus } from '#src/contracts/index.ts';
-import { type AgentOutcome, getAgentOutcomeStatus } from '#src/invoke/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/getAgentOutcomeStatus.ts';
 
 /** One settled agent call, carrying only the two fields the reading turns on. */
 const setupOutcome = ({ ok, rateLimited = false }: { ok: boolean; rateLimited?: boolean }): { outcome: AgentOutcome<unknown> } => ({

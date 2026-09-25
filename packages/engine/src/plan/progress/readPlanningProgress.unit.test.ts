@@ -2,10 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { PlanningProgress } from '#src/contracts/index.ts';
-import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
-import { getPlanningProgressPath, readPlanningProgress } from '#src/plan/progress/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
+import { readPlanningProgress } from '#src/plan/progress/readPlanningProgress.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const validRecord: PlanningProgress = {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	raw: string;

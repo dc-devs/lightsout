@@ -4,7 +4,7 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleParkedLabels } from '#src/queue/settleParkedLabels.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -17,7 +17,7 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): WorkOrderRunOutcome => ({

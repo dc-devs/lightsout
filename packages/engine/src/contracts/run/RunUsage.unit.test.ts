@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { AgentUsage, RunUsage } from '#src/contracts/index.ts';
+import { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import { RunUsage } from '#src/contracts/run/RunUsage.ts';
 
 const setupTotals = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const totals: Record<string, unknown> = {

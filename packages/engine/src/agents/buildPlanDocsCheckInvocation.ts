@@ -1,6 +1,6 @@
 import { renderDocsSurfaces } from '#src/agents/common/utils/renderDocsSurfaces.ts';
 import planDocsCheckPrompt from '#src/agents/prompts/planDocsCheck.md';
-import type { ConfigDocs } from '#src/contracts/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 
 interface Params {
 	/** Every implementable plan file, in order — the whole deliverable, because the claim is a whole-plan claim. */

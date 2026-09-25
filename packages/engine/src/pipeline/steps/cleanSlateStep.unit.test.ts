@@ -1,6 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';

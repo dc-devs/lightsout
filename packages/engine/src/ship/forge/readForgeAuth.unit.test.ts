@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { readForgeAuth } from '#src/ship/forge/index.ts';
+import { readForgeAuth } from '#src/ship/forge/readForgeAuth.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 

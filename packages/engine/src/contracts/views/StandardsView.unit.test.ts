@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsView } from '#src/contracts/index.ts';
+import { StandardsView } from '#src/contracts/views/StandardsView.ts';
 
 const buildRuleView = (extra: Record<string, unknown> = {}) => ({
 	rule: 'size-file',

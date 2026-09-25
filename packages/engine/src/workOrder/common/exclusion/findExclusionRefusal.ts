@@ -1,5 +1,7 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { isPlanImplementationStarted } from '#src/workOrder/common/record/isPlanImplementationStarted.ts';
 
 interface Params {

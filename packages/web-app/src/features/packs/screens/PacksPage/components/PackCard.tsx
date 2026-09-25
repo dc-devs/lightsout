@@ -1,6 +1,8 @@
 import type { StandardsPackListing } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
-import { Badge, Card, MetadataTag } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 
 interface Props {

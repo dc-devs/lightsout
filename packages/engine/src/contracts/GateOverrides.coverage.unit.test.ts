@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { GateOverrides } from '#src/contracts/index.ts';
+import { GateOverrides } from '#src/contracts/GateOverrides.ts';
 
 // The block's refusals — an empty list, `generate`, `format`, a name written
 // twice — are pinned in `GateOverrides.unit.test.ts` beside this file. What

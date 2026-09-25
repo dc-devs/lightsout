@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { StandardsPackNotFoundError, type StandardsPackView } from '@lightsout/engine';
-import { packQueryOptions } from '#src/features/packs/index.ts';
+import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
 import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts';
 
 // Mocked Imports
@@ -10,9 +10,7 @@ import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts
 // fetcher is proved all the way down to the seam the app is allowed to stub.
 const mockGetPack = jest.fn<(params: { name: string }) => Promise<StandardsPackView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPack: (params: { name: string }) => mockGetPack(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPack: (params: { name: string }) => mockGetPack(params) }) }));
 // -------------------------
 
 const setupPackQueryOptions = ({ rejection }: { rejection?: Error } = {}) => {

@@ -1,4 +1,4 @@
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 interface Params {

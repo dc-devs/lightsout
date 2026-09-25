@@ -3,13 +3,16 @@ import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { FrictionArea, type GateResult } from '#src/contracts/index.ts';
+import { FrictionArea } from '#src/contracts/friction/FrictionArea.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { GateEnding } from '#src/gates/common/constants/GateEnding.ts';
 import type { RunGate } from '#src/gates/common/types/RunGate.ts';
 import { buildGateResult } from '#src/gates/common/utils/buildGateResult.ts';
 import { classifyGateEnding } from '#src/gates/common/utils/classifyGateEnding.ts';
-import { testResultsDir, writeJestReporter } from '#src/gates/testResults/index.ts';
-import { appendCommandLog, appendFriction } from '#src/runState/index.ts';
+import { testResultsDir } from '#src/gates/testResults/testResultsDir.ts';
+import { writeJestReporter } from '#src/gates/testResults/writeJestReporter.ts';
+import { appendCommandLog } from '#src/runState/appendCommandLog.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 
 interface Params {
 	cwd: string;

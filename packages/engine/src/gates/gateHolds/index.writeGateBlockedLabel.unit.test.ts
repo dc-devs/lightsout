@@ -1,6 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { writeGateBlockedLabel } from '#src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -16,10 +18,10 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockGetTicketsByIdentifiers = jest.fn<(params: ReadParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: ReadParams) => mockGetTicketsByIdentifiers(params),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const ticketOf = ({ id, identifier }: { id: string; identifier: string }): TrackerTicket => ({

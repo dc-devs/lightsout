@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { PlanDocumentKind } from '#src/contracts/index.ts';
-import { getPlanDocument } from '#src/views/index.ts';
+import { PlanDocumentKind } from '#src/contracts/views/PlanDocumentKind.ts';
+import { getPlanDocument } from '#src/views/getPlanDocument.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 

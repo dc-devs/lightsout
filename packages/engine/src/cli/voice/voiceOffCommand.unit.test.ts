@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { voiceOffCommand } from '#src/cli/voice/index.ts';
+import { voiceOffCommand } from '#src/cli/voice/voiceOffCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 const setupVoiceOff = ({ on = true, playing }: { on?: boolean; playing?: string } = {}) => {

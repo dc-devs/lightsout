@@ -7,9 +7,13 @@ import { serializeAttachmentManifest } from '#src/common/attachmentManifest/seri
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { getTicketsByIdentifiers, resolveTrackerSettings, setTicketAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
+import { setTicketAttachment } from '#src/ticketTracker/setTicketAttachment.ts';
 
 interface Params {
 	cwd: string;

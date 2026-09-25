@@ -1,4 +1,6 @@
-import { WorkOrderEventKind, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
 import { recordShipRequestWithdrawal } from '#src/workOrder/common/record/recordShipRequestWithdrawal.ts';
 

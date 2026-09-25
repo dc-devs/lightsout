@@ -1,4 +1,4 @@
-import type { GateEvidence } from '#src/contracts/index.ts';
+import type { GateEvidence } from '#src/contracts/views/GateEvidence.ts';
 import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
 
 interface Params {

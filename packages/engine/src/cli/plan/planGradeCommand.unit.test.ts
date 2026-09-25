@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { planGradeCommand } from '#src/cli/plan/index.ts';
-import { GapArea } from '#src/contracts/index.ts';
+import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';

@@ -1,6 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type GateResult, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
@@ -32,7 +36,7 @@ interface HoldParams {
 
 const mockTakeGateHold = jest.fn<(params: HoldParams) => Promise<string | undefined>>();
 
-jest.mock('#src/gates/index.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
 // -------------------------
 // Which ticket the checkout's branch belongs to is the work order record's
 // answer, handed here directly rather than by making a git checkout and a
@@ -43,7 +47,9 @@ interface WorkOrderTicketRefParams {
 
 const mockReadWorkOrderTicketRef = jest.fn<(params: WorkOrderTicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params) }));
+jest.mock('#src/workOrder/readWorkOrderTicketRef.ts', () => ({
+	readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params),
+}));
 // -------------------------
 
 /**

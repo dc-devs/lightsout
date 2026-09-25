@@ -1,5 +1,5 @@
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
-import { readWorkOrderTicketRef } from '#src/workOrder/index.ts';
+import { readWorkOrderTicketRef } from '#src/workOrder/readWorkOrderTicketRef.ts';
 
 interface Params {
 	/** The checkout to read. For an isolated run that is the workspace it was just put on, never wherever the command was typed. */

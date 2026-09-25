@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises';
-import type { RunManifest } from '#src/contracts/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 
 interface Params {
 	/** The checkout the command was launched from — where the run's records live. */

@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import type { FrictionRecord } from '@lightsout/engine';
 import { FrictionArea } from '@lightsout/engine/contracts';
-import { countFrictionByArea } from '#src/features/friction/index.ts';
+import { countFrictionByArea } from '#src/features/friction/common/utils/countFrictionByArea.ts';
 import { buildFrictionRecord } from '#tests/helpers/buildFrictionRecord.ts';
 
 const setupCounts = ({ records = [] }: { records?: FrictionRecord[] } = {}) => {

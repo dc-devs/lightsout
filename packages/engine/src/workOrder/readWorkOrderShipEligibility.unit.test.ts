@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
-import { readWorkOrderShipEligibility } from '#src/workOrder/index.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 
 const mergeCommit = '9c4e2f7a1b3d5e6f8091a2b3c4d5e6f708192a3b';
 

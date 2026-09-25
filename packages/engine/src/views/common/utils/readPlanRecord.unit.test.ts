@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { z } from 'zod';
-import type { PlanWorkspaceFile } from '#src/contracts/index.ts';
+import type { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
 import { readPlanRecord } from '#src/views/common/utils/readPlanRecord.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 

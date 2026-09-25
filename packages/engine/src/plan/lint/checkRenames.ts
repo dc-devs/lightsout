@@ -1,4 +1,6 @@
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 
 interface Params {

@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * One plan document — the markdown a run implemented, or the work-list a

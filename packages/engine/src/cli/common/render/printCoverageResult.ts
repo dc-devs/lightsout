@@ -3,8 +3,8 @@ import { printBatchOptOut } from '#src/cli/common/render/printBatchOptOut.ts';
 import { printRunFooter } from '#src/cli/common/render/printRunFooter.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import type { CoverageResult } from '#src/coverage/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 
 interface Params {
 	result: CoverageResult;

@@ -1,11 +1,11 @@
+import { type RawStandardsFinding, type StandardsCheckFunction, StandardsInputKind } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
-import { type RawStandardsFinding, type StandardsCheckFunction, StandardsInputKind } from '#src/contracts/index.ts';
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
-import type { LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 
 interface Params {
 	/** Absolute path of the tree to check, run against as if it were a whole repo. */

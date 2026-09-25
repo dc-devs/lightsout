@@ -29,7 +29,7 @@ describe('barrel-dead-entry check', () => {
 		expect(check.inputKind).toBe('type-checker');
 	});
 
-	test('reports a published name nothing outside the module imports from the barrel', async () => {
+	test('reports a published name nothing outside the module imports', async () => {
 		const input = setupRepo({
 			sources: [
 				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
@@ -47,7 +47,7 @@ describe('barrel-dead-entry check', () => {
 			{
 				siteKey: 'barrel-dead-entry:src/ingestion/index.ts',
 				files: [{ path: 'src/ingestion/index.ts' }],
-				detail: "'ingestRecords' is exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports it from there",
+				detail: "'ingestRecords' is exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports it",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
@@ -66,11 +66,85 @@ describe('barrel-dead-entry check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings[0]?.detail).toBe(
-			"'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports them from there",
+			"'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports them",
 		);
 	});
 
-	test('an outside module importing the name through the barrel silences it', async () => {
+	test('an outside module importing the name from the file that declares it silences it', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from '../ingestion/ingestRecords.ts';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('follows a renamed entry to the name its declaring file exports', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords as ingest } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from '../ingestion/ingestRecords.ts';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('an import of another name from the declaring file leaves the entry unused', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;\nexport const recordLimit = 10;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { recordLimit } from '../ingestion/ingestRecords.ts';\n\nexport const buildReport = (): number => recordLimit;",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map((finding) => finding.detail)).toStrictEqual([
+			"'ingestRecords' is exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports it",
+		]);
+	});
+
+	test('an import the compiler cannot place, naming the entry, is counted as a possible use — this run cannot say otherwise', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from 'unplaced-alias/ingestion';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('an outside module importing the name through the barrel still counts as a use', async () => {
 		const input = setupRepo({
 			sources: [
 				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
@@ -107,7 +181,10 @@ describe('barrel-dead-entry check', () => {
 				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
 				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
 				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
-				['src/ingestion/ingestRecords.unit.test.ts', "import { ingestRecords } from './index.ts';\n\nexport const proof = (): number => ingestRecords();"],
+				[
+					'src/ingestion/ingestRecords.unit.test.ts',
+					"import { ingestRecords } from './ingestRecords.ts';\n\nexport const proof = (): number => ingestRecords();",
+				],
 			],
 		});
 
@@ -116,30 +193,51 @@ describe('barrel-dead-entry check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('a parent barrel passing a name through gets no such allowance — the tested file belongs to the child module, not the parent', async () => {
+	test('a parent barrel passing a name through is in use when something outside the parent imports the declaring file', async () => {
 		const input = setupRepo({
 			sources: [
 				['src/app/index.ts', "export { ingestRecords } from './ingestion/index.ts';"],
 				['src/app/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
 				['src/app/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
 				['src/app/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
-				['src/app/ingestion/ingestRecords.unit.test.ts', "import { ingestRecords } from './index.ts';\n\nexport const proof = (): number => ingestRecords();"],
 				['src/app/common/utils/tidy.ts', 'export const tidy = (): number => 1;'],
 				[
 					'src/reporting/buildReport.ts',
-					"import { ingestRecords } from '../app/ingestion/index.ts';\n\nexport const buildReport = (): number => ingestRecords();",
+					"import { ingestRecords } from '../app/ingestion/ingestRecords.ts';\n\nexport const buildReport = (): number => ingestRecords();",
 				],
 			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
 
-		// everyone reaches the child barrel; the parent's pass-through serves nobody
+		// the parent's entry is what lets reporting, outside src/app, import the file
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a parent barrel passing a name through gets no test allowance and no credit for its own nested users — the tested file belongs to the child module', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/app/index.ts', "export { ingestRecords } from './ingestion/index.ts';"],
+				['src/app/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/app/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/app/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/app/ingestion/ingestRecords.unit.test.ts',
+					"import { ingestRecords } from './ingestRecords.ts';\n\nexport const proof = (): number => ingestRecords();",
+				],
+				['src/app/common/utils/tidy.ts', 'export const tidy = (): number => 1;'],
+				['src/app/runApp.ts', "import { ingestRecords } from './ingestion/ingestRecords.ts';\n\nexport const runApp = (): number => ingestRecords();"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// src/app's own file uses the child's entry; nothing outside src/app needs the parent's
 		expect(findings).toStrictEqual([
 			{
 				siteKey: 'barrel-dead-entry:src/app/index.ts',
 				files: [{ path: 'src/app/index.ts' }],
-				detail: "'ingestRecords' is exported from src/app/index.ts but nothing outside module 'src/app' imports it from there",
+				detail: "'ingestRecords' is exported from src/app/index.ts but nothing outside module 'src/app' imports it",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
@@ -161,8 +259,7 @@ describe('barrel-dead-entry check', () => {
 			{
 				siteKey: 'barrel-dead-entry:standards/tests/unit-testing/index.ts',
 				files: [{ path: 'standards/tests/unit-testing/index.ts' }],
-				detail:
-					"'checkRule' is exported from standards/tests/unit-testing/index.ts but nothing outside module 'standards/tests/unit-testing' imports it from there",
+				detail: "'checkRule' is exported from standards/tests/unit-testing/index.ts but nothing outside module 'standards/tests/unit-testing' imports it",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
@@ -228,7 +325,7 @@ describe('barrel-dead-entry check', () => {
 			{
 				siteKey: 'barrel-dead-entry:src/routes/index.tsx',
 				files: [{ path: 'src/routes/index.tsx' }],
-				detail: "'Route' is exported from src/routes/index.tsx but nothing outside module 'src/routes' imports it from there",
+				detail: "'Route' is exported from src/routes/index.tsx but nothing outside module 'src/routes' imports it",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);

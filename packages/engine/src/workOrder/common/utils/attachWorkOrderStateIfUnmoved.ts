@@ -1,6 +1,7 @@
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { getTicketsByIdentifiers, setTicketAttachment } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { setTicketAttachment } from '#src/ticketTracker/setTicketAttachment.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
 import { readPublishedWorkOrderState } from '#src/workOrder/common/utils/readPublishedWorkOrderState.ts';

@@ -2,8 +2,10 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord } from '#src/contracts/index.ts';
-import { syncGlobalConstraints } from '#src/plan/sections/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { syncGlobalConstraints } from '#src/plan/sections/syncGlobalConstraints.ts';
 
 // Every file of a deliverable carries the same constraints, because a phase file
 // is handed to an implementing agent on its own: a phase that pointed elsewhere

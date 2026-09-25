@@ -1,5 +1,7 @@
 import { gateBlockedLabel } from '#src/gates/gateHolds/common/constants/gateBlockedLabel.ts';
-import { getTicketsByIdentifiers, setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
 
 interface Params {
 	settings: TrackerSettings;

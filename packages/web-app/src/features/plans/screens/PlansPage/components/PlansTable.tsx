@@ -1,7 +1,8 @@
 import type { PlanWorkspaceListing } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
-import { DataTable, StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
 import { TableAlignment } from '#src/common/constants/TableAlignment.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';

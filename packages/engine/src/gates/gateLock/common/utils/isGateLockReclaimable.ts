@@ -1,6 +1,6 @@
 import { isProcessGroupAlive } from '#src/common/processes/isProcessGroupAlive.ts';
-import type { GateLock } from '#src/contracts/index.ts';
-import { isPidAlive } from '#src/runState/index.ts';
+import type { GateLock } from '#src/contracts/gates/GateLock.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
 
 interface Params {
 	lock: GateLock;

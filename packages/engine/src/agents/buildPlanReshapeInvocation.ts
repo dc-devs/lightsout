@@ -1,5 +1,5 @@
 import planReshapePrompt from '#src/agents/prompts/planReshape.md';
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
 interface Params {
 	/** The typed breakdown findings to resolve, each with its exact fix. */

@@ -5,9 +5,13 @@ import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts'
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
-import { pathExists, planAttachmentManifestName, planWorkspaceDir } from '#src/plan/index.ts';
-import { getTicketAttachments, readTicketAsset } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 import { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';

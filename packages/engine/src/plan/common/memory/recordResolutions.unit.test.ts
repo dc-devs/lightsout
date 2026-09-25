@@ -1,5 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapCheckLens, GapOutcome, type GradeFindingRecord, GradeFindingStatus } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
 import { recordResolutions } from '#src/plan/common/memory/recordResolutions.ts';
 
 const resolvedAt = '2026-09-08T00:00:00.000Z';

@@ -1,10 +1,14 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { DraftImplementation, Effort, Permissions, PlanFacts, SourceEvidenceIndex } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
-import { draftFocusedSinglePlan } from '#src/plan/draft/focused/index.ts';
+import { draftFocusedSinglePlan } from '#src/plan/draft/focused/draftFocusedSinglePlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createScriptedDraftDriver, type DraftRole, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';

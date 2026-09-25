@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
 
 /**

@@ -1,9 +1,11 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig, RenameRule, RunManifest } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { checkRenameOnlyChanges } from '#src/pipeline/renameCheck/index.ts';
+import { checkRenameOnlyChanges } from '#src/pipeline/renameCheck/checkRenameOnlyChanges.ts';
 import { commitAll } from '#tests/helpers/commitAll.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { runInRepo } from '#tests/helpers/runInRepo.ts';

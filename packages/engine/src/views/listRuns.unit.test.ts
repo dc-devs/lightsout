@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
-import { listRuns } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { listRuns } from '#src/views/listRuns.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';

@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
-import { PipelineKind } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import { getCommandRunsDir } from '#src/runState/common/paths/getCommandRunsDir.ts';
 import { getWorkOrderRunsDir } from '#src/runState/common/paths/getWorkOrderRunsDir.ts';
 

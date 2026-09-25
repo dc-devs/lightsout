@@ -1,4 +1,4 @@
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 
 /**
  * The `onGateResult` sink a `runGates` caller hands over, paired with the list

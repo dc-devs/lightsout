@@ -1,5 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
@@ -18,9 +21,7 @@ interface HoldParams {
 
 const mockTakeGateHold = jest.fn<(params: HoldParams) => Promise<string | undefined>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	takeGateHold: (params: HoldParams) => mockTakeGateHold(params),
-}));
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
 // -------------------------
 // Which ticket the checkout's branch carries is the work order's answer, read
 // out of the record whose stored branch matches — handed here directly rather
@@ -31,7 +32,7 @@ interface WorkOrderTicketRefParams {
 
 const mockReadWorkOrderTicketRef = jest.fn<(params: WorkOrderTicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/readWorkOrderTicketRef.ts', () => ({
 	readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params),
 }));
 // -------------------------

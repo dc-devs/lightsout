@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ShipMergeMethod } from '#src/contracts/index.ts';
+import type { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
 import { remoteWaitTimings } from '#src/ship/common/constants/remoteWaitTimings.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
 import { sleep } from '#src/ship/common/utils/sleep.ts';

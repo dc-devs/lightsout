@@ -1,14 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
-import { estimateActivityCost } from '#src/activity/index.ts';
-import {
-	ActivityLevelKind,
-	ActivityMarkKind,
-	type ActivityNode,
-	type ConfigPricing,
-	type HarnessProcessMark,
-	type HarnessProcessUsage,
-	ProcessEndReason,
-} from '#src/contracts/index.ts';
+import { estimateActivityCost } from '#src/activity/estimateActivityCost.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import { ActivityMarkKind } from '#src/contracts/activity/ActivityMarkKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import { ProcessEndReason } from '#src/contracts/activity/ProcessEndReason.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 
 /** The fold's own figures, which the estimator never reads — present only because a node carries them. */
 const noTotals = {

@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { DedupReport } from '#src/contracts/index.ts';
+import type { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
 import { notePriorArtCollisions } from '#src/plan/common/grading/notePriorArtCollisions.ts';
 import { seedDedupPlan } from '#tests/helpers/seedDedupPlan.ts';
 

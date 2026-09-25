@@ -1,5 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapCheckLens, type GapObservation, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { collapseGroupedGaps } from '#src/plan/common/grading/collapseGroupedGaps.ts';
 
 /** One reader's report of the shared contradiction, at the plan file and in the wording each case varies. */

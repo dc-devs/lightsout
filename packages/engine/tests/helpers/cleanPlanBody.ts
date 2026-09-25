@@ -1,4 +1,6 @@
-import { decisionLogReference, renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
+import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 
 /**
  * A structurally clean single plan: every required section present, no

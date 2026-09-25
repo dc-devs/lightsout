@@ -10,9 +10,7 @@ import { buildStandardsPackListing } from '#tests/helpers/buildStandardsPackList
 // the filesystem at the far end of the reader is stood in for.
 const mockListPacks = jest.fn<() => Promise<StandardsPackListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listPacks: mockListPacks }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listPacks: mockListPacks }) }));
 // -------------------------
 
 const setupListPacksServerFn = ({ packs = [buildStandardsPackListing()] }: { packs?: StandardsPackListing[] } = {}) => {

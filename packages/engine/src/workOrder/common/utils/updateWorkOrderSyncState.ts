@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { WorkOrderSyncState } from '#src/contracts/index.ts';
+import type { WorkOrderSyncState } from '#src/contracts/workOrder/WorkOrderSyncState.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
 import { writeWorkOrderFolderFile } from '#src/workOrder/common/utils/writeWorkOrderFolderFile.ts';

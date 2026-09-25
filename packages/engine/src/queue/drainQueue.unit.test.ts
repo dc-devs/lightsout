@@ -1,8 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
-import type { NamedWorkOrder, QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -12,7 +14,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 type LeftBehindTicket = QueueDrainReport['leftBehind'][number];
 type SettleMergedTreesParams = Parameters<typeof import('#src/queue/common/utils/settleMergedTrees.ts').settleMergedTrees>[0];
-type RunDrainLanesParams = Parameters<typeof import('#src/queue/drainLanes/index.ts').runDrainLanes>[0];
+type RunDrainLanesParams = Parameters<typeof import('#src/queue/drainLanes/runDrainLanes.ts').runDrainLanes>[0];
 
 // Mocked Imports
 // -------------------------
@@ -27,9 +29,7 @@ jest.mock('#src/queue/common/utils/settleMergedTrees.ts', () => ({
 // -------------------------
 const mockRunDrainLanes = jest.fn<(params: RunDrainLanesParams) => Promise<QueueDrainReport>>();
 
-jest.mock('#src/queue/drainLanes/index.ts', () => ({
-	runDrainLanes: (params: RunDrainLanesParams) => mockRunDrainLanes(params),
-}));
+jest.mock('#src/queue/drainLanes/runDrainLanes.ts', () => ({ runDrainLanes: (params: RunDrainLanesParams) => mockRunDrainLanes(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { StandardsFrameworksModule } from '#src/contracts/index.ts';
+import { StandardsFrameworksModule } from '@lightsout/standards-contracts';
 import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
 
 interface Params {

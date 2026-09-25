@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveShipIntent } from '#src/ship/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { resolveShipIntent } from '#src/ship/resolveShipIntent.ts';
 
 /** A config whose only interesting part is its `ship` block, or the absence of one. */
 const configOf = ({ ship }: { ship?: Record<string, unknown> } = {}) =>

@@ -1,6 +1,9 @@
 import type { StandardsPackView } from '@lightsout/engine';
 import { Library } from 'lucide-react';
-import { CopyButton, MetadataTag, PageHeader, SettingsCard } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { hasPackFixtures } from '#src/features/packs/common/utils/hasPackFixtures.ts';
 
 /** The `standards-packs` entry a repo would write to load this one pack. Named apart from the packs list's own builder, which takes every configured path at once. */

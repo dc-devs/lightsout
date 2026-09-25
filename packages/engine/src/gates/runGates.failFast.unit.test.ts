@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { GateResult } from '#src/contracts/index.ts';
-import { runGates } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { runGates } from '#src/gates/runGates.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

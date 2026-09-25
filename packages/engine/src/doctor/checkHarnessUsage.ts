@@ -1,7 +1,9 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, Permissions } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
 
 /** The adapter file whose parse has to be re-captured when a harness renames its token fields. One entry per harness this work covers. */
 const usageAdapters: Record<string, string> = {

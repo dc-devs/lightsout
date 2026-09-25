@@ -1,4 +1,4 @@
-import type { CommandFlag } from '#src/contracts/index.ts';
+import type { CommandFlag } from '#src/contracts/commands/CommandFlag.ts';
 
 interface Params {
 	flag: CommandFlag;

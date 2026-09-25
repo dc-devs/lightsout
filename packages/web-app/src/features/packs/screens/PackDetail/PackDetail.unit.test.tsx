@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
-import { PackDetail } from '#src/features/packs/index.ts';
+import { PackDetail } from '#src/features/packs/screens/PackDetail/PackDetail.tsx';
 import { buildStandardsPackRuleListing } from '#tests/helpers/buildStandardsPackRuleListing.ts';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';
 import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts';
@@ -28,7 +28,7 @@ jest.mock('@tanstack/react-router', () => ({
 // and answered here.
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params) }),
 }));
 // -------------------------

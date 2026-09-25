@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import type { RunListing } from '@lightsout/engine';
 import { PipelineKind } from '@lightsout/engine/contracts';
-import { foldPhaseChildren } from '#src/features/runs/index.ts';
+import { foldPhaseChildren } from '#src/features/runs/common/utils/foldPhaseChildren.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 
 type RunName = 'coordinator' | 'firstChild' | 'secondChild' | 'standalone' | 'orphan';

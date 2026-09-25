@@ -1,6 +1,10 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
-import { GapArea, GapCheckLens, GapOutcome, type GradeFindingRecord, GradeFindingStatus } from '#src/contracts/index.ts';
+import { buildPlanGapCheckInvocation } from '#src/agents/buildPlanGapCheckInvocation.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
 const overviewText = '# Overview\n\nOVERVIEW-SENTINEL';

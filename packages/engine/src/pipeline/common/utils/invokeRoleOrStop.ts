@@ -1,4 +1,6 @@
-import { RunStatus, type StepRecord, type WorkReport } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 

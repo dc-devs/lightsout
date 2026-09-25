@@ -3,10 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planDraftCommand } from '#src/cli/plan/index.ts';
-import { type DraftImplementation, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus, type runPlanDraft } from '#src/plan/index.ts';
+import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import type { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
@@ -33,10 +37,7 @@ interface DraftParams {
 
 const mockRunPlanDraft = jest.fn<(params: DraftParams) => ReturnType<typeof runPlanDraft>>();
 
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	runPlanDraft: (params: DraftParams) => mockRunPlanDraft(params),
-}));
+jest.mock('#src/plan/draft/runPlanDraft.ts', () => ({ runPlanDraft: (params: DraftParams) => mockRunPlanDraft(params) }));
 // -------------------------
 
 /** Never invoked — the runner above is stubbed, so nothing reaches a harness. */

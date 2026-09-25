@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { Effort } from '#src/contracts/index.ts';
+import { Effort } from '#src/contracts/Effort.ts';
 import { getGradeInputs } from '#src/plan/common/scope/getGradeInputs.ts';
 import { gradeInputsConfig, seedGradeInputsPlan } from '#tests/helpers/gradeInputsPlan.ts';
 

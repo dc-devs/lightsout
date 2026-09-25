@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { GateResult } from '#src/contracts/index.ts';
-import { checkAcceptanceTests } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { checkAcceptanceTests } from '#src/gates/testResults/checkAcceptanceTests.ts';
 
 /** One assertion as the runner reported it, under the repo-relative test file it belongs to. */
 interface Assertion {

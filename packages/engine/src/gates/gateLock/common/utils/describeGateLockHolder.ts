@@ -1,4 +1,4 @@
-import type { GateLock } from '#src/contracts/index.ts';
+import type { GateLock } from '#src/contracts/gates/GateLock.ts';
 
 interface Params {
 	/** The reservation on disk, or undefined when it could not be read or parsed. */

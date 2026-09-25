@@ -1,11 +1,12 @@
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
-import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
-import { getDriver } from '#src/drivers/index.ts';
-import { resolveStandardsChannels } from '#src/standards/index.ts';
-import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';
+import { runStandardsReview } from '#src/standardsCheck/runStandardsReview.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	cwd: string;

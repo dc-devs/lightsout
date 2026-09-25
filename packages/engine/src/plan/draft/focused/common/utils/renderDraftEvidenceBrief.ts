@@ -1,5 +1,5 @@
-import type { SourceEvidenceIndex } from '#src/contracts/index.ts';
-import { renderEvidenceBrief } from '#src/plan/evidence/index.ts';
+import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import { renderEvidenceBrief } from '#src/plan/evidence/renderEvidenceBrief.ts';
 
 interface Params {
 	/** The draft's collected evidence. Absent only when the context carries none — a legacy context, or a focused one wired without a collection. */

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { WorkOrderSyncState } from '#src/contracts/index.ts';
+import { WorkOrderSyncState } from '#src/contracts/workOrder/WorkOrderSyncState.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 
 interface Params {

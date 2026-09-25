@@ -1,6 +1,7 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { isSnapshotFile } from '#src/common/sourceFiles/isSnapshotFile.ts';
-import { approveTestFiles, readApprovedTest } from '#src/pipeline/approvedTests/index.ts';
+import { approveTestFiles } from '#src/pipeline/approvedTests/approveTestFiles.ts';
+import { readApprovedTest } from '#src/pipeline/approvedTests/readApprovedTest.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {

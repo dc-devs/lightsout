@@ -1,5 +1,6 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { GradeReport, GradeScope } from '#src/contracts/index.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 
 interface Params {
 	/** The plan folder's `grade.json`. */

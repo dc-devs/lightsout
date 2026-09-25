@@ -4,7 +4,7 @@ import { CommandGroup, CommandRecordKind } from '@lightsout/engine/contracts';
 import { screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { CommandsPage } from '#src/features/commands/index.ts';
+import { CommandsPage } from '#src/features/commands/screens/CommandsPage/CommandsPage.tsx';
 import { buildCommandCatalogEntry } from '#tests/helpers/buildCommandCatalogEntry.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

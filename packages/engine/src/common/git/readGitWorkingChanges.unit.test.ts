@@ -77,13 +77,14 @@ const byPath = (changes: { path: string; kind: string }[] | undefined) => [...(c
 
 test('readGitWorkingChanges: reports a move as a removal and an addition, beside modified, added and removed files', async () => {
 	const { cwd } = setupWorkingRepo({
+		sources: { 'src/index.js': 'export const one = 1;\n', 'src/runOne.js': "console.log('one');\n" },
 		write: {
 			'src/index.js': 'export const one = 2;\n',
 			'src/added.ts': 'export const added = 1;\n',
 			'.lightsout/runs/r1/manifest.json': '{}\n',
 		},
 		remove: ['plan.md'],
-		move: { from: 'src/useIndex.js', to: 'src/moved.js' },
+		move: { from: 'src/runOne.js', to: 'src/moved.js' },
 	});
 
 	const changes = await readGitWorkingChanges({ cwd });
@@ -95,7 +96,7 @@ test('readGitWorkingChanges: reports a move as a removal and an addition, beside
 		{ path: 'src/added.ts', kind: 'added' },
 		{ path: 'src/index.js', kind: 'modified' },
 		{ path: 'src/moved.js', kind: 'added' },
-		{ path: 'src/useIndex.js', kind: 'removed' },
+		{ path: 'src/runOne.js', kind: 'removed' },
 	]);
 });
 

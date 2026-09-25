@@ -1,4 +1,5 @@
-import { CopyButton, CtaBanner } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { CtaBanner } from '#src/appUI/panels/CtaBanner.tsx';
 import { InstallLine } from '#src/features/home/components/InstallLine.tsx';
 
 /** The smallest config that runs: the three gates, and nothing else. */

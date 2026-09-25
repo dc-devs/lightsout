@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { Effort } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { runPromptImprovement } from '#src/runPromptImprovement.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

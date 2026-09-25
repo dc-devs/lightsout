@@ -1,6 +1,6 @@
 import queueAutoPlanPrompt from '#src/agents/prompts/queueAutoPlan.md';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
-import { planWorkspacePath } from '#src/plan/index.ts';
+import { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
 
 interface Params {
 	ticketRef: string;

@@ -1,6 +1,6 @@
 import type { StandardsPackRuleListing } from '@lightsout/engine';
 import { StandardsSet, StandardsSeverity } from '@lightsout/engine/contracts';
-import { Button } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
 import { cn } from '#src/common/utils/cn.ts';
 import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
 

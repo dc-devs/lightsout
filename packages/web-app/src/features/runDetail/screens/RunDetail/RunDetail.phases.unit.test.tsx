@@ -4,7 +4,7 @@ import { PipelineKind, RunStatus } from '@lightsout/engine/contracts';
 import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RunDetail } from '#src/features/runDetail/index.ts';
+import { RunDetail } from '#src/features/runDetail/screens/RunDetail/RunDetail.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildRunStep } from '#tests/helpers/buildRunStep.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';

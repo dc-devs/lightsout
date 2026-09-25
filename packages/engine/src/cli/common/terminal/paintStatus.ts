@@ -1,7 +1,7 @@
 import { green } from '#src/cli/common/terminal/green.ts';
 import { red } from '#src/cli/common/terminal/red.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 interface Params {
 	status: string;

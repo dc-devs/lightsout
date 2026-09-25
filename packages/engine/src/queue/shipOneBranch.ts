@@ -1,11 +1,17 @@
-import { BranchPhase, type LightsoutConfig, ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
-import { takeGateHold } from '#src/gates/index.ts';
-import { writeBranchState } from '#src/queue/branchState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { takeGateHold } from '#src/gates/gateHolds/takeGateHold.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import { runShip, type ShipIntegration, type ShipSettings } from '#src/ship/index.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { createWorkOrderShipGuard } from '#src/workOrder/index.ts';
-import { deleteWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
+import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
+import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import { runShip } from '#src/ship/runShip.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/implementRun/createWorkOrderShipGuard.ts';
+import { deleteWorktreeRecord } from '#src/worktree/records/deleteWorktreeRecord.ts';
+import { removeWorktree } from '#src/worktree/removeWorktree.ts';
 
 interface Params {
 	/** The main repository checkout. */

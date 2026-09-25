@@ -2,11 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PackagesSource } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';
 import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { createRun } from '#src/runState/index.ts';
+import { createRun } from '#src/runState/createRun.ts';
 
 const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const monorepo: LightsoutConfig = {

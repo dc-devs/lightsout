@@ -1,6 +1,8 @@
-import { type RefactorWorklist, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runBatch } from '#src/refactor/batch/index.ts';
+import type { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runBatch } from '#src/refactor/batch/runBatch.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
 import { settleBatchOutcome } from '#src/refactor/settleBatchOutcome.ts';

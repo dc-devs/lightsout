@@ -7,7 +7,7 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { recordRelayedAnswer } from '#src/queue/relay/recordRelayedAnswer.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -20,7 +20,7 @@ type NoteParams = { settings: TrackerSettings; ticketId: string; heading: string
 
 const mockAppendTicketNote = jest.fn<(params: NoteParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: (params: NoteParams) => mockAppendTicketNote(params) }));
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: (params: NoteParams) => mockAppendTicketNote(params) }));
 // -------------------------
 
 const settings = queueSettingsFixture();

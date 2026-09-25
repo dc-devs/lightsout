@@ -1,10 +1,12 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
-import type { WorkOrderPlan } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { toWorkerOutcome } from '#src/queue/workers/common/utils/toWorkerOutcome.ts';
-import { runWorkOrderBodyBuildLifecycle, runWorkOrderPlanLifecycle, type WorkOrderPlanOutcome } from '#src/workOrder/index.ts';
+import type { WorkOrderPlanOutcome } from '#src/workOrder/common/types/WorkOrderPlanOutcome.ts';
+import { runWorkOrderBodyBuildLifecycle } from '#src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 interface Params {
 	/** `plan` is absent for a single-plan work order holding no plan 001, whose build is recorded on the record itself. */

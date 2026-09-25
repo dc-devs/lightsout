@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
 import { buildConfigSections } from '#src/views/common/utils/buildConfigSections.ts';
 

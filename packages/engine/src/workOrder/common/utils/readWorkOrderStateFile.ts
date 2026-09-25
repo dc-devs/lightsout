@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 interface Params {
 	/** The `state.json` path in the primary checkout's work order folder. */

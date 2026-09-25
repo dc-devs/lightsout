@@ -1,11 +1,14 @@
-import { buildCommitMessageInvocation } from '#src/agents/index.ts';
+import { buildCommitMessageInvocation } from '#src/agents/buildCommitMessageInvocation.ts';
 import { buildRunCommitMessage } from '#src/commit/buildRunCommitMessage.ts';
 import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
 import { readGitStagedChange } from '#src/common/git/readGitStagedChange.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type AgentUsage, CommitMessage, type LightsoutConfig, Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import { CommitMessage } from '#src/contracts/work/CommitMessage.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 
 interface Params {
 	/** The worktree whose staged change is described — the one the commit is made in. */

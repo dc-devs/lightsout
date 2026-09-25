@@ -7,7 +7,7 @@ import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
-import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
+import { runDrainLanes } from '#src/queue/drainLanes/runDrainLanes.ts';
 import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';

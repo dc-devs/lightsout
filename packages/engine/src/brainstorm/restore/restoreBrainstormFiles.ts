@@ -10,8 +10,12 @@ import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFi
 import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
-import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 
 interface Params {
 	cwd: string;

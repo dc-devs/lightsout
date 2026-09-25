@@ -1,10 +1,11 @@
-import { ShipBlockReason } from '#src/contracts/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
 import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
 import { hasNoChecks } from '#src/ship/common/utils/hasNoChecks.ts';
-import { type CheckFailure, readCheckFailureLogs } from '#src/ship/forge/index.ts';
+import type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
+import { readCheckFailureLogs } from '#src/ship/forge/readCheckFailureLogs.ts';
 import { waitForChecks } from '#src/ship/waitForChecks.ts';
 
 interface Params {

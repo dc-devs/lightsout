@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
 import { repairIntegratedGates } from '#src/ship/integration/repairIntegratedGates.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
@@ -16,7 +17,7 @@ import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts
 // handed is read off the invocation the harness received.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 const mockRunPreShip = jest.fn<(params: { cwd: string; command: string; baseCommit?: string }) => Promise<ShipStepFailure | undefined>>();
 

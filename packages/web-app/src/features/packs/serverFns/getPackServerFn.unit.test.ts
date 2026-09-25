@@ -10,9 +10,7 @@ import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts
 // the filesystem at the far end of the reader is stood in for.
 const mockGetPack = jest.fn<(params: { name: string }) => Promise<StandardsPackView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPack: (params: { name: string }) => mockGetPack(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPack: (params: { name: string }) => mockGetPack(params) }) }));
 // -------------------------
 
 const setupGetPackServerFn = ({ rejection }: { rejection?: Error } = {}) => {

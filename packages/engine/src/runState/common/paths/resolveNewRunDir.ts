@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { resolveSharedStateDir } from '#src/common/workspace/resolveSharedStateDir.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { PipelineKind } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import { getCommandRunsDir } from '#src/runState/common/paths/getCommandRunsDir.ts';
 import { getWorkOrderRunsDir } from '#src/runState/common/paths/getWorkOrderRunsDir.ts';
 

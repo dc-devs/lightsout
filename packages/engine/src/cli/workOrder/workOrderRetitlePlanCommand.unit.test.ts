@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitlePlanCommand.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -28,7 +29,7 @@ type RetitleResult = { record: WorkOrderState; notice?: string; publishError?: s
 
 const mockRetitleTicketPlan = jest.fn<(params: RetitleParams) => Promise<RetitleResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ retitleWorkOrderPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
+jest.mock('#src/workOrder/retitleWorkOrderPlan.ts', () => ({ retitleWorkOrderPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

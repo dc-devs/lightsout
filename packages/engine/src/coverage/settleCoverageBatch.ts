@@ -1,5 +1,8 @@
 import { maxConsecutiveDeclines } from '#src/common/constants/maxConsecutiveDeclines.ts';
-import { BatchOutcome, CoverageBatchReport, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 import type { CoverageRun } from '#src/coverage/CoverageRun.ts';
 import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';

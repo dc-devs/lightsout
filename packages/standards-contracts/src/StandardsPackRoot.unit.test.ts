@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsPackRoot } from '#src/index.ts';
+import { StandardsPackRoot } from '#src/StandardsPackRoot.ts';
 
 const setupRoot = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const root: Record<string, unknown> = {

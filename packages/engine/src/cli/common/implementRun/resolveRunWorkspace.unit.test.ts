@@ -3,7 +3,10 @@ import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
-import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
@@ -44,23 +47,27 @@ const mockReadWorktreeRecord = jest.fn<(params: { cwd: string; branch: string })
 const mockWriteWorktreeRecord = jest.fn<(params: RecordParams) => Promise<void>>();
 const mockPrepareTicketBranch = jest.fn<(params: { cwd: string; branch: string }) => Promise<{ startPoint?: string } | WorktreeFailure>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
-	fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params),
-	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
-	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
-	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
-	writeWorktreeRecord: (params: RecordParams) => mockWriteWorktreeRecord(params),
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateParams) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/fetchDefaultBranch.ts', () => ({ fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params) }));
+jest.mock('#src/worktree/prepareWorkOrderBranch.ts', () => ({
 	prepareWorkOrderBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
+}));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
+	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+}));
+jest.mock('#src/worktree/records/readWorktreeRecord.ts', () => ({
+	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
+}));
+jest.mock('#src/worktree/records/writeWorktreeRecord.ts', () => ({ writeWorktreeRecord: (params: RecordParams) => mockWriteWorktreeRecord(params) }));
+jest.mock('#src/worktree/resolveWorktreePath.ts', () => ({
+	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
 }));
 // -------------------------
 // The run lock of the ticket branch's own tree, which is what separates a tree
 // an earlier implementation run finished with from one a run is still using.
 const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
 
-jest.mock('#src/runState/index.ts', () => ({
-	readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params),
-}));
+jest.mock('#src/runState/lock/readLiveRunLock.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
 // -------------------------
 
 const sourceCwd = resolve('/tmp/lightsout-launching-checkout');

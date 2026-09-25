@@ -1,16 +1,15 @@
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import {
-	GapArea,
-	GapCheckLens,
-	type GapObservation,
-	GapOutcome,
-	type GradedGap,
-	type GradeFindingRecord,
-	GradeFindingStatus,
-	type GradeMemory,
-} from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { openFindingGaps } from '#src/plan/common/memory/openFindingGaps.ts';
 import { verifyOpenFindings } from '#src/plan/common/memory/verifyOpenFindings.ts';
 import { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';

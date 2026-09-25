@@ -2,8 +2,14 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
-import { LightsoutConfig, PlanProgress, RunStatus, ShipStatus, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
@@ -14,14 +20,11 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // pinned by the ship module's own tests. Here it stands in only so a case can
 // see WHETHER the chain reached it and WHAT it was handed — the ticket guard
 // above all, which is the record's say over the merge.
-type RunShip = typeof import('#src/ship/index.ts').runShip;
+type RunShip = typeof import('#src/ship/runShip.ts').runShip;
 
 const mockRunShip = jest.fn<RunShip>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: Parameters<RunShip>[0]) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: Parameters<RunShip>[0]) => mockRunShip(params) }));
 // -------------------------
 
 /** The ticket folder's name, which is also the branch its plans implement on. */

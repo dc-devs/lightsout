@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { AgentUsage } from '#src/contracts/index.ts';
+import { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 
 /** Every field a different number, so a mix-up between two of them shows. */
 const setupUsage = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

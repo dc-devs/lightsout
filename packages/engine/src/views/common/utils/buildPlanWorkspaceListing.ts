@@ -1,4 +1,8 @@
-import { type PlanGrade, PlanStage, type PlanWorkspaceListing, type RunListing, RunStatus } from '#src/contracts/index.ts';
+import type { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanStage } from '#src/contracts/views/planWorkspace/PlanStage.ts';
+import type { PlanWorkspaceListing } from '#src/contracts/views/planWorkspace/PlanWorkspaceListing.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
 import type { PlanWorkspaceFiles } from '#src/views/common/types/PlanWorkspaceFiles.ts';
 
 /**

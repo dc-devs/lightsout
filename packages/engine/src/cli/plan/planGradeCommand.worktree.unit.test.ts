@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { planGradeCommand } from '#src/cli/plan/index.ts';
+import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';

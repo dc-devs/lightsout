@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Activity, FileCog, MessageSquareWarning, NotebookPen, ScrollText, SquareCheckBig } from 'lucide-react';
-import { MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 
 const zoneLinkClasses = 'flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent';

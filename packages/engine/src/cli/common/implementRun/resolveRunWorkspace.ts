@@ -4,19 +4,18 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { isSamePath } from '#src/common/utils/isSamePath.ts';
-import { type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { readLiveRunLock } from '#src/runState/index.ts';
-import {
-	createWorktree,
-	fetchDefaultBranch,
-	prepareWorkOrderBranch,
-	readBranchWorktree,
-	readWorktreeRecord,
-	resolveWorktreePath,
-	type WorktreeFailure,
-	writeWorktreeRecord,
-} from '#src/worktree/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { readLiveRunLock } from '#src/runState/lock/readLiveRunLock.ts';
+import type { WorktreeFailure } from '#src/worktree/common/types/WorktreeFailure.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { fetchDefaultBranch } from '#src/worktree/fetchDefaultBranch.ts';
+import { prepareWorkOrderBranch } from '#src/worktree/prepareWorkOrderBranch.ts';
+import { readBranchWorktree } from '#src/worktree/readBranchWorktree.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	/** The checkout the command was launched from — `--cwd`, or the process directory. */

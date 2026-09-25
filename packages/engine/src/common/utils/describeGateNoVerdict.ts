@@ -1,4 +1,4 @@
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 
 interface Params {
 	result: GateRunResult;

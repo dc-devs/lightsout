@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PlanId } from '#src/contracts/index.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
 
 interface Params {
 	/** The plan's number, which becomes the id's three zero-padded digits. */

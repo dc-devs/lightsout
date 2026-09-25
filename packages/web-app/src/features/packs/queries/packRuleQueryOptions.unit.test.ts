@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsPackRuleView } from '@lightsout/engine';
-import { packRuleQueryOptions } from '#src/features/packs/index.ts';
+import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';
 
 // Mocked Imports
@@ -10,7 +10,7 @@ import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRul
 // the fetcher is proved all the way down to the seam the app is allowed to stub.
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params) }),
 }));
 // -------------------------

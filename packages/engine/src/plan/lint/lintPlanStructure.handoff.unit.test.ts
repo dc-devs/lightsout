@@ -1,8 +1,9 @@
 import { expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
-import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { writeDemoPlanFile } from '#tests/helpers/writeDemoPlanFile.ts';

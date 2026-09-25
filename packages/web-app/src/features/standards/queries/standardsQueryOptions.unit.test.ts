@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsView } from '@lightsout/engine';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { standardsQueryOptions } from '#src/features/standards/index.ts';
+import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 
 // Mocked Imports
@@ -11,9 +11,7 @@ import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 // only the filesystem is stood in for.
 const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getStandards: () => mockGetStandards() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getStandards: () => mockGetStandards() }) }));
 // -------------------------
 
 const setupStandardsQueryOptions = () => {

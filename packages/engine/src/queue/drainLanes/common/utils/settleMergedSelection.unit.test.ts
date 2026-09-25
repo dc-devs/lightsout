@@ -1,14 +1,14 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import { settleMergedSelection } from '#src/queue/drainLanes/common/utils/settleMergedSelection.ts';
-import type { reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
+import type { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import { namedWorkOrderFixture } from '#tests/helpers/namedWorkOrderFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
 
 const mockReconcile = jest.fn<typeof reconcileMergedTickets>();
 
-jest.mock('#src/queue/ticketSelection/index.ts', () => ({
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
 

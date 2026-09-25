@@ -3,11 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
-import { runWriterBatches } from '#src/pipeline/index.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runWriterBatches } from '#src/pipeline/steps/runWriterBatches.ts';
 
 // The warm-up writer: when it releases the rest of the fan-out, what happens
 // when it never streams or its driver dies, how few groups leave nothing to warm

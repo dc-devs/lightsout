@@ -1,9 +1,11 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import { readRunManifest, readRunProcessLock } from '#src/runState/index.ts';
-import { getRunProgress, type RunProgress } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import type { RunProgress } from '#src/views/common/types/RunProgress.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 
 /** Wait, painting nothing, for the ship result to land — then paint the frame that has it. */
 const settleShip = async ({ cwd, runId, pollMs, ceilingMs }: { cwd: string; runId: string; pollMs: number; ceilingMs: number }) => {

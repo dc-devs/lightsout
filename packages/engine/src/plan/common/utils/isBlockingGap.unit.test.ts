@@ -1,5 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapCheckLens, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
 
 /** One judged gap, carrying only the outcome each case turns on. */

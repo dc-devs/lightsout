@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
-import { DocPage, docPages } from '#src/features/docs/index.ts';
+import { docPages } from '#src/features/docs/common/constants/docPages.ts';
+import { DocPage } from '#src/features/docs/screens/DocPage/DocPage.tsx';
 
 /**
  * The path names no document this build carries.

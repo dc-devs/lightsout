@@ -8,8 +8,8 @@ Both examples follow [Arrange-Act-Assert with setup factories](./unit-testing.md
 
 ```typescript
 import { expect, describe, test, jest } from '@jest/globals';
-import { UserProfile } from '@/models/user-profile';
-import { AppSettings } from '@/models/app-settings';
+import { UserProfile } from '@/models/user-profile/user-profile';
+import { AppSettings } from '@/models/app-settings/app-settings';
 import { getAvatarUrl } from '@/models/user-profile/common/utils/get-avatar-url';
 
 // Mocked Imports

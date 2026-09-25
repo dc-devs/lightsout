@@ -1,9 +1,11 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { WorkOrderListing } from '#src/workOrder/index.ts';
+import type { WorkOrderListing } from '#src/workOrder/common/types/WorkOrderListing.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 
@@ -29,9 +31,9 @@ type CreateWorkOrderResult = { name: string; branch: string; record: WorkOrderSt
 const mockFindWorkOrderByTicketRef = jest.fn<(params: { cwd: string; ticketRef: string }) => Promise<WorkOrderListing | undefined>>();
 const mockCreateWorkOrder = jest.fn<(params: CreateWorkOrderParams) => Promise<CreateWorkOrderResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/createWorkOrder.ts', () => ({ createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params) }));
+jest.mock('#src/workOrder/findWorkOrderByTicketRef.ts', () => ({
 	findWorkOrderByTicketRef: (params: { cwd: string; ticketRef: string }) => mockFindWorkOrderByTicketRef(params),
-	createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params),
 }));
 // -------------------------
 

@@ -1,6 +1,6 @@
 import { getRunFamilyRoot } from '#src/cli/common/runFamily/getRunFamilyRoot.ts';
 import type { RunFamily } from '#src/cli/common/types/RunFamily.ts';
-import type { RunListing } from '#src/contracts/index.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
 
 interface Params {
 	runs: RunListing[];

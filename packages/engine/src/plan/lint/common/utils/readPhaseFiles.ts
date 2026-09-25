@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 

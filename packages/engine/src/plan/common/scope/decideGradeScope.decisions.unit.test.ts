@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { GradeFindingStatus, type GradeInputs } from '#src/contracts/index.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 import { decideGradeScope } from '#src/plan/common/scope/decideGradeScope.ts';
 import { getDecisionReach } from '#src/plan/common/scope/getDecisionReach.ts';
 import { findingRecord, inputsFor, memoryFor, passAt, phasedFiles, phasedPlanFiles, planFileHashes, soloPhaseFile } from '#tests/helpers/gradeScopeInputs.ts';

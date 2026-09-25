@@ -1,5 +1,6 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { deleteWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
+import { deleteWorktreeRecord } from '#src/worktree/records/deleteWorktreeRecord.ts';
+import { removeWorktree } from '#src/worktree/removeWorktree.ts';
 
 interface Params {
 	/** The main repository checkout. */

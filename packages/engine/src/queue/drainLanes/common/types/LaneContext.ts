@@ -1,12 +1,13 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateHolds } from '#src/gates/index.ts';
-import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import type { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
+import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 
 /** Everything the drain's lanes need that never changes while one drain runs. */
 export interface LaneContext {

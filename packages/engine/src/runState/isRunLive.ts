@@ -1,4 +1,8 @@
-import { PhaseReport, PipelineKind, type RunLock, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { isPidAlive } from '#src/runState/isPidAlive.ts';
 
 interface Params {

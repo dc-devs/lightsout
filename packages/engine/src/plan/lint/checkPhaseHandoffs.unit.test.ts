@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkPhaseHandoffs } from '#src/plan/lint/checkPhaseHandoffs.ts';
 import { phaseBody, phaseFile } from '#tests/helpers/phasePlan.ts';
 

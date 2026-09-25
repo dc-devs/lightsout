@@ -6,7 +6,9 @@ import { red } from '#src/cli/common/terminal/red.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { getBlockingFindings, PlanRunStatus, runPlanLint } from '#src/plan/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
+import { runPlanLint } from '#src/plan/runPlanLint.ts';
 
 export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });

@@ -17,12 +17,7 @@ import { getRouter } from '#src/router.tsx';
 // or matches nothing. Nothing here is called while a router is built.
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs Home reads are
-	// committed JSON rather than disk this test has to fake.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
-	getReader: () => ({ listRuns: () => mockListRuns() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listRuns: () => mockListRuns() }) }));
 // -------------------------
 // The query integration reaches the router's server-side header helpers, which
 // require an ESM-only cookie package that Jest's CommonJS loader cannot parse.

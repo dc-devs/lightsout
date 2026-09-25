@@ -4,9 +4,11 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import { recordPlanCommandRun, recordPlanningStep } from '#src/plan/index.ts';
-import { publishWorkOrderPlan } from '#src/workOrder/index.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { recordPlanningStep } from '#src/plan/progress/recordPlanningStep.ts';
+import { publishWorkOrderPlan } from '#src/workOrder/publishWorkOrderPlan.ts';
 
 /** What the publisher answers, and what the printing sequence below reads off it. */
 interface PlanPublishOutcome {

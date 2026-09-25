@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { commitWorkOrderWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';

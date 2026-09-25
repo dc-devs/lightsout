@@ -1,4 +1,4 @@
-import type { PlanDraftReport } from '#src/contracts/index.ts';
+import type { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
 import type { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 /**

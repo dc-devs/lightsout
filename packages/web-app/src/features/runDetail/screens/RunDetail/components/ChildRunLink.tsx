@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 
 interface Props {
 	/** The child run's full id; the reader is shown its short form. */

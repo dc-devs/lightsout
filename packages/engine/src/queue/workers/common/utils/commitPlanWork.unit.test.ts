@@ -1,7 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, jest, test } from '@jest/globals';
-import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
@@ -19,10 +22,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // commit would carry.
 const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params) }));
 // -------------------------
 
 /** What the commit primitive was handed, restated here because a `jest.mock` factory may not reach outside the file. */

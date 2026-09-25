@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { emptyRelayMailbox } from '#src/queue/relay/index.ts';
+import { emptyRelayMailbox } from '#src/queue/relay/emptyRelayMailbox.ts';
 
 /** A throwaway parent, so a mailbox that has never existed and one full of leftovers are both reachable. */
 const setupMailbox = () => join(mkdtempSync(join(tmpdir(), 'lightsout-mailbox-')), 'relay');

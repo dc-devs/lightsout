@@ -4,10 +4,11 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { ShipStatus } from '#src/contracts/index.ts';
-import { resolveShipSettings, runShip } from '#src/ship/index.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { createWorkOrderShipGuard } from '#src/workOrder/index.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
+import { runShip } from '#src/ship/runShip.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/implementRun/createWorkOrderShipGuard.ts';
 
 /**
  * `lightsout ship` — the current branch, from committed work to merged.

@@ -2,8 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { BranchPhase } from '#src/contracts/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 
 /**
  * A record the work order contract accepts, written by hand so the branch

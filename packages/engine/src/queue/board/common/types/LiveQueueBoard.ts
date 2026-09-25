@@ -1,4 +1,4 @@
-import type { QueueLane } from '#src/contracts/index.ts';
+import type { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 import type { QueueBoardLanes } from '#src/queue/board/common/types/QueueBoardLanes.ts';
 
 /** A drain still running: its lanes, plus what only the board recorder knows. */

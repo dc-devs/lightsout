@@ -1,13 +1,15 @@
-import { buildDirectWorkerInvocation } from '#src/agents/index.ts';
+import { buildDirectWorkerInvocation } from '#src/agents/buildDirectWorkerInvocation.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import type { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
-import { RunStatus, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { nextStepRecord } from '#src/direct/common/utils/nextStepRecord.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 
 /** The step every direct-worker invocation is recorded under. */
 const implementStep = 'implement';

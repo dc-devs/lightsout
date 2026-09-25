@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanDocument } from '@lightsout/engine';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { planQueryOptions } from '#src/features/runDetail/index.ts';
+import { planQueryOptions } from '#src/features/runDetail/queries/planQueryOptions.ts';
 
 // Mocked Imports
 // -------------------------
@@ -10,9 +10,7 @@ import { planQueryOptions } from '#src/features/runDetail/index.ts';
 // seam stood in for.
 const mockGetPlan = jest.fn<(params: { path: string }) => Promise<PlanDocument>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }) }));
 // -------------------------
 
 const path = '.lightsout/plans/add-search.md';

@@ -1,8 +1,14 @@
 import { basename } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanDocsCheckInvocation } from '#src/agents/index.ts';
-import { type ConfigDocs, type Effort, GapArea, GapCheckReport, GapOutcome, type GradedGap, type Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanDocsCheckInvocation } from '#src/agents/buildPlanDocsCheckInvocation.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckReport } from '#src/contracts/plan/grade/GapCheckReport.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 

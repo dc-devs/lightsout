@@ -1,4 +1,4 @@
-import { estimateActivityCost } from '#src/activity/index.ts';
+import { estimateActivityCost } from '#src/activity/estimateActivityCost.ts';
 import { printActivityReport } from '#src/cli/common/activityReport/printActivityReport.ts';
 import { resolveReportTargets } from '#src/cli/common/activityReport/resolveReportTargets.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
@@ -6,8 +6,9 @@ import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import type { ConfigPricing } from '#src/contracts/index.ts';
-import { type PlanActivityReport, readPlanActivityReports } from '#src/views/index.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
+import type { PlanActivityReport } from '#src/views/common/types/PlanActivityReport.ts';
+import { readPlanActivityReports } from '#src/views/readPlanActivityReports.ts';
 
 /**
  * One plan's estimate for the data payload: every root priced and added.

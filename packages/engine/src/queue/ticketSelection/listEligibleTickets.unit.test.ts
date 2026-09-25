@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { listEligibleTickets } from '#src/queue/ticketSelection/listEligibleTickets.ts';
-import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -13,7 +14,7 @@ type ListParams = { labelNames: string[]; statuses: string[] };
 
 const mockListTickets = jest.fn<(params: ListParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ listTickets: (params: ListParams) => mockListTickets(params) }));
+jest.mock('#src/ticketTracker/listTickets.ts', () => ({ listTickets: (params: ListParams) => mockListTickets(params) }));
 // -------------------------
 
 const settings = queueSettingsFixture();

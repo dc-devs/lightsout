@@ -1,4 +1,5 @@
-import { getSprawlDataset, SprawlComparison } from '#src/features/sprawl/index.ts';
+import { getSprawlDataset } from '#src/features/sprawl/common/utils/getSprawlDataset.ts';
+import { SprawlComparison } from '#src/features/sprawl/components/SprawlComparison.tsx';
 
 /**
  * Why a repo built this way does not turn into a directory listing.

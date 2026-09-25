@@ -1,7 +1,8 @@
 import type { PlanWorkspaceView } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
-import { MetadataTag, StatusBadge } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { planGradeBadgeConfig } from '#src/features/plans/common/constants/planGradeBadgeConfig.ts';
 import { planStageBadgeConfig } from '#src/features/plans/common/constants/planStageBadgeConfig.ts';

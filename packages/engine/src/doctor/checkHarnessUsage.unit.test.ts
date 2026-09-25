@@ -1,7 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { checkHarnessUsage } from '#src/doctor/checkHarnessUsage.ts';
-import type { Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { DriverResult } from '#src/drivers/common/types/DriverResult.ts';
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 

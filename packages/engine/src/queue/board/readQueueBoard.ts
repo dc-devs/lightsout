@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { QueueBoard } from '#src/contracts/index.ts';
+import { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
 import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
 
 interface Params {

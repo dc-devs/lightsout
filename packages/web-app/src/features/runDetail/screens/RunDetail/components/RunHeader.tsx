@@ -2,13 +2,15 @@ import { RunStatus } from '@lightsout/engine/contracts';
 import { formatCost, formatDuration } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { CopyButton, MetadataTag, StatusBadge } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
 import { PlanPathButton } from '#src/features/runDetail/screens/RunDetail/components/PlanPathButton.tsx';
 import { RunWhatNow } from '#src/features/runDetail/screens/RunDetail/components/RunWhatNow.tsx';
-import { getRunCommand } from '#src/features/runs/index.ts';
+import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts';
 
 /** One labelled number or word in the header's totals row. */
 const Meta = ({ label, value }: { label: string; value: ReactNode }) => (

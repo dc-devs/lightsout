@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderRequestShipCommand } from '#src/cli/workOrder/workOrderRequestShipCommand.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -37,8 +38,8 @@ type ChangeResult = { record: WorkOrderState; notice?: string; publishError?: st
 const mockRequestTicketShip = jest.fn<(params: RequestParams) => Promise<ChangeResult>>();
 const mockWithdrawTicketShipRequest = jest.fn<(params: WithdrawParams) => Promise<ChangeResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	requestWorkOrderShip: (params: RequestParams) => mockRequestTicketShip(params),
+jest.mock('#src/workOrder/requestWorkOrderShip.ts', () => ({ requestWorkOrderShip: (params: RequestParams) => mockRequestTicketShip(params) }));
+jest.mock('#src/workOrder/withdrawWorkOrderShipRequest.ts', () => ({
 	withdrawWorkOrderShipRequest: (params: WithdrawParams) => mockWithdrawTicketShipRequest(params),
 }));
 // -------------------------

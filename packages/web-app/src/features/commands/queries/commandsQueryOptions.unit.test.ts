@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { CommandCatalogEntry } from '@lightsout/engine';
-import { commandsQueryOptions } from '#src/features/commands/index.ts';
+import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
 import { buildCommandCatalogEntry } from '#tests/helpers/buildCommandCatalogEntry.ts';
 
 // Mocked Imports
@@ -10,9 +10,7 @@ import { buildCommandCatalogEntry } from '#tests/helpers/buildCommandCatalogEntr
 // only the engine behind it is stood in for.
 const mockListCommands = jest.fn<() => Promise<CommandCatalogEntry[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listCommands: () => mockListCommands() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listCommands: () => mockListCommands() }) }));
 // -------------------------
 
 const setupCommandsQueryOptions = () => {

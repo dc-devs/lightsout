@@ -1,23 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import {
-	ActivityLevelKind,
-	GapArea,
-	GapCheckLens,
-	GapOutcome,
-	type GradeFindingRecord,
-	GradeFindingStatus,
-	GradeMemory,
-	GradeReport,
-	GradeScope,
-	type RunStatus,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runGradePass } from '#src/plan/common/grading/runGradePass.ts';
+import { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
-import { gradeMemoryPath } from '#src/plan/index.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.ts';

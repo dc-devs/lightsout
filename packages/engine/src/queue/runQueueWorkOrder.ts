@@ -1,17 +1,22 @@
 import { join } from 'node:path';
-import { BranchPhase, type LightsoutConfig, WorktreeOwner } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleWorkerOutcome } from '#src/queue/common/utils/settleWorkerOutcome.ts';
-import { runWorkerWithRelay } from '#src/queue/workers/index.ts';
-import { TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
-import { createWorktree, resolveWorktreePath } from '#src/worktree/index.ts';
+import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
+import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
+import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	/** The main repository checkout. */

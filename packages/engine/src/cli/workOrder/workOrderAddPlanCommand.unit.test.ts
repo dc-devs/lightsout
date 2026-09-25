@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderAddPlanCommand } from '#src/cli/workOrder/workOrderAddPlanCommand.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -32,7 +33,7 @@ type AddTicketPlanResult = { address: string; record: WorkOrderState; notice?: s
 
 const mockAddTicketPlan = jest.fn<(params: AddTicketPlanParams) => Promise<AddTicketPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ addWorkOrderPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
+jest.mock('#src/workOrder/addWorkOrderPlan.ts', () => ({ addWorkOrderPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

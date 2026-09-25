@@ -2,9 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
-import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
+import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports

@@ -1,4 +1,7 @@
-import type { CleanupEndReason, StandardsFinding, StepRecord, WorkReport } from '#src/contracts/index.ts';
+import type { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 
 /** The cleanup loop's moving parts — everything the persisted record is composed from, plus the two keys the loop itself steers by. */
 export interface CleanupState {

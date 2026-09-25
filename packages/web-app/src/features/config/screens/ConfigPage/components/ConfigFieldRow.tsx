@@ -1,5 +1,6 @@
 import type { ConfigFieldView } from '@lightsout/engine';
-import { Badge, MetadataTag } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 
 /**

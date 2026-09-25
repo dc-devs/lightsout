@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { ConfigNotFoundError, type ConfigView } from '@lightsout/engine';
-import { configQueryOptions } from '#src/features/config/index.ts';
+import { configQueryOptions } from '#src/features/config/queries/configQueryOptions.ts';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 
 // Mocked Imports
@@ -10,9 +10,7 @@ import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 // fetcher is proved all the way down to the seam the app is allowed to stub.
 const mockGetConfig = jest.fn<() => Promise<ConfigView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getConfig: () => mockGetConfig() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getConfig: () => mockGetConfig() }) }));
 // -------------------------
 
 const setupConfigQueryOptions = ({ rejection, view = buildConfigView() }: { rejection?: Error; view?: ConfigView } = {}) => {

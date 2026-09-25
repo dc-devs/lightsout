@@ -2,9 +2,13 @@ import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
-import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
@@ -14,7 +18,9 @@ import { decideTicketOutcome } from '#src/queue/workers/common/utils/decideTicke
 import { findStalledPlanRefusal } from '#src/queue/workers/common/utils/findStalledPlanRefusal.ts';
 import { settleLeftoverWork } from '#src/queue/workers/common/utils/settleLeftoverWork.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import { isPlanlessWorkOrder, readWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
+import { isPlanlessWorkOrder } from '#src/workOrder/isPlanlessWorkOrder.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
+import { restoreWorkOrderPlan } from '#src/workOrder/restoreWorkOrderPlan.ts';
 
 interface Params {
 	/** The work order's worktree: where each plan is restored, built and committed. */

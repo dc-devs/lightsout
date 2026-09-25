@@ -1,4 +1,4 @@
-import { SectionHeader } from '#src/appUI/index.ts';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
 
 /**
  * Three symptoms, each with the code that shows it.

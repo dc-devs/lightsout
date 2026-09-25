@@ -2,8 +2,10 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { RunLockError } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

@@ -2,15 +2,23 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus, WorktreeOwner } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { shipOneBranch } from '#src/queue/shipOneBranch.ts';
-import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
-import { createWorktree, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -37,11 +45,11 @@ const mockTakeGateHold =
 		}) => Promise<string | undefined>
 	>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	runGates: (params: { cwd: string }) => mockRunGates(params),
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({
 	takeGateHold: (params: Parameters<typeof mockTakeGateHold>[0]) => mockTakeGateHold(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({ runShip: (params: Parameters<typeof mockRunShip>[0]) => mockRunShip(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: Parameters<typeof mockRunShip>[0]) => mockRunShip(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

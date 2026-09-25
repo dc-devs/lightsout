@@ -2,8 +2,9 @@ import { renderTable } from '#src/cli/common/render/renderTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { green } from '#src/cli/common/terminal/green.ts';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
 
 interface Params {
 	findings: StandardsFinding[];

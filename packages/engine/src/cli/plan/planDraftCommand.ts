@@ -7,10 +7,18 @@ import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitOnPlanFailure } from '#src/cli/plan/common/utils/exitOnPlanFailure.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
-import type { LightsoutConfig, StructuralFinding } from '#src/contracts/index.ts';
-import { DraftImplementation, PlanningStep, PlanVariant, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingFindings, PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanDraft } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
+import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { recordPlanningStep } from '#src/plan/progress/recordPlanningStep.ts';
 
 interface Params {
 	cwd: string;

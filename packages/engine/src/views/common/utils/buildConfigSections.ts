@@ -4,7 +4,9 @@ import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorF
 import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
-import { ConfigFieldView, type ConfigView, type LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { ConfigFieldView } from '#src/contracts/views/config/ConfigFieldView.ts';
+import type { ConfigView } from '#src/contracts/views/config/ConfigView.ts';
 import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
 
 /**

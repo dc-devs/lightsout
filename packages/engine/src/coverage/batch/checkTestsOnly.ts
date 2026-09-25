@@ -4,7 +4,7 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	cwd: string;

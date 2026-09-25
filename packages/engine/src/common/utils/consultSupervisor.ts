@@ -1,9 +1,12 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildSupervisorInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
-import { type LightsoutConfig, Permissions, SupervisorVerdict } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { SupervisorVerdict } from '#src/contracts/work/SupervisorVerdict.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 
 const supervisorPermissions = Permissions.ReadOnly;
 

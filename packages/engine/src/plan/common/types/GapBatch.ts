@@ -1,4 +1,4 @@
-import type { GradedGap } from '#src/contracts/index.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 
 /** Everything one gap-judge spawn is given: the findings it rules on under the identifiers the engine assigned, and the text of every plan file they span. */
 export interface GapBatch {

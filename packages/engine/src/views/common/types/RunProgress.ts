@@ -1,4 +1,4 @@
-import type { RunStatus } from '#src/contracts/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
 
 /** A run's progress block as data, ready to render — see {@link getRunProgress}. */

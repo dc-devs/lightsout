@@ -1,4 +1,7 @@
-import { getSpokenPickerText, getSpokenTurnQuestion, isVoiceOn, speakText } from '#src/voice/index.ts';
+import { getSpokenPickerText } from '#src/voice/getSpokenPickerText.ts';
+import { getSpokenTurnQuestion } from '#src/voice/getSpokenTurnQuestion.ts';
+import { isVoiceOn } from '#src/voice/isVoiceOn.ts';
+import { speakText } from '#src/voice/speakText.ts';
 
 /** Which pi-family event the payload describes. */
 export type VoiceSpeakKind = 'turn' | 'picker';

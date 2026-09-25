@@ -1,4 +1,5 @@
-import type { StepRecord, SupervisorVerdict } from '#src/contracts/index.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { SupervisorVerdict } from '#src/contracts/work/SupervisorVerdict.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 

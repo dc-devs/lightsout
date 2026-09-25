@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { BranchState } from '#src/contracts/index.ts';
+import { BranchState } from '#src/contracts/queue/BranchState.ts';
 import { getBranchStatePath } from '#src/queue/branchState/common/utils/getBranchStatePath.ts';
 
 interface Params {

@@ -1,4 +1,4 @@
-import type { StandardsPackRuleListing } from '#src/contracts/index.ts';
+import type { StandardsPackRuleListing } from '#src/contracts/views/StandardsPackRuleListing.ts';
 
 interface Params {
 	rule: Omit<StandardsPackRuleListing, 'fixtureCounts'>;

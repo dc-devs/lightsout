@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Button, ContentHeader } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
 import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
 import { filterPackRules } from '#src/features/packs/common/utils/filterPackRules.ts';
 import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';

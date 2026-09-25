@@ -1,6 +1,7 @@
 import { PipelineKind } from '@lightsout/engine/contracts';
 import { formatCost, formatDuration } from '@lightsout/shared';
-import { Card, StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { StepReportKind } from '#src/features/runDetail/common/constants/StepReportKind.ts';

@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { SettingsCard } from '#src/appUI/index.ts';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 
 /**
  * How a shop writes its own pack, for a reader who has just read what the

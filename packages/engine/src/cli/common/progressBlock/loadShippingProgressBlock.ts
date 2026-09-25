@@ -1,8 +1,10 @@
 import { renderProgressBlock } from '#src/cli/common/progressBlock/renderProgressBlock.ts';
 import { formatClockDuration } from '#src/cli/common/utils/formatClockDuration.ts';
-import { RunStatus, ShippingStepId } from '#src/contracts/index.ts';
-import { isPidAlive } from '#src/runState/index.ts';
-import { readShippingProgress, type ShippingProgressReading } from '#src/ship/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
+import type { ShippingProgressReading } from '#src/ship/progress/common/types/ShippingProgressReading.ts';
+import { readShippingProgress } from '#src/ship/progress/readShippingProgress.ts';
 
 /** The record as read: undefined when the branch has none. */
 type RecordedProgress = ShippingProgressReading['progress'];

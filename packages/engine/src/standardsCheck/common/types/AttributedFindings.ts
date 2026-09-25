@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 /**
  * A run's deterministic findings split by where they came from — the four

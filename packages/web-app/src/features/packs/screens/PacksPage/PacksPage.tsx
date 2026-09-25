@@ -1,6 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Library } from 'lucide-react';
-import { CopyButton, PageHeader, SettingsCard } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
 import { PackCard } from '#src/features/packs/screens/PacksPage/components/PackCard.tsx';
 import { WriteYourOwnCard } from '#src/features/packs/screens/PacksPage/components/WriteYourOwnCard.tsx';

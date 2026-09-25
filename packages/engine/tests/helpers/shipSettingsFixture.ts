@@ -1,5 +1,5 @@
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import type { ShipSettings } from '#src/ship/index.ts';
+import { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 
 /**
  * A resolved `ship` block for tests, with whatever the test is actually about

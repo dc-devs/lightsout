@@ -1,7 +1,8 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
-import { readWorkOrderState } from '#src/workOrder/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 
 interface Params {
 	/** The checkout the build happens in, whose primary checkout holds the ticket record. */

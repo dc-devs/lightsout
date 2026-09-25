@@ -1,6 +1,7 @@
 import type { StandardsRuleView } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
-import { SettingsCard, ShareBar } from '#src/appUI/index.ts';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
+import { ShareBar } from '#src/appUI/ShareBar.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 
 interface Props {

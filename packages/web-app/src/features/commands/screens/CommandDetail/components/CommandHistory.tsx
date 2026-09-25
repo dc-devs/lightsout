@@ -1,16 +1,20 @@
 import type { CommandCatalogEntry } from '@lightsout/engine';
 import { CommandRecordKind } from '@lightsout/engine/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { Card, EmptyState } from '#src/appUI/index.ts';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { getCommandPlans } from '#src/features/commands/common/utils/getCommandPlans.ts';
 import { getCommandRuns } from '#src/features/commands/common/utils/getCommandRuns.ts';
 import { CommandBurnDownStrip } from '#src/features/commands/screens/CommandDetail/components/CommandBurnDownStrip.tsx';
-import { PlansTable, planWorkspacesQueryOptions } from '#src/features/plans/index.ts';
-import { RunCommand, RunsTable, runsQueryOptions } from '#src/features/runs/index.ts';
-import { standardsQueryOptions } from '#src/features/standards/index.ts';
+import { planWorkspacesQueryOptions } from '#src/features/plans/queries/planWorkspacesQueryOptions.ts';
+import { PlansTable } from '#src/features/plans/screens/PlansPage/components/PlansTable.tsx';
+import { RunCommand } from '#src/features/runs/common/constants/RunCommand.ts';
+import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
+import { RunsTable } from '#src/features/runs/screens/RunsPage/components/RunsTable.tsx';
+import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 
 /** A one-line answer for a command whose history is not a table. */
 const HistoryLine = ({ children }: { children: string }) => <p className="text-muted-foreground text-sm">{children}</p>;

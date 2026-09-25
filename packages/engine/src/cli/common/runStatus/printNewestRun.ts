@@ -1,5 +1,5 @@
 import { printRunProgress } from '#src/cli/common/render/printRunProgress.ts';
-import { listRuns } from '#src/views/index.ts';
+import { listRuns } from '#src/views/listRuns.ts';
 
 interface Params {
 	cwd: string;

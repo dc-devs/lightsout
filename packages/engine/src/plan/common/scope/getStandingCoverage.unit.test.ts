@@ -1,5 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapCheckLens, type GradeDocsCoverage, type GradeMemory, type GradeReadCoverage } from '#src/contracts/index.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 import { getStandingCoverage } from '#src/plan/common/scope/getStandingCoverage.ts';
 
 /** When the recorded pass read the plan, and when the documentation checker last ran. */

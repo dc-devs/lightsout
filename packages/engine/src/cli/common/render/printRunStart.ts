@@ -1,7 +1,7 @@
 import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 interface Params {
 	target: PlanTarget;

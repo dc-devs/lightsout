@@ -1,4 +1,4 @@
-import { StandardsInputKind, type TestFileInput } from '#src/contracts/index.ts';
+import { StandardsInputKind, type TestFileInput } from '@lightsout/standards-contracts';
 import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
 
 interface Params {

@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderModeCommand } from '#src/cli/workOrder/workOrderModeCommand.ts';
-import type { LightsoutConfig, WorkOrderMode, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -33,7 +35,7 @@ interface WorkOrderStateChange {
 
 const mockSetTicketMode = jest.fn<(params: SetTicketModeParams) => Promise<WorkOrderStateChange | { error: string }>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ setWorkOrderMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
+jest.mock('#src/workOrder/setWorkOrderMode.ts', () => ({ setWorkOrderMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

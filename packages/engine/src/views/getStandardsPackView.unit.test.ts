@@ -5,8 +5,10 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { StandardsSet } from '#src/contracts/index.ts';
-import { getStandardsPackView, listStandardsPacks, StandardsPackNotFoundError } from '#src/views/index.ts';
+import { StandardsSet } from '@lightsout/standards-contracts';
+import { getStandardsPackView } from '#src/views/getStandardsPackView.ts';
+import { listStandardsPacks } from '#src/views/listStandardsPacks.ts';
+import { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
 
 /** Write a set of repo-relative files, creating the folders they need. */
 const writeTree = async ({ dir, files }: { dir: string; files: Record<string, string> }) => {

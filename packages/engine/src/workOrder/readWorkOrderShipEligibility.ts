@@ -1,5 +1,7 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { WorkOrderShipEligibility } from '#src/workOrder/common/types/WorkOrderShipEligibility.ts';
 
 interface Params {

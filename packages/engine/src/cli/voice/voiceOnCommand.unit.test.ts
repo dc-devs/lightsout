@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { voiceOnCommand } from '#src/cli/voice/index.ts';
+import { voiceOnCommand } from '#src/cli/voice/voiceOnCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // The read-out is Mac-only, so a suite that took the machine's own platform

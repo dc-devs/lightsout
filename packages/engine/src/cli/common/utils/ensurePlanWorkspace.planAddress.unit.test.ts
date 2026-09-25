@@ -3,9 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
@@ -25,9 +28,11 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -60,8 +65,10 @@ type RestoreAnswer = { restored: string[] } | { error: string };
 const mockPullTicketRecord = jest.fn<(params: { cwd: string; name: string }) => Promise<PullAnswer>>();
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<RestoreAnswer>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({
 	pullWorkOrderState: (params: { cwd: string; name: string }) => mockPullTicketRecord(params),
+}));
+jest.mock('#src/workOrder/restoreWorkOrderPlan.ts', () => ({
 	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------

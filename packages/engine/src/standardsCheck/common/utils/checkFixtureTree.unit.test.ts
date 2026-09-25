@@ -2,10 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { type StandardsCheckFunction, StandardsInputKind } from '@lightsout/standards-contracts';
 import ts from 'typescript';
-import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { checkFixtureTree } from '#src/standardsCheck/common/utils/checkFixtureTree.ts';
-import type { LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */

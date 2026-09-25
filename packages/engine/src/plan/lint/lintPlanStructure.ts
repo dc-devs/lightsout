@@ -1,6 +1,10 @@
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
@@ -8,7 +12,7 @@ import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts'
 import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
-import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/index.ts';
+import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/buildPlanSyncDecisionsCommand.ts';
 import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
 import { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
 import { checkGlobalConstraints } from '#src/plan/lint/checkGlobalConstraints.ts';

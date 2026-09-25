@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { parseConfig } from '#src/common/config/parseConfig.ts';
 import { readConfigFile } from '#src/common/config/readConfigFile.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
-import type { ConfigView } from '#src/contracts/index.ts';
-import { listStandardsRules } from '#src/standardsCheck/index.ts';
-import { type LoadedStandardsPack, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import type { ConfigView } from '#src/contracts/views/config/ConfigView.ts';
+import { listStandardsRules } from '#src/standardsCheck/listStandardsRules.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 import { ConfigNotFoundError } from '#src/views/ConfigNotFoundError.ts';
 import { buildConfigSections } from '#src/views/common/utils/buildConfigSections.ts';
 

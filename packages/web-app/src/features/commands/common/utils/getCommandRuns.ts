@@ -1,6 +1,8 @@
 import type { CommandCatalogEntry, RunListing } from '@lightsout/engine';
 import { commandRunValues } from '#src/features/commands/common/constants/commandRunValues.ts';
-import { filterRuns, foldPhaseChildren, type RunFilters } from '#src/features/runs/index.ts';
+import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
+import { filterRuns } from '#src/features/runs/common/utils/filterRuns.ts';
+import { foldPhaseChildren } from '#src/features/runs/common/utils/foldPhaseChildren.ts';
 
 interface Params {
 	entry: CommandCatalogEntry;

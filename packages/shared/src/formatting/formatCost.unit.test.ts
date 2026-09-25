@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { formatCost } from '#src/index.ts';
+import { formatCost } from '#src/formatting/formatCost.ts';
 
 describe('formatCost', () => {
 	test('prints two decimals for a whole-dollar amount', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { GradeDecisionLog, GradeInputs } from '#src/contracts/index.ts';
+import type { GradeDecisionLog } from '#src/contracts/plan/memory/GradeDecisionLog.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 import { getCoverageSeeds } from '#src/plan/common/scope/getCoverageSeeds.ts';
 
 type DecisionEntry = GradeDecisionLog['rows'][number];

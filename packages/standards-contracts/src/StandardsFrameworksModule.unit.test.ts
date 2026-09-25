@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsFrameworksModule } from '#src/index.ts';
+import { StandardsFrameworksModule } from '#src/StandardsFrameworksModule.ts';
 
 describe('StandardsFrameworksModule', () => {
 	test('a frameworks module parses with the function the pack shipped', () => {

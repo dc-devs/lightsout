@@ -1,4 +1,5 @@
-import type { AgentUsage, Effort } from '#src/contracts/index.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
 
 interface Params {

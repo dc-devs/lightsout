@@ -1,7 +1,7 @@
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { checkConfiguredPaths } from '#src/doctor/checkConfiguredPaths.ts';
 import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
 import { checkGitignore } from '#src/doctor/checkGitignore.ts';
@@ -15,7 +15,7 @@ import { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
 import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
 

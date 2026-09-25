@@ -1,5 +1,6 @@
 import type { ExploreArea, PlanFacts } from '@lightsout/engine/contracts';
-import { MetadataTag, SettingsCard } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 

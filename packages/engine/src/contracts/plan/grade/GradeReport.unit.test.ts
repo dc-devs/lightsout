@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GradeReport } from '#src/contracts/index.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const finding = {

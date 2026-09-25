@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolvePlanWorktree } from '#src/cli/plan/common/utils/resolvePlanWorktree.ts';
-import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
@@ -46,13 +49,21 @@ const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }
 const mockWriteWorktreeRecord = jest.fn<(params: WriteRecordParams) => Promise<void>>();
 const mockPrepareTicketBranch = jest.fn<(params: TicketBranchParams) => Promise<{ startPoint?: string } | WorktreeFailure>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateParams) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/prepareWorkOrderBranch.ts', () => ({
 	prepareWorkOrderBranch: (params: TicketBranchParams) => mockPrepareTicketBranch(params),
+}));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+}));
+jest.mock('#src/worktree/records/readWorktreeRecord.ts', () => ({
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
-	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
+}));
+jest.mock('#src/worktree/records/writeWorktreeRecord.ts', () => ({
 	writeWorktreeRecord: (params: WriteRecordParams) => mockWriteWorktreeRecord(params),
+}));
+jest.mock('#src/worktree/resolveWorktreePath.ts', () => ({
+	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
 }));
 // -------------------------
 const mockReadGitHeadCommit = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
@@ -63,9 +74,7 @@ jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 // -------------------------
 const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
 
-jest.mock('#src/runState/index.ts', () => ({
-	readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params),
-}));
+jest.mock('#src/runState/lock/readLiveRunLock.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
 // -------------------------
 
 const name = 'lo-131-plan-in-a-worktree';

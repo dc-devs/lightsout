@@ -1,11 +1,12 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { listWorkspacePackages } from '#src/common/workspace/listWorkspacePackages.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
 import { resolvePackageScope } from '#src/pipeline/common/utils/resolvePackageScope.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { type ResolvedStandards, resolveStandards } from '#src/standards/index.ts';
+import type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {
 	run: PipelineRun;

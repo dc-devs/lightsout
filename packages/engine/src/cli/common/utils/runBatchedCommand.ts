@@ -7,9 +7,12 @@ import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarne
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
-import { RunLockError, readRunManifest } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 
 /** What every batched pipeline returns: whether it finished, and the manifest it finished against. */
 interface BatchedRunResult {

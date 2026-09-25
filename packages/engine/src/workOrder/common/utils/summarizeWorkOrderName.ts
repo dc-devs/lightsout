@@ -1,9 +1,12 @@
-import { buildWorkOrderNameInvocation } from '#src/agents/index.ts';
+import { buildWorkOrderNameInvocation } from '#src/agents/buildWorkOrderNameInvocation.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
-import { type LightsoutConfig, Permissions, WorkOrderName } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { WorkOrderName } from '#src/contracts/work/WorkOrderName.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 
 interface Params {
 	/** The checkout the harness is spawned in. The call reads nothing from it, but every spawn needs a working directory. */

@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;

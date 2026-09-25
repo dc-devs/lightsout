@@ -1,4 +1,5 @@
-import type { StandardsCheckFunction, StandardsInputKind, StandardsSet, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsCheckFunction, StandardsInputKind, StandardsSet } from '@lightsout/standards-contracts';
+import type { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 /** One rule folder, read: its prose, its declaration, and its check when it ships one. */
 export interface LoadedStandardsRule {

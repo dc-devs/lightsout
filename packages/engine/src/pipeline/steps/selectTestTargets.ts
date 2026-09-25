@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import type ts from 'typescript';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
-import { selectCollectedFiles, selectUnloadableFiles } from '#src/coverage/index.ts';
+import { selectCollectedFiles } from '#src/coverage/selectCollectedFiles/selectCollectedFiles.ts';
+import { selectUnloadableFiles } from '#src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {

@@ -1,7 +1,8 @@
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
 import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
-import { getTicketsByIdentifiers, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
 
 interface Params {
 	/** The resolved lifecycle settings — label names and status names, defaults applied. */

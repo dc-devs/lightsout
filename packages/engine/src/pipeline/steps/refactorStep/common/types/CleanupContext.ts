@@ -1,6 +1,6 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 /**
  * Everything the cleanup loop reads and never changes, resolved once before the

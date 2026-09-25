@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { GateHolds } from '#src/gates/index.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
 import { startScan } from '#src/queue/drainLanes/common/utils/startScan.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { listNextWave, reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
+import type { listNextWave } from '#src/queue/ticketSelection/listNextWave.ts';
+import type { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import { namedWorkOrderFixture } from '#tests/helpers/namedWorkOrderFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
@@ -11,8 +12,8 @@ import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
 const mockScan = jest.fn<typeof listNextWave>();
 const mockReconcile = jest.fn<typeof reconcileMergedTickets>();
 
-jest.mock('#src/queue/ticketSelection/index.ts', () => ({
-	listNextWave: (params: Parameters<typeof listNextWave>[0]) => mockScan(params),
+jest.mock('#src/queue/ticketSelection/listNextWave.ts', () => ({ listNextWave: (params: Parameters<typeof listNextWave>[0]) => mockScan(params) }));
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
 // -------------------------

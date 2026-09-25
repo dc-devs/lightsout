@@ -1,5 +1,5 @@
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { PlanRunStatus } from '#src/plan/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 /** The two outcomes every agent-backed plan runner shares: a hard failure and a parked rate limit. Both print and exit 1. */
 interface PlanRunFailure {

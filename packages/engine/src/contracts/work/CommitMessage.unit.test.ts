@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { CommitMessage } from '#src/contracts/index.ts';
+import { CommitMessage } from '#src/contracts/work/CommitMessage.ts';
 
 const setupAnswers = () => {
 	const shortest = { summary: 'a' };

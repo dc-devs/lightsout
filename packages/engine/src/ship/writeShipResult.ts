@@ -1,6 +1,6 @@
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { ShipResult } from '#src/contracts/index.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
 import { getShipResultPath } from '#src/ship/common/utils/getShipResultPath.ts';
 
 interface Params {

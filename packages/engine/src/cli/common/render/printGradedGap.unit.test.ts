@@ -1,6 +1,10 @@
 import { expect, test } from '@jest/globals';
 import { printGradedGap } from '#src/cli/common/render/printGradedGap.ts';
-import { GapArea, GapCheckLens, type GapObservation, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 
 // The gap's whole output IS its two lines, so capturing the writer is the
 // arrangement. isTTY is pinned off so the assertions read the plain text a piped

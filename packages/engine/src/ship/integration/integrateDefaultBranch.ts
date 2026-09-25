@@ -1,4 +1,4 @@
-import { ShipBlockReason } from '#src/contracts/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import { runGit } from '#src/ship/common/utils/runGit.ts';
 import type { IntegrationFailure } from '#src/ship/integration/common/types/IntegrationFailure.ts';
@@ -10,7 +10,7 @@ import { repairCiFailure } from '#src/ship/integration/repairCiFailure.ts';
 import { repairIntegratedGates } from '#src/ship/integration/repairIntegratedGates.ts';
 import { resolveMergeConflicts } from '#src/ship/integration/resolveMergeConflicts.ts';
 import { restorePreIntegrationState } from '#src/ship/integration/restorePreIntegrationState.ts';
-import { resolveStandards } from '#src/standards/index.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {
 	cwd: string;

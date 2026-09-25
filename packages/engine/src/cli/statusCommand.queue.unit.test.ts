@@ -2,19 +2,18 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import {
-	PipelineKind,
-	type PlanningProgress,
-	PlanningStep,
-	type QueueBoard,
-	type QueueBoardTicket,
-	QueueLane,
-	type RunListing,
-	RunStatus,
-	type ShippingProgress,
-	ShippingStepId,
-} from '#src/contracts/index.ts';
-import { getQueueBoardPath, QueueWorker } from '#src/queue/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';

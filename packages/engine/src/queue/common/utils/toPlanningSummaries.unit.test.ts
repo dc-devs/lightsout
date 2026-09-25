@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
-import type { TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 
 const lifecycle = queueSettingsFixture().lifecycle;

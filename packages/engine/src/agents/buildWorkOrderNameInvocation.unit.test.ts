@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildWorkOrderNameInvocation } from '#src/agents/index.ts';
+import { buildWorkOrderNameInvocation } from '#src/agents/buildWorkOrderNameInvocation.ts';
 
 interface SetupParams {
 	ticketRef?: string;

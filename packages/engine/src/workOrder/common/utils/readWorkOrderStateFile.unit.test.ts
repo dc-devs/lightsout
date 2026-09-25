@@ -2,7 +2,8 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { readWorkOrderStateFile } from '#src/workOrder/common/utils/readWorkOrderStateFile.ts';
 
 const setupStateFile = async () => {

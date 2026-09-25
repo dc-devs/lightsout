@@ -1,8 +1,10 @@
 import { Link } from '@tanstack/react-router';
-import { Button, GridBackground, SectionBadge } from '#src/appUI/index.ts';
+import { SectionBadge } from '#src/appUI/badges/SectionBadge.tsx';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { GridBackground } from '#src/appUI/GridBackground.tsx';
 import { heroDescription } from '#src/features/home/common/constants/heroDescription.ts';
 import { InstallLine } from '#src/features/home/components/InstallLine.tsx';
-import { SprawlChart } from '#src/features/sprawl/index.ts';
+import { SprawlChart } from '#src/features/sprawl/components/SprawlChart.tsx';
 
 /**
  * The pain, and the picture.

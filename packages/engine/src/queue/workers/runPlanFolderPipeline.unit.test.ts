@@ -2,18 +2,16 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import {
-	type LightsoutConfig,
-	PlanProgress,
-	type RunManifest,
-	RunStatus,
-	WorkOrderEventKind,
-	WorkOrderMode,
-	type WorkOrderPlan,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -36,15 +34,11 @@ interface PipelineCall {
 // queue's own terms — all observable with them stubbed.
 const mockRunPhasesPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params) }));
 // -------------------------
 const mockRunImplementPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
-	runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params),
-}));
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({ runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

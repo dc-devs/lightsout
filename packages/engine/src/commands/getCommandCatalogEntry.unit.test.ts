@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getCommandCatalogEntry } from '#src/commands/index.ts';
+import { getCommandCatalogEntry } from '#src/commands/getCommandCatalogEntry.ts';
 
 describe('getCommandCatalogEntry', () => {
 	test('answers a command word with its own entry', () => {

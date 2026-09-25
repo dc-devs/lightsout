@@ -1,4 +1,5 @@
-import type { GapObservation, GradedGap } from '#src/contracts/index.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 
 interface Params {
 	/** A judged gap, or a memory record — a record is a gap the memory carried across passes, and reads the same way. */

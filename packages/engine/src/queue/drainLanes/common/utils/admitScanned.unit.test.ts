@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import { admitScanned } from '#src/queue/drainLanes/common/utils/admitScanned.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
+import type { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
@@ -17,7 +17,7 @@ jest.mock('#src/queue/nameWaveWorkOrders.ts', () => ({
 // -------------------------
 const mockReconcile = jest.fn<typeof reconcileMergedTickets>();
 
-jest.mock('#src/queue/ticketSelection/index.ts', () => ({
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
 // -------------------------

@@ -1,13 +1,11 @@
-import {
-	GapOutcome,
-	type GradedGap,
-	type GradeInputs,
-	type GradeReport,
-	GradeScope,
-	type PhaseWeight,
-	PlanGrade,
-	type StructuralFinding,
-} from '#src/contracts/index.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { PhaseWeight } from '#src/contracts/plan/grade/PhaseWeight.ts';
+import { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';

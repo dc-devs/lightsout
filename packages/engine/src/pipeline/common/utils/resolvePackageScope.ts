@@ -1,4 +1,5 @@
-import { type LightsoutConfig, PackagesSource } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 import { readPlanPackages } from '#src/pipeline/readPlanPackages.ts';
 import { scanPlanPackagePaths } from '#src/pipeline/scanPlanPackagePaths.ts';
 

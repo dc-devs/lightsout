@@ -1,4 +1,5 @@
-import type { GateOverride, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateOverride } from '#src/contracts/GateOverride.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	overrides: LightsoutConfig['gate-overrides'];

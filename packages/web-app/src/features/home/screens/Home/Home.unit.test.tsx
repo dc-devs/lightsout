@@ -25,8 +25,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 const mockGetDemoRunListings = jest.fn<() => RunListing[]>();
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		listPacks: () => new Promise(() => {}),
 		getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params),
@@ -43,7 +42,7 @@ jest.mock('#src/lightsout/common/utils/getDemoRunListings.ts', () => ({
 // — before it answers — is a state the proof link needs a label for. Stubbed
 // with a promise that never settles rather than left to walk the real
 // filesystem, which on this machine would find this very repo.
-jest.mock('#src/features/app/serverFns/index.ts', () => ({ getRepoRootServerFn: () => new Promise(() => {}) }));
+jest.mock('#src/features/app/serverFns/getRepoRoot/getRepoRootServerFn.ts', () => ({ getRepoRootServerFn: () => new Promise(() => {}) }));
 // -------------------------
 // The proof section's frame arrives as its own chunk, so what it renders lands
 // in this page whenever that import happens to resolve — which is after the

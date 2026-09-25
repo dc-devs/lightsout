@@ -1,4 +1,5 @@
-import type { StandardsPackBundle, StandardsPackView } from '#src/contracts/index.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import type { StandardsPackView } from '#src/contracts/views/StandardsPackView.ts';
 import { toStandardsPackListing } from '#src/views/common/utils/toStandardsPackListing.ts';
 import { toStandardsPackRuleListing } from '#src/views/common/utils/toStandardsPackRuleListing.ts';
 

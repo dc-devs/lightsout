@@ -1,5 +1,6 @@
 import type { RunState } from '#src/common/services/RunState.ts';
-import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 
 interface Params {
 	run: RunState;

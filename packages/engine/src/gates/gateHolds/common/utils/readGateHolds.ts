@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { GateHold } from '#src/contracts/index.ts';
+import { GateHold } from '#src/contracts/gates/GateHold.ts';
 import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
 import { getGateHoldPaths } from '#src/gates/gateHolds/common/utils/getGateHoldPaths.ts';
 

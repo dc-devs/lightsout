@@ -1,7 +1,7 @@
 import { ConfigNotFoundError } from '@lightsout/engine';
 import { notFound } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * What this repo told lightsout, and what lightsout filled in.

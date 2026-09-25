@@ -1,5 +1,7 @@
 import { implementSteps } from '#src/commands/common/constants/build/implementSteps.ts';
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `/implement` — one plan file or a whole plan workspace, which is why `--plan` appears twice with different placeholders. */
 export const implementCatalogEntry: CommandCatalogEntry = {

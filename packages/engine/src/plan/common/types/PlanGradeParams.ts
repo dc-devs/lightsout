@@ -1,6 +1,7 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
-import type { Effort, Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 /**
  * Everything one `plan grade` pass was asked for. Named rather than left as

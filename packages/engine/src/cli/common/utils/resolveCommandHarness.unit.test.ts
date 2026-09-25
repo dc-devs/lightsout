@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 const base: LightsoutConfig = { gates: { check: 'c', test: 't', 'test-coverage': false } };
 

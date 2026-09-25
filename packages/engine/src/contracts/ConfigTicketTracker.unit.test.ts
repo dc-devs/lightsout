@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigTicketTracker } from '#src/contracts/index.ts';
+import { ConfigTicketTracker } from '#src/contracts/ConfigTicketTracker.ts';
 
 const linearBlock = { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } as const;
 const jiraBlock = {

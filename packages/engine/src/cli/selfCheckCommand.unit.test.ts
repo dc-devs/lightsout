@@ -4,8 +4,11 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { selfCheckCommand } from '#src/cli/selfCheckCommand.ts';
-import { type GateResult, type LightsoutConfig, PipelineKind, RunStatus } from '#src/contracts/index.ts';
-import { SelfCheckReason } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -42,14 +45,7 @@ interface SelfCheckResult {
 
 const mockRunSelfCheck = jest.fn<(params: SelfCheckParams) => Promise<SelfCheckResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	// The real constant, because the command narrows and keys on its members —
-	// a stubbed copy would drift from the reasons the gate run actually returns.
-	// Read through the module's own barrel, which is the only path a file
-	// outside the gates may reach it by.
-	SelfCheckReason: jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts').SelfCheckReason,
-	runSelfCheck: (params: SelfCheckParams) => mockRunSelfCheck(params),
-}));
+jest.mock('#src/gates/runSelfCheck.ts', () => ({ runSelfCheck: (params: SelfCheckParams) => mockRunSelfCheck(params) }));
 // -------------------------
 
 const redGate: GateResult = { kind: 'check', group: 'api', command: 'pnpm check', exitCode: 1, outputTail: 'src/thing.ts:3 unused import' };

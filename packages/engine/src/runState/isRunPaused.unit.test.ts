@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { isRunPaused } from '#src/runState/isRunPaused.ts';
 
 test('isRunPaused: a ceiling stop and a rate-limit wall are pauses', () => {

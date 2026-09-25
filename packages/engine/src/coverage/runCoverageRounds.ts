@@ -1,6 +1,7 @@
 import type ts from 'typescript';
-import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { runCoverageBatch } from '#src/coverage/batch/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { runCoverageBatch } from '#src/coverage/batch/runCoverageBatch.ts';
 import { buildCoverageRound } from '#src/coverage/buildCoverageRound.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 import type { CoverageRun } from '#src/coverage/CoverageRun.ts';
@@ -8,7 +9,7 @@ import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts'
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import type { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 import { settleCoverageBatch } from '#src/coverage/settleCoverageBatch.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 /** Record the round's batch as a step, hand it to the test writer, and settle what comes back. */
 const runRoundBatch = async ({

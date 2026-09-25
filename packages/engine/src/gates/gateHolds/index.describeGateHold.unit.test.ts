@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { GateHold } from '#src/contracts/index.ts';
-import { describeGateHold } from '#src/gates/gateHolds/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
+import { describeGateHold } from '#src/gates/gateHolds/common/utils/describeGateHold.ts';
 
 /**
  * A hold this machine has a record of. `labelConfirmed` is the one field the

@@ -5,7 +5,8 @@ import { renameOnlySection } from '#src/agents/common/utils/renameOnlySection.ts
 import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 
 interface Params {
 	/** Full plan content, inlined — the agent never loads its own context. */

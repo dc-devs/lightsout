@@ -4,9 +4,11 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
 import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
-import { type RunLock, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { RunNotFoundError } from '#src/runState/index.ts';
-import { getRunProgress } from '#src/views/index.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 

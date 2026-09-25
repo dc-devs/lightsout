@@ -1,6 +1,8 @@
 import { runFormatter } from '#src/common/processes/runFormatter.ts';
-import { type GateResult, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { reviewAndVerify } from '#src/pipeline/steps/verify/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
 import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
 import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';
 import { verificationOf } from '#src/pipeline/steps/verifyStep/common/utils/verificationOf.ts';

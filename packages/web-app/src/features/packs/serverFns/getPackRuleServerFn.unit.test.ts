@@ -10,7 +10,7 @@ import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRul
 // only the filesystem at the far end of the reader is stood in for.
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params) }),
 }));
 // -------------------------

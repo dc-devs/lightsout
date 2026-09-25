@@ -5,7 +5,9 @@ import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
@@ -31,15 +33,17 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: IdentifiersParams) => Promi
 const mockSetTicketStatus = jest.fn<(params: StatusParams) => Promise<TrackerFailure | undefined>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
+	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
-	listTickets: (params: ListTicketsParams) => mockListTickets(params),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
-	setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params),
 }));
+jest.mock('#src/ticketTracker/listTickets.ts', () => ({ listTickets: (params: ListTicketsParams) => mockListTickets(params) }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketStatus.ts', () => ({ setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params) }));
 // -------------------------
 // The three steps that would spend real time on a machine: cutting a worktree,
 // running a harness, and merging. Each is covered by its own tests, and none of

@@ -21,7 +21,7 @@ export { listRunIds } from '#src/runState/listRunIds.ts';
 // acquireRunLock and releaseRunLock are deliberately NOT re-published here.
 // `withRunLock` is their only caller and it releases what it acquires; offering
 // the pair to the whole engine is an invitation to take a lock and forget it.
-// Their own tests reach them through `runState/lock/index.ts`.
+// Their own tests, inside `runState/lock/`, import them from their files.
 export { RunLockError, readLiveRunLock, readRunLock, readRunProcessLock, withRunLock } from '#src/runState/lock/index.ts';
 export { createProgressSink, getProgressLogPath, readLastProgressMessage } from '#src/runState/progress/index.ts';
 export { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';

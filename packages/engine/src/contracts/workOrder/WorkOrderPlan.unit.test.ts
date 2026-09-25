@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderPlan } from '#src/contracts/index.ts';
+import { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
 
 const setupMarkerPlan = ({ publishedMarker }: { publishedMarker: string }) => {
 	const markerPlan = {

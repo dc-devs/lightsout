@@ -1,5 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { DraftImplementation, PlanVariant, type StructuralFinding } from '#src/contracts/index.ts';
+import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';

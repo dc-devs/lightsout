@@ -1,4 +1,5 @@
-import type { StandardsPackBundle, StandardsPackListing } from '#src/contracts/index.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import type { StandardsPackListing } from '#src/contracts/views/StandardsPackListing.ts';
 
 interface Params {
 	bundle: StandardsPackBundle;

@@ -5,7 +5,8 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { requestWorkOrderShip, withdrawWorkOrderShipRequest } from '#src/workOrder/index.ts';
+import { requestWorkOrderShip } from '#src/workOrder/requestWorkOrderShip.ts';
+import { withdrawWorkOrderShipRequest } from '#src/workOrder/withdrawWorkOrderShipRequest.ts';
 
 /**
  * `lightsout work-order request-ship` at the terminal.

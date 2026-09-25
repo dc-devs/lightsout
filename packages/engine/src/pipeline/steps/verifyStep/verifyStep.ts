@@ -1,8 +1,10 @@
-import { RunStatus, type StepRecord, SupervisorDecision } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
 import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
 import { stopOnGateNoVerdict } from '#src/pipeline/common/utils/stopOnGateNoVerdict.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { reviewAndVerify } from '#src/pipeline/steps/verify/index.ts';
+import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
 import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
 import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';
 import { formatAndVerify } from '#src/pipeline/steps/verifyStep/common/utils/formatAndVerify.ts';

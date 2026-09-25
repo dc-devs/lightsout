@@ -1,5 +1,5 @@
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
-import { ReviewFindingRecord } from '#src/contracts/index.ts';
+import { ReviewFindingRecord } from '#src/contracts/standardsCheck/ReviewFindingRecord.ts';
 import { getReviewFindingsPath } from '#src/runState/common/paths/getReviewFindingsPath.ts';
 
 interface Params {

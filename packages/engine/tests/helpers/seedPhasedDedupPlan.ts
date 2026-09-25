@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { minimalPlanBody } from '#tests/helpers/minimalPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';

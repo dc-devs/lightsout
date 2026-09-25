@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RunStatus } from '#src/contracts/run/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /**
  * One row of the runs list.

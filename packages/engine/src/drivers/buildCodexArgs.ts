@@ -1,4 +1,5 @@
-import { type Effort, Permissions } from '#src/contracts/index.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
 
 interface Params {
 	/** Temp file codex writes its final message to (`--output-last-message`). */

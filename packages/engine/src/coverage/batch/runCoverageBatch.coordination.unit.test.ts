@@ -11,8 +11,9 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { runCoverageBatch } from '#src/coverage/batch/runCoverageBatch.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
-import type { Driver, DriverResult } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverResult } from '#src/drivers/common/types/DriverResult.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import { report } from '#tests/helpers/report.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -25,7 +26,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // cannot stage on the machine it is running on.
 const mockRunBatchGates = jest.fn<(params: { cwd: string; coverage: boolean; step: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runBatchGates.ts', () => ({
 	runBatchGates: (params: { cwd: string; coverage: boolean; step: string }) => mockRunBatchGates(params),
 }));
 // -------------------------

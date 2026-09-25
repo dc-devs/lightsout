@@ -1,4 +1,5 @@
-import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { matchRemainingFindings } from '#src/refactor/batch/matchRemainingFindings.ts';
 
 interface Params {

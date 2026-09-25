@@ -1,6 +1,7 @@
 import { PlanStage } from '@lightsout/engine/contracts';
 import { createFileRoute } from '@tanstack/react-router';
-import { PlansPage, planWorkspacesQueryOptions } from '#src/features/plans/index.ts';
+import { planWorkspacesQueryOptions } from '#src/features/plans/queries/planWorkspacesQueryOptions.ts';
+import { PlansPage } from '#src/features/plans/screens/PlansPage/PlansPage.tsx';
 
 /**
  * What the query string may say.

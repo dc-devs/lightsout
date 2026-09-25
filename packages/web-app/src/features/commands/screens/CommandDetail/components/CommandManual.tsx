@@ -1,7 +1,12 @@
 import { spellFlag } from '@lightsout/engine/commands';
 import type { CommandCatalogEntry, CommandFlag, CommandStep } from '@lightsout/engine/contracts';
 import { Link } from '@tanstack/react-router';
-import { Badge, Card, DataTable, MetadataTag, PageHeader, SectionHeader } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 import { recordKindLabels } from '#src/features/commands/common/constants/recordKindLabels.ts';
 

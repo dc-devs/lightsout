@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsPackListing } from '@lightsout/engine';
-import { packsQueryOptions } from '#src/features/packs/index.ts';
+import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
 import { buildStandardsPackListing } from '#tests/helpers/buildStandardsPackListing.ts';
 
 // Mocked Imports
@@ -10,9 +10,7 @@ import { buildStandardsPackListing } from '#tests/helpers/buildStandardsPackList
 // the filesystem is stood in for.
 const mockListPacks = jest.fn<() => Promise<StandardsPackListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listPacks: () => mockListPacks() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listPacks: () => mockListPacks() }) }));
 // -------------------------
 
 const setupPacksQueryOptions = ({ packs = [buildStandardsPackListing({ name: 'acme-house-rules' })] }: { packs?: StandardsPackListing[] } = {}) => {

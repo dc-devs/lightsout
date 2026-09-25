@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { ensurePlanWorkspace } from '#src/cli/common/utils/ensurePlanWorkspace.ts';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
@@ -25,9 +25,11 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -55,8 +57,10 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 // is a record to settle or a generation to restore. Both steps are stubbed to
 // reject, so a row that silently took one would fail rather than pass. The
 // fetch itself lives beside this file in ensurePlanWorkspace.planAddress.unit.test.ts.
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({
 	pullWorkOrderState: () => Promise.reject(new Error('a refused plan path must not pull a work order state')),
+}));
+jest.mock('#src/workOrder/restoreWorkOrderPlan.ts', () => ({
 	restoreWorkOrderPlan: () => Promise.reject(new Error('a refused plan path must not restore a plan')),
 }));
 // -------------------------

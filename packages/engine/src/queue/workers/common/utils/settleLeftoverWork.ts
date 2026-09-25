@@ -1,4 +1,4 @@
-import { PlanProgress } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
 import type { WorkOrderPlanStep } from '#src/queue/workers/common/types/WorkOrderPlanStep.ts';
 import { commitPlanWork } from '#src/queue/workers/common/utils/commitPlanWork.ts';
 

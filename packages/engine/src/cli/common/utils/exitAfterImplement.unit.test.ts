@@ -5,8 +5,11 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
-import { LightsoutConfig, RunStatus, WorktreeOwner } from '#src/contracts/index.ts';
-import { readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf } from '#tests/helpers/setupResume.ts';
@@ -21,8 +24,8 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 // state whichever of them ran first.
 const mockOnTrackerWrite = jest.fn<() => void>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => {
-	const actual = jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts');
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => {
+	const actual = jest.requireActual<typeof import('#src/ticketLifecycle/reconcileShippedTicket.ts')>('#src/ticketLifecycle/reconcileShippedTicket.ts');
 
 	type ReconcileParams = Parameters<typeof actual.reconcileShippedTicket>[0];
 

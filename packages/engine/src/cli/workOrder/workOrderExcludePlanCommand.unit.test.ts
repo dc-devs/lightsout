@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderExcludePlanCommand } from '#src/cli/workOrder/workOrderExcludePlanCommand.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -29,7 +30,9 @@ type ExcludeTicketPlanResult = { record: WorkOrderState; notice?: string; publis
 
 const mockExcludeTicketPlan = jest.fn<(params: ExcludeTicketPlanParams) => Promise<ExcludeTicketPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ excludeWorkOrderPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params) }));
+jest.mock('#src/workOrder/excludeWorkOrderPlan.ts', () => ({
+	excludeWorkOrderPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params),
+}));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

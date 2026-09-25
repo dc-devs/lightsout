@@ -4,8 +4,8 @@ import { renderTable } from '#src/cli/common/render/renderTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
-import type { RunStatus } from '#src/contracts/index.ts';
-import type { StepSummary } from '#src/runState/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepSummary } from '#src/runState/common/types/StepSummary.ts';
 
 interface Params {
 	steps: StepSummary[];

@@ -1,5 +1,5 @@
 import { describeMissingWorkOrder } from '#src/common/utils/describeMissingWorkOrder.ts';
-import type { WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 interface Params {
 	record: WorkOrderState | undefined;

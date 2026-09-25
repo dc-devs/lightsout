@@ -1,5 +1,5 @@
 import { toInlineMarkdown } from '#src/cli/common/queueBoard/toInlineMarkdown.ts';
-import type { QueueBoardTicket } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
 
 interface Params {
 	ticket: Pick<QueueBoardTicket, 'identifier' | 'title' | 'url'>;

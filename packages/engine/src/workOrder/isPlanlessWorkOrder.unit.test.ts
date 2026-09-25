@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
-import { isPlanlessWorkOrder } from '#src/workOrder/index.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { isPlanlessWorkOrder } from '#src/workOrder/isPlanlessWorkOrder.ts';
 
 const planWith = ({ id, excluded = false }: { id: string; excluded?: boolean }): WorkOrderPlan => ({
 	id,

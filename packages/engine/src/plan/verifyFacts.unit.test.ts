@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { ExploreArea } from '#src/contracts/index.ts';
+import type { ExploreArea } from '#src/contracts/plan/facts/ExploreArea.ts';
 import { verifyFacts } from '#src/plan/verifyFacts.ts';
 
 /** A full ExploreArea with per-test overrides. */

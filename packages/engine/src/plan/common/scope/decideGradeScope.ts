@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
-import type { GradeInputs, GradeMemory } from '#src/contracts/index.ts';
-import { GradeScope } from '#src/contracts/index.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { getCoverageSeeds } from '#src/plan/common/scope/getCoverageSeeds.ts';
 import { getDesignHashes } from '#src/plan/common/scope/getDesignHashes.ts';

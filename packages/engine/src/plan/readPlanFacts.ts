@@ -1,4 +1,4 @@
-import { PlanFacts } from '#src/contracts/index.ts';
+import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
 
 interface Params {

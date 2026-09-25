@@ -1,20 +1,18 @@
 import { join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildFocusedPlanWriterInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/buildFocusedPlanWriterInvocation.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
 import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
-import {
-	ActivityLevelKind,
-	type ConfigDocs,
-	type DecisionsRecord,
-	type Effort,
-	type Permissions,
-	PlanDraftReport,
-	type PlanFacts,
-	PlanVariant,
-	type SourceEvidenceIndex,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
@@ -26,7 +24,10 @@ import type { AuthorPhaseFilesResult } from '#src/plan/draft/common/types/Author
 import type { PhaseOutcome } from '#src/plan/draft/common/types/PhaseOutcome.ts';
 import { foldPhaseOutcomes } from '#src/plan/draft/common/utils/foldPhaseOutcomes.ts';
 import { selectPhaseEvidence } from '#src/plan/draft/focused/common/utils/selectPhaseEvidence.ts';
-import { buildExportCensus, detectExportCollisions, type ExportCensus, renderEvidenceBrief } from '#src/plan/evidence/index.ts';
+import { buildExportCensus } from '#src/plan/evidence/buildExportCensus.ts';
+import type { ExportCensus } from '#src/plan/evidence/common/types/ExportCensus.ts';
+import { detectExportCollisions } from '#src/plan/evidence/detectExportCollisions.ts';
+import { renderEvidenceBrief } from '#src/plan/evidence/renderEvidenceBrief.ts';
 
 interface Params {
 	cwd: string;

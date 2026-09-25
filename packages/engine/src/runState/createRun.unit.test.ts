@@ -2,8 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { createRun, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = {

@@ -1,6 +1,8 @@
 import { commandCatalog } from '#src/commands/commandCatalog.ts';
 import { spellFlag } from '#src/commands/spellFlag.ts';
-import type { CommandCatalogEntry, CommandFlag, CommandInvocation } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import type { CommandFlag } from '#src/contracts/commands/CommandFlag.ts';
+import type { CommandInvocation } from '#src/contracts/commands/CommandInvocation.ts';
 
 /**
  * Every invocation id in the order `lightsout --help` prints it.

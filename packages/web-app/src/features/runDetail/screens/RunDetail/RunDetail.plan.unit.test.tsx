@@ -3,7 +3,7 @@ import type { PlanDocument } from '@lightsout/engine';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RunDetail } from '#src/features/runDetail/index.ts';
+import { RunDetail } from '#src/features/runDetail/screens/RunDetail/RunDetail.tsx';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
@@ -22,9 +22,7 @@ jest.mock('@tanstack/react-router', () => ({
 // the filesystem is stood in for.
 const mockGetPlan = jest.fn<(params: { path: string }) => Promise<PlanDocument>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }) }));
 // -------------------------
 
 const runId = 'abcdef0123456789';

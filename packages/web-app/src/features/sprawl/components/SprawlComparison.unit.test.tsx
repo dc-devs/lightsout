@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { getSprawlDataset, SprawlComparison } from '#src/features/sprawl/index.ts';
+import { getSprawlDataset } from '#src/features/sprawl/common/utils/getSprawlDataset.ts';
+import { SprawlComparison } from '#src/features/sprawl/components/SprawlComparison.tsx';
 
 const realRequest = globalThis.requestAnimationFrame;
 const realCancel = globalThis.cancelAnimationFrame;

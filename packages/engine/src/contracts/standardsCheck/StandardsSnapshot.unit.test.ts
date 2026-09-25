@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsSnapshot } from '#src/contracts/index.ts';
+import { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
 
 const setupSnapshot = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const snapshot: Record<string, unknown> = {

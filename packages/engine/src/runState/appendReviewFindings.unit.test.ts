@@ -2,8 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { appendReviewFindings, readReviewFindings } from '#src/runState/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { appendReviewFindings } from '#src/runState/appendReviewFindings.ts';
+import { readReviewFindings } from '#src/runState/readReviewFindings.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ApprovedTestRecord } from '#src/contracts/index.ts';
+import { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
 
 /** The two shapes the record is allowed to take: a copy the run holds, or an approved absence. */
 const setupRecord = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

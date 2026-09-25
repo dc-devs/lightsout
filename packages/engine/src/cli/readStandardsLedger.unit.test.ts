@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
@@ -20,7 +20,9 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({ listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params) }));
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({
+	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
+}));
 // -------------------------
 
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];

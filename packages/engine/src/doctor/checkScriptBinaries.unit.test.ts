@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

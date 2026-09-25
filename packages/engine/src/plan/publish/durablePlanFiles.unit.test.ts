@@ -6,7 +6,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
-import { restorePlanWorkspace } from '#src/plan/restore/index.ts';
+import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -17,10 +17,10 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[]>>();
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
 }));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
 // -------------------------
 
 // No mocks here: the subject reads a plan folder off disk, so the arrangement is

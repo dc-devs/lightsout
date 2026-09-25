@@ -1,7 +1,8 @@
-import { buildShipIntegratorInvocation } from '#src/agents/index.ts';
+import { buildShipIntegratorInvocation } from '#src/agents/buildShipIntegratorInvocation.ts';
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
-import { WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 
 interface Params {

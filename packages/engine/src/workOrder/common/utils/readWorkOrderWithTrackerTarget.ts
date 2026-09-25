@@ -1,4 +1,5 @@
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
 import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
 import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';

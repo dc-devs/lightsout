@@ -1,7 +1,7 @@
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { getExportName } from '#src/plan/common/naming/getExportName.ts';
 import { getNameKey } from '#src/plan/common/naming/getNameKey.ts';
 import type { ExportCensus } from '#src/plan/evidence/common/types/ExportCensus.ts';

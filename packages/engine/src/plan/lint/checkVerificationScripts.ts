@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';
 import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';

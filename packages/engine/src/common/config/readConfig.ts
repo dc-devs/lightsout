@@ -1,7 +1,7 @@
 import { parseConfig } from '#src/common/config/parseConfig.ts';
 import { readConfigFile } from '#src/common/config/readConfigFile.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	cwd: string;

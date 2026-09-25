@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { DedupReport, type LightsoutConfig } from '#src/contracts/index.ts';
+import { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 

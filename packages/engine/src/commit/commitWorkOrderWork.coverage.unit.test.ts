@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { commitWorkOrderWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';

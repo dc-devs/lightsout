@@ -1,7 +1,8 @@
-import { type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { appendFriction } from '#src/runState/index.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 
 interface Params<TGroup> {
 	run: PipelineRun;

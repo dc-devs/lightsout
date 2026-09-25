@@ -1,11 +1,12 @@
-import type { RefactorWorklist } from '#src/contracts/index.ts';
-import { RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import type { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { countByRule } from '#src/refactor/countByRule.ts';
 import { describeIntroducedFindings } from '#src/refactor/describeIntroducedFindings.ts';
 import { findIntroducedFindings } from '#src/refactor/findIntroducedFindings.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 interface Params {
 	run: RefactorRun;

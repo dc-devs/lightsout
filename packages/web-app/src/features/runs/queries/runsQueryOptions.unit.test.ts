@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { RunListing } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { runsQueryOptions } from '#src/features/runs/index.ts';
+import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 
 // Mocked Imports
@@ -13,9 +13,7 @@ import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 // stub. What the transport does with that handler is the build's business.
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listRuns: () => mockListRuns() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listRuns: () => mockListRuns() }) }));
 // -------------------------
 
 interface PolledQuery {

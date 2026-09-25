@@ -1,4 +1,4 @@
-import type { GradeInputs } from '#src/contracts/index.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 
 interface Params {
 	/** The fingerprint the hashes are read off — this pass's own. */

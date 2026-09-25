@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { groupConnectedFiles } from '#src/common/fileGroups/groupConnectedFiles.ts';
-import type { GradedGap } from '#src/contracts/index.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { gapBatchLimits } from '#src/plan/common/constants/gapBatchLimits.ts';
 import { distinctiveWords } from '#src/plan/common/grading/distinctiveWords.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';

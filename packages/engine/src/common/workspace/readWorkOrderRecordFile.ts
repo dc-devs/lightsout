@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workOrderStateFileName } from '#src/common/constants/workOrderStateFileName.ts';
-import { WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 interface Params {
 	/** One work order's own folder under the work-orders directory. */

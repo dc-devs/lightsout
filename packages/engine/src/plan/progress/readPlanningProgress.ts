@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { PlanningProgress } from '#src/contracts/index.ts';
+import { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
 import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
 
 interface Params {

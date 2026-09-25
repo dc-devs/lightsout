@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type GateLockOutcome, withGateLock } from '#src/gates/gateLock/index.ts';
+import type { GateLockOutcome } from '#src/gates/gateLock/common/types/GateLockOutcome.ts';
+import { withGateLock } from '#src/gates/gateLock/withGateLock.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 // Mocked Imports

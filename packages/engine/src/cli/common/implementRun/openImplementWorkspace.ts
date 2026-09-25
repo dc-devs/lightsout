@@ -6,7 +6,7 @@ import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */

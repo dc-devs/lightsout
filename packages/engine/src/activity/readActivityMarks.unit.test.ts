@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readActivityMarks } from '#src/activity/index.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 
 // No module mocks: the reader's whole job is a file in a directory, so each case
 // writes a real record into a temporary directory and reads it back off disk.

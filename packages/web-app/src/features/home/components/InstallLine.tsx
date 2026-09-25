@@ -1,4 +1,4 @@
-import { CopyButton } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { cn } from '#src/common/utils/cn.ts';
 
 /** What a reader types into Claude Code to get this. The one command Home asks for. */

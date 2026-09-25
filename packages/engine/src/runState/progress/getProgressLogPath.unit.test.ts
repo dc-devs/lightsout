@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getProgressLogPath } from '#src/runState/index.ts';
+import { getProgressLogPath } from '#src/runState/progress/getProgressLogPath.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** A repo holding the named runs, each in the folder the command that owns it gives it. */

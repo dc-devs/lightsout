@@ -2,8 +2,8 @@ import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts'
 import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
 import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
 import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 interface Params {
 	batchId: string;

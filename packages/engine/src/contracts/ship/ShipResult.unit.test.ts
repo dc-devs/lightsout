@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ShipResult } from '#src/contracts/index.ts';
+import { ShipResult } from '#src/contracts/ship/ShipResult.ts';
 
 describe('ShipResult', () => {
 	test('a shipped result carries everything a tracker comment is built from', () => {

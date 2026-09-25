@@ -1,4 +1,4 @@
-import type { PlanWorkspaceFile } from '#src/contracts/index.ts';
+import type { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
 
 /**
  * Every file a plan workspace holds, bucketed by the role its name gives it.

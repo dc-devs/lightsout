@@ -1,10 +1,15 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type ActivityLevel, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
-import { ActivityLevelKind, type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
@@ -30,15 +35,11 @@ interface PipelineCall {
 // -------------------------
 const mockRunPhasesPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params) }));
 // -------------------------
 const mockRunImplementPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
-	runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params),
-}));
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({ runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params) }));
 // -------------------------
 
 const name = 'lo-154-queue-owns-the-build';

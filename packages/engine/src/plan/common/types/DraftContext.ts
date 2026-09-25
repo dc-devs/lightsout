@@ -1,6 +1,12 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
-import type { DecisionsRecord, DraftImplementation, Effort, LightsoutConfig, Permissions, PlanFacts, SourceEvidenceIndex } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 /**
  * Everything both draft flows read, resolved once before either runs. It exists

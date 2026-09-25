@@ -1,12 +1,14 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type GateHold, WorktreeOwner } from '#src/contracts/index.ts';
-import type { GateHolds } from '#src/gates/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
 import { scanParkedWorktrees } from '#src/queue/worktrees/scanParkedWorktrees.ts';
-import type { PullRequestSummary } from '#src/ship/index.ts';
-import type { TrackerFailure, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { createWorktree } from '#src/worktree/index.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -33,12 +35,13 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) 
 const mockSetTicketLabel = jest.fn<(params: { ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({
 	setTicketLabel: (params: { ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
 	findPullRequest: (params: { branch: string; cwd: string; state: string }) => mockFindPullRequest(params),
 }));
 // -------------------------

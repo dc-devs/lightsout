@@ -4,7 +4,7 @@ import { formatCost } from '@lightsout/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
-import { planWorkspacesQueryOptions } from '#src/features/plans/index.ts';
+import { planWorkspacesQueryOptions } from '#src/features/plans/queries/planWorkspacesQueryOptions.ts';
 import { isWithinLastDays } from '#src/features/repo/common/utils/isWithinLastDays.ts';
 import { HealthTile } from '#src/features/repo/screens/RepoHealth/components/HealthTile.tsx';
 import { Sparkline } from '#src/features/repo/screens/RepoHealth/components/Sparkline.tsx';

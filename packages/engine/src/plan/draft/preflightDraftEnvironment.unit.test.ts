@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { AgentEnvironment, Driver } from '#src/drivers/index.ts';
+import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { preflightDraftEnvironment } from '#src/plan/draft/preflightDraftEnvironment.ts';
 
 // The preflight reads a harness's capability record by driver name, so the

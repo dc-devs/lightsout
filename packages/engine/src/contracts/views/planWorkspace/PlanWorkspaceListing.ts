@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PlanGrade } from '#src/contracts/plan/index.ts';
+import { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
 import { PlanStage } from '#src/contracts/views/planWorkspace/PlanStage.ts';
 import { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
 

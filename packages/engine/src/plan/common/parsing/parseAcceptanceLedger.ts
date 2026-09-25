@@ -1,4 +1,4 @@
-import type { LedgerRow } from '#src/contracts/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
 
 interface Params {
 	/** The lines under the `## Acceptance Tests` heading, or undefined when the section is absent. */

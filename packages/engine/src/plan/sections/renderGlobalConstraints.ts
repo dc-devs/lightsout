@@ -1,4 +1,4 @@
-import type { DecisionRow } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
 
 interface Params {
 	/** The merged rows, brainstorm first, in record order. */

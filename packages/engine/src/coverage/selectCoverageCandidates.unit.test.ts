@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import type { CoverageFile, CoverageTotal } from '#src/contracts/index.ts';
+import type { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
+import type { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
 import { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 

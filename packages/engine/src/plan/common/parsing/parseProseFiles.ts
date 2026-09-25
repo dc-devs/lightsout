@@ -1,4 +1,4 @@
-import type { ProseFile } from '#src/contracts/index.ts';
+import type { ProseFile } from '#src/contracts/plan/ledger/ProseFile.ts';
 
 interface Params {
 	/** The lines under the `## Prose Files` heading, or undefined when the section is absent. */

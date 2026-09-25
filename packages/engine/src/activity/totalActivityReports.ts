@@ -1,7 +1,8 @@
 import { gatherNodeProcesses } from '#src/activity/common/utils/gatherNodeProcesses.ts';
 import { spanOfActivityNodes } from '#src/activity/common/utils/spanOfActivityNodes.ts';
 import { totalActivityNode } from '#src/activity/common/utils/totalActivityNode.ts';
-import type { ActivityReport, ActivityTotals } from '#src/contracts/index.ts';
+import type { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
+import type { ActivityTotals } from '#src/contracts/activity/ActivityTotals.ts';
 
 interface Params {
 	/** One fold per plan, each already built by `buildActivityTree`. */

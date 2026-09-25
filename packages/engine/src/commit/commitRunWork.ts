@@ -5,9 +5,11 @@ import { readRunCommitAddress } from '#src/commit/common/utils/readRunCommitAddr
 import { composeCommitMessage } from '#src/commit/composeCommitMessage.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
-import type { AgentUsage, LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { resolveRunDir } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 /**
  * The slice of a run this step touches, structural on purpose: the implement

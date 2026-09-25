@@ -6,7 +6,7 @@ import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { runDoctor } from '#src/doctor/index.ts';
+import { runDoctor } from '#src/doctor/runDoctor.ts';
 
 /**
  * The line a reader gets before a single cent of theirs is spent.

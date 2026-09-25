@@ -3,10 +3,11 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import { integrateDefaultBranch } from '#src/ship/integration/integrateDefaultBranch.ts';
-import type { ResolvedStandards } from '#src/standards/index.ts';
+import type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -23,11 +24,11 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // a stubbed git would prove none of it.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 const mockResolveStandards = jest.fn<(params: { cwd: string; packages: string[] }) => Promise<ResolvedStandards>>();
 
-jest.mock('#src/standards/index.ts', () => ({
+jest.mock('#src/standards/resolveStandards.ts', () => ({
 	resolveStandards: (params: { cwd: string; packages: string[] }) => mockResolveStandards(params),
 }));
 // -------------------------

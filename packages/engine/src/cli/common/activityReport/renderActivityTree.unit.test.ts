@@ -1,8 +1,14 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildActivityTree } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
 import { renderActivityTree } from '#src/cli/common/activityReport/renderActivityTree.ts';
-import type { ActivityMark, ConfigPricing, HarnessProcessMark } from '#src/contracts/index.ts';
-import { ActivityLevelKind, ActivityMarkKind, Effort, ProcessEndReason, RunStatus } from '#src/contracts/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
+import { ActivityMarkKind } from '#src/contracts/activity/ActivityMarkKind.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import { ProcessEndReason } from '#src/contracts/activity/ProcessEndReason.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /** The escape byte every ANSI sequence opens with, built rather than written, so no control character sits in this source. */
 const escapeByte = String.fromCharCode(27);

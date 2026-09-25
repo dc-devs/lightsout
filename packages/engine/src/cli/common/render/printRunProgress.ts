@@ -1,5 +1,5 @@
 import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
-import type { RunProgress } from '#src/views/index.ts';
+import type { RunProgress } from '#src/views/common/types/RunProgress.ts';
 
 interface Params {
 	cwd: string;

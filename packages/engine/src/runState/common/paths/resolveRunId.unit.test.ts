@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { RunNotFoundError, resolveRunId } from '#src/runState/index.ts';
+import { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

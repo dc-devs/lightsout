@@ -1,4 +1,4 @@
-import type { ActivityNode } from '#src/contracts/index.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
 
 interface Params {
 	nodes: ActivityNode[];

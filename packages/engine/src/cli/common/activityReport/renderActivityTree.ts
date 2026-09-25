@@ -1,17 +1,15 @@
 import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
-import { estimateActivityCost } from '#src/activity/index.ts';
+import { estimateActivityCost } from '#src/activity/estimateActivityCost.ts';
 import { harnessProcessLabel } from '#src/cli/common/activityReport/harnessProcessLabel.ts';
 import { renderTable } from '#src/cli/common/render/renderTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
-import {
-	ActivityLevelKind,
-	type ActivityNode,
-	type ActivityReport,
-	type ConfigPricing,
-	type HarnessProcessMark,
-	type HarnessProcessUsage,
-} from '#src/contracts/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 
 interface Params {
 	report: ActivityReport;

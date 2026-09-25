@@ -1,7 +1,7 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
-import type { WorkReport } from '#src/contracts/index.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import { consumerRelative } from '#src/pipeline/common/utils/consumerRelative.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 

@@ -2,8 +2,12 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
-import { createRun, RunNotFoundError, readRunManifest, resolveRunDir, writeRunManifest } from '#src/runState/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

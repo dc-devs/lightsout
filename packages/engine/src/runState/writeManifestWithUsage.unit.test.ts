@@ -1,6 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import type { RunManifest, RunUsage } from '#src/contracts/index.ts';
-import { createRun, readRunManifest, writeManifestWithUsage } from '#src/runState/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { writeManifestWithUsage } from '#src/runState/writeManifestWithUsage.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Every field a different number so a mix-up shows. */

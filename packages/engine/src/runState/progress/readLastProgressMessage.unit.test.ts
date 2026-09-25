@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readLastProgressMessage } from '#src/runState/index.ts';
+import { readLastProgressMessage } from '#src/runState/progress/readLastProgressMessage.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-narrated';

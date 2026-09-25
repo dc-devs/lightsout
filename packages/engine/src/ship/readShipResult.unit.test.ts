@@ -3,8 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
-import { readShipResult } from '#src/ship/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { readShipResult } from '#src/ship/readShipResult.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

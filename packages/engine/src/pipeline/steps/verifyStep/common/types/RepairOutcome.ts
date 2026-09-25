@@ -1,4 +1,4 @@
-import type { StepRecord } from '#src/contracts/index.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 

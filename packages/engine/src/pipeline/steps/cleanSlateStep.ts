@@ -1,14 +1,14 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { isTestSideFile } from '#src/common/sourceFiles/isTestSideFile.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import { checkTestResultsCapability } from '#src/gates/index.ts';
-import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { checkTestResultsCapability } from '#src/gates/testResults/checkTestResultsCapability.ts';
+import { approveTestFiles } from '#src/pipeline/approvedTests/approveTestFiles.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
 import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { writeRunStandardsBaseline } from '#src/runState/index.ts';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import { writeRunStandardsBaseline } from '#src/runState/standardsBaseline/writeRunStandardsBaseline.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 /**
  * The deterministic findings as they stand before the run's first agent turn,

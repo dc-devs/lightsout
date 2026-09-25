@@ -1,5 +1,5 @@
 import { renderDocsSurfaces } from '#src/agents/common/utils/renderDocsSurfaces.ts';
-import type { ConfigDocs } from '#src/contracts/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 
 interface Params {
 	docs: ConfigDocs;

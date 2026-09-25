@@ -2,12 +2,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { activityRecordPath, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { activityRecordPath } from '#src/activity/activityRecordPath.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planCommand } from '#src/cli/plan/planCommand.ts';
 import { planPublishCommand } from '#src/cli/plan/planPublishCommand.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { planAttachmentManifestName } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -38,10 +40,7 @@ interface PublishParams {
 
 const mockPublishTicketPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	publishWorkOrderPlan: (params: PublishParams) => mockPublishTicketPlan(params),
-}));
+jest.mock('#src/workOrder/publishWorkOrderPlan.ts', () => ({ publishWorkOrderPlan: (params: PublishParams) => mockPublishTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

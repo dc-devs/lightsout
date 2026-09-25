@@ -1,5 +1,6 @@
 import { RunStatus } from '@lightsout/engine/contracts';
-import { CopyButton, MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
 
 /**

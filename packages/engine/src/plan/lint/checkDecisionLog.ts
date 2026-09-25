@@ -1,7 +1,11 @@
-import { type DecisionsRecord, FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { getComparableSection } from '#src/plan/lint/common/utils/getComparableSection.ts';
 
 interface Params {

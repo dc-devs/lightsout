@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { RunLockError } from '#src/runState/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

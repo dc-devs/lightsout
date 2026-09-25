@@ -1,11 +1,13 @@
 import { describe, expect, test } from '@jest/globals';
-import { BatchOutcome, type CoverageBatchReport, type WorkReport } from '#src/contracts/index.ts';
+import type { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import { getCoverageAttemptStop } from '#src/coverage/batch/getCoverageAttemptStop.ts';
 import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 const batch: CoverageBatch = {
 	id: 'batch-01:root',

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
-import { DocPage } from '#src/features/docs/index.ts';
+import { DocPage } from '#src/features/docs/screens/DocPage/DocPage.tsx';
 
 const setupDocPage = ({ doc = 'configuration' }: { doc?: string } = {}) => {
 	const { container } = render(<DocPage doc={doc} />);

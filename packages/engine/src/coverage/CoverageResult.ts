@@ -1,4 +1,5 @@
-import type { CoverageTotal, RunManifest } from '#src/contracts/index.ts';
+import type { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
 
 export interface CoverageResult {

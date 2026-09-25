@@ -2,14 +2,22 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { readBranchState, runQueue, writeBranchState } from '#src/queue/index.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { PullRequestSummary } from '#src/ship/index.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import { runQueue } from '#src/queue/runQueue.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
@@ -36,15 +44,17 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: IdentifiersParams) => Promi
 const mockSetTicketStatus = jest.fn<(params: StatusParams) => Promise<TrackerFailure | undefined>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
+	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	getTicketsByIdentifiers: (params: IdentifiersParams) => mockGetTicketsByIdentifiers(params),
-	listTickets: (params: ListTicketsParams) => mockListTickets(params),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
-	setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params),
 }));
+jest.mock('#src/ticketTracker/listTickets.ts', () => ({ listTickets: (params: ListTicketsParams) => mockListTickets(params) }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketStatus.ts', () => ({ setTicketStatus: (params: StatusParams) => mockSetTicketStatus(params) }));
 // -------------------------
 type ReconcileShippedParams = { ticketRef: string | undefined; env: NodeJS.ProcessEnv };
 
@@ -53,28 +63,21 @@ const mockReconcileShippedTicket = jest.fn<(params: ReconcileShippedParams) => P
 // The lifecycle barrel keeps every other member real: the startup check reads
 // `TrackerStatusRole` through it and the pickup writes the ticket's status
 // through it, so only the Done write is doubled.
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => ({
 	reconcileShippedTicket: (params: ReconcileShippedParams) => mockReconcileShippedTicket(params),
 }));
 // -------------------------
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
-	runGates: (params: { cwd: string }) => mockRunGates(params),
-}));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 type FindPullRequestParams = { branch: string; cwd: string; state: string };
 
 const mockFindPullRequest = jest.fn<(params: FindPullRequestParams) => Promise<PullRequestSummary | undefined>>();
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({ findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params) }));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 const mockRunWorkerWithRelay = jest.fn<(params: { worktreePath: string }) => Promise<WorkerOutcome>>();
 

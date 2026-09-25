@@ -14,7 +14,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // answers is the state the prose has to survive — so the reader behind it is
 // stubbed with a promise that never settles rather than left to walk the real
 // filesystem.
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ listPacks: () => new Promise(() => {}), getPackRule: () => new Promise(() => {}) }),
 }));
 // -------------------------

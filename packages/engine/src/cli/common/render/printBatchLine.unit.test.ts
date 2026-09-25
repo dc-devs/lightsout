@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { printBatchLine } from '#src/cli/common/render/printBatchLine.ts';
-import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 const stepOf = (overrides: Partial<StepRecord> = {}): StepRecord => ({

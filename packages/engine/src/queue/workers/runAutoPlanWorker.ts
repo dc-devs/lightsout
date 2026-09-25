@@ -1,15 +1,19 @@
-import { buildQueueAutoPlanInvocation } from '#src/agents/index.ts';
+import { buildQueueAutoPlanInvocation } from '#src/agents/buildQueueAutoPlanInvocation.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
-import { type LightsoutConfig, type WorkOrderState, WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
-import { pullWorkOrderState } from '#src/workOrder/index.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {
 	/** The worktree the ticket is planned and built in. */

@@ -1,8 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
-import { runSelfCheck } from '#src/gates/index.ts';
+import { runSelfCheck } from '#src/gates/runSelfCheck.ts';
 
 // Mocked Imports
 // -------------------------

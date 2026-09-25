@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GateResult } from '#src/contracts/gates/index.ts';
+import { GateResult } from '#src/contracts/gates/GateResult.ts';
 
 /**
  * One `commands.jsonl` line: a gate execution plus the two fields only the log

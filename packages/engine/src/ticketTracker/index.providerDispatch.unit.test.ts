@@ -1,18 +1,34 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import {
-	appendTicketNote,
-	getTicketAttachments,
-	getTicketsByIdentifiers,
-	listLabelNames,
-	listTickets,
-	readTicketAsset,
-	setExclusiveLabel,
-	setTicketAttachment,
-	setTicketLabel,
-	setTicketStatus,
-} from '#src/ticketTracker/index.ts';
-import * as mockJiraAdapterModule from '#src/ticketTracker/jira/index.ts';
-import * as mockLinearAdapterModule from '#src/ticketTracker/linear/index.ts';
+import { appendTicketNote } from '#src/ticketTracker/appendTicketNote.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { appendTicketNote as jiraAppendTicketNote } from '#src/ticketTracker/jira/appendTicketNote.ts';
+import { getTicketAttachments as jiraGetTicketAttachments } from '#src/ticketTracker/jira/getTicketAttachments.ts';
+import { getTicketsByIdentifiers as jiraGetTicketsByIdentifiers } from '#src/ticketTracker/jira/getTicketsByIdentifiers.ts';
+import { listLabelNames as jiraListLabelNames } from '#src/ticketTracker/jira/listLabelNames.ts';
+import { listTickets as jiraListTickets } from '#src/ticketTracker/jira/listTickets.ts';
+import { readTicketAsset as jiraReadTicketAsset } from '#src/ticketTracker/jira/readTicketAsset.ts';
+import { setExclusiveLabel as jiraSetExclusiveLabel } from '#src/ticketTracker/jira/setExclusiveLabel.ts';
+import { setTicketAttachment as jiraSetTicketAttachment } from '#src/ticketTracker/jira/setTicketAttachment.ts';
+import { setTicketLabel as jiraSetTicketLabel } from '#src/ticketTracker/jira/setTicketLabel.ts';
+import { setTicketStatus as jiraSetTicketStatus } from '#src/ticketTracker/jira/setTicketStatus.ts';
+import { appendTicketNote as linearAppendTicketNote } from '#src/ticketTracker/linear/appendTicketNote.ts';
+import { getTicketAttachments as linearGetTicketAttachments } from '#src/ticketTracker/linear/getTicketAttachments.ts';
+import { getTicketsByIdentifiers as linearGetTicketsByIdentifiers } from '#src/ticketTracker/linear/getTicketsByIdentifiers.ts';
+import { listLabelNames as linearListLabelNames } from '#src/ticketTracker/linear/listLabelNames.ts';
+import { listTickets as linearListTickets } from '#src/ticketTracker/linear/listTickets.ts';
+import { readTicketAsset as linearReadTicketAsset } from '#src/ticketTracker/linear/readTicketAsset.ts';
+import { setExclusiveLabel as linearSetExclusiveLabel } from '#src/ticketTracker/linear/setExclusiveLabel.ts';
+import { setTicketAttachment as linearSetTicketAttachment } from '#src/ticketTracker/linear/setTicketAttachment.ts';
+import { setTicketLabel as linearSetTicketLabel } from '#src/ticketTracker/linear/setTicketLabel.ts';
+import { setTicketStatus as linearSetTicketStatus } from '#src/ticketTracker/linear/setTicketStatus.ts';
+import { listLabelNames } from '#src/ticketTracker/listLabelNames.ts';
+import { listTickets } from '#src/ticketTracker/listTickets.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
+import { setExclusiveLabel } from '#src/ticketTracker/setExclusiveLabel.ts';
+import { setTicketAttachment } from '#src/ticketTracker/setTicketAttachment.ts';
+import { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
+import { setTicketStatus } from '#src/ticketTracker/setTicketStatus.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
@@ -22,39 +38,64 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // two a seam call reaches and with what, never what either one does. Each double
 // is typed off the adapter it stands in for, so a signature that changes on one
 // side fails here rather than at the first call that trusted the stub.
-type LinearAdapter = typeof mockLinearAdapterModule;
-type JiraAdapter = typeof mockJiraAdapterModule;
+const linearAdapter = {
+	appendTicketNote: linearAppendTicketNote,
+	getTicketAttachments: linearGetTicketAttachments,
+	getTicketsByIdentifiers: linearGetTicketsByIdentifiers,
+	listLabelNames: linearListLabelNames,
+	listTickets: linearListTickets,
+	readTicketAsset: linearReadTicketAsset,
+	setExclusiveLabel: linearSetExclusiveLabel,
+	setTicketAttachment: linearSetTicketAttachment,
+	setTicketLabel: linearSetTicketLabel,
+	setTicketStatus: linearSetTicketStatus,
+};
+const jiraAdapter = {
+	appendTicketNote: jiraAppendTicketNote,
+	getTicketAttachments: jiraGetTicketAttachments,
+	getTicketsByIdentifiers: jiraGetTicketsByIdentifiers,
+	listLabelNames: jiraListLabelNames,
+	listTickets: jiraListTickets,
+	readTicketAsset: jiraReadTicketAsset,
+	setExclusiveLabel: jiraSetExclusiveLabel,
+	setTicketAttachment: jiraSetTicketAttachment,
+	setTicketLabel: jiraSetTicketLabel,
+	setTicketStatus: jiraSetTicketStatus,
+};
 
-jest.mock('#src/ticketTracker/linear/index.ts', () => ({
-	appendTicketNote: jest.fn<LinearAdapter['appendTicketNote']>(),
-	getTicketAttachments: jest.fn<LinearAdapter['getTicketAttachments']>(),
+type LinearAdapter = typeof linearAdapter;
+type JiraAdapter = typeof jiraAdapter;
+
+jest.mock('#src/ticketTracker/linear/appendTicketNote.ts', () => ({ appendTicketNote: jest.fn<LinearAdapter['appendTicketNote']>() }));
+jest.mock('#src/ticketTracker/linear/getTicketAttachments.ts', () => ({ getTicketAttachments: jest.fn<LinearAdapter['getTicketAttachments']>() }));
+jest.mock('#src/ticketTracker/linear/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: jest.fn<LinearAdapter['getTicketsByIdentifiers']>(),
-	listLabelNames: jest.fn<LinearAdapter['listLabelNames']>(),
-	listTickets: jest.fn<LinearAdapter['listTickets']>(),
-	readTicketAsset: jest.fn<LinearAdapter['readTicketAsset']>(),
-	setExclusiveLabel: jest.fn<LinearAdapter['setExclusiveLabel']>(),
-	setTicketAttachment: jest.fn<LinearAdapter['setTicketAttachment']>(),
-	setTicketLabel: jest.fn<LinearAdapter['setTicketLabel']>(),
-	setTicketStatus: jest.fn<LinearAdapter['setTicketStatus']>(),
 }));
-jest.mock('#src/ticketTracker/jira/index.ts', () => ({
-	appendTicketNote: jest.fn<JiraAdapter['appendTicketNote']>(),
-	getTicketAttachments: jest.fn<JiraAdapter['getTicketAttachments']>(),
+jest.mock('#src/ticketTracker/linear/listLabelNames.ts', () => ({ listLabelNames: jest.fn<LinearAdapter['listLabelNames']>() }));
+jest.mock('#src/ticketTracker/linear/listTickets.ts', () => ({ listTickets: jest.fn<LinearAdapter['listTickets']>() }));
+jest.mock('#src/ticketTracker/linear/readTicketAsset.ts', () => ({ readTicketAsset: jest.fn<LinearAdapter['readTicketAsset']>() }));
+jest.mock('#src/ticketTracker/linear/setExclusiveLabel.ts', () => ({ setExclusiveLabel: jest.fn<LinearAdapter['setExclusiveLabel']>() }));
+jest.mock('#src/ticketTracker/linear/setTicketAttachment.ts', () => ({ setTicketAttachment: jest.fn<LinearAdapter['setTicketAttachment']>() }));
+jest.mock('#src/ticketTracker/linear/setTicketLabel.ts', () => ({ setTicketLabel: jest.fn<LinearAdapter['setTicketLabel']>() }));
+jest.mock('#src/ticketTracker/linear/setTicketStatus.ts', () => ({ setTicketStatus: jest.fn<LinearAdapter['setTicketStatus']>() }));
+jest.mock('#src/ticketTracker/jira/appendTicketNote.ts', () => ({ appendTicketNote: jest.fn<JiraAdapter['appendTicketNote']>() }));
+jest.mock('#src/ticketTracker/jira/getTicketAttachments.ts', () => ({ getTicketAttachments: jest.fn<JiraAdapter['getTicketAttachments']>() }));
+jest.mock('#src/ticketTracker/jira/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: jest.fn<JiraAdapter['getTicketsByIdentifiers']>(),
-	listLabelNames: jest.fn<JiraAdapter['listLabelNames']>(),
-	listTickets: jest.fn<JiraAdapter['listTickets']>(),
-	readTicketAsset: jest.fn<JiraAdapter['readTicketAsset']>(),
-	setExclusiveLabel: jest.fn<JiraAdapter['setExclusiveLabel']>(),
-	setTicketAttachment: jest.fn<JiraAdapter['setTicketAttachment']>(),
-	setTicketLabel: jest.fn<JiraAdapter['setTicketLabel']>(),
-	setTicketStatus: jest.fn<JiraAdapter['setTicketStatus']>(),
 }));
+jest.mock('#src/ticketTracker/jira/listLabelNames.ts', () => ({ listLabelNames: jest.fn<JiraAdapter['listLabelNames']>() }));
+jest.mock('#src/ticketTracker/jira/listTickets.ts', () => ({ listTickets: jest.fn<JiraAdapter['listTickets']>() }));
+jest.mock('#src/ticketTracker/jira/readTicketAsset.ts', () => ({ readTicketAsset: jest.fn<JiraAdapter['readTicketAsset']>() }));
+jest.mock('#src/ticketTracker/jira/setExclusiveLabel.ts', () => ({ setExclusiveLabel: jest.fn<JiraAdapter['setExclusiveLabel']>() }));
+jest.mock('#src/ticketTracker/jira/setTicketAttachment.ts', () => ({ setTicketAttachment: jest.fn<JiraAdapter['setTicketAttachment']>() }));
+jest.mock('#src/ticketTracker/jira/setTicketLabel.ts', () => ({ setTicketLabel: jest.fn<JiraAdapter['setTicketLabel']>() }));
+jest.mock('#src/ticketTracker/jira/setTicketStatus.ts', () => ({ setTicketStatus: jest.fn<JiraAdapter['setTicketStatus']>() }));
 // -------------------------
 
 /** Both adapters answering successfully, so every test states only the answer it cares about. */
 const setup = () => {
-	const mockLinearAdapter = jest.mocked(mockLinearAdapterModule);
-	const mockJiraAdapter = jest.mocked(mockJiraAdapterModule);
+	const mockLinearAdapter = jest.mocked(linearAdapter);
+	const mockJiraAdapter = jest.mocked(jiraAdapter);
 
 	for (const adapter of [mockLinearAdapter, mockJiraAdapter]) {
 		adapter.appendTicketNote.mockResolvedValue(undefined);

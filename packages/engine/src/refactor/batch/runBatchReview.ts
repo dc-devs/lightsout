@@ -1,8 +1,9 @@
-import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { appendReviewFindings } from '#src/runState/index.ts';
-import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { appendReviewFindings } from '#src/runState/appendReviewFindings.ts';
+import { runStandardsReview } from '#src/standardsCheck/runStandardsReview.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	cwd: string;

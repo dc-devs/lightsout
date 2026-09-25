@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
-import { commitRunWork } from '#src/commit/index.ts';
+import { commitRunWork } from '#src/commit/commitRunWork.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
 import { plainSubject, planFolder, planId, runId, setupCommitRun, workOrderName } from '#tests/helpers/setupCommitRun.ts';
 

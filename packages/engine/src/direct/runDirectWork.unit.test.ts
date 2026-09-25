@@ -1,13 +1,19 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PipelineKind, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
-import { createRun, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
-import { getRunProgress } from '#src/views/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -20,11 +26,11 @@ const mockInvokeAgentWithContract =
 	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
 		mockInvokeAgentWithContract(params),
 }));
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runGates.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
 }));
 // -------------------------

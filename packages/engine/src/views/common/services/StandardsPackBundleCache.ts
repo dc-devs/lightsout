@@ -1,8 +1,11 @@
 import { readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join, sep } from 'node:path';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { FixtureSide, type StandardsPackBundle, type StandardsPackRuleView } from '#src/contracts/index.ts';
-import { type LoadedStandardsRule, readStandardsPack } from '#src/standardsPacks/index.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import type { StandardsPackRuleView } from '#src/contracts/views/StandardsPackRuleView.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
+import { readStandardsPack } from '#src/standardsPacks/readStandardsPack.ts';
 import { readPackFixtures } from '#src/views/common/utils/readPackFixtures.ts';
 import { toStandardsPackRuleListing } from '#src/views/common/utils/toStandardsPackRuleListing.ts';
 

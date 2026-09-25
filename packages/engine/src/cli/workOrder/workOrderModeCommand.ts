@@ -4,8 +4,8 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { WorkOrderMode } from '#src/contracts/index.ts';
-import { setWorkOrderMode } from '#src/workOrder/index.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import { setWorkOrderMode } from '#src/workOrder/setWorkOrderMode.ts';
 
 /**
  * `lightsout work-order mode` at the terminal.

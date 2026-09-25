@@ -1,5 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapOutcome, GradeFindingStatus, type GradeReadCoverage } from '#src/contracts/index.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 import { decideGradeScope } from '#src/plan/common/scope/decideGradeScope.ts';
 import { findingRecord, inputsFor, memoryFor, passAt, phasedFiles, phasedPlanFiles, planFileHashes, soloPhaseFile } from '#tests/helpers/gradeScopeInputs.ts';
 import { overviewBody, phaseBody } from '#tests/helpers/phasePlan.ts';

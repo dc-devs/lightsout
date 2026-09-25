@@ -1,5 +1,5 @@
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
-import type { GradeInputs } from '#src/contracts/index.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 
 interface Params {
 	current: GradeInputs;

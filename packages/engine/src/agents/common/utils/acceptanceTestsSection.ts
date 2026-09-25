@@ -1,5 +1,5 @@
 import { listSection } from '#src/agents/common/utils/listSection.ts';
-import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 
 interface Params {
 	/** The run's acceptance-test mapping, each row a test file and the name of the case in it. */

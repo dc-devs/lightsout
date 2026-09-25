@@ -4,7 +4,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { addWorkOrderPlan } from '#src/workOrder/index.ts';
+import { addWorkOrderPlan } from '#src/workOrder/addWorkOrderPlan.ts';
 
 /**
  * `lightsout work-order add-plan` at the terminal.

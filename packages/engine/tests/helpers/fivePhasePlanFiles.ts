@@ -1,4 +1,5 @@
-import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 import { secondPhaseBody } from '#tests/helpers/secondPhaseBody.ts';

@@ -1,10 +1,12 @@
-import { RunStatus, type StepRecord, WorkReportStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
 import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';
 import { formatAndVerify } from '#src/pipeline/steps/verifyStep/common/utils/formatAndVerify.ts';
-import { appendFriction } from '#src/runState/index.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 
 interface Params {
 	context: VerifyContext;

@@ -2,12 +2,16 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, ShipBlockReason, type ShipResult, ShipStatus, WorktreeOwner } from '#src/contracts/index.ts';
-import { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
-import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
-import { createWorktree } from '#src/worktree/index.ts';
+import { runDrainLanes } from '#src/queue/drainLanes/runDrainLanes.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
@@ -26,16 +30,11 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // would leave the machine, and it is where the integrated gates now run.
 const mockTakeGateHold = jest.fn<(params: { reason: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	takeGateHold: (params: { reason: string }) => mockTakeGateHold(params),
-}));
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: { reason: string }) => mockTakeGateHold(params) }));
 // -------------------------
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

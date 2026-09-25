@@ -1,4 +1,5 @@
-import { RefactorStepReport, type StepRecord } from '#src/contracts/index.ts';
+import { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 
 interface Params {
 	/** The run manifest's step records. */

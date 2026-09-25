@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
 import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
 

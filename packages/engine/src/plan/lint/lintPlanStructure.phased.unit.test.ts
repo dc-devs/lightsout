@@ -1,8 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { overviewBody, phaseBody } from '#tests/helpers/phasePlan.ts';

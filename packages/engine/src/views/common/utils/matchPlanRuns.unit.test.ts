@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { type RunListing, RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
 import { matchPlanRuns } from '#src/views/common/utils/matchPlanRuns.ts';
 
 /** One runs-list row as the engine fills it, stating the plan name the run recorded alongside the plan path, which the match no longer reads. */

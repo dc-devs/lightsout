@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { z } from 'zod';
 import { defaultRefactorMaxRounds } from '#src/common/constants/defaultRefactorMaxRounds.ts';
 import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
-import { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
 
 /** The schema's fields reachable by a key spelled as a string. */

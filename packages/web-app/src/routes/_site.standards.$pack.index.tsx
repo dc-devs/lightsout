@@ -1,7 +1,10 @@
 import { StandardsSet, StandardsSeverity } from '@lightsout/engine/contracts';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
-import { PackDetail, packQueryOptions, packRuleQueryOptions, showcaseRuleIds } from '#src/features/packs/index.ts';
+import { showcaseRuleIds } from '#src/features/packs/common/constants/showcaseRuleIds.ts';
+import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
+import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
+import { PackDetail } from '#src/features/packs/screens/PackDetail/PackDetail.tsx';
 
 /**
  * The URL's own word for who enforces a rule.

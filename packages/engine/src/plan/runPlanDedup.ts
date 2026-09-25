@@ -1,18 +1,16 @@
 import { basename, join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanDedupInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanDedupInvocation } from '#src/agents/buildPlanDedupInvocation.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import {
-	ActivityLevelKind,
-	type DedupFinding,
-	DedupJudgment,
-	type DedupReport,
-	type Effort,
-	type Permissions,
-	type ReviewedCollision,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { DedupFinding } from '#src/contracts/dedup/DedupFinding.ts';
+import { DedupJudgment } from '#src/contracts/dedup/DedupJudgment.ts';
+import type { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
+import type { ReviewedCollision } from '#src/contracts/dedup/ReviewedCollision.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
@@ -24,7 +22,7 @@ import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPas
 import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
-import { checkDeliverableSections } from '#src/plan/lint/index.ts';
+import { checkDeliverableSections } from '#src/plan/lint/checkDeliverableSections.ts';
 
 interface Params {
 	cwd: string;

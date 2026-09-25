@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { standardsHealthCommand } from '#src/cli/standardsHealthCommand.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { StandardsHealth } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -30,8 +30,10 @@ interface ResolveStandardsPacksParams {
 
 const mockResolveStandardsPacks = jest.fn<(params: ResolveStandardsPacksParams) => Promise<LoadedStandardsPack[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({ buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params) }));
-jest.mock('#src/standardsPacks/index.ts', () => ({
+jest.mock('#src/standardsCheck/buildStandardsHealth.ts', () => ({
+	buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params),
+}));
+jest.mock('#src/standardsPacks/resolveStandardsPacks.ts', () => ({
 	resolveStandardsPacks: (params: ResolveStandardsPacksParams) => mockResolveStandardsPacks(params),
 }));
 // -------------------------

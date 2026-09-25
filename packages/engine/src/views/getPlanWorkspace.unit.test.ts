@@ -1,8 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { DecisionSource, PlanGrade, PlanStage, RunStatus } from '#src/contracts/index.ts';
-import { getPlanWorkspace, PlanWorkspaceNotFoundError } from '#src/views/index.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import { PlanGrade } from '#src/contracts/plan/grade/PlanGrade.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanStage } from '#src/contracts/views/planWorkspace/PlanStage.ts';
+import { getPlanWorkspace } from '#src/views/getPlanWorkspace.ts';
+import { PlanWorkspaceNotFoundError } from '#src/views/PlanWorkspaceNotFoundError.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';

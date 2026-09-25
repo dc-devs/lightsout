@@ -1,4 +1,5 @@
-import { CleanupEndReason, type StandardsFinding } from '#src/contracts/index.ts';
+import { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { CleanupContext } from '#src/pipeline/steps/refactorStep/common/types/CleanupContext.ts';
 import type { CleanupState } from '#src/pipeline/steps/refactorStep/common/types/CleanupState.ts';

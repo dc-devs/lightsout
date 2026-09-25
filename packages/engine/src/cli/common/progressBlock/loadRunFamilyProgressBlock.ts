@@ -1,7 +1,7 @@
 import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
 import { getRunFamilyRoot } from '#src/cli/common/runFamily/getRunFamilyRoot.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import { listRuns } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { listRuns } from '#src/views/listRuns.ts';
 
 interface Params {
 	cwd: string;

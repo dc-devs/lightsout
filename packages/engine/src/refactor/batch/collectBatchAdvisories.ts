@@ -1,7 +1,9 @@
-import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runBatchReview } from '#src/refactor/batch/runBatchReview.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	cwd: string;

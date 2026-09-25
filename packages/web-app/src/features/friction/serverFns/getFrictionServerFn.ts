@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * Every friction entry this repo's agents recorded, newest last as the log

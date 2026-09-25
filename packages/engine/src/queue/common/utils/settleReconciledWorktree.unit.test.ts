@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { WorktreeOwner } from '#src/contracts/index.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
 import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { createWorktree, readWorktreeRecord } from '#src/worktree/index.ts';
+import { createWorktree } from '#src/worktree/createWorktree.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

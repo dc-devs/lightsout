@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { commandCatalog } from '#src/commands/index.ts';
+import { commandCatalog } from '#src/commands/commandCatalog.ts';
 
 const setupCatalog = () => {
 	const byId = new Map(commandCatalog.map((entry) => [entry.id, entry]));

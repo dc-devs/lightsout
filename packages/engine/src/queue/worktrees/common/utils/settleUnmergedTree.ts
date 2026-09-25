@@ -4,7 +4,8 @@ import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOu
 import { ParkedTreeBucket } from '#src/queue/worktrees/common/constants/ParkedTreeBucket.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { classifyTree } from '#src/queue/worktrees/common/utils/classifyTree.ts';
-import { setTicketLabel, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
 
 interface Params {
 	/** The main repository checkout. */

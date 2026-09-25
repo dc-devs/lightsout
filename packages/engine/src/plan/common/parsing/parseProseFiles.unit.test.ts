@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ProseFile } from '#src/contracts/index.ts';
+import { ProseFile } from '#src/contracts/plan/ledger/ProseFile.ts';
 import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
 
 /** The section as it sits in a plan file: its bullets under the heading, numbered from line 40. */

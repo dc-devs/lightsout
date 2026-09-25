@@ -1,7 +1,14 @@
 import { execSync } from 'node:child_process';
-import { type AgentUsage, type LightsoutConfig, PlanProgress, RunManifest, RunStatus, WorkOrderMode, type WorktreeOwner } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { writeWorktreeRecord } from '#src/worktree/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';

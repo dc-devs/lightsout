@@ -1,5 +1,6 @@
-import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
-import type { AcceptanceTestRecord, WorkReport } from '#src/contracts/index.ts';
+import { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import { createWarmSpawn } from '#src/pipeline/common/utils/createWarmSpawn.ts';

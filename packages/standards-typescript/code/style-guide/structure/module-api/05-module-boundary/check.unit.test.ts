@@ -23,40 +23,39 @@ const setupRepo = ({
 	return setupImportGraphInput({ edges, dependencies, source: scope ?? paths, files: scope ?? paths, referenceFiles: paths, standardsPacks });
 };
 
+/** The ingestion module every case below builds on: its barrel exports `ingestRecords.ts` and hides `parseRow.ts`. */
+const ingestionPaths = ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'];
+const ingestionBarrelEdge = { from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' };
+
+const crossingGuidance = 'Outside a module, import only the files its index file exports.';
+
 describe('module-boundary check', () => {
-	test('asks for the import graph, since the verdict is about the boundary an import crosses', () => {
+	test('asks for the import graph, since the verdict is about where an import points', () => {
 		expect(check.inputKind).toBe('import-graph');
 	});
 
-	test('reports a file reaching past another module’s barrel into its internals', async () => {
+	test('reports a file importing another module’s file that its barrel does not export', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' },
-			],
+			paths: ingestionPaths,
+			edges: [ingestionBarrelEdge, { from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' }],
 		});
 
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:src/ingestion/ingestRecords.ts|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/ingestRecords.ts' }],
-				detail:
-					"deep-imports 'src/ingestion/ingestRecords.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+				siteKey: 'module-boundary:src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
+				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }],
+				detail: "imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion' that its barrel 'src/ingestion/index.ts' does not export",
+				guidance: crossingGuidance,
 			},
 		]);
 	});
 
-	test('importing the module’s barrel earns nothing — that is the public API the rule points at', async () => {
+	test('accepts a file importing another module’s file that its barrel exports — the name comes from the file that declares it', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/index.ts' },
-			],
+			paths: ingestionPaths,
+			edges: [ingestionBarrelEdge, { from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' }],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -78,89 +77,10 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('gathers every internal one file reaches into within a module — one edit, one finding', async () => {
+	test('accepts a test inside a module importing a file its barrel does not export', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([
-			{
-				siteKey: 'module-boundary:src/ingestion/ingestRecords.ts|src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/ingestRecords.ts' }, { path: 'src/ingestion/parseRow.ts' }],
-				detail:
-					"deep-imports 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts' — internals of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
-			},
-		]);
-	});
-
-	test('names one internal once when two edges land on the same file', async () => {
-		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([
-			{
-				siteKey: 'module-boundary:src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }],
-				detail: "deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
-			},
-		]);
-	});
-
-	test('names the outermost module the import crosses into, not the nested one it lands in', async () => {
-		const input = setupRepo({
-			paths: [
-				'src/reporting/buildReport.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/ingestion/loadSource.ts',
-				'src/ingestion/parser/index.ts',
-				'src/ingestion/parser/parseRow.ts',
-				'src/ingestion/parser/tokenize.ts',
-			],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/ingestion/parser/index.ts', to: 'src/ingestion/parser/parseRow.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parser/tokenize.ts' },
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([
-			{
-				siteKey: 'module-boundary:src/ingestion/parser/tokenize.ts|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parser/tokenize.ts' }],
-				detail:
-					"deep-imports 'src/ingestion/parser/tokenize.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
-			},
-		]);
-	});
-
-	test('leaves an import into another module’s common/ to the placement rule', async () => {
-		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
-			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
-			],
+			paths: [...ingestionPaths, 'src/ingestion/parseRow.unit.test.ts'],
+			edges: [ingestionBarrelEdge, { from: 'src/ingestion/parseRow.unit.test.ts', to: 'src/ingestion/parseRow.ts' }],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -168,13 +88,33 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('counts a module’s import into its OWN common/ as no crossing, so the fail fixture earns exactly one finding', async () => {
+	test('reports a test outside a module importing a file its barrel does not export', async () => {
 		const input = setupRepo({
-			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
+			paths: [...ingestionPaths, 'tests/ingestion.test.ts'],
+			edges: [ingestionBarrelEdge, { from: 'tests/ingestion.test.ts', to: 'src/ingestion/parseRow.ts' }],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'module-boundary:src/ingestion/parseRow.ts|tests/ingestion.test.ts',
+				files: [{ path: 'tests/ingestion.test.ts' }, { path: 'src/ingestion/parseRow.ts' }],
+				detail: "imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion' that its barrel 'src/ingestion/index.ts' does not export",
+				guidance: crossingGuidance,
+			},
+		]);
+	});
+
+	test('gathers every unexported file one importer reaches into within a module — one edit, one finding', async () => {
+		const input = setupRepo({
+			paths: [...ingestionPaths, 'src/ingestion/loadSource.ts'],
 			edges: [
-				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
+				ingestionBarrelEdge,
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' },
+				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
+				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/loadSource.ts' },
+				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
 			],
 		});
 
@@ -182,22 +122,52 @@ describe('module-boundary check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:src/ingestion/ingestRecords.ts|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/ingestRecords.ts' }],
+				siteKey: 'module-boundary:src/ingestion/loadSource.ts|src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
+				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }, { path: 'src/ingestion/loadSource.ts' }],
 				detail:
-					"deep-imports 'src/ingestion/ingestRecords.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+					"imports 'src/ingestion/parseRow.ts', 'src/ingestion/loadSource.ts' — internals of module 'src/ingestion' that its barrel 'src/ingestion/index.ts' does not export",
+				guidance: crossingGuidance,
 			},
 		]);
 	});
 
-	test('stays silent across the whole pass fixture, whose one outside importer goes through the barrel', async () => {
+	test('leaves an import into another module’s common/ to the placement rule', async () => {
 		const input = setupRepo({
-			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
+			paths: [...ingestionPaths, 'src/ingestion/common/utils/normalizeRecord.ts'],
+			edges: [ingestionBarrelEdge, { from: 'src/reporting/buildReport.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' }],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('reports each of the fail fixture’s two imports: one through the barrel, one into an unexported file', async () => {
+		const input = setupRepo({
+			paths: [...ingestionPaths, 'src/ingestion/common/utils/normalizeRecord.ts', 'src/reporting/summarize.ts'],
 			edges: [
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
+				ingestionBarrelEdge,
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/index.ts' },
+				{ from: 'src/reporting/summarize.ts', to: 'src/ingestion/parseRow.ts' },
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual([
+			'module-boundary:src/ingestion/index.ts|src/reporting/buildReport.ts',
+			'module-boundary:src/ingestion/parseRow.ts|src/reporting/summarize.ts',
+		]);
+	});
+
+	test('stays silent across the whole pass fixture, whose one outside importer names the exported file', async () => {
+		const input = setupRepo({
+			paths: [...ingestionPaths, 'src/ingestion/common/utils/normalizeRecord.ts'],
+			edges: [
+				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
+				ingestionBarrelEdge,
+				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' },
 			],
 		});
 
@@ -228,8 +198,8 @@ describe('module-boundary check', () => {
 				siteKey: 'module-boundary:standards/code/buildReport.ts|standards/tests/unit-testing/rule.ts',
 				files: [{ path: 'standards/code/buildReport.ts' }, { path: 'standards/tests/unit-testing/rule.ts' }],
 				detail:
-					"deep-imports 'standards/tests/unit-testing/rule.ts' — an internal of module 'standards/tests/unit-testing'; import from its barrel 'standards/tests/unit-testing/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+					"imports 'standards/tests/unit-testing/rule.ts' — an internal of module 'standards/tests/unit-testing' that its barrel 'standards/tests/unit-testing/index.ts' does not export",
+				guidance: crossingGuidance,
 			},
 		]);
 	});
@@ -253,14 +223,15 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('still knows where the boundary sits when the run is narrowed to one file', async () => {
+	test('still knows where the boundary sits and what the barrel exports when the run is narrowed to one file', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
+			paths: [...ingestionPaths, 'src/reporting/summarize.ts'],
 			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
+				ingestionBarrelEdge,
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
+				{ from: 'src/reporting/summarize.ts', to: 'src/ingestion/ingestRecords.ts' },
 			],
-			scope: ['src/reporting/buildReport.ts'],
+			scope: ['src/reporting/buildReport.ts', 'src/reporting/summarize.ts'],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -269,18 +240,19 @@ describe('module-boundary check', () => {
 			{
 				siteKey: 'module-boundary:src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
 				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }],
-				detail: "deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+				detail: "imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion' that its barrel 'src/ingestion/index.ts' does not export",
+				guidance: crossingGuidance,
 			},
 		]);
 	});
 
 	test('says nothing about an importer outside the run’s scope', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
+			paths: ingestionPaths,
 			edges: [
-				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
+				ingestionBarrelEdge,
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/parseRow.ts' },
+				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/index.ts' },
 			],
 			scope: ['src/ingestion/ingestRecords.ts'],
 		});
@@ -305,7 +277,7 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('the same tree in a package declaring no router is an ordinary folder-module, so the deep import is reported', async () => {
+	test('the same tree in a package declaring no router is an ordinary folder-module, so the import into it is reported', async () => {
 		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
 			edges: [{ from: 'src/reporting/buildReport.ts', to: 'src/routes/runs.$runId.tsx' }],
@@ -317,8 +289,8 @@ describe('module-boundary check', () => {
 			{
 				siteKey: 'module-boundary:src/reporting/buildReport.ts|src/routes/runs.$runId.tsx',
 				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/routes/runs.$runId.tsx' }],
-				detail: "deep-imports 'src/routes/runs.$runId.tsx' — an internal of module 'src/routes'; import from its barrel 'src/routes/index.tsx' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+				detail: "imports 'src/routes/runs.$runId.tsx' — an internal of module 'src/routes' that its barrel 'src/routes/index.tsx' does not export",
+				guidance: crossingGuidance,
 			},
 		]);
 	});

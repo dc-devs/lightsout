@@ -1,10 +1,13 @@
 import type { RunListing } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
-import { DataTable, EmptyState, SettingsCard, StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
-import { getRunCommand } from '#src/features/runs/index.ts';
+import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts';
 
 const columns: Array<DataTableColumn<RunListing>> = [
 	{ key: 'status', header: 'status', render: (run) => <StatusBadge status={run.status} config={statusBadgeConfig} live={run.live} /> },

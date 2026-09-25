@@ -1,8 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord } from '#src/contracts/index.ts';
-import { checkGlobalConstraints } from '#src/plan/lint/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { checkGlobalConstraints } from '#src/plan/lint/checkGlobalConstraints.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 
 /** The remedy every finding's `fix` has to name, exactly as `buildPlanSyncDecisionsCommand` hands it over. */
 const syncCommand = 'node /repo/cli.mjs plan sync-decisions --name demo-plan --cwd "/repo"';

@@ -1,4 +1,6 @@
-import type { CoverageWorklist, PipelineKind, RefactorWorklist } from '#src/contracts/index.ts';
+import type { CoverageWorklist } from '#src/contracts/coverage/CoverageWorklist.ts';
+import type { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import type { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 
 /** A refactor run's frozen work-list, when the file parsed as one. */
 interface FrozenRefactorWorklist {

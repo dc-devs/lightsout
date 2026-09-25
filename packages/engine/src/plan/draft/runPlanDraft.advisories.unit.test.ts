@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';

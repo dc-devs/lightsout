@@ -1,5 +1,5 @@
-import type { RunManifest } from '#src/contracts/index.ts';
-import { isRunPaused } from '#src/runState/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { isRunPaused } from '#src/runState/isRunPaused.ts';
 
 interface Params {
 	manifest: RunManifest;

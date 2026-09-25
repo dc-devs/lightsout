@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderName } from '#src/contracts/index.ts';
+import { WorkOrderName } from '#src/contracts/work/WorkOrderName.ts';
 
 const setupName = ({ words }: { words: unknown }) => {
 	const answer: Record<string, unknown> = { words };

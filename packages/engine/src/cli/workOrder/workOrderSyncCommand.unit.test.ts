@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { workOrderSyncCommand } from '#src/cli/workOrder/workOrderSyncCommand.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -31,10 +32,8 @@ type SyncTicketRecordResult = { record: WorkOrderState } | { error: string };
 
 const mockSyncTicketRecord = jest.fn<(params: SyncTicketRecordParams) => Promise<SyncTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	syncWorkOrderState: (params: SyncTicketRecordParams) => mockSyncTicketRecord(params),
-	WorkOrderSyncKeep: { Local: 'local', Published: 'published' },
-}));
+jest.mock('#src/workOrder/common/constants/WorkOrderSyncKeep.ts', () => ({ WorkOrderSyncKeep: { Local: 'local', Published: 'published' } }));
+jest.mock('#src/workOrder/syncWorkOrderState.ts', () => ({ syncWorkOrderState: (params: SyncTicketRecordParams) => mockSyncTicketRecord(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

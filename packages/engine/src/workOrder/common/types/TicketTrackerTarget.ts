@@ -1,4 +1,4 @@
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 
 /** The tracker a work order's state publishes to, and the ticket its folder name names. */
 export interface TicketTrackerTarget {

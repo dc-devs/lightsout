@@ -1,5 +1,5 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import type { StepRecord } from '#src/contracts/index.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
 import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';

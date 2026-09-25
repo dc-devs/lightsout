@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { getErrorCode } from './index';
+import { getErrorCode } from './getErrorCode';
 
 describe('getErrorCode', () => {
 	test('names the connection failure by its wire code', () => {

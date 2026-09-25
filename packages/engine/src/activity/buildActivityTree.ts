@@ -2,7 +2,8 @@ import { gatherNodeProcesses } from '#src/activity/common/utils/gatherNodeProces
 import { nestActivityMarks } from '#src/activity/common/utils/nestActivityMarks.ts';
 import { spanOfActivityNodes } from '#src/activity/common/utils/spanOfActivityNodes.ts';
 import { totalActivityNode } from '#src/activity/common/utils/totalActivityNode.ts';
-import type { ActivityMark, ActivityReport } from '#src/contracts/index.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
+import type { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
 
 interface Params {
 	/** The plan folder the record belongs to, as the caller addressed it. */

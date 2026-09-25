@@ -4,7 +4,7 @@ import { DecisionSource, DedupResolution, PlanDocumentKind } from '@lightsout/en
 import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { PlanDetail } from '#src/features/plans/index.ts';
+import { PlanDetail } from '#src/features/plans/screens/PlanDetail/PlanDetail.tsx';
 import { buildPlanWorkspaceView } from '#tests/helpers/buildPlanWorkspaceView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
@@ -13,7 +13,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // Nothing in these three tabs opens a file — every one reads a record the
 // workspace view already carries — but the Plan tab behind them does, so the
 // reader is stood in for to keep the module graph off disk.
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPlan: ({ path }: { path: string }) => Promise.resolve<PlanDocument>({ path, kind: PlanDocumentKind.Missing }) }),
 }));
 // -------------------------

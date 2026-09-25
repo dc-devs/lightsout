@@ -104,3 +104,68 @@ test.each([
 
 	expect(resolved).toBe(expected);
 });
+
+// Two packages whose files share suffixes: by suffix alone every one of these
+// specifiers is ambiguous, but the package.json `imports` of the importing
+// file's own package names exactly one file.
+const subpathImportFiles = [
+	'packages/engine/src/plan/draft/index.ts',
+	'packages/engine/src/contracts/plan/draft/index.ts',
+	'packages/engine/src/cli/planCommand.ts',
+	'packages/engine/src/config.ts',
+	'packages/web/src/plan/draft/index.ts',
+	'packages/web/src/app.ts',
+];
+const subpathImportAliases = new Map([
+	['.', []],
+	[
+		'packages/engine',
+		[
+			{ pattern: '#src/*', target: './src/*' },
+			{ pattern: '#src/config', target: './src/config.ts' },
+		],
+	],
+	['packages/web', [{ pattern: '#src/*', target: './src/*' }]],
+]);
+
+test.each([
+	{
+		case: 'a suffix another folder of the same package shares',
+		from: 'packages/engine/src/cli/planCommand.ts',
+		specifier: '#src/plan/draft/index.ts',
+		expected: 'packages/engine/src/plan/draft/index.ts',
+	},
+	{
+		case: 'the same specifier written in another package',
+		from: 'packages/web/src/app.ts',
+		specifier: '#src/plan/draft/index.ts',
+		expected: 'packages/web/src/plan/draft/index.ts',
+	},
+	{
+		case: 'an exact key, which beats a wildcard that also matches',
+		from: 'packages/engine/src/cli/planCommand.ts',
+		specifier: '#src/config',
+		expected: 'packages/engine/src/config.ts',
+	},
+	{
+		case: 'a folder named without its index file, landing via the probe',
+		from: 'packages/web/src/app.ts',
+		specifier: '#src/plan/draft',
+		expected: 'packages/web/src/plan/draft/index.ts',
+	},
+	{ case: 'a pattern that matches but names no file in the universe', from: 'packages/web/src/app.ts', specifier: '#src/missing.ts', expected: undefined },
+])('createSpecifierResolver: $case resolves through the importing package’s imports', ({ from, specifier, expected }) => {
+	const resolve = createSpecifierResolver({ files: subpathImportFiles, importAliases: subpathImportAliases });
+
+	const resolved = resolve({ from, specifier });
+
+	expect(resolved).toBe(expected);
+});
+
+test('createSpecifierResolver: a # specifier no pattern of its package matches falls back to suffix resolution', () => {
+	const resolve = createSpecifierResolver({ files: ['packages/web/src/app.ts', 'packages/web/tests/helper.ts'], importAliases: subpathImportAliases });
+
+	const resolved = resolve({ from: 'packages/web/src/app.ts', specifier: '#tests/helper.ts' });
+
+	expect(resolved).toBe('packages/web/tests/helper.ts');
+});

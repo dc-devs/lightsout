@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { startShip } from '#src/queue/drainLanes/common/utils/startShip.ts';
-import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
 import type { shipOneBranch } from '#src/queue/shipOneBranch.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';

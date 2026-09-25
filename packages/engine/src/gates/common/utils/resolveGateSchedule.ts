@@ -1,4 +1,4 @@
-import type { GateOverride } from '#src/contracts/index.ts';
+import type { GateOverride } from '#src/contracts/GateOverride.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
 

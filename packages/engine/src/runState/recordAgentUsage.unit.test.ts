@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { RunUsage } from '#src/contracts/index.ts';
-import { recordAgentUsage } from '#src/runState/index.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
+import { recordAgentUsage } from '#src/runState/recordAgentUsage.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

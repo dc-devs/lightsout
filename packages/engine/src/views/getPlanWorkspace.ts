@@ -1,16 +1,14 @@
 import { stat } from 'node:fs/promises';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
-import {
-	BrainstormDecisions,
-	DecisionsRecord,
-	DedupReport,
-	GradeReport,
-	PlanFacts,
-	type PlanWorkspaceListing,
-	type PlanWorkspaceView,
-} from '#src/contracts/index.ts';
-import { planWorkspaceDir } from '#src/plan/index.ts';
+import { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
+import { BrainstormDecisions } from '#src/contracts/plan/decisions/BrainstormDecisions.ts';
+import { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { PlanWorkspaceListing } from '#src/contracts/views/planWorkspace/PlanWorkspaceListing.ts';
+import type { PlanWorkspaceView } from '#src/contracts/views/planWorkspace/PlanWorkspaceView.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import type { PlanWorkspaceFiles } from '#src/views/common/types/PlanWorkspaceFiles.ts';
 import { buildPlanWorkspaceListing } from '#src/views/common/utils/buildPlanWorkspaceListing.ts';
 import { matchPlanRuns } from '#src/views/common/utils/matchPlanRuns.ts';

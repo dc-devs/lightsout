@@ -4,9 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type WorkOrderState, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
@@ -28,9 +31,7 @@ interface InvokeCall {
 
 const mockInvokeAgentWithContract = jest.fn<(params: InvokeCall) => Promise<AgentOutcome<WorkReport>>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params),
-}));
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({ invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params) }));
 // -------------------------
 interface ChooseAutoPlanTargetParams {
 	cwd: string;
@@ -61,7 +62,7 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;

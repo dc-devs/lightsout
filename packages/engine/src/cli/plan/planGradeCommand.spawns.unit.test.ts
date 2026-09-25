@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { planGradeCommand } from '#src/cli/plan/index.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { Effort, Permissions } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
+import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';

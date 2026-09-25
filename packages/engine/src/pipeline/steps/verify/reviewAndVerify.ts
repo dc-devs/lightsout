@@ -1,9 +1,10 @@
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
-import { reviewTestChanges } from '#src/pipeline/approvedTests/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import { reviewTestChanges } from '#src/pipeline/approvedTests/reviewTestChanges.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { checkRenameOnlyChanges } from '#src/pipeline/renameCheck/index.ts';
+import { checkRenameOnlyChanges } from '#src/pipeline/renameCheck/checkRenameOnlyChanges.ts';
 import { approveRunnerSnapshots } from '#src/pipeline/steps/verify/approveRunnerSnapshots.ts';
 
 interface Params {

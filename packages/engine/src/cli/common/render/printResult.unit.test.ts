@@ -3,8 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { printResult } from '#src/cli/common/render/printResult.ts';
-import type { FrictionRecord, RunCommit, RunManifest, StandardsFinding } from '#src/contracts/index.ts';
-import { CleanupEndReason, FrictionArea, PackagesSource, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import { FrictionArea } from '#src/contracts/friction/FrictionArea.ts';
+import type { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
+import { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
+import type { RunCommit } from '#src/contracts/run/RunCommit.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 // printResult summarizes a run from the evidence the run left on disk, so the

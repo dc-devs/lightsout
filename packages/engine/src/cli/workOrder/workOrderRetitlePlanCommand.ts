@@ -3,7 +3,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { finishWorkOrderChange } from '#src/cli/workOrder/common/utils/finishWorkOrderChange.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { retitleWorkOrderPlan } from '#src/workOrder/index.ts';
+import { retitleWorkOrderPlan } from '#src/workOrder/retitleWorkOrderPlan.ts';
 
 /**
  * `lightsout work-order retitle-plan` at the terminal.

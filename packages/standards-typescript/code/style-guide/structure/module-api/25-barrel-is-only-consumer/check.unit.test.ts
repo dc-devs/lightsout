@@ -45,12 +45,15 @@ describe('barrel-is-only-consumer check', () => {
 		]);
 	});
 
-	test('a module importing the name through the barrel silences it', async () => {
+	test('a module importing the name from the file that declares it silences it', async () => {
 		const input = setupFileTextInput({
 			contents: [
 				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
 				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
-				['src/reporting/buildReport.ts', "import { ingestRecords } from '../ingestion';\n\nexport const buildReport = (): number => ingestRecords();"],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
 			],
 		});
 

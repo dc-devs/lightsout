@@ -1,5 +1,7 @@
 import type { StandardsPackRuleView } from '@lightsout/engine';
-import { CopyButton, DefinitionList, SettingsCard } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { DefinitionList } from '#src/appUI/DefinitionList.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import type { DefinitionEntry } from '#src/common/types/DefinitionEntry.ts';
 
 /** The config block that replaces one of the rule's numbers, with every number it ships already in it. */

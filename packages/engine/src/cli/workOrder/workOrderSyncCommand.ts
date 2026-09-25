@@ -4,7 +4,8 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { syncWorkOrderState, WorkOrderSyncKeep } from '#src/workOrder/index.ts';
+import { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
+import { syncWorkOrderState } from '#src/workOrder/syncWorkOrderState.ts';
 
 /**
  * `lightsout work-order sync` at the terminal.

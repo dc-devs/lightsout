@@ -6,8 +6,8 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanWorktree } from '#src/cli/plan/common/types/PlanWorktree.ts';
 import { planCommand } from '#src/cli/plan/planCommand.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { queueConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 

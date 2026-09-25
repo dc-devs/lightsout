@@ -1,12 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import type { DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
-import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 import { stampPhaseCounts } from '#src/plan/draft/stampPhaseCounts.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { syncGlobalConstraints, syncPhaseSections } from '#src/plan/sections/index.ts';
+import { syncGlobalConstraints } from '#src/plan/sections/syncGlobalConstraints.ts';
+import { syncPhaseSections } from '#src/plan/sections/syncPhaseSections.ts';
 
 interface Params {
 	cwd: string;

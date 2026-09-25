@@ -1,5 +1,6 @@
 import planFindingRecheckPrompt from '#src/agents/prompts/planFindingRecheck.md';
-import type { GapObservation, GradeFindingRecord } from '#src/contracts/index.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
 
 interface Params {
 	/** The current text of the plan file this spawn asks about. */

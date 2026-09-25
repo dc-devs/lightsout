@@ -1,4 +1,7 @@
-import { type AgentEnvironment, type Driver, getDriverCapabilities, getMissingEnvironmentControls } from '#src/drivers/index.ts';
+import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriverCapabilities } from '#src/drivers/getDriverCapabilities.ts';
+import { getMissingEnvironmentControls } from '#src/drivers/getMissingEnvironmentControls.ts';
 
 interface Params {
 	driver: Driver;

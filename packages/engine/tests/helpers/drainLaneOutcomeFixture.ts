@@ -1,4 +1,4 @@
-import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 
 /** How one identifier's task is told to end: ready-or-merged, plainly failed, or parked on a question nobody answered. */

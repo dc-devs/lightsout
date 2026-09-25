@@ -1,5 +1,5 @@
 import { chunkFileGroup } from '#src/common/fileGroups/chunkFileGroup.ts';
-import type { CoverageFile } from '#src/contracts/index.ts';
+import type { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 
 /** The implement fan-out's writer cap: an import component above this splits into sorted chunks rather than drowning one invocation. */

@@ -1,7 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 // The cases below are about everything EXCEPT the scope section, so they all
 // pick one and hold it fixed; the two tests that are about the scope section

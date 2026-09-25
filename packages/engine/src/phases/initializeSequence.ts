@@ -1,12 +1,18 @@
 import { access, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
-import { planNameFromPath, resolveRecordedPlanPath } from '#src/plan/index.ts';
-import { createRun, writeRunManifest } from '#src/runState/index.ts';
+import { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
 	cwd: string;

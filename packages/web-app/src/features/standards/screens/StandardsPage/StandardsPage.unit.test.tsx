@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsView } from '@lightsout/engine';
 import { fireEvent, screen } from '@testing-library/react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { StandardsPage } from '#src/features/standards/index.ts';
+import { StandardsPage } from '#src/features/standards/screens/StandardsPage/StandardsPage.tsx';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

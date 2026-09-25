@@ -1,9 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DraftImplementation } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
-import { runPlanDraft } from '#src/plan/draft/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
 import { createScriptedDraftDriver, unchangedFixReport } from '#tests/helpers/createScriptedDraftDriver.ts';

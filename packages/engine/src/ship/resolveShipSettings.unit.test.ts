@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { type ConfigShip, LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
+import type { ConfigShip } from '#src/contracts/ConfigShip.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
 
 /** The smallest config the schema accepts, with whatever ship block the test is about. */
 const setupConfig = ({ ship }: { ship?: ConfigShip } = {}) => {

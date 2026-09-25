@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { PipelineKind } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 
 /**
  * Which command's folder holds a run that belongs to no plan.

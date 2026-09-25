@@ -3,8 +3,8 @@ import { printBatchOptOut } from '#src/cli/common/render/printBatchOptOut.ts';
 import { printRunFooter } from '#src/cli/common/render/printRunFooter.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import type { RefactorResult } from '#src/refactor/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 
 interface Params {
 	result: RefactorResult;

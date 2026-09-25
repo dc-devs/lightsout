@@ -1,4 +1,6 @@
-import { PlanProgress, type WorkOrderState, type WorkOrderSyncState } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { WorkOrderSyncState } from '#src/contracts/workOrder/WorkOrderSyncState.ts';
 import { findDivergentPlanIds } from '#src/workOrder/common/utils/findDivergentPlanIds.ts';
 import { matchesImplementedSnapshot } from '#src/workOrder/common/utils/matchesImplementedSnapshot.ts';
 

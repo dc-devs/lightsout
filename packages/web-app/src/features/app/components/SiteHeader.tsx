@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Dialog, ThemeToggle } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { ThemeToggle } from '#src/appUI/buttons/ThemeToggle.tsx';
+import { Dialog } from '#src/appUI/Dialog.tsx';
 import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 
 const siteLinkClasses = 'text-sm text-muted-foreground-strong transition-colors hover:text-foreground';

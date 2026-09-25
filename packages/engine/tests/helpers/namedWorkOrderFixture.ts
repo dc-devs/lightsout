@@ -1,4 +1,4 @@
-import type { NamedWorkOrder } from '#src/queue/index.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 
 /**

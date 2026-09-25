@@ -1,6 +1,6 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { BranchPhase } from '#src/contracts/index.ts';
-import { readBranchState } from '#src/queue/branchState/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
 import { ParkedTreeBucket } from '#src/queue/worktrees/common/constants/ParkedTreeBucket.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { classifyUnrecordedTree } from '#src/queue/worktrees/common/utils/classifyUnrecordedTree.ts';

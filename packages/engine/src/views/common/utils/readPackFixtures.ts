@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { FixtureSide, type StandardsPackFixture } from '#src/contracts/index.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import type { StandardsPackFixture } from '#src/contracts/views/StandardsPackFixture.ts';
 
 /** Every file under one side's root, as `/`-separated paths relative to it, sorted. */
 const listSideFiles = async ({ root, prefix }: { root: string; prefix: string }) => {

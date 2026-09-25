@@ -1,11 +1,11 @@
 import type { RunListing } from '@lightsout/engine';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
-import { configQueryOptions } from '#src/features/config/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
+import { configQueryOptions } from '#src/features/config/queries/configQueryOptions.ts';
 
 /** When this repo last did anything, or the sentence a repo that has never run needs instead of a dash. */
 const LastRun = ({ run }: { run: RunListing | undefined }) =>

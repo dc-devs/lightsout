@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { resolveRecordedPlanPath } from '#src/plan/index.ts';
+import { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 
 interface Params {
 	cwd: string;

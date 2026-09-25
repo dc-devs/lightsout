@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
-import { PlanDetail, planWorkspaceQueryOptions } from '#src/features/plans/index.ts';
+import { planWorkspaceQueryOptions } from '#src/features/plans/queries/planWorkspaceQueryOptions.ts';
+import { PlanDetail } from '#src/features/plans/screens/PlanDetail/PlanDetail.tsx';
 
 /**
  * No folder under `.lightsout/plans/` answers to the name in the path.

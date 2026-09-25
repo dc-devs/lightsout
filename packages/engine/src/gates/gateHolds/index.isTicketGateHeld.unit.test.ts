@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { type GateHolds, isTicketGateHeld } from '#src/gates/gateHolds/index.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import { isTicketGateHeld } from '#src/gates/gateHolds/common/utils/isTicketGateHeld.ts';
 
 const setupHolds = (): { holds: GateHolds } => {
 	const holds: GateHolds = {

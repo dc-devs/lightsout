@@ -1,6 +1,8 @@
 import type { RunBurnDown, RunBurnDownBatch } from '@lightsout/engine';
 import { PipelineKind, RunBurnDownBatchOutcome } from '@lightsout/engine/contracts';
-import { Card, MetadataTag, StatusBadge } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 

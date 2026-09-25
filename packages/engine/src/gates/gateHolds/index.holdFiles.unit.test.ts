@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFi
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { GateHold } from '#src/contracts/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
 import { getGateHoldPaths } from '#src/gates/gateHolds/common/utils/getGateHoldPaths.ts';
 import { readGateHolds } from '#src/gates/gateHolds/common/utils/readGateHolds.ts';
 import { removeGateHold } from '#src/gates/gateHolds/common/utils/removeGateHold.ts';

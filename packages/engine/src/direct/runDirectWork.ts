@@ -4,16 +4,19 @@ import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoordinationStop.ts';
 import { describeGateNoVerdictStop } from '#src/common/utils/describeGateNoVerdictStop.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { createDirectRun } from '#src/direct/common/utils/createDirectRun.ts';
 import { finishDirectRun } from '#src/direct/common/utils/finishDirectRun.ts';
 import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
 import { invokeDirectWorker } from '#src/direct/invokeDirectWorker.ts';
 import { verifyDirectWork } from '#src/direct/verifyDirectWork.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { withRunLock } from '#src/runState/index.ts';
-import { resolveStandards } from '#src/standards/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { withRunLock } from '#src/runState/lock/withRunLock.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {
 	/** The checkout to build in — a queue worktree, or the user's own tree when run standalone. */

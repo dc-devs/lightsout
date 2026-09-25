@@ -1,10 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { runPlanLint } from '#src/plan/runPlanLint.ts';
-import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';

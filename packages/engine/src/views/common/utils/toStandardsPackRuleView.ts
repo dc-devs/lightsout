@@ -1,4 +1,5 @@
-import type { StandardsPackBundle, StandardsPackRuleView } from '#src/contracts/index.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import type { StandardsPackRuleView } from '#src/contracts/views/StandardsPackRuleView.ts';
 import { StandardsPackRuleNotFoundError } from '#src/views/StandardsPackRuleNotFoundError.ts';
 
 interface Params {

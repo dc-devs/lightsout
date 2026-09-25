@@ -3,8 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPlanningProgressBlock.ts';
 import { loadActiveTicketBlock } from '#src/cli/common/queueBoard/loadActiveTicketBlock.ts';
-import { type PlanningProgress, PlanningStep, type QueueBoardTicket, QueueLane, RunStatus } from '#src/contracts/index.ts';
-import { QueueWorker } from '#src/queue/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, WorkOrderMode } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import { buildWorkOrderState } from '#src/workOrder/common/record/buildWorkOrderState.ts';
 
 const setupConfig = (): { config: LightsoutConfig } => ({

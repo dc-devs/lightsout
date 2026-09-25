@@ -1,4 +1,4 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import { continueDirectRun } from '#src/cli/common/implementRun/continueDirectRun.ts';
@@ -16,11 +16,17 @@ import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.t
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
-import { recordPlanCommandRun } from '#src/plan/index.ts';
-import { RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 /**
  * Pipelines that own their own resume door, and the whole instruction that

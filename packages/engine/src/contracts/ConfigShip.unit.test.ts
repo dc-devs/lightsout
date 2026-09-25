@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigShip } from '#src/contracts/index.ts';
+import { ConfigShip } from '#src/contracts/ConfigShip.ts';
 
 describe('ConfigShip', () => {
 	test('accepts the block a repo actually writes, keeping the file’s own kebab-case spelling', () => {

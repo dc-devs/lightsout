@@ -1,4 +1,4 @@
-import type { GapObservation } from '#src/contracts/index.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
 import { collapseText } from '#src/plan/common/memory/collapseText.ts';
 
 interface Params {

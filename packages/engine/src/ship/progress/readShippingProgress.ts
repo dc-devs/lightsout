@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { ShippingProgress } from '#src/contracts/index.ts';
+import { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
 import type { ShippingProgressReading } from '#src/ship/progress/common/types/ShippingProgressReading.ts';
 import { getShippingProgressPath } from '#src/ship/progress/common/utils/getShippingProgressPath.ts';
 

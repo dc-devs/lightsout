@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CoverageWorklist, PipelineKind, RefactorWorklist, type RunManifest } from '#src/contracts/index.ts';
-import { resolveRunDir } from '#src/runState/index.ts';
+import { CoverageWorklist } from '#src/contracts/coverage/CoverageWorklist.ts';
+import { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 import type { FrozenWorklist } from '#src/views/common/types/FrozenWorklist.ts';
 
 interface Params {

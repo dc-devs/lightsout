@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { repairPhaseBreakdown } from '#src/plan/draft/repairPhaseBreakdown.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';

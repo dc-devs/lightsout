@@ -1,17 +1,16 @@
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import {
-	GapArea,
-	type GapBatchVerdict,
-	GapCheckLens,
-	GapOutcome,
-	type GapVerdict,
-	type GradedGap,
-	type GradeFindingRecord,
-	GradeFindingStatus,
-	type GradeMemory,
-} from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import type { GapBatchVerdict } from '#src/contracts/plan/grade/GapBatchVerdict.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GapVerdict } from '#src/contracts/plan/grade/GapVerdict.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { judgeGaps } from '#src/plan/common/grading/judgeGaps.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 

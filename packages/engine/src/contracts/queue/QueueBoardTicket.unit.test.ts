@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueBoardTicket } from '#src/contracts/index.ts';
+import { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
 
 const setupTicket = ({ lane = 'build-queue' }: { lane?: string } = {}) => {
 	const ticket = {

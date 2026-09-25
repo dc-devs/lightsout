@@ -1,9 +1,13 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
-import { type AcceptanceTestRecord, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
 // Mocked Imports
@@ -29,14 +33,10 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<ReviewOutcome>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-	// The rest of the module is what the post-gate snapshot approval reaches
-	// for. It has its own test; here it must simply do nothing.
-	approveTestFiles: async () => [],
-	readApprovedTest: async () => undefined,
-	removeApprovedTests: async () => {},
-}));
+jest.mock('#src/pipeline/approvedTests/approveTestFiles.ts', () => ({ approveTestFiles: async () => [] }));
+jest.mock('#src/pipeline/approvedTests/readApprovedTest.ts', () => ({ readApprovedTest: async () => undefined }));
+jest.mock('#src/pipeline/approvedTests/removeApprovedTests.ts', () => ({ removeApprovedTests: async () => {} }));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 interface GateParams {
 	run: PipelineRun;

@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { fetchDefaultBranch } from '#src/worktree/index.ts';
+import { fetchDefaultBranch } from '#src/worktree/fetchDefaultBranch.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Git is real here rather than stubbed, as it is for every other reader of a

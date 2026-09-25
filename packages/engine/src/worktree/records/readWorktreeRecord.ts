@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { WorktreeRecord } from '#src/contracts/index.ts';
+import { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
 
 interface Params {

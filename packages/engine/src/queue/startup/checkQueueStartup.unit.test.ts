@@ -2,7 +2,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import { checkQueueStartup } from '#src/queue/startup/checkQueueStartup.ts';
-import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { shipSettingsFixture } from '#tests/helpers/shipSettingsFixture.ts';
@@ -15,7 +16,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // have to fire before the drain spends anything on git or a worktree.
 const mockListLabelNames = jest.fn<(params: { settings: TrackerSettings }) => Promise<string[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ listLabelNames: (params: { settings: TrackerSettings }) => mockListLabelNames(params) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({ listLabelNames: (params: { settings: TrackerSettings }) => mockListLabelNames(params) }));
 // -------------------------
 // Git is doubled at the one place the startup check reaches it, so the branch
 // and remote refusals below are arranged from outside rather than from a real

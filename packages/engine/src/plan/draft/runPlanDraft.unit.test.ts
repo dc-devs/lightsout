@@ -2,9 +2,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { type DecisionRow, Effort, Permissions, PlanDraftReport, PlanVariant } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { renderDecisionLog } from '#src/plan/decisionLog/index.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';

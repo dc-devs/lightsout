@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
 import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 

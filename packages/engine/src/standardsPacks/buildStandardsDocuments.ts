@@ -1,4 +1,4 @@
-import { StandardsSet } from '#src/contracts/index.ts';
+import { StandardsSet } from '@lightsout/standards-contracts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 

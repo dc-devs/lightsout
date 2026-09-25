@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupOtherKindInput } from '#src/index.ts';
+import { setupOtherKindInput } from '#src/setupOtherKindInput.ts';
 
 describe('setupOtherKindInput', () => {
 	test('is a real arm of the union, so a check narrows it away rather than crashing on it', () => {

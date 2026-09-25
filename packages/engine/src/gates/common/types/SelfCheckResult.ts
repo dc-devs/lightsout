@@ -1,4 +1,4 @@
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import type { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
 
 /** What one self-check ended with: why it ended, what it scheduled, and — for a run that reached the gates — what they found. */

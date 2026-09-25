@@ -1,8 +1,9 @@
 import { isAbsolute, resolve } from 'node:path';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { StandardsPackBundle } from '#src/contracts/index.ts';
-import { resolveAuthoredStandardsPack, resolveDefaultStandardsPack } from '#src/standardsPacks/index.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import { resolveAuthoredStandardsPack } from '#src/standardsPacks/resolveAuthoredStandardsPack.ts';
+import { resolveDefaultStandardsPack } from '#src/standardsPacks/resolveDefaultStandardsPack.ts';
 import { standardsPackBundleCache } from '#src/views/common/constants/standardsPackBundleCache.ts';
 
 /** One pack root to read, and whether it is the pack a run loads when the config names none. */

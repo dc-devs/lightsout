@@ -3,7 +3,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { createWorkOrder } from '#src/workOrder/index.ts';
+import { createWorkOrder } from '#src/workOrder/createWorkOrder.ts';
 
 /**
  * `lightsout work-order new` at the terminal.

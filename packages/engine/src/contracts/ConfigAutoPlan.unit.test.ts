@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigAutoPlan } from '#src/contracts/index.ts';
+import { ConfigAutoPlan } from '#src/contracts/ConfigAutoPlan.ts';
 
 describe('ConfigAutoPlan', () => {
 	test('accepts the block a repo actually writes, keeping the file’s own kebab-case spelling', () => {

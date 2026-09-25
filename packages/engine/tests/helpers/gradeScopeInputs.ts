@@ -1,13 +1,11 @@
-import {
-	GapArea,
-	GapOutcome,
-	type GradeDecisionLog,
-	type GradeFindingRecord,
-	type GradeFindingStatus,
-	type GradeInputs,
-	type GradeMemory,
-	GradeScope,
-} from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradeDecisionLog } from '#src/contracts/plan/memory/GradeDecisionLog.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import type { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { phaseBody } from '#tests/helpers/phasePlan.ts';
 
 /** The one timestamp every fixture is stamped with — nothing here is decided by time. */

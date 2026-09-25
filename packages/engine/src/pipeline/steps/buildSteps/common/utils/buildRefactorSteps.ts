@@ -1,13 +1,14 @@
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { formatStep } from '#src/pipeline/steps/formatStep.ts';
-import { refactorStep } from '#src/pipeline/steps/refactorStep/index.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import { refactorStep } from '#src/pipeline/steps/refactorStep/refactorStep.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 
 interface Params {
 	run: PipelineRun;

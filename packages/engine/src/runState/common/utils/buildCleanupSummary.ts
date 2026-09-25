@@ -1,4 +1,5 @@
-import { RefactorStepReport, type StepRecord } from '#src/contracts/index.ts';
+import { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 
 interface Params {

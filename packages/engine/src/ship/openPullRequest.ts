@@ -1,6 +1,9 @@
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import { createPullRequest, findPullRequest, PullRequestState, type PullRequestSummary } from '#src/ship/forge/index.ts';
+import { PullRequestState } from '#src/ship/forge/common/constants/PullRequestState.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
+import { createPullRequest } from '#src/ship/forge/createPullRequest.ts';
+import { findPullRequest } from '#src/ship/forge/findPullRequest.ts';
 import { renderPullRequestBody } from '#src/ship/renderPullRequestBody.ts';
 
 interface Params {
