@@ -1,49 +1,22 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { FrameworkFacts } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { collectFolderModules } from '#src/common/moduleGraph/collectFolderModules.ts';
 import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
-import type { FolderModule } from '#src/common/types/FolderModule.ts';
 import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
 
-// The rule's own definition of public, restated engine-side: a root-layer
-// `common/` file is a boundary outright, a file no ancestor module owns has
-// no boundary to be promoted through, and an ancestor barrel re-exporting
-// the file makes it public.
-const isOwnSubject = ({ file, modules }: { file: string; modules: Array<[string, FolderModule]> }) => {
-	const segments = file.split('/');
-
-	if (segments.some((segment, index) => segment === 'common' && segments[index - 1] === 'src')) {
-		return true;
-	}
-
-	const ancestors = modules.filter(([folder]) => file.startsWith(`${folder}/`));
-
-	return ancestors.length === 0 || ancestors.some(([, module]) => module.exportedTargets.has(file));
-};
+// The standards' own definition of private, restated engine-side: a file
+// inside an `internal/` folder belongs to that folder's parent, and every
+// other file is public — its own subject.
+const isOwnSubject = ({ file }: { file: string }) => !file.split('/').slice(0, -1).includes('internal');
 
 /**
  * One package's walk: its targets resolved against its own module map and
  * import graph. Subjects never cross packages, so every partition answers
  * independently.
  */
-const resolvePartition = async ({
-	cwd,
-	targets,
-	universe,
-	compiler,
-	frameworkFacts,
-}: {
-	cwd: string;
-	targets: string[];
-	universe: string[];
-	compiler: typeof ts;
-	frameworkFacts?: FrameworkFacts;
-}) => {
-	const modules = [...(await collectFolderModules({ cwd, files: universe, compiler, isFrameworkLoaded: frameworkFacts?.isFrameworkLoadedFile })).entries()];
+const resolvePartition = async ({ cwd, targets, universe, compiler }: { cwd: string; targets: string[]; universe: string[]; compiler: typeof ts }) => {
 	const importersOf = new Map<string, string[]>();
 
 	for (const { from, to } of await collectImportEdges({ cwd, files: universe, compiler })) {
@@ -66,14 +39,14 @@ const resolvePartition = async ({
 	const orphans: string[] = [];
 
 	for (const target of targets) {
-		if (isOwnSubject({ file: target, modules })) {
+		if (isOwnSubject({ file: target })) {
 			subjects.set(target, [target]);
 			continue;
 		}
 
 		// BFS over reverse edges: an own-subject, non-inert importer is a
 		// subject and stops its branch; every other importer (internal, or
-		// inert like a barrel) is passed through.
+		// inert like a package entry that only re-exports) is passed through.
 		const found = new Set<string>();
 		const visited = new Set<string>([target]);
 		const queue = [...(importersOf.get(target) ?? [])].sort();
@@ -87,7 +60,7 @@ const resolvePartition = async ({
 
 			visited.add(importer);
 
-			if (isOwnSubject({ file: importer, modules }) && !(await isProvablyInert({ file: importer }))) {
+			if (isOwnSubject({ file: importer }) && !(await isProvablyInert({ file: importer }))) {
 				found.add(importer);
 				continue;
 			}
@@ -115,24 +88,15 @@ interface Params {
 	packagesDir: string;
 	/** The consumer's TypeScript, or undefined — without one, every target is its own subject. */
 	compiler: typeof ts | undefined;
-	/**
-	 * The loaded standards pack's answer for this repo. Absent, no file is
-	 * framework-loaded and every index file reads as a barrel — today's behavior.
-	 */
-	frameworkFacts?: FrameworkFacts;
 }
 
 /**
  * The upward walk: each changed target file maps to the public files that
  * reach it — the subjects its tests must go through. A target that is its own
- * subject maps to itself; an internal target walks reverse import edges,
- * within its package, until it hits own-subject files; a target nothing
- * public reaches becomes an orphan. A repo that uses no barrels resolves
- * every file to itself — today's per-file behavior, with no config knob.
- *
- * A router root's `index.tsx` is a route rather than a barrel, so route files
- * resolve as their own subjects instead of being walked upward through a barrel
- * that was never there.
+ * subject maps to itself; a target inside an `internal/` folder walks reverse
+ * import edges, within its package, until it hits own-subject files; a target
+ * nothing public reaches becomes an orphan. A repo with no `internal/` folders
+ * resolves every file to itself — the per-file behavior, with no config knob.
  */
 export const resolveTestSubjects = async ({
 	cwd,
@@ -140,7 +104,6 @@ export const resolveTestSubjects = async ({
 	universe,
 	packagesDir,
 	compiler,
-	frameworkFacts,
 }: Params): Promise<{ subjects: Map<string, string[]>; orphans: string[] }> => {
 	if (!compiler) {
 		return { subjects: new Map(targets.map((target) => [target, [target]])), orphans: [] };
@@ -159,7 +122,7 @@ export const resolveTestSubjects = async ({
 		// Targets are unioned in: a freshly created file may not have been on
 		// disk when the universe was listed, and it must still anchor its edges.
 		const partitionUniverse = [...new Set([...(universeByPackage.get(partition) ?? []), ...partitionTargets])].sort();
-		const resolved = await resolvePartition({ cwd, targets: partitionTargets, universe: partitionUniverse, compiler, frameworkFacts });
+		const resolved = await resolvePartition({ cwd, targets: partitionTargets, universe: partitionUniverse, compiler });
 
 		for (const [target, found] of resolved.subjects) {
 			subjects.set(target, found);

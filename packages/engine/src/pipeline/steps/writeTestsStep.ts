@@ -13,7 +13,6 @@ import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { groupTestTargets } from '#src/pipeline/steps/groupTestTargets.ts';
 import { runWriterBatches } from '#src/pipeline/steps/runWriterBatches.ts';
 import { selectTestTargets } from '#src/pipeline/steps/selectTestTargets.ts';
-import { getPackFrameworkFacts } from '#src/standardsPacks/getPackFrameworkFacts.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -57,12 +56,11 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 		narrateSkippedFiles({ run, deleted, inert, uncoverable });
 
 		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
-		const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
-		const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
+		const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
 
 		if (orphans.length > 0) {
 			run.progress(
-				`write-tests: ${orphans.length} changed file(s) skipped — nothing public reaches them (no barrel exports a surface that imports them): ${orphans.join(', ')}`,
+				`write-tests: ${orphans.length} changed file(s) skipped — nothing public reaches them (they sit in an internal/ folder no public file imports): ${orphans.join(', ')}`,
 			);
 		}
 

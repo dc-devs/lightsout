@@ -9,7 +9,6 @@ export type {
 	CloneSpansInput,
 	FileListInput,
 	FileTextInput,
-	FrameworkFacts,
 	ImportGraphInput,
 	StandardsCheckFunction,
 	StandardsCheckInput,
@@ -20,7 +19,6 @@ export type {
 export {
 	RawStandardsFinding,
 	StandardsCheckModule,
-	StandardsFrameworksModule,
 	StandardsInputKind,
 	StandardsPackRoot,
 	StandardsSet,

@@ -20,7 +20,6 @@ import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { buildSteps } from '#src/pipeline/steps/buildSteps/buildSteps.ts';
 import { createRun } from '#src/runState/createRun.ts';
 import { withRunLock } from '#src/runState/lock/withRunLock.ts';
-import { getPackFrameworkFacts } from '#src/standardsPacks/getPackFrameworkFacts.ts';
 
 // The end-of-run look at the files write-tests skipped as unreachable: later
 // steps (refactor wiring) may have connected them to a public surface, so
@@ -38,14 +37,13 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
 	const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
 	const targets = recorded.filter((file) => universe.includes(file));
-	const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
-	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
+	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
 
 	await run.update({ patch: { unreachableChangedFiles: orphans } });
 
 	if (orphans.length > 0) {
 		run.progress(
-			`warning unreachable-changed-files: ${orphans.length} changed file(s) finished the run with no public surface reaching them: ${orphans.join(', ')} — wire them into a barrel-exported surface (or delete them) in follow-up work; no tests cover them.`,
+			`warning unreachable-changed-files: ${orphans.length} changed file(s) finished the run with no public surface reaching them: ${orphans.join(', ')} — they sit in an internal/ folder that no public file imports, so import them from one (or delete them) in follow-up work; no tests cover them.`,
 		);
 	}
 };
