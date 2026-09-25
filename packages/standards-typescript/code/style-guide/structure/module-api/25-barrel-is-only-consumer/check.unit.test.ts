@@ -50,7 +50,10 @@ describe('barrel-is-only-consumer check', () => {
 			contents: [
 				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
 				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
-				['src/reporting/buildReport.ts', "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();"],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
 			],
 		});
 

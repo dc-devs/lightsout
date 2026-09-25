@@ -4,6 +4,7 @@ import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrame
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
 import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
+import { collectPublishedFiles } from '../../../../../common/modules/collectPublishedFiles.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 import { getTestSubject } from '../../../../../common/paths/getTestSubject.ts';
 import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
@@ -35,34 +36,6 @@ const mapTargetsByFile = ({ edges }: { edges: Array<{ from: string; to: string }
 	}
 
 	return targets;
-};
-
-/**
- * Every file a barrel exports, directly or through the lower barrels it
- * re-exports from — the files code outside the module may import.
- */
-const collectPublishedFiles = ({ barrelPath, targetsByFile }: { barrelPath: string; targetsByFile: Map<string, Set<string>> }) => {
-	const published = new Set<string>();
-	const barrels = [barrelPath];
-	const seen = new Set<string>();
-
-	for (let barrel = barrels.pop(); barrel !== undefined; barrel = barrels.pop()) {
-		if (seen.has(barrel)) {
-			continue;
-		}
-
-		seen.add(barrel);
-
-		for (const target of targetsByFile.get(barrel) ?? []) {
-			published.add(target);
-
-			if (isBarrelFile({ path: target })) {
-				barrels.push(target);
-			}
-		}
-	}
-
-	return published;
 };
 
 /** The workspace package a file belongs to: the longest package directory holding it, `.` for the repo root. */

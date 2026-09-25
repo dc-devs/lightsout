@@ -28,6 +28,38 @@ describe('placement check', () => {
 		]);
 	});
 
+	test('an outside module importing a common file the module’s barrel publishes is using its public API, not leaking it', async () => {
+		const input = setupImportGraphInput({
+			edges: [
+				{ from: 'src/pay/index.ts', to: 'src/pay/pay.ts' },
+				{ from: 'src/pay/index.ts', to: 'src/pay/common/types/Payment.ts' },
+				{ from: 'src/pay/pay.ts', to: 'src/pay/common/types/Payment.ts' },
+				{ from: 'src/bill/bill.ts', to: 'src/pay/common/types/Payment.ts' },
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a common file published only by a nested module’s barrel is still internal to the module that owns the common/', async () => {
+		const input = setupImportGraphInput({
+			edges: [
+				{ from: 'src/pay/index.ts', to: 'src/pay/card/index.ts' },
+				{ from: 'src/pay/card/index.ts', to: 'src/pay/card/common/types/Card.ts' },
+				{ from: 'src/pay/card/charge.ts', to: 'src/pay/common/utils/round.ts' },
+				{ from: 'src/bill/bill.ts', to: 'src/pay/card/common/types/Card.ts' },
+				{ from: 'src/bill/bill.ts', to: 'src/pay/common/utils/round.ts' },
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// Card.ts is published by its owner src/pay/card; round.ts is published by nobody
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['placement:src/bill/bill.ts|src/pay/common/utils/round.ts']);
+	});
+
 	test('a module reaching only into its own common, beside a repo-level common everyone shares, earns no finding', async () => {
 		const input = setupImportGraphInput({
 			edges: [

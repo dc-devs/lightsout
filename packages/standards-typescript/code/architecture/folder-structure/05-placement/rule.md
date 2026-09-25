@@ -37,3 +37,5 @@ src/
 ```
 
 Reading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.
+
+A module's `index.ts` may publish a file from its own `common/` — a type its exported functions take, say. That file is then part of the module's public API, and code outside the module imports it from its own file like any other export; only an unpublished file under `common/` is internal.

@@ -4,6 +4,7 @@ import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrame
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
 import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
+import { findDeclaration } from '../../../../../common/modules/findDeclaration.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 import { readModuleLinks } from '../../../../../common/modules/readModuleLinks.ts';
 import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
@@ -39,42 +40,6 @@ const getPublishedNames = ({ links }: { links: ModuleLink[] }) =>
 		.flatMap((link) => link.names.map((name) => ({ name: name.as, from: name.from, target: link.target })));
 
 /**
- * The file that actually declares a published name, and the name that file
- * exports it under.
- *
- * A name is often published through a chain — `runState/index.ts` publishes
- * `acquireRunLock` from `runState/lock/index.ts`, which publishes it from
- * `runState/lock/acquireRunLock.ts` — so the file behind an entry is found by
- * following the name, hop by hop, until the target stops being a barrel. The
- * name can be renamed on the way (`export { a as b }`), which is why each hop
- * looks the next one up by the name the barrel published it AS and carries on
- * with the name the target knows it by.
- */
-const getDeclaration = ({
-	name,
-	target,
-	links,
-	seen,
-}: {
-	name: string;
-	target?: string;
-	links: Map<string, ModuleLink[]>;
-	seen: Set<string>;
-}): { file: string; name: string } | undefined => {
-	if (target === undefined || !isBarrelFile({ path: target }) || seen.has(target)) {
-		return target === undefined ? undefined : { file: target, name };
-	}
-
-	seen.add(target);
-
-	const next = (links.get(target) ?? []).filter((link) => link.reExport).find((link) => link.names.some((entry) => entry.as === name));
-
-	return next === undefined
-		? { file: target, name }
-		: getDeclaration({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
-};
-
-/**
  * Whether a barrel entry exists to satisfy the test standards rather than a
  * caller.
  *
@@ -105,7 +70,7 @@ const isTestedSubject = ({
 	moduleFolders: string[];
 	tests: string[];
 }) => {
-	const file = getDeclaration({ name, target, links, seen: new Set() })?.file;
+	const file = findDeclaration({ name, target, links })?.file;
 
 	if (file === undefined || isBarrelFile({ path: file })) {
 		return false;
@@ -215,7 +180,7 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 		.map(([folder, { barrelPath }]) => {
 			const entries = getPublishedNames({ links: links.get(barrelPath) ?? [] }).map((entry) => ({
 				...entry,
-				declaration: getDeclaration({ name: entry.from, target: entry.target, links, seen: new Set() }),
+				declaration: findDeclaration({ name: entry.from, target: entry.target, links }),
 			}));
 			const consumed = getConsumedEntries({ barrelPath, folder, entries, links });
 			const orphans = entries
