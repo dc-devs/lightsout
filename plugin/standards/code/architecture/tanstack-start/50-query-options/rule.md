@@ -8,8 +8,8 @@ severity: advisory
 
 Query-options factories live in the feature's `queries/` folder — the
 conventional [domain folder](../../folder-structure/55-ungrouped-domain-utils/rule.md)
-for a feature's query definitions (a grouping, not a module: no `index.ts`,
-per [a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)).
+for a feature's query definitions (a grouping, not a module, per
+[a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)).
 This pack's convention — consistency across TanStack repos is worth the noun —
 not a TanStack requirement.
 

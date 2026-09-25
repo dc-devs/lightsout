@@ -5,16 +5,13 @@ import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrame
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
 import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
-import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
 
 /**
- * Every index file, wherever it stands — a src root barrel holds no code any
- * more than an internal one does, so unlike barrel-star there is no root
- * exemption. A barrel under `common/` is spared the same way barrel-star
- * spares it: `barrel-under-common` objects to its existing at all. A file the
- * package's framework loads is spared before this is ever asked.
+ * Every index file, wherever it stands — a package's entry holds no code any
+ * more than a folder's does. A file the package's framework loads is spared
+ * before this is ever asked.
  */
-const isIndexFile = ({ path }: { path: string }) => /^index\.tsx?$/.test(getBaseName({ path })) && !getDirectory({ path }).split('/').includes('common');
+const isIndexFile = ({ path }: { path: string }) => /^index\.tsx?$/.test(getBaseName({ path }));
 
 /** The one statement kind a barrel may hold. `export *` passes here too — how a barrel re-exports is barrel-star's objection, not this rule's. */
 const isReExport = ({ statement, compiler }: { statement: ts.Statement; compiler: typeof ts }) =>
@@ -49,7 +46,7 @@ const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
 						rule: 'code-in-index-file',
 						files: [{ path }],
 						detail: `${offending.length} statement(s) other than re-export lines, the first at line ${line}`,
-						guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+						guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 					}),
 				);
 			}

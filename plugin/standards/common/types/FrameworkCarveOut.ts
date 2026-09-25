@@ -43,19 +43,4 @@ export interface FrameworkCarveOut {
 	kebabCase: boolean;
 	/** Route directory names whose segments are URL-mapped and therefore kebab-case by mandate. */
 	routerRoots: string[];
-	/**
-	 * Folder shapes the framework mandates as modules, written relative to the
-	 * package's `src/` with `*` standing for one segment.
-	 *
-	 * A module here is declared, not inferred. The barrel-omission test asks
-	 * whether a barrel hides anything, which reads a one-file folder as a
-	 * convenience rather than a boundary — true of a folder someone made up, and
-	 * false of one a framework genuinely requires.
-	 *
-	 * No framework in today's table fills this either, and for the same reason
-	 * `exemptFolderNames` is empty: a module shape a repo prefers — however
-	 * widely followed — is not a shape any framework's documents mandate. The
-	 * field stays so the question remains askable the day one does.
-	 */
-	moduleFolders: string[];
 }

@@ -56,6 +56,5 @@ export const getFrameworkCarveOuts = ({ dependencies }: Params): FrameworkCarveO
 				exemptFolderNames: [...new Set(signals.flatMap((signal) => signal.exemptFolderNames ?? []))],
 				kebabCase: signals.some((signal) => signal.kebabCase === true),
 				routerRoots: [...new Set(signals.flatMap((signal) => signal.routerRoots ?? []))],
-				moduleFolders: [...new Set(signals.flatMap((signal) => signal.moduleFolders ?? []))],
 			};
 		});

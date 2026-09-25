@@ -1,6 +1,6 @@
 ---
-summary: "module-internal shared code leaking out of its module's common/"
-checked: true
+summary: "shared code sitting in a `common/` above or below the lowest folder that holds everyone using it"
+checked: false
 severity: advisory
 ---
 
@@ -24,7 +24,7 @@ severity: advisory
 ```
 src/
 ├─ common/            # shared across ALL modules
-│  ├─ utils/          #   (formatDate.ts — no barrels under common/)
+│  ├─ utils/          #   (formatDate.ts)
 │  ├─ types/
 │  ├─ services/
 │  ├─ formatting/     # domain folder: 2+ related pure functions
@@ -32,10 +32,9 @@ src/
 │  ├─ common/         # shared within featureA only
 │  │  ├─ utils/
 │  │  ├─ types/
-│  ├─ featureA.ts
-│  └─ index.ts
+│  └─ featureA.ts
 ```
 
 Reading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.
 
-A module's `index.ts` may publish a file from its own `common/` — a type its exported functions take, say. That file is then part of the module's public API, and code outside the module imports it from its own file like any other export; only an unpublished file under `common/` is internal.
+A file in a folder's `common/` may still be what the folder offers others — a type its exported functions take, say. Code outside the folder imports that from its own file like any other export, and it stays where it is. What moves is a general helper the folder merely happened to hold first: once a second folder needs it for its own work, it belongs in the `common/` of the lowest folder containing both.
