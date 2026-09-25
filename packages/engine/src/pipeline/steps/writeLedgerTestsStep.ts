@@ -14,6 +14,7 @@ import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { committedLedgerConflicts } from '#src/pipeline/steps/ledger/committedLedgerConflicts.ts';
+import { groupLedgerRows } from '#src/pipeline/steps/ledger/groupLedgerRows.ts';
 import { missingLedgerNames } from '#src/pipeline/steps/ledger/missingLedgerNames.ts';
 import { seedAcceptanceTests } from '#src/pipeline/steps/ledger/seedAcceptanceTests.ts';
 
@@ -47,17 +48,6 @@ interface LedgerWriteOutcome {
 	reports: WorkReport[];
 	failure?: { status: RunStatus; error: string };
 }
-
-// First-appearance order, so the warm-up spawn owns the ledger's first file.
-const groupRows = ({ rows }: { rows: LedgerRow[] }) => {
-	const byFile = new Map<string, LedgerRow[]>();
-
-	for (const row of rows) {
-		byFile.set(row.testFile, [...(byFile.get(row.testFile) ?? []), row]);
-	}
-
-	return [...byFile].map(([testFile, fileRows]) => ({ testFile, rows: fileRows }));
-};
 
 const namesOf = ({ assignment }: { assignment: LedgerAssignment }) => assignment.rows.map((row) => row.testName);
 
@@ -205,7 +195,7 @@ export const writeLedgerTestsStep = ({
 
 		await run.setStep({ record });
 
-		const assignments = groupRows({ rows });
+		const assignments = groupLedgerRows({ rows });
 		const conflicts = await committedLedgerConflicts({
 			cwd: run.cwd,
 			assignments: assignments.map((assignment) => ({ testFile: assignment.testFile, testNames: namesOf({ assignment }) })),

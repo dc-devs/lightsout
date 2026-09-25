@@ -19,7 +19,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // refuses and the terminal it opens and closes, both observable with the drain
 // stubbed. What it prints once a drain has finished is stated in
 // `queueCommand.report.unit.test.ts`.
-type RunQueueParams = Parameters<typeof import('#src/queue/index.ts').runQueue>[0];
+type RunQueueParams = Parameters<typeof import('#src/queue/runQueue.ts').runQueue>[0];
 /** What each relay constructor was handed — enough of it to read the two settings objects the command threads in. */
 type RelayParams = { settings: QueueSettings; trackerSettings: TrackerSettings };
 

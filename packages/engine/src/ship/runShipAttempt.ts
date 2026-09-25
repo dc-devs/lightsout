@@ -10,6 +10,7 @@ import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
 import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
 import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
+import { recordShipStep } from '#src/ship/common/utils/recordShipStep.ts';
 import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 import { mergePullRequest } from '#src/ship/forge/mergePullRequest.ts';
 import { integrateDefaultBranch } from '#src/ship/integration/integrateDefaultBranch.ts';
@@ -83,31 +84,6 @@ const prepareCandidate = async ({ cwd, settings, integration, branch, defaultBra
 };
 
 /**
- * One step of the attempt, recorded as it starts and as it finishes — passed or
- * failed by the step's own answer. A step that stops the attempt is finished
- * failed before its stop is returned, and the steps after it stay untouched.
- */
-const recordStep = async <Answer>({
-	recorder,
-	step,
-	run,
-	passed,
-}: {
-	recorder: ShippingProgressRecorder;
-	step: ShippingStepId;
-	run: () => Promise<Answer>;
-	passed: (answer: Answer) => boolean;
-}) => {
-	recorder.startStep({ step });
-
-	const answer = await run();
-
-	recorder.finishStep({ step, passed: passed(answer) });
-
-	return answer;
-};
-
-/**
  * The configured merge of the green candidate: the shipped result, or the
  * refusal that ends the attempt — retryable only for a base the forge proved
  * stale.
@@ -134,7 +110,7 @@ const mergeCandidate = async ({
 	stop: ShipStopFields;
 	recorder: ShippingProgressRecorder;
 }) => {
-	const mergeCommit = await recordStep({
+	const mergeCommit = await recordShipStep({
 		recorder,
 		step: ShippingStepId.Merge,
 		run: async () => {
@@ -204,7 +180,7 @@ export const runShipAttempt = async ({
 	const ticketRef = ticket.ticket ?? branch;
 	const stop: ShipStopFields = { branch, ticketRef };
 
-	const candidate = await recordStep({
+	const candidate = await recordShipStep({
 		recorder,
 		step: ShippingStepId.Integrate,
 		run: () => prepareCandidate({ cwd, settings, integration, branch, defaultBranch, ticketRef, branchDiff, ciEvidence, stop, onProgress }),
@@ -215,7 +191,7 @@ export const runShipAttempt = async ({
 		return candidate;
 	}
 
-	const pushFailure = await recordStep({
+	const pushFailure = await recordShipStep({
 		recorder,
 		step: ShippingStepId.Push,
 		run: () => publishCandidate({ branch, cwd, candidate }),
@@ -228,7 +204,7 @@ export const runShipAttempt = async ({
 		return createBlockedAttempt({ stop, reason: ShipBlockReason.PushFailed, detail });
 	}
 
-	const pullRequest = await recordStep({
+	const pullRequest = await recordShipStep({
 		recorder,
 		step: ShippingStepId.PullRequest,
 		run: () => openPullRequest({ branch, cwd, settings, ticket, onProgress }),
@@ -241,7 +217,7 @@ export const runShipAttempt = async ({
 		return createBlockedAttempt({ stop, reason: ShipBlockReason.PullRequestUnavailable, detail });
 	}
 
-	const checkStop = await recordStep({
+	const checkStop = await recordShipStep({
 		recorder,
 		step: ShippingStepId.Checks,
 		run: () => readCheckStop({ prNumber: pullRequest.number, candidate, cwd, settings, stop, onProgress }),

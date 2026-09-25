@@ -27,7 +27,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // The drain spawns harnesses and talks to a tracker — the queue module's entry
 // point, covered by its own tests. What a report amounts to on screen is
 // observable with the drain stubbed.
-type RunQueueParams = Parameters<typeof import('#src/queue/index.ts').runQueue>[0];
+type RunQueueParams = Parameters<typeof import('#src/queue/runQueue.ts').runQueue>[0];
 const mockResolveQueueSettings = jest.fn<() => QueueSettings | QueueFailure>();
 const mockResolveTrackerSettings = jest.fn<() => TrackerSettings | TrackerFailure>();
 const mockRunQueue = jest.fn<(params: RunQueueParams) => Promise<QueueDrainReport | QueueFailure>>();
