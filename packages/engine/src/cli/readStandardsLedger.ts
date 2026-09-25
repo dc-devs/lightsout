@@ -1,6 +1,7 @@
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { listStandardsRules, type StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
+import { listStandardsRules } from '#src/standardsCheck/listStandardsRules.ts';
 
 interface Params {
 	cwd: string;

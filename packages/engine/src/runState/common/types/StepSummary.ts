@@ -1,4 +1,4 @@
-import type { RunStatus } from '#src/contracts/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /** One step's row in a run's report card: its outcome, timing, agent spend, and attributed files. */
 export interface StepSummary {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RelayAnswer } from '#src/contracts/index.ts';
+import { RelayAnswer } from '#src/contracts/queue/RelayAnswer.ts';
 
 describe('RelayAnswer', () => {
 	test('accepts the object a reader writes beside the question', () => {

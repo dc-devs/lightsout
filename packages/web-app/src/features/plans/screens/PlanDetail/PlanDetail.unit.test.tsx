@@ -4,7 +4,7 @@ import { PlanDocumentKind, PlanGrade, PlanStage } from '@lightsout/engine/contra
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { PlanDetail } from '#src/features/plans/index.ts';
+import { PlanDetail } from '#src/features/plans/screens/PlanDetail/PlanDetail.tsx';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 import { buildPlanWorkspaceView } from '#tests/helpers/buildPlanWorkspaceView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';

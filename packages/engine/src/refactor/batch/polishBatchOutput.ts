@@ -1,6 +1,8 @@
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
-import { BatchOutcome, type RefactorBatch, type StandardsFinding } from '#src/contracts/index.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
 import type { BatchTools } from '#src/refactor/batch/common/types/BatchTools.ts';

@@ -1,5 +1,8 @@
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
-import { ShipBlockReason, ShippingStepId, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
 import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
@@ -7,10 +10,11 @@ import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
 import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
 import { createBlockedAttempt } from '#src/ship/common/utils/createBlockedAttempt.ts';
-import { mergePullRequest, type PullRequestSummary } from '#src/ship/forge/index.ts';
-import { integrateDefaultBranch } from '#src/ship/integration/index.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
+import { mergePullRequest } from '#src/ship/forge/mergePullRequest.ts';
+import { integrateDefaultBranch } from '#src/ship/integration/integrateDefaultBranch.ts';
 import { openPullRequest } from '#src/ship/openPullRequest.ts';
-import type { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
+import type { ShippingProgressRecorder } from '#src/ship/progress/ShippingProgressRecorder.ts';
 import { publishCandidate } from '#src/ship/publishCandidate.ts';
 import { readCheckStop } from '#src/ship/readCheckStop.ts';
 

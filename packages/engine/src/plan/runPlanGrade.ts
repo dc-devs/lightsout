@@ -1,7 +1,11 @@
 import { basename, join } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import { type GradeInputs, type GradeMemory, type GradeReport, GradeScope, type StructuralFinding } from '#src/contracts/index.ts';
+import type { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gradeFileName } from '#src/plan/common/constants/gradeFileName.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
@@ -23,7 +27,7 @@ import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
-import { lintPlanStructure } from '#src/plan/lint/index.ts';
+import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 
 type RunPlanGradeResult =
 	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; grade: GradeReport; gradePath: string; reused?: boolean }

@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { CommandCatalogEntry } from '@lightsout/engine';
-import { commandsQueryOptions } from '#src/features/commands/index.ts';
+import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
 import { buildCommandCatalogEntry } from '#tests/helpers/buildCommandCatalogEntry.ts';
 
 // Mocked Imports

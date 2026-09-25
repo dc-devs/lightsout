@@ -1,4 +1,6 @@
-import { type GapObservation, type GradeFindingRecord, GradeFindingStatus } from '#src/contracts/index.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
 import { recordObservations } from '#src/plan/common/memory/recordObservations.ts';
 import { recordResolutions } from '#src/plan/common/memory/recordResolutions.ts';
 import { reopenRecord } from '#src/plan/common/memory/reopenRecord.ts';

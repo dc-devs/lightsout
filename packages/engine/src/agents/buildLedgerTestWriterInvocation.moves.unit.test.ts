@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildLedgerTestWriterInvocation } from '#src/agents/index.ts';
-import type { LedgerRow } from '#src/contracts/index.ts';
+import { buildLedgerTestWriterInvocation } from '#src/agents/buildLedgerTestWriterInvocation.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
 
 const setupMoves = () => {
 	const planContent = '# Plan: move the widget test\n\nPLAN-SENTINEL';

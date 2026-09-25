@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Tabs } from '#src/appUI/index.ts';
+import { Tabs } from '#src/appUI/Tabs.tsx';
 import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
 import { RunDetailTab } from '#src/features/runDetail/screens/RunDetail/common/constants/RunDetailTab.ts';
 import { ChangedFilesPanel } from '#src/features/runDetail/screens/RunDetail/components/ChangedFilesPanel.tsx';

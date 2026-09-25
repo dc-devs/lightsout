@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { ConfigGates } from '#src/contracts/index.ts';
+import { ConfigGates } from '#src/contracts/ConfigGates.ts';
 
 test('ConfigGates: a block carries every command through parsing, with test holding the fast red/green command', () => {
 	const gates = {

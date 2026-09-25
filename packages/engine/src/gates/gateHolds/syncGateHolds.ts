@@ -4,7 +4,9 @@ import { readGateHolds } from '#src/gates/gateHolds/common/utils/readGateHolds.t
 import { removeGateHold } from '#src/gates/gateHolds/common/utils/removeGateHold.ts';
 import { writeGateBlockedLabel } from '#src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts';
 import { writeGateHold } from '#src/gates/gateHolds/common/utils/writeGateHold.ts';
-import { getTicketsByIdentifiers, type TrackerSettings, type TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
 
 interface Params {
 	cwd: string;

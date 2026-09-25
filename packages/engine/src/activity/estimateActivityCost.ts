@@ -1,5 +1,6 @@
 import { gatherNodeProcesses } from '#src/activity/common/utils/gatherNodeProcesses.ts';
-import type { ActivityNode, ConfigPricing } from '#src/contracts/index.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 
 interface Params {
 	/** The level whose whole subtree is priced — its own harness process records and every descendant's. */

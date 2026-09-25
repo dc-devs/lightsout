@@ -1,7 +1,8 @@
 import { remoteWaitTimings } from '#src/ship/common/constants/remoteWaitTimings.ts';
 import { hasNoChecks } from '#src/ship/common/utils/hasNoChecks.ts';
 import { sleep } from '#src/ship/common/utils/sleep.ts';
-import { type ChecksSummary, readPullRequestChecks } from '#src/ship/forge/index.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import { readPullRequestChecks } from '#src/ship/forge/readPullRequestChecks.ts';
 
 interface Params {
 	prNumber: number;

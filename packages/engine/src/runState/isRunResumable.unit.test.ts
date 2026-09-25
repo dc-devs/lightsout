@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
-import { isRunResumable } from '#src/runState/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { isRunResumable } from '#src/runState/isRunResumable.ts';
 
 test('resumable is exactly the states a `resume --run` has work in', () => {
 	const dead = Object.values(RunStatus).filter((status) => isRunResumable({ status, live: false }));

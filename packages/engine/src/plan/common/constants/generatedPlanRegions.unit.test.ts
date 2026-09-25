@@ -3,12 +3,16 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { renderDecisionLog, writeDecisionLogSection } from '#src/plan/decisionLog/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { writeDecisionLogSection } from '#src/plan/decisionLog/writeDecisionLogSection.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { syncGlobalConstraints, syncPhaseSections } from '#src/plan/sections/index.ts';
+import { syncGlobalConstraints } from '#src/plan/sections/syncGlobalConstraints.ts';
+import { syncPhaseSections } from '#src/plan/sections/syncPhaseSections.ts';
 
 // The list names the `##` sections the engine composes rather than an author
 // writing, and it is read by the section writers, the structural lint and the

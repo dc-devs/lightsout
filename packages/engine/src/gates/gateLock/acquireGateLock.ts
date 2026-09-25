@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { GateLock } from '#src/contracts/index.ts';
+import type { GateLock } from '#src/contracts/gates/GateLock.ts';
 import { gateLockTimings } from '#src/gates/gateLock/common/constants/gateLockTimings.ts';
 import { describeGateLockHolder } from '#src/gates/gateLock/common/utils/describeGateLockHolder.ts';
 import { isGateLockReclaimable } from '#src/gates/gateLock/common/utils/isGateLockReclaimable.ts';

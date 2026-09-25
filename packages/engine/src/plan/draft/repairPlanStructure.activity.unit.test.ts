@@ -1,6 +1,12 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type ActivityLevel, buildActivityTree, createActivityRecorder, readActivityMarks } from '#src/activity/index.ts';
-import { ActivityLevelKind, type ActivityNode, type DecisionsRecord, RunStatus } from '#src/contracts/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { createActivityRecorder } from '#src/activity/createActivityRecorder.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { dirtyPlanBody } from '#tests/helpers/dirtyPlanBody.ts';

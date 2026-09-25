@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * Every standards pack the served repo loads, as the packs page lists them.

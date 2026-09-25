@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { listRunIds } from '#src/runState/index.ts';
+import { listRunIds } from '#src/runState/listRunIds.ts';
 
 /**
  * A repository whose state directory holds exactly the folders and files a case

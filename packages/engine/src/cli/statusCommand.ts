@@ -11,8 +11,14 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
-import { PipelineKind, RunStatus } from '#src/contracts/index.ts';
-import { isRunLive, listRunIds, RunNotFoundError, readRunManifest, readRunProcessLock, resolveRunId } from '#src/runState/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
+import { isRunLive } from '#src/runState/isRunLive.ts';
+import { listRunIds } from '#src/runState/listRunIds.ts';
+import { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 
 /**
  * Every run this repo has state for, one line each — what `lightsout status`

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import type { StandardsTrendPoint } from '@lightsout/engine';
-import { buildTrendSeries } from '#src/features/standards/index.ts';
+import { buildTrendSeries } from '#src/features/standards/common/utils/buildTrendSeries.ts';
 
 const point = ({ at, total, blocking }: { at: string; total: number; blocking: number }): StandardsTrendPoint => ({
 	at,

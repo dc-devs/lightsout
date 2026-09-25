@@ -1,14 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { brainstormAttachmentFileNames, brainstormAttachmentManifestName, publishBrainstorm } from '#src/brainstorm/index.ts';
+import { brainstormAttachmentFileNames } from '#src/brainstorm/common/constants/brainstormAttachmentFileNames.ts';
+import { brainstormAttachmentManifestName } from '#src/brainstorm/common/constants/brainstormAttachmentManifestName.ts';
+import { publishBrainstorm } from '#src/brainstorm/publish/publishBrainstorm.ts';
 import { attachmentTitle } from '#src/common/attachmentManifest/attachmentTitle.ts';
 import { parseAttachmentManifest } from '#src/common/attachmentManifest/parseAttachmentManifest.ts';
 import { scopeAttachments } from '#src/common/attachmentManifest/scopeAttachments.ts';
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { pathExists, planWorkspaceDir } from '#src/plan/index.ts';
-import { getTicketAttachments, readTicketAsset } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
 
 interface Params {

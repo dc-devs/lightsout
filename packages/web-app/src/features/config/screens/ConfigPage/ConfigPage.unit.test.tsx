@@ -4,7 +4,7 @@ import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { ConfigPage } from '#src/features/config/index.ts';
+import { ConfigPage } from '#src/features/config/screens/ConfigPage/ConfigPage.tsx';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

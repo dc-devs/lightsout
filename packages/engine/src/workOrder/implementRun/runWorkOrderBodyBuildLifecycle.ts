@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { PlanProgress, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { WorkOrderPlanOutcome } from '#src/workOrder/common/types/WorkOrderPlanOutcome.ts';
 import { isPlanlessWorkOrder } from '#src/workOrder/isPlanlessWorkOrder.ts';
 import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';

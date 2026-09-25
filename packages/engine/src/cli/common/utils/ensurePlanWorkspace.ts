@@ -1,11 +1,15 @@
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { pathExists, planNameFromPath, planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
-import { pullWorkOrderState, restoreWorkOrderPlan } from '#src/workOrder/index.ts';
-import { resolveWorktreePath } from '#src/worktree/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
+import { restoreWorkOrderPlan } from '#src/workOrder/restoreWorkOrderPlan.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	cwd: string;

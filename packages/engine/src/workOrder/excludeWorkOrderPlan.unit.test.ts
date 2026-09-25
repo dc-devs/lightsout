@@ -2,17 +2,17 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import {
-	type LightsoutConfig,
-	PlanProgress,
-	type RunLock,
-	WorkOrderEventKind,
-	WorkOrderMode,
-	type WorkOrderPlan,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import { excludeWorkOrderPlan, setWorkOrderMode, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
+import { setWorkOrderMode } from '#src/workOrder/setWorkOrderMode.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 
 // Mocked Imports
 // -------------------------

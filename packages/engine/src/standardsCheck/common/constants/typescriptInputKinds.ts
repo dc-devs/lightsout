@@ -1,4 +1,4 @@
-import { StandardsInputKind } from '#src/contracts/index.ts';
+import { StandardsInputKind } from '@lightsout/standards-contracts';
 
 /**
  * The input kinds the engine cannot build without a TypeScript compiler. The

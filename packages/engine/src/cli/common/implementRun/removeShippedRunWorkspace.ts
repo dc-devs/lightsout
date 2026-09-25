@@ -1,6 +1,9 @@
 import { readGitPrimaryCheckout } from '#src/common/git/readGitPrimaryCheckout.ts';
-import { type RunManifest, WorktreeOwner } from '#src/contracts/index.ts';
-import { deleteWorktreeRecord, readWorktreeRecord, removeWorktree } from '#src/worktree/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { deleteWorktreeRecord } from '#src/worktree/records/deleteWorktreeRecord.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { removeWorktree } from '#src/worktree/removeWorktree.ts';
 
 interface Params {
 	/** The checkout the ship just ran in — the run's workspace when it was isolated. */

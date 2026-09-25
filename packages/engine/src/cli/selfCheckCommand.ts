@@ -7,9 +7,11 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { PipelineKind } from '#src/contracts/index.ts';
-import { runSelfCheck, SelfCheckReason, type SelfCheckResult } from '#src/gates/index.ts';
-import { readRunManifest } from '#src/runState/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
+import type { SelfCheckResult } from '#src/gates/common/types/SelfCheckResult.ts';
+import { runSelfCheck } from '#src/gates/runSelfCheck.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 
 /** What this step's self-check mirrors: the checkpoint it precedes, whether coverage can answer truthfully, and what it is scoped to. */
 interface StepSelfCheck {

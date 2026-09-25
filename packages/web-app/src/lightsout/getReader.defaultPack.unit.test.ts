@@ -5,7 +5,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { getReader, type LightsoutReader } from '#src/lightsout/index.ts';
+import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /** What the shared test setup pointed the default pack at, so an arrangement that moves it can put it back. */
 const defaultStandardsPath = process.env.LIGHTSOUT_DEFAULT_STANDARDS;

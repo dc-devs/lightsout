@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RunCommit } from '#src/contracts/index.ts';
+import { RunCommit } from '#src/contracts/run/RunCommit.ts';
 
 /** One commit a run left behind: the sha git answered, the subject it was made under, and the run that made it. */
 const setupEntry = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

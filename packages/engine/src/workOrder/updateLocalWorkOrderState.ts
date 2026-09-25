@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import { readWorkOrderStateFile } from '#src/workOrder/common/utils/readWorkOrderStateFile.ts';
 import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';

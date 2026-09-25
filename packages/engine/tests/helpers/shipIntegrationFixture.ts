@@ -1,4 +1,4 @@
-import type { ShipIntegration } from '#src/ship/index.ts';
+import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
 /**

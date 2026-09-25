@@ -3,8 +3,13 @@ import { loadActiveTicketBlock } from '#src/cli/common/queueBoard/loadActiveTick
 import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
 import { renderTicketDetailBlock } from '#src/cli/common/queueBoard/renderTicketDetailBlock.ts';
 import { resolveQueueRun } from '#src/cli/common/queueBoard/resolveQueueRun.ts';
-import { PipelineKind, type QueueBoardTicket, QueueLane, type RunListing, RunStatus } from '#src/contracts/index.ts';
-import { getQueueBoardPath, readQueueBoard } from '#src/queue/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { readQueueBoard } from '#src/queue/board/readQueueBoard.ts';
 
 /** Live while a going manifest has a live process behind it, stopped when it has none, finished otherwise. */
 const toBoardState = ({ listing }: { listing: RunListing }) => {

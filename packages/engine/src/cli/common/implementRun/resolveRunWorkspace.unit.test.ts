@@ -3,7 +3,10 @@ import { join, resolve } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { contradictoryWorktreeFlagsMessage } from '#src/cli/common/constants/contradictoryWorktreeFlagsMessage.ts';
 import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWorkspace.ts';
-import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 

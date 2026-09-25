@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { syncPhaseSections } from '#src/plan/sections/index.ts';
+import { syncPhaseSections } from '#src/plan/sections/syncPhaseSections.ts';
 import { declaredRecord } from '#tests/helpers/declaredRecord.ts';
 
 // The overview's `## Phases` table and its `## Phase Declarations` blocks state

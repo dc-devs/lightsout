@@ -1,7 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
-import type { LightsoutConfig, WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { chooseAutoPlanTarget } from '#src/queue/workers/chooseAutoPlanTarget.ts';
 

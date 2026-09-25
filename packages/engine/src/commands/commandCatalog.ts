@@ -20,7 +20,7 @@ import { voiceCatalogEntry } from '#src/commands/common/constants/housekeeping/v
 import { standardsCheckCatalogEntry } from '#src/commands/common/constants/standards/standardsCheckCatalogEntry.ts';
 import { standardsHealthCatalogEntry } from '#src/commands/common/constants/standards/standardsHealthCatalogEntry.ts';
 import { standardsValidateCatalogEntry } from '#src/commands/common/constants/standards/standardsValidateCatalogEntry.ts';
-import type { CommandCatalogEntry } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
 
 /**
  * Every command lightsout offers, stated once.

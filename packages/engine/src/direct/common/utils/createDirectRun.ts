@@ -2,8 +2,11 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest } from '#src/contracts/index.ts';
-import { createRun, resolveNewRunDir } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
+import { createRun } from '#src/runState/createRun.ts';
 
 interface Params {
 	cwd: string;

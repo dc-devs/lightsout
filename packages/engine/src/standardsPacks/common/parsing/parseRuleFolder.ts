@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import type { StandardsCheckModule, StandardsSet } from '@lightsout/standards-contracts';
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { StandardsCheckModule, StandardsSet } from '#src/contracts/index.ts';
-import { StandardsSeverity } from '#src/contracts/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { parseDeclaration } from '#src/standardsPacks/common/parsing/parseDeclaration.ts';
 import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';

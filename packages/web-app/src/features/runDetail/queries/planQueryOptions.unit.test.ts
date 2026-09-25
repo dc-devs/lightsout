@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanDocument } from '@lightsout/engine';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { planQueryOptions } from '#src/features/runDetail/index.ts';
+import { planQueryOptions } from '#src/features/runDetail/queries/planQueryOptions.ts';
 
 // Mocked Imports
 // -------------------------

@@ -1,4 +1,7 @@
-import { GapOutcome, type GradedGap, GradeFindingStatus, type GradeMemory } from '#src/contracts/index.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import { recordObservations } from '#src/plan/common/memory/recordObservations.ts';
 
 interface Params {

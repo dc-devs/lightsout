@@ -1,5 +1,6 @@
 import { BookOpen } from 'lucide-react';
-import { Markdown, PageHeader } from '#src/appUI/index.ts';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
+import { Markdown } from '#src/appUI/Markdown.tsx';
 import { docPages } from '#src/features/docs/common/constants/docPages.ts';
 import { DocToc } from '#src/features/docs/screens/DocPage/components/DocToc.tsx';
 

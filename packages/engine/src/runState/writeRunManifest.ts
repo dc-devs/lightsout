@@ -1,5 +1,5 @@
 import { rename, writeFile } from 'node:fs/promises';
-import type { RunManifest } from '#src/contracts/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { getRunManifestPath } from '#src/runState/common/paths/getRunManifestPath.ts';
 
 interface Params {

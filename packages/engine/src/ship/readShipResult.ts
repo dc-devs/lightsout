@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { ShipResult } from '#src/contracts/index.ts';
+import { ShipResult } from '#src/contracts/ship/ShipResult.ts';
 import { getShipResultPath } from '#src/ship/common/utils/getShipResultPath.ts';
 
 interface Params {

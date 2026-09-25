@@ -5,7 +5,7 @@ import type { LaneContext } from '#src/queue/drainLanes/common/types/LaneContext
 import type { LaneFlight } from '#src/queue/drainLanes/common/types/LaneFlight.ts';
 import type { LaneState } from '#src/queue/drainLanes/common/types/LaneState.ts';
 import { trackTask } from '#src/queue/drainLanes/common/utils/trackTask.ts';
-import { resolveWorktreePath } from '#src/worktree/index.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	context: LaneContext;

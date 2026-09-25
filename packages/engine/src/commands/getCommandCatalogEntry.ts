@@ -1,5 +1,5 @@
 import { commandCatalog } from '#src/commands/commandCatalog.ts';
-import type { CommandCatalogEntry } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
 
 interface Params {
 	/** The word after `lightsout`, or the `$command` route param. */

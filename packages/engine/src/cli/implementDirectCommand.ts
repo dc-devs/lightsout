@@ -16,11 +16,11 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/requireImplementLifecycle.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 /**
  * The run itself, and whatever the ticket record owes about it.

@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { Permissions } from '#src/contracts/index.ts';
-import { buildPiArgs } from '#src/drivers/index.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { buildPiArgs } from '#src/drivers/buildPiArgs.ts';
 
 test('buildPiArgs: the base argv is print mode, the json event stream, and no session — nothing else is forced', () => {
 	expect(buildPiArgs({ variant: 'pi' })).toStrictEqual(['-p', '--mode', 'json', '--no-session']);

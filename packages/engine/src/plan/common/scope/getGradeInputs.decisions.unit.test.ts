@@ -1,7 +1,9 @@
 import { rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type GradeInputs } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 import { getGradeInputs } from '#src/plan/common/scope/getGradeInputs.ts';
 import { getPlanDesignHash } from '#src/plan/common/scope/getPlanDesignHash.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';

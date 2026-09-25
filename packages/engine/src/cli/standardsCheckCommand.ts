@@ -9,8 +9,10 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
+import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
 
 /** Progress lines sit under their section heading, indented and dim. */
 const printProgress = (message: string) => console.log(dim(`  ${message}`));

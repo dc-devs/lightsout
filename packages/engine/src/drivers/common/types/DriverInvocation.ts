@@ -1,4 +1,6 @@
-import type { Effort, HarnessProcessUsage, Permissions } from '#src/contracts/index.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
 import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
 
 export interface DriverInvocation {

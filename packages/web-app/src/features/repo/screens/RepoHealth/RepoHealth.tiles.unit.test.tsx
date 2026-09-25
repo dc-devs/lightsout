@@ -4,7 +4,7 @@ import { PlanStage, RunStatus } from '@lightsout/engine/contracts';
 import { screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RepoHealth } from '#src/features/repo/index.ts';
+import { RepoHealth } from '#src/features/repo/screens/RepoHealth/RepoHealth.tsx';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildFrictionRecord } from '#tests/helpers/buildFrictionRecord.ts';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';

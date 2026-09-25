@@ -1,4 +1,4 @@
-import type { ShipMergeMethod } from '#src/contracts/index.ts';
+import type { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
 
 /**
  * The `ship` config block with every default already applied.

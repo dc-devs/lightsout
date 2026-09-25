@@ -1,12 +1,10 @@
 import { totalActivityNode } from '#src/activity/common/utils/totalActivityNode.ts';
-import {
-	type ActivityLevelKind,
-	type ActivityMark,
-	ActivityMarkKind,
-	type ActivityNode,
-	type HarnessProcessMark,
-	type RunStatus,
-} from '#src/contracts/index.ts';
+import type { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
+import { ActivityMarkKind } from '#src/contracts/activity/ActivityMarkKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 interface Params {
 	marks: ActivityMark[];

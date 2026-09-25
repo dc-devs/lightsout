@@ -1,4 +1,4 @@
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
 /**
  * What a cross-phase pass returns: its findings, and the per-file findings it

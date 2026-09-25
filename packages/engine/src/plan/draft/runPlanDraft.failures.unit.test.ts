@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runPlanDraft } from '#src/plan/draft/runPlanDraft.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
 import { dirtyPlanBody } from '#tests/helpers/dirtyPlanBody.ts';

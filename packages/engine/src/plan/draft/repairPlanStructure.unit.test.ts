@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type DecisionsRecord, FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';

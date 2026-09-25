@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { FrictionPage, frictionQueryOptions } from '#src/features/friction/index.ts';
-import { runsQueryOptions } from '#src/features/runs/index.ts';
+import { frictionQueryOptions } from '#src/features/friction/queries/frictionQueryOptions.ts';
+import { FrictionPage } from '#src/features/friction/screens/FrictionPage.tsx';
+import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 
 export const Route = createFileRoute('/repo/friction')({
 	// Both warmed here: the page suspends on the log, and the runs are what put a

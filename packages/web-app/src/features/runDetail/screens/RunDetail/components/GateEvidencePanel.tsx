@@ -1,7 +1,8 @@
 import type { GateEvidence, RunView } from '@lightsout/engine';
 import { formatDuration } from '@lightsout/shared';
 import { useState } from 'react';
-import { Button, Card } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 
 /** A command that ran and came back non-zero — the only rows worth reading first. */

@@ -1,4 +1,4 @@
-import type { ShippingProgress } from '#src/contracts/index.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
 
 /**
  * What reading a branch's shipping record found. A missing record and an

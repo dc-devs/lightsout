@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { formatTokenCount } from '#src/index.ts';
+import { formatTokenCount } from '#src/formatting/formatTokenCount.ts';
 
 test('formatTokenCount: raw under 1k, one-decimal k under 1M, one-decimal M above', () => {
 	expect(formatTokenCount({ count: 500 })).toBe('500');

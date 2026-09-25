@@ -1,7 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { parsePlan } from '#src/plan/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkRenames } from '#src/plan/lint/checkRenames.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
 import { type PhaseSpec, phaseBody } from '#tests/helpers/phasePlan.ts';
 
 /** The phase file every case labels its findings with. */

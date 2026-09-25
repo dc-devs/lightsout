@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { StandardsPackNotFoundError, type StandardsPackView } from '@lightsout/engine';
-import { packQueryOptions } from '#src/features/packs/index.ts';
+import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
 import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts';
 
 // Mocked Imports

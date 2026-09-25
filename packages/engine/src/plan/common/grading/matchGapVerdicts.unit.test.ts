@@ -1,8 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, type GapBatchVerdict, GapCheckLens, type GapGroupVerdict, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import type { GapBatchVerdict } from '#src/contracts/plan/grade/GapBatchVerdict.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GapGroupVerdict } from '#src/contracts/plan/grade/GapGroupVerdict.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { matchGapVerdicts } from '#src/plan/common/grading/matchGapVerdicts.ts';
 import type { GapBatch } from '#src/plan/common/types/GapBatch.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';

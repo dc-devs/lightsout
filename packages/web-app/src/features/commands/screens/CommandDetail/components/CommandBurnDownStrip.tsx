@@ -1,8 +1,9 @@
 import type { RunView } from '@lightsout/engine';
 import { useQueries } from '@tanstack/react-query';
-import { Card, MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
-import { runQueryOptions } from '#src/features/runDetail/index.ts';
+import { runQueryOptions } from '#src/features/runDetail/queries/runQueryOptions.ts';
 
 /** What a refactor run burned down: sites before and after, and how each batch ended. */
 const refactorLine = ({ view }: { view: RunView }) => {

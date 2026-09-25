@@ -1,4 +1,4 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
 import type { ShipRequestTerms } from '#src/ship/common/types/ShipRequestTerms.ts';
 import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';

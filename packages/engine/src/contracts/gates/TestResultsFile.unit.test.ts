@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { TestResultsFile } from '#src/contracts/index.ts';
+import { TestResultsFile } from '#src/contracts/gates/TestResultsFile.ts';
 
 const setupResultsFile = ({
 	assertion = {},

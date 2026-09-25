@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Markdown, Skeleton } from '#src/appUI/index.ts';
-import { planQueryOptions } from '#src/features/runDetail/index.ts';
+import { Markdown } from '#src/appUI/Markdown.tsx';
+import { Skeleton } from '#src/appUI/Skeleton.tsx';
+import { planQueryOptions } from '#src/features/runDetail/queries/planQueryOptions.ts';
 
 interface Props {
 	/** Repo-relative path of a markdown file inside the workspace. */

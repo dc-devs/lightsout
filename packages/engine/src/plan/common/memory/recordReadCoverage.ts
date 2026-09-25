@@ -1,4 +1,7 @@
-import type { GapCheckLens, GradeDocsCoverage, GradeMemory, GradeReadCoverage } from '#src/contracts/index.ts';
+import type { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 
 interface Params {
 	/** The reader entries that still stand — `getStandingCoverage`'s `readers`. */

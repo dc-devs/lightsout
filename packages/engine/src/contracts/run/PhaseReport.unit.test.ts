@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { PhaseReport } from '#src/contracts/index.ts';
+import { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
 
 const setupReport = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const report: Record<string, unknown> = {

@@ -1,9 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { StandardsPackRoot, StandardsSet } from '@lightsout/standards-contracts';
 import { standardsPackFrameworksFile } from '#src/common/constants/standardsPackFrameworksFile.ts';
 import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { StandardsPackRoot, StandardsSet } from '#src/contracts/index.ts';
 import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';

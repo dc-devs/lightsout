@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { renderWorkflowSpec } from '#src/commands/index.ts';
+import { renderWorkflowSpec } from '#src/commands/renderWorkflowSpec.ts';
 
 describe('renderWorkflowSpec', () => {
 	test('carries the graphic’s own header, the brand gradient and the default artifact label', () => {

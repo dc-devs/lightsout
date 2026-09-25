@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { z } from 'zod';
-import type { PlanWorkspaceFile } from '#src/contracts/index.ts';
+import type { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
 
 /** JSON text against its contract, with every way it can fail said in one line rather than thrown. */
 const parseRecord = <Shape>({ name, raw, schema }: { name: string; raw: string; schema: z.ZodType<Shape> }) => {

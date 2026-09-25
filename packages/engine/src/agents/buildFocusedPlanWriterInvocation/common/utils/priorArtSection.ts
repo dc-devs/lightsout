@@ -1,4 +1,4 @@
-import type { ExportCollision } from '#src/plan/index.ts';
+import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
 
 interface Params {
 	/** The census results for the symbols this spawn will create; empty means the census found nothing. */

@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import { resolveWorktreesRoot } from '#src/worktree/index.ts';
+import { resolveWorktreesRoot } from '#src/worktree/resolveWorktreesRoot.ts';
 
 interface Params {
 	/** Where the document is written. */

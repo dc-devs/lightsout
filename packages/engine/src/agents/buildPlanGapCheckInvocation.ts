@@ -2,7 +2,8 @@ import planGapCheckPrompt from '#src/agents/prompts/planGapCheck.md';
 import planGapCheckDecisionsPrompt from '#src/agents/prompts/planGapCheckDecisions.md';
 import planGapCheckSurfacePrompt from '#src/agents/prompts/planGapCheckSurface.md';
 import planGapCheckWiringPrompt from '#src/agents/prompts/planGapCheckWiring.md';
-import { GapCheckLens, type GradeFindingRecord } from '#src/contracts/index.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
 
 interface Params {
 	/** The plan text to check for decision-level gaps. */

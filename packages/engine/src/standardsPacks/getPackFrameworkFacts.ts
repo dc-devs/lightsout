@@ -1,5 +1,6 @@
+import type { FrameworkFacts } from '@lightsout/standards-contracts';
 import { readPackageDependencies } from '#src/common/workspace/readPackageDependencies.ts';
-import type { FrameworkFacts, LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { importFrameworksModule } from '#src/standardsPacks/common/utils/importFrameworksModule.ts';
 import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 

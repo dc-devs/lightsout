@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from '@jest/globals';
-import type { HarnessProcessUsage } from '#src/contracts/index.ts';
-import { createClaudeCodeDriver } from '#src/drivers/index.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import { createClaudeCodeDriver } from '#src/drivers/createClaudeCodeDriver.ts';
 import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
 // How the driver reads a stream: the verdict it reaches, the events it relays,

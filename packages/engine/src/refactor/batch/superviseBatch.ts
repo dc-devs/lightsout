@@ -3,13 +3,15 @@ import { join } from 'node:path';
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
-import { type AgentUsage, type LightsoutConfig, SupervisorDecision } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import type { SettleOutcome } from '#src/refactor/batch/common/types/SettleOutcome.ts';
-import { resolveRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 interface Params {
 	cwd: string;

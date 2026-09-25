@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { GateHold } from '#src/contracts/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
 import { getGateHoldPaths } from '#src/gates/gateHolds/common/utils/getGateHoldPaths.ts';
 
 interface Params {

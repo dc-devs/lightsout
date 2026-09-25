@@ -1,4 +1,4 @@
-import type { DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 
 interface Params {
 	/** Kebab plan name the record names as its own; defaults to the plan the shared fixture bodies are named after. */

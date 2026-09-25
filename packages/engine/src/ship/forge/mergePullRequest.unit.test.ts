@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import { mergePullRequest } from '#src/ship/forge/index.ts';
+import { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import { mergePullRequest } from '#src/ship/forge/mergePullRequest.ts';
 import { runGh } from '#src/ship/forge/runGh.ts';
 
 // The forge command is mocked rather than stubbed onto PATH: confirming a merge

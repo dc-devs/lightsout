@@ -1,5 +1,5 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
 
 interface Params {

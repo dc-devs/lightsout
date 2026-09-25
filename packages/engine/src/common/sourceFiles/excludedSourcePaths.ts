@@ -1,4 +1,4 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	/** The consumer's config, or nothing when a caller could not read one. */

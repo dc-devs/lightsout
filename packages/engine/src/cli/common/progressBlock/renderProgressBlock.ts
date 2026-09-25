@@ -2,8 +2,8 @@ import { statusIcons } from '#src/cli/common/constants/statusIcons.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
 import { formatClockDuration } from '#src/cli/common/utils/formatClockDuration.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import type { RunProgressRow } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
 
 /** One step row as the block draws it: which step, how it ended, how often it ran, and for how long. */
 type BlockRow = Pick<RunProgressRow, 'id' | 'status' | 'attempts' | 'durationMs'>;

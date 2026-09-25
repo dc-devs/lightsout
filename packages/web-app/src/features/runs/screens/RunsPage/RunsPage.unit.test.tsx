@@ -4,7 +4,7 @@ import { PipelineKind, RunStatus } from '@lightsout/engine/contracts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RunsPage } from '#src/features/runs/index.ts';
+import { RunsPage } from '#src/features/runs/screens/RunsPage/RunsPage.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

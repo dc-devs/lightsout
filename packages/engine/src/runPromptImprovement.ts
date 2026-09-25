@@ -1,11 +1,15 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildPromptImproverInvocation } from '#src/agents/index.ts';
+import { buildPromptImproverInvocation } from '#src/agents/buildPromptImproverInvocation.ts';
 import { PromptImprovementStatus } from '#src/common/constants/PromptImprovementStatus.ts';
-import { type Effort, type FrictionRecord, Permissions, WorkReport } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
-import { readFriction } from '#src/runState/index.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
+import { readFriction } from '#src/runState/readFriction.ts';
 
 const promptsDir = 'src/agents/prompts';
 

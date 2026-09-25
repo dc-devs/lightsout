@@ -1,4 +1,6 @@
-import type { PlanDraftReport, PlanVariant, StructuralFinding } from '#src/contracts/index.ts';
+import type { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import type { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
 import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { formatDuration } from '#src/index.ts';
+import { formatDuration } from '#src/formatting/formatDuration.ts';
 
 test('formatDuration: em-dash for undefined, bare seconds under a minute, padded m/s at or above', () => {
 	expect(formatDuration({ ms: undefined })).toBe('—');

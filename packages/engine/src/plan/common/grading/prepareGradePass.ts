@@ -1,5 +1,10 @@
 import { basename } from 'node:path';
-import type { GradedGap, GradeInputs, GradeMemory, GradeScope, PhaseWeight, StructuralFinding } from '#src/contracts/index.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import type { PhaseWeight } from '#src/contracts/plan/grade/PhaseWeight.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { weighSelection } from '#src/plan/common/grading/weighSelection.ts';
 import { pendingFindingGaps } from '#src/plan/common/memory/pendingFindingGaps.ts';

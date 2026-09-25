@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { LedgerRow } from '#src/contracts/index.ts';
+import { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
 import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
 
 /** The header and rule every ledger table opens with — furniture the parser skips rather than reads. */

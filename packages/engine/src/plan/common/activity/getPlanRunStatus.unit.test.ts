@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { RunStatus } from '#src/contracts/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
-import { PlanRunStatus } from '#src/plan/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 describe('getPlanRunStatus', () => {
 	test.each<{ status: PlanRunStatus; closes: RunStatus }>([

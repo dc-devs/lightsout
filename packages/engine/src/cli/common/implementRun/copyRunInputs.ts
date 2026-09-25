@@ -1,7 +1,7 @@
 import { cp, mkdir } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */

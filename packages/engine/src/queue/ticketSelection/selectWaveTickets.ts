@@ -1,4 +1,6 @@
-import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import { describeGateHold } from '#src/gates/gateHolds/common/utils/describeGateHold.ts';
+import { isTicketGateHeld } from '#src/gates/gateHolds/common/utils/isTicketGateHeld.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';

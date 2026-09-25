@@ -5,17 +5,15 @@ import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPla
 import { loadRunProgressBlock } from '#src/cli/common/progressBlock/loadRunProgressBlock.ts';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { loadActiveTicketBlock } from '#src/cli/common/queueBoard/loadActiveTicketBlock.ts';
-import {
-	type PlanningProgress,
-	PlanningStep,
-	type QueueBoardTicket,
-	QueueLane,
-	type RunManifest,
-	RunStatus,
-	type ShippingProgress,
-	ShippingStepId,
-} from '#src/contracts/index.ts';
-import { QueueWorker } from '#src/queue/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';

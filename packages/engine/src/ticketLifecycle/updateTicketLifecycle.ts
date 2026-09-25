@@ -1,7 +1,10 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import type { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
-import { setExclusiveLabel, setTicketStatus, type TrackerFailure, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { setExclusiveLabel } from '#src/ticketTracker/setExclusiveLabel.ts';
+import { setTicketStatus } from '#src/ticketTracker/setTicketStatus.ts';
 
 interface Params {
 	/** The resolved lifecycle settings — label names and status names, defaults applied. */

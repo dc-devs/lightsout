@@ -2,7 +2,7 @@ import { StandardsPackNotFoundError } from '@lightsout/engine';
 import { notFound } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * One standards pack as its page shows it: its documents and every rule's

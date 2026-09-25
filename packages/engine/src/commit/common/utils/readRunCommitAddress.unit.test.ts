@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { readRunCommitAddress } from '#src/commit/common/utils/readRunCommitAddress.ts';
-import { PlanProgress, WorkOrderMode } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { configOf, manifestOf } from '#tests/helpers/setupCommitRun.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LedgerRow } from '#src/contracts/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
 import { seedAcceptanceTests } from '#src/pipeline/steps/ledger/seedAcceptanceTests.ts';
 
 const setupRows = (): { rows: LedgerRow[] } => {

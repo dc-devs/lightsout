@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RunLock } from '#src/contracts/index.ts';
+import { RunLock } from '#src/contracts/run/RunLock.ts';
 
 /** The three fields a live holder writes to `.lightsout/lock.json`. */
 const setupLock = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

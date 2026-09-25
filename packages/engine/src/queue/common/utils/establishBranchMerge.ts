@@ -1,7 +1,9 @@
-import { BranchPhase } from '#src/contracts/index.ts';
-import { readBranchState, writeBranchState } from '#src/queue/branchState/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import { readBranchState } from '#src/queue/branchState/readBranchState.ts';
+import { writeBranchState } from '#src/queue/branchState/writeBranchState.ts';
 import type { MergeEvidence } from '#src/queue/common/types/MergeEvidence.ts';
-import { findPullRequest, PullRequestState } from '#src/ship/index.ts';
+import { PullRequestState } from '#src/ship/forge/common/constants/PullRequestState.ts';
+import { findPullRequest } from '#src/ship/forge/findPullRequest.ts';
 
 interface Params {
 	/** The main repository checkout, where every branch-state record lives. */

@@ -1,4 +1,4 @@
-import type { GateHold } from '#src/contracts/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
 
 /**
  * Every hold the shared folder currently carries, keyed by lowercased ticket

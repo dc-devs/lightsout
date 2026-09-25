@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CommandsPage, commandsQueryOptions } from '#src/features/commands/index.ts';
+import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
+import { CommandsPage } from '#src/features/commands/screens/CommandsPage/CommandsPage.tsx';
 
 export const Route = createFileRoute('/_site/commands/')({
 	// Warmed before the first render, so the grid is server-rendered with its

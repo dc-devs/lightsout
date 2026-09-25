@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getSpokenQuestion } from '#src/voice/index.ts';
+import { getSpokenQuestion } from '#src/voice/getSpokenQuestion.ts';
 
 // The transcript is a real JSONL file in a temp folder: the shape the harness
 // writes is the whole contract here, so reading a stub of it would prove

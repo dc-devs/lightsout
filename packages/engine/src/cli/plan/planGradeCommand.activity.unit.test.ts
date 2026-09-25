@@ -1,10 +1,12 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planCommand, planGradeCommand } from '#src/cli/plan/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { planCommand } from '#src/cli/plan/planCommand.ts';
+import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';

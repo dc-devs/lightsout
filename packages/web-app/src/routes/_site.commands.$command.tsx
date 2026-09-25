@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
-import { CommandDetail, commandsQueryOptions } from '#src/features/commands/index.ts';
+import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
+import { CommandDetail } from '#src/features/commands/screens/CommandDetail/CommandDetail.tsx';
 
 /** No command answers to the word in the path. */
 const CommandNotFound = () => {

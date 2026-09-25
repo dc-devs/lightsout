@@ -1,4 +1,4 @@
-import type { GradeScope } from '#src/contracts/index.ts';
+import type { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 
 /** What one grade pass was told to cover, and why. */
 export interface GradeScopeDecision {

@@ -1,4 +1,6 @@
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 import { planSentinelTokens } from '#src/plan/common/constants/planSentinelTokens.ts';
 import { getComparableTokens } from '#src/plan/common/naming/getComparableTokens.ts';

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { GradeInputs } from '#src/contracts/index.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
 import { getEditedPhases } from '#src/plan/common/scope/getEditedPhases.ts';
 
 interface InputsSpec {

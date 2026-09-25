@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 import type { LiveQueueBoard } from '#src/queue/board/common/types/LiveQueueBoard.ts';
 import type { BuildInFlight } from '#src/queue/common/types/BuildInFlight.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';

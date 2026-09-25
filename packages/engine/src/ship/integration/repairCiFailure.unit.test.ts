@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { repairCiFailure } from '#src/ship/integration/repairCiFailure.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';

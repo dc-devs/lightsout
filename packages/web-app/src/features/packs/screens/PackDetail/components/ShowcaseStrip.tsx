@@ -1,6 +1,8 @@
 import type { StandardsPackRuleListing } from '@lightsout/engine';
 import { useQuery } from '@tanstack/react-query';
-import { MetadataTag, SectionHeader, Skeleton } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
+import { Skeleton } from '#src/appUI/Skeleton.tsx';
 import { showcaseRuleIds } from '#src/features/packs/common/constants/showcaseRuleIds.ts';
 import { hasPackFixtures } from '#src/features/packs/common/utils/hasPackFixtures.ts';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';

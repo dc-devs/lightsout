@@ -4,7 +4,7 @@ import { PipelineKind, RunStatus } from '@lightsout/engine/contracts';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RepoHealth } from '#src/features/repo/index.ts';
+import { RepoHealth } from '#src/features/repo/screens/RepoHealth/RepoHealth.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

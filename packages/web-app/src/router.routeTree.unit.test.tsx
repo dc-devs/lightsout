@@ -8,7 +8,7 @@ import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import appCssHref from '#src/styles/app.css?url';
-import { ThemeProvider } from '#src/theme/index.ts';
+import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';

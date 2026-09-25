@@ -1,6 +1,6 @@
 import type { CommandCatalogEntry } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
-import { Badge } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
 import { recordKindLabels } from '#src/features/commands/common/constants/recordKindLabels.ts';
 import { CommandCount } from '#src/features/commands/screens/CommandsPage/components/CommandCount.tsx';
 

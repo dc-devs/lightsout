@@ -5,8 +5,9 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FixtureSide } from '#src/contracts/index.ts';
-import { getStandardsPackBundle, StandardsPackNotFoundError } from '#src/views/index.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import { getStandardsPackBundle } from '#src/views/getStandardsPackBundle.ts';
+import { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
 
 /** Write a set of repo-relative files, creating the folders they need. */
 const writeTree = async ({ dir, files }: { dir: string; files: Record<string, string> }) => {

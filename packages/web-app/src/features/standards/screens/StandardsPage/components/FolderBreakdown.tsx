@@ -1,5 +1,6 @@
 import type { StandardsFinding } from '@lightsout/engine';
-import { Button, ShareBar } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { ShareBar } from '#src/appUI/ShareBar.tsx';
 import { groupFindingsByFolder } from '#src/features/standards/common/utils/groupFindingsByFolder.ts';
 
 /** The depths the dial offers. Three is where this repo's packages sit; four separates the folders inside one package's src. */

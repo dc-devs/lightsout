@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanDocsCheckInvocation } from '#src/agents/index.ts';
-import type { ConfigDocs } from '#src/contracts/index.ts';
+import { buildPlanDocsCheckInvocation } from '#src/agents/buildPlanDocsCheckInvocation.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 
 /** The two surfaces every case here declares, with values distinctive enough to spot in the prompt. */
 const docs = (): ConfigDocs => [

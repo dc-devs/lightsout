@@ -1,7 +1,8 @@
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { AuthoredFacts, type PlanFacts } from '#src/contracts/index.ts';
+import { AuthoredFacts } from '#src/contracts/plan/facts/AuthoredFacts.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';

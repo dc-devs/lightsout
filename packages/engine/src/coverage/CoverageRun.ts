@@ -1,5 +1,10 @@
 import { RunState } from '#src/common/services/RunState.ts';
-import type { AgentUsage, CoverageTotal, LightsoutConfig, RunManifest, RunStatus, StepRecord } from '#src/contracts/index.ts';
+import type { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
 

@@ -1,4 +1,4 @@
-import { RunCommand } from '#src/features/runs/index.ts';
+import { RunCommand } from '#src/features/runs/common/constants/RunCommand.ts';
 
 /**
  * Catalog id → the `RunCommand` values whose runs belong to it. An empty list

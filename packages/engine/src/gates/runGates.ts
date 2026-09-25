@@ -1,11 +1,12 @@
 import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
-import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
 import { stageCountOf } from '#src/gates/common/utils/stageCountOf.ts';
 import { createGateRunner } from '#src/gates/createGateRunner.ts';
-import { withGateLock } from '#src/gates/gateLock/index.ts';
+import { withGateLock } from '#src/gates/gateLock/withGateLock.ts';
 import { runGateSchedule } from '#src/gates/runGateSchedule.ts';
 
 interface Params {

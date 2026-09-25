@@ -1,7 +1,9 @@
 import { contradictoryShipFlagsMessage } from '#src/cli/common/constants/contradictoryShipFlagsMessage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveShipIntent, type ShipIntent, type ShipRequestTerms } from '#src/ship/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
+import type { ShipRequestTerms } from '#src/ship/common/types/ShipRequestTerms.ts';
+import { resolveShipIntent } from '#src/ship/resolveShipIntent.ts';
 
 interface Params {
 	config: LightsoutConfig;

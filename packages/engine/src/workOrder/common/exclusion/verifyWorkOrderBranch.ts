@@ -1,9 +1,9 @@
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
-import { runGates } from '#src/gates/index.ts';
-import { readLiveRunLock } from '#src/runState/index.ts';
-import { readBranchWorktree } from '#src/worktree/index.ts';
+import { runGates } from '#src/gates/runGates.ts';
+import { readLiveRunLock } from '#src/runState/lock/readLiveRunLock.ts';
+import { readBranchWorktree } from '#src/worktree/readBranchWorktree.ts';
 
 interface Params {
 	/** Any checkout of the repository: the checkout that holds the branch is found from it. */

@@ -1,9 +1,12 @@
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { pathExists, planWorkspaceDir, restorePlanWorkspace } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
@@ -14,8 +17,9 @@ import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { toWorkerOutcome } from '#src/queue/workers/common/utils/toWorkerOutcome.ts';
 import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
 import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
-import { pullWorkOrderState, runWorkOrderBodyBuildLifecycle } from '#src/workOrder/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { runWorkOrderBodyBuildLifecycle } from '#src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */

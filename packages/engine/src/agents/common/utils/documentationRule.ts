@@ -1,4 +1,4 @@
-import type { ConfigDocs } from '#src/contracts/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 
 interface Params {
 	docs?: ConfigDocs;

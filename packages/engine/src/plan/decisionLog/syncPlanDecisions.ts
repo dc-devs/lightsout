@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { DecisionsRecord } from '#src/contracts/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
@@ -8,7 +8,7 @@ import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference
 import { readMergedDecisions } from '#src/plan/decisionLog/readMergedDecisions.ts';
 import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 import { writeDecisionLogSection } from '#src/plan/decisionLog/writeDecisionLogSection.ts';
-import { syncGlobalConstraints } from '#src/plan/sections/index.ts';
+import { syncGlobalConstraints } from '#src/plan/sections/syncGlobalConstraints.ts';
 
 interface Params {
 	cwd: string;

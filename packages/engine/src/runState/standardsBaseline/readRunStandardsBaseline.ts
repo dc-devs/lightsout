@@ -1,5 +1,5 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { StandardsSnapshot } from '#src/contracts/index.ts';
+import { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
 import { getRunStandardsBaselinePath } from '#src/runState/standardsBaseline/getRunStandardsBaselinePath.ts';
 
 interface Params {

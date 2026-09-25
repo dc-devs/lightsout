@@ -1,5 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Card, ContentHeader, Markdown } from '#src/appUI/index.ts';
+import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
+import { Markdown } from '#src/appUI/Markdown.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
 import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
 import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';

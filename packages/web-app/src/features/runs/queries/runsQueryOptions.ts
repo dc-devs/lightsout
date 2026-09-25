@@ -1,7 +1,7 @@
 import { RunStatus } from '@lightsout/engine/contracts';
 import { queryOptions } from '@tanstack/react-query';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { listRunsServerFn } from '#src/features/runs/serverFns/index.ts';
+import { listRunsServerFn } from '#src/features/runs/serverFns/listRuns/listRunsServerFn.ts';
 
 /**
  * The runs list, re-fetched every three seconds only while a run is in flight

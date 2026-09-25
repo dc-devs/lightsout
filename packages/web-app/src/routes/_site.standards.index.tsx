@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { PacksPage, packsQueryOptions } from '#src/features/packs/index.ts';
+import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
+import { PacksPage } from '#src/features/packs/screens/PacksPage/PacksPage.tsx';
 
 export const Route = createFileRoute('/_site/standards/')({
 	// Warmed before the first render, so the list is server-rendered with its

@@ -1,8 +1,9 @@
-import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
-import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
+import { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 import { invokeCoverageAgent } from '#src/coverage/batch/invokeCoverageAgent.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 interface Params {
 	cwd: string;

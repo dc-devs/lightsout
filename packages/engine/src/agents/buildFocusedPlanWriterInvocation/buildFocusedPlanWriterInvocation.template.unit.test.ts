@@ -1,6 +1,7 @@
 import { expect, test } from '@jest/globals';
-import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/index.ts';
-import { type DecisionsRecord, PlanVariant } from '#src/contracts/index.ts';
+import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/buildFocusedPlanWriterInvocation.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import { planTemplateOf } from '#tests/helpers/planTemplateOf.ts';
 import { planFacts } from '#tests/helpers/planWriterInputs.ts';
 

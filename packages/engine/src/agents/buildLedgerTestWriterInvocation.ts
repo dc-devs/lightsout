@@ -1,5 +1,5 @@
 import unitTestWriterPrompt from '#src/agents/prompts/unitTestWriter.md';
-import type { LedgerRow } from '#src/contracts/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
 
 interface Params {
 	planContent: string;

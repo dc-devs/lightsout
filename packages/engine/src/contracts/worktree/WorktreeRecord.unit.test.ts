@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorktreeRecord } from '#src/contracts/index.ts';
+import { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 
 const record = {
 	branch: 'lo-140-run-implement-in-a-new-worktree',

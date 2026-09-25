@@ -1,4 +1,4 @@
-import { SectionHeader } from '#src/appUI/index.ts';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
 
 /**
  * The five claims only this product can make, in the order a reader feels them.

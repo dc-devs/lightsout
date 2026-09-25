@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { GateOverrides } from '#src/contracts/index.ts';
+import { GateOverrides } from '#src/contracts/GateOverrides.ts';
 
 test('GateOverrides: an empty list is refused with a message naming "off"', () => {
 	const result = GateOverrides.safeParse({ 'verify-tests': [] });

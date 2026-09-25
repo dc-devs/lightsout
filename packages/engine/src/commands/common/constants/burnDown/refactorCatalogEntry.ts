@@ -1,5 +1,7 @@
 import { refactorSteps } from '#src/commands/common/constants/burnDown/refactorSteps.ts';
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `/refactor` — a fresh burn-down or the resumption of a parked one, which is why `--run` belongs to only the second shape. */
 export const refactorCatalogEntry: CommandCatalogEntry = {

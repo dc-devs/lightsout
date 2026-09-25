@@ -1,4 +1,5 @@
-import type { GapGroupVerdict, GapObservation } from '#src/contracts/index.ts';
+import type { GapGroupVerdict } from '#src/contracts/plan/grade/GapGroupVerdict.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
 
 /** What the batch accounting decided about one observation, before the join writes it onto its gap. */
 export interface GapRuling {

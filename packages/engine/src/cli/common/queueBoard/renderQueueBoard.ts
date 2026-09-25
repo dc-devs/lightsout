@@ -2,7 +2,8 @@ import { QueueBoardState } from '#src/cli/common/constants/QueueBoardState.ts';
 import { queueUpdateIntervalMs } from '#src/cli/common/constants/queueUpdateIntervalMs.ts';
 import { formatTicketLink } from '#src/cli/common/queueBoard/formatTicketLink.ts';
 import { toInlineMarkdown } from '#src/cli/common/queueBoard/toInlineMarkdown.ts';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 
 /**
  * Each column's header. Keyed by `QueueLane` rather than by `string`, so a lane

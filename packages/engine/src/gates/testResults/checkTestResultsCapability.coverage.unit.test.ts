@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { GateResult } from '#src/contracts/index.ts';
-import { checkTestResultsCapability } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { checkTestResultsCapability } from '#src/gates/testResults/checkTestResultsCapability.ts';
 
 /**
  * A repo whose gate executions each ran a command and came back with an exit

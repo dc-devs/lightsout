@@ -1,12 +1,14 @@
 import { join } from 'node:path';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runPhasesPipeline } from '#src/phases/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
-import { pathExists, planWorkspaceDir, recordPlanCommandRun } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runPhasesPipeline } from '#src/phases/runPhasesPipeline.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
 import { toWorkerOutcome } from '#src/queue/workers/common/utils/toWorkerOutcome.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 interface Params {
 	/** The worktree holding the plan folder, and where the pipeline runs. */

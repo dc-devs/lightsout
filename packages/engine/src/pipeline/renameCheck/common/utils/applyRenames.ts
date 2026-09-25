@@ -1,4 +1,4 @@
-import type { RenameRule } from '#src/contracts/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
 
 interface Params {
 	text: string;

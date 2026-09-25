@@ -1,5 +1,6 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 interface Params {
 	/** The ticket reference the caller typed, in whatever case they typed it. */

@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveRecordedPlanPath } from '#src/plan/index.ts';
+import { resolveRecordedPlanPath } from '#src/plan/common/paths/resolveRecordedPlanPath.ts';
 
 interface Params {
 	cwd: string;

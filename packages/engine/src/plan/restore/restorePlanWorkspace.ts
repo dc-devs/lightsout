@@ -10,7 +10,10 @@ import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanA
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import type { ReadGenerationFile } from '#src/plan/restore/common/types/ReadGenerationFile.ts';
 import { writeRestoredGeneration } from '#src/plan/restore/common/utils/writeRestoredGeneration.ts';
-import { getTicketAttachments, readTicketAsset, type TrackerAttachment, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 
 interface Params {
 	cwd: string;

@@ -1,6 +1,9 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { DraftImplementation } from '#src/contracts/index.ts';
-import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
+import type { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { PlanningStepRecord } from '#src/contracts/plan/progress/PlanningStepRecord.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { writePlanningProgress } from '#src/plan/progress/common/utils/writePlanningProgress.ts';
 import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
 import { readPlanningProgress } from '#src/plan/progress/readPlanningProgress.ts';

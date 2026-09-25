@@ -1,4 +1,4 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { applyExclusion } from '#src/workOrder/common/exclusion/applyExclusion.ts';
 import { findExclusionRefusal } from '#src/workOrder/common/exclusion/findExclusionRefusal.ts';
 import { verifyWorkOrderBranch } from '#src/workOrder/common/exclusion/verifyWorkOrderBranch.ts';

@@ -1,4 +1,4 @@
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 interface Params {
 	status: RunStatus;

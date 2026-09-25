@@ -1,7 +1,7 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import { reconcileMergedTickets } from '#src/queue/ticketSelection/index.ts';
+import { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 
 interface Params {
 	/** The main repository checkout. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { PipelineKind } from '@lightsout/engine/contracts';
-import { getRunCommand } from '#src/features/runs/index.ts';
+import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts';
 
 describe('getRunCommand', () => {
 	test.each([

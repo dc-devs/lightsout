@@ -1,6 +1,10 @@
 import { basename, relative } from 'node:path';
-import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
-import { type GapCheckLens, GapCheckReport, type GradedGap, GradeFindingStatus, type GradeMemory } from '#src/contracts/index.ts';
+import { buildPlanGapCheckInvocation } from '#src/agents/buildPlanGapCheckInvocation.ts';
+import type { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapCheckReport } from '#src/contracts/plan/grade/GapCheckReport.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { checkPlanDocumentation } from '#src/plan/common/grading/checkPlanDocumentation.ts';
 import { drainGapCheckers } from '#src/plan/common/grading/drainGapCheckers.ts';

@@ -1,7 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type BranchState } from '#src/contracts/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import type { BranchState } from '#src/contracts/queue/BranchState.ts';
 import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
-import type { PullRequestSummary } from '#src/ship/index.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 
 // Mocked Imports
 // -------------------------

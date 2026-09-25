@@ -1,7 +1,7 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { BatchSiteChecker } from '#src/refactor/batch/common/types/BatchSiteChecker.ts';
 import { matchRemainingFindings } from '#src/refactor/batch/matchRemainingFindings.ts';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 interface Params {
 	cwd: string;

@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import type { ChecksSummary } from '#src/ship/forge/index.ts';
-import { runShip } from '#src/ship/index.ts';
+import { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import { runShip } from '#src/ship/runShip.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts';
 import { shipTicketGuardFixture } from '#tests/helpers/shipTicketGuardFixture.ts';

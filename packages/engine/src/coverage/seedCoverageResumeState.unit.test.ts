@@ -1,5 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { BatchOutcome, type CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'true' } };

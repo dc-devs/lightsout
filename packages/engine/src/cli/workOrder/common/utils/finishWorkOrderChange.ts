@@ -1,5 +1,5 @@
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import type { WorkOrderStateChange } from '#src/workOrder/index.ts';
+import type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
 
 interface Params<Change extends WorkOrderStateChange> {
 	/** The work order the change was made to, named in the retry a failed publish is answered with. */

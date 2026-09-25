@@ -1,4 +1,5 @@
-import { renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { overviewMarker } from '#tests/helpers/overviewMarker.ts';
 
 /** A structurally clean two-phase overview — the overview variant's own required section set, and nothing declared. An overview carries the full rendered table, never the phase pointer. */

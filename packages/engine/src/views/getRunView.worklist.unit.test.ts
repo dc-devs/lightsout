@@ -1,6 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { PipelineKind, RunStatus, StandardsSeverity, type StepRecord } from '#src/contracts/index.ts';
-import { getRunView } from '#src/views/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { getRunView } from '#src/views/getRunView.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 

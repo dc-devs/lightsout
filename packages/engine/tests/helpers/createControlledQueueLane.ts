@@ -1,4 +1,4 @@
-import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 /** Tasks the test finishes by hand: each records that it started and then waits to be released. */
 export const createControlledQueueLane = ({ enter, leave }: { enter: () => void; leave: () => void }) => {

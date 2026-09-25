@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { GateLock } from '#src/contracts/index.ts';
+import { GateLock } from '#src/contracts/gates/GateLock.ts';
 
 interface Params {
 	/** Already resolved by `withGateLock`, so the git call that produced it is paid once per gate run. */

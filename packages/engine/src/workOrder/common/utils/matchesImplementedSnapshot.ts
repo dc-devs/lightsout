@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { brainstormNotesFileName } from '#src/common/constants/brainstormNotesFileName.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { durablePlanFiles } from '#src/plan/index.ts';
+import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
 
 interface Params {
 	cwd: string;

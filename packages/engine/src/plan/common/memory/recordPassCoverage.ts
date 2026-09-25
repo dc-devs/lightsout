@@ -1,4 +1,8 @@
-import type { GapCheckLens, GradeDocsCoverage, GradeInputs, GradeMemory, GradeReadCoverage } from '#src/contracts/index.ts';
+import type { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { recordReadCoverage } from '#src/plan/common/memory/recordReadCoverage.ts';
 import { getDesignHashes } from '#src/plan/common/scope/getDesignHashes.ts';

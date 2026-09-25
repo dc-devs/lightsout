@@ -1,6 +1,7 @@
-import { WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { readWorkOrderShipEligibility } from '#src/workOrder/index.ts';
+import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 
 interface Params {
 	record: WorkOrderState;

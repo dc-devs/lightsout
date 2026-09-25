@@ -1,7 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 import { QueueBoardState } from '#src/cli/common/constants/QueueBoardState.ts';
 import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 
 type BoardParams = Parameters<typeof renderQueueBoard>[0];
 

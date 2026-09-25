@@ -1,5 +1,6 @@
 import type { StandardsPackDocumentView, StandardsPackRuleListing } from '@lightsout/engine';
-import { Markdown, SectionHeader } from '#src/appUI/index.ts';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
+import { Markdown } from '#src/appUI/Markdown.tsx';
 import { groupRulesByDocument } from '#src/features/packs/common/utils/groupRulesByDocument.ts';
 import { PackRuleRow } from '#src/features/packs/screens/PackDetail/components/PackRuleRow.tsx';
 

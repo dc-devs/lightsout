@@ -1,8 +1,13 @@
 import type { StandardsPackListing } from '@lightsout/engine';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { MetadataTag, SectionHeader, Skeleton } from '#src/appUI/index.ts';
-import { FixtureDiff, packRuleQueryOptions, packsQueryOptions, showcaseRuleIds } from '#src/features/packs/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
+import { Skeleton } from '#src/appUI/Skeleton.tsx';
+import { showcaseRuleIds } from '#src/features/packs/common/constants/showcaseRuleIds.ts';
+import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
+import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
+import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
 
 /**
  * One showcased rule: what it argues, over the code it is arguing about.

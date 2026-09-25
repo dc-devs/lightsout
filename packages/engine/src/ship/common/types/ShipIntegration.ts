@@ -1,5 +1,5 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 /**
  * The tools ship's integration step needs and `ShipSettings` cannot carry,

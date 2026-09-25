@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { PlanFacts } from '#src/contracts/index.ts';
+import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { runPlanVerifyFacts } from '#src/plan/runPlanVerifyFacts.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';

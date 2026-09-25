@@ -3,7 +3,7 @@ import type { StandardsPackListing } from '@lightsout/engine';
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { PacksPage } from '#src/features/packs/index.ts';
+import { PacksPage } from '#src/features/packs/screens/PacksPage/PacksPage.tsx';
 import { buildStandardsPackListing } from '#tests/helpers/buildStandardsPackListing.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

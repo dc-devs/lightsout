@@ -1,4 +1,4 @@
-import type { GateHold } from '#src/contracts/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
 import { gateBlockedLabel } from '#src/gates/gateHolds/common/constants/gateBlockedLabel.ts';
 
 interface Params {

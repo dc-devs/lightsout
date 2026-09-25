@@ -1,4 +1,4 @@
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 
 /** What a wrapped pipeline run left behind — what {@link runWorkOrderPlanLifecycle} and {@link runWorkOrderBodyBuildLifecycle} both answer. */
 export type WorkOrderPlanOutcome =

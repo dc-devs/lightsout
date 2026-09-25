@@ -1,10 +1,11 @@
-import { RunStatus, WorkReportStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { appendFriction } from '#src/runState/index.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 
 interface Params {
 	run: PipelineRun;

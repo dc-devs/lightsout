@@ -1,5 +1,5 @@
 import type { PlanAddress } from '#src/common/types/PlanAddress.ts';
-import { PlanId } from '#src/contracts/index.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
 
 interface Params {
 	/** Whatever a command was handed as a plan's `--name`: a plan address, or a legacy plan folder's name. */

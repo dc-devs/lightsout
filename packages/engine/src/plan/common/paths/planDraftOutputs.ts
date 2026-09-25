@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { PlanVariant } from '#src/contracts/index.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {

@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { planWorkspaceDir, planWorkspacePath } from '#src/plan/index.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
 import type { PlanWorkspaceFiles } from '#src/views/common/types/PlanWorkspaceFiles.ts';
 
 /** The one subfolder the walk descends into: where a phased plan's finished phases are archived. */

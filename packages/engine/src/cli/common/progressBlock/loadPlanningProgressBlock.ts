@@ -1,8 +1,13 @@
 import { renderProgressBlock } from '#src/cli/common/progressBlock/renderProgressBlock.ts';
 import { formatClockDuration } from '#src/cli/common/utils/formatClockDuration.ts';
-import { type PlanningProgress, PlanningStep, type PlanningStepRecord, RunStatus } from '#src/contracts/index.ts';
-import { getPlanningProgressPath, pathExists, readPlanningProgress } from '#src/plan/index.ts';
-import { isPidAlive } from '#src/runState/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { PlanningStepRecord } from '#src/contracts/plan/progress/PlanningStepRecord.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
+import { readPlanningProgress } from '#src/plan/progress/readPlanningProgress.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
 
 /** Local 24-hour HH:MM — the clock a reader compares against the one on their own screen. */
 const localClock = ({ iso }: { iso: string }) => {

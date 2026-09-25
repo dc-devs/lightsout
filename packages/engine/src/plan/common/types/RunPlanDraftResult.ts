@@ -1,4 +1,7 @@
-import type { DraftImplementation, PlanDraftReport, PlanVariant, StructuralFinding } from '#src/contracts/index.ts';
+import type { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import type { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import type { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 /** A draft that converged: every written path, the variant it came out as, and one report per spawn. */

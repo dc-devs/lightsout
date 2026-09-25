@@ -4,7 +4,7 @@ import { FindingSeverity, GapArea, GapCheckLens, GapOutcome, GradeScope, PlanDoc
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { PlanDetail } from '#src/features/plans/index.ts';
+import { PlanDetail } from '#src/features/plans/screens/PlanDetail/PlanDetail.tsx';
 import { buildPlanWorkspaceView } from '#tests/helpers/buildPlanWorkspaceView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

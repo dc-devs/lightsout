@@ -1,4 +1,5 @@
-import type { ActivityNode, HarnessProcessMark } from '#src/contracts/index.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
 
 interface Params {
 	/** The levels to gather from — one report's roots, or every report's roots of a ticket. */

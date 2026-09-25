@@ -2,7 +2,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
-import { RunStatus, type ShippingProgress, ShippingStepId, WorkOrderMode } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 /** One step row as the record holds it. */

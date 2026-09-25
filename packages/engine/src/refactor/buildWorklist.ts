@@ -1,7 +1,9 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { type LightsoutConfig, type RefactorWorklist, StandardsSeverity } from '#src/contracts/index.ts';
-import { batchFindings } from '#src/refactor/batch/index.ts';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { batchFindings } from '#src/refactor/batch/batchFindings.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 interface Params {
 	cwd: string;

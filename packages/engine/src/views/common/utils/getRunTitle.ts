@@ -1,5 +1,5 @@
 import { basename, dirname } from 'node:path';
-import { PipelineKind } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { FrozenWorklist } from '#src/views/common/types/FrozenWorklist.ts';
 
 /** At most this many rule ids read as a label rather than a list; the rest become a count. */

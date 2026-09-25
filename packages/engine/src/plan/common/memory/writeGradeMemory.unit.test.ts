@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { GradeMemory } from '#src/contracts/index.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import { writeGradeMemory } from '#src/plan/common/memory/writeGradeMemory.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';

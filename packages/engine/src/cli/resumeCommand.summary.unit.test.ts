@@ -1,7 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import { CleanupEndReason, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 
 /**

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getQueueBoardPath } from '#src/queue/board/index.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** A main checkout with two coordinator runs on disk, and the board file each run's own folder should hold. */

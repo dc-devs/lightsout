@@ -1,6 +1,6 @@
 import type { RunStepView } from '@lightsout/engine';
 import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
-import { StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { summarizeStepReport } from '#src/features/runDetail/common/utils/summarizeStepReport.ts';

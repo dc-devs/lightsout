@@ -1,7 +1,7 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
-import type { RunManifest } from '#src/contracts/index.ts';
-import { readWorktreeRecord } from '#src/worktree/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
 
 interface Params {
 	/** The checkout the commit would stage. */

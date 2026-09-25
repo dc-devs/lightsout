@@ -1,14 +1,12 @@
-import {
-	BatchReport,
-	CoverageBatchReport,
-	PipelineKind,
-	type RefactorBatch,
-	type RunBurnDown,
-	type RunBurnDownBatch,
-	RunBurnDownBatchOutcome,
-	type RunManifest,
-	type StepRecord,
-} from '#src/contracts/index.ts';
+import { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+import { BatchReport } from '#src/contracts/refactor/BatchReport.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { RunBurnDown } from '#src/contracts/views/runBurnDown/RunBurnDown.ts';
+import type { RunBurnDownBatch } from '#src/contracts/views/runBurnDown/RunBurnDownBatch.ts';
+import { RunBurnDownBatchOutcome } from '#src/contracts/views/runBurnDown/RunBurnDownBatchOutcome.ts';
 import type { FrozenWorklist } from '#src/views/common/types/FrozenWorklist.ts';
 
 /** One work-list batch as the panel shows it, beside the site count it left standing. */

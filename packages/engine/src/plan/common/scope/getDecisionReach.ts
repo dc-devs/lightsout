@@ -1,4 +1,4 @@
-import type { GradeDecisionLog } from '#src/contracts/index.ts';
+import type { GradeDecisionLog } from '#src/contracts/plan/memory/GradeDecisionLog.ts';
 
 type DecisionEntry = GradeDecisionLog['rows'][number];
 

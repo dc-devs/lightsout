@@ -1,14 +1,18 @@
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
-import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { fingerprintScopeFiles } from '#src/pipeline/steps/refactorStep/common/utils/fingerprintScopeFiles.ts';
-import { appendFriction } from '#src/runState/index.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 
 interface Params {
 	run: PipelineRun;

@@ -1,8 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { drainQueue } from '#src/queue/drainQueue.ts';
-import type { NamedWorkOrder, QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';

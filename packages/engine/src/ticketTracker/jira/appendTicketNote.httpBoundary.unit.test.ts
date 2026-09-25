@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { appendTicketNote } from '#src/ticketTracker/jira/index.ts';
+import { appendTicketNote } from '#src/ticketTracker/jira/appendTicketNote.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 
 const setupHttpBoundary = () => {

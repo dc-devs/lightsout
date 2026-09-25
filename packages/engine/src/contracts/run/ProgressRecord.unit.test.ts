@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ProgressRecord } from '#src/contracts/index.ts';
+import { ProgressRecord } from '#src/contracts/run/ProgressRecord.ts';
 
 const setupRecord = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const record: Record<string, unknown> = { at: '2026-01-01T00:00:00.000Z', message: 'step refactor — pass 1/3', ...extra };

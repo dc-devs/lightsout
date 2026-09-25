@@ -1,5 +1,5 @@
 import testChangeReviewerPrompt from '#src/agents/prompts/testChangeReviewer.md';
-import type { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 
 interface Params {
 	/** Full plan content, inlined. */

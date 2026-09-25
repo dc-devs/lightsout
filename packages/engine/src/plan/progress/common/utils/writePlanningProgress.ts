@@ -1,6 +1,6 @@
 import { rename } from 'node:fs/promises';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import type { PlanningProgress } from '#src/contracts/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';

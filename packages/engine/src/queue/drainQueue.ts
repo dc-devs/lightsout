@@ -1,7 +1,7 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateHolds } from '#src/gates/index.ts';
-import type { QueueBoardRecorder } from '#src/queue/board/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import type { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
@@ -10,9 +10,10 @@ import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 import { settleMergedTrees } from '#src/queue/common/utils/settleMergedTrees.ts';
-import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
-import type { ShipIntegration, ShipSettings } from '#src/ship/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { runDrainLanes } from '#src/queue/drainLanes/runDrainLanes.ts';
+import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
+import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 
 interface Params {
 	cwd: string;

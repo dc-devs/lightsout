@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import type { PhaseDeclaration } from '#src/plan/index.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { planFacts, writerInvocation } from '#tests/helpers/planWriterInputs.ts';
 
 /** One overview declaration row, as `parsePhaseDeclarations` returns it. */

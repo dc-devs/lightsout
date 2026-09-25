@@ -1,4 +1,6 @@
-import type { AdvisoryOutcome, BatchOutcome, BatchReport } from '#src/contracts/index.ts';
+import type { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { BatchReport } from '#src/contracts/refactor/BatchReport.ts';
+import type { AdvisoryOutcome } from '#src/contracts/standardsCheck/AdvisoryOutcome.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
 
 /**

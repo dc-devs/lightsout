@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { StandardsSeverity, type StandardsSnapshot } from '#src/contracts/index.ts';
-import { readRunStandardsBaseline, writeRunStandardsBaseline } from '#src/runState/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
+import { readRunStandardsBaseline } from '#src/runState/standardsBaseline/readRunStandardsBaseline.ts';
+import { writeRunStandardsBaseline } from '#src/runState/standardsBaseline/writeRunStandardsBaseline.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const setupBaseline = async () => {

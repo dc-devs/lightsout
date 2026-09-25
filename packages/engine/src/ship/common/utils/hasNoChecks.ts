@@ -1,4 +1,4 @@
-import type { ChecksSummary } from '#src/ship/forge/index.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
 
 /**
  * Whether the forge is listing no checks at all for this commit — which is not

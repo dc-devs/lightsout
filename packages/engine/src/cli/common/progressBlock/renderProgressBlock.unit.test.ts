@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { renderProgressBlock } from '#src/cli/common/progressBlock/renderProgressBlock.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import type { RunProgressRow } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
 
 type BlockParams = Parameters<typeof renderProgressBlock>[0];
 type BlockRow = Pick<RunProgressRow, 'id' | 'status' | 'attempts' | 'durationMs'>;

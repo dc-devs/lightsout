@@ -1,5 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { PipelineKind, type RefactorBatch, type RunManifest, RunStatus, StandardsSeverity, type StepRecord } from '#src/contracts/index.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import type { FrozenWorklist } from '#src/views/common/types/FrozenWorklist.ts';
 import { buildRunBurnDown } from '#src/views/common/utils/buildRunBurnDown.ts';
 

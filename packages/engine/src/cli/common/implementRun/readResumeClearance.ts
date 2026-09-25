@@ -2,10 +2,12 @@ import { readResumedPlanName } from '#src/cli/common/implementRun/readResumedPla
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest } from '#src/contracts/index.ts';
-import type { ShipIntent } from '#src/ship/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
-import { readWorkOrderRunTerms } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { ShipIntent } from '#src/ship/common/types/ShipIntent.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/requireImplementLifecycle.ts';
+import { readWorkOrderRunTerms } from '#src/workOrder/implementRun/readWorkOrderRunTerms.ts';
 
 interface Params {
 	/** The checkout the parked run recorded its source work in. */

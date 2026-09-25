@@ -1,4 +1,4 @@
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 /**
  * An agent outcome read as plain fields, for assertions.

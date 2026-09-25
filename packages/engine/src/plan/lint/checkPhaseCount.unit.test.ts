@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkPhaseCount } from '#src/plan/lint/checkPhaseCount.ts';
 
 describe('checkPhaseCount', () => {

@@ -1,4 +1,4 @@
-import { FadeIn } from '#src/appUI/index.ts';
+import { FadeIn } from '#src/appUI/FadeIn.tsx';
 import { BurnDownSection } from '#src/features/home/screens/Home/components/BurnDownSection.tsx';
 import { FiveThingsSection } from '#src/features/home/screens/Home/components/FiveThingsSection.tsx';
 import { FixSection } from '#src/features/home/screens/Home/components/FixSection.tsx';

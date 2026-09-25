@@ -1,18 +1,16 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import {
-	appendTicketNote,
-	getTicketAttachments,
-	getTicketsByIdentifiers,
-	listLabelNames,
-	listTickets,
-	readTicketAsset,
-	setExclusiveLabel,
-	setTicketAttachment,
-	setTicketLabel,
-	setTicketStatus,
-} from '#src/ticketTracker/index.ts';
+import { appendTicketNote } from '#src/ticketTracker/appendTicketNote.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
 import * as mockJiraAdapterModule from '#src/ticketTracker/jira/index.ts';
 import * as mockLinearAdapterModule from '#src/ticketTracker/linear/index.ts';
+import { listLabelNames } from '#src/ticketTracker/listLabelNames.ts';
+import { listTickets } from '#src/ticketTracker/listTickets.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
+import { setExclusiveLabel } from '#src/ticketTracker/setExclusiveLabel.ts';
+import { setTicketAttachment } from '#src/ticketTracker/setTicketAttachment.ts';
+import { setTicketLabel } from '#src/ticketTracker/setTicketLabel.ts';
+import { setTicketStatus } from '#src/ticketTracker/setTicketStatus.ts';
 import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 

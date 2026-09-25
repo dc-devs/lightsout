@@ -1,9 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import type { DecisionsRecord, LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { repairPlanStructure } from '#src/plan/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { repairPlanStructure } from '#src/plan/draft/repairPlanStructure.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

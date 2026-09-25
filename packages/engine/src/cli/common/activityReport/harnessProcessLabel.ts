@@ -1,4 +1,4 @@
-import type { HarnessProcessMark } from '#src/contracts/index.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
 
 interface Params {
 	process: HarnessProcessMark;

@@ -1,7 +1,9 @@
-import { buildLedgerTestWriterInvocation } from '#src/agents/index.ts';
+import { buildLedgerTestWriterInvocation } from '#src/agents/buildLedgerTestWriterInvocation.ts';
 import { runFormatter } from '#src/common/processes/runFormatter.ts';
-import { type LedgerRow, RunStatus, type WorkReport } from '#src/contracts/index.ts';
-import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { approveTestFiles } from '#src/pipeline/approvedTests/approveTestFiles.ts';
 import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
@@ -11,7 +13,9 @@ import { drainChains } from '#src/pipeline/common/utils/drainChains.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { committedLedgerConflicts, missingLedgerNames, seedAcceptanceTests } from '#src/pipeline/steps/ledger/index.ts';
+import { committedLedgerConflicts } from '#src/pipeline/steps/ledger/committedLedgerConflicts.ts';
+import { missingLedgerNames } from '#src/pipeline/steps/ledger/missingLedgerNames.ts';
+import { seedAcceptanceTests } from '#src/pipeline/steps/ledger/seedAcceptanceTests.ts';
 
 const stepId = 'write-ledger-tests';
 

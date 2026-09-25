@@ -1,10 +1,13 @@
 import { formatDuration } from '@lightsout/shared';
-import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
-import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReviewInvocation.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsReviewReport } from '#src/contracts/standardsCheck/StandardsReviewReport.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	cwd: string;

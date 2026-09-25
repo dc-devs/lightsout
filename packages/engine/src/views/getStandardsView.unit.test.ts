@@ -2,9 +2,10 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
-import { getStandardsView } from '#src/views/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
+import { getStandardsView } from '#src/views/getStandardsView.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
 /** Write a set of pack-relative files, creating the folders they need. */

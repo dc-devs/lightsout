@@ -1,7 +1,9 @@
-import { type LightsoutConfig, StandardsSet } from '#src/contracts/index.ts';
+import { StandardsSet } from '@lightsout/standards-contracts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
 import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';
-import { buildStandardsDocuments, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import { buildStandardsDocuments } from '#src/standardsPacks/buildStandardsDocuments.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	cwd: string;

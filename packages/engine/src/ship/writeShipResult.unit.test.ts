@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { ShipResult } from '#src/contracts/index.ts';
+import { ShipResult } from '#src/contracts/ship/ShipResult.ts';
 import { writeShipResult } from '#src/ship/writeShipResult.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';

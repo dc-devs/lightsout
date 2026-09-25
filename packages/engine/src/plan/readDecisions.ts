@@ -1,4 +1,4 @@
-import { DecisionsRecord } from '#src/contracts/index.ts';
+import { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
 
 interface Params {

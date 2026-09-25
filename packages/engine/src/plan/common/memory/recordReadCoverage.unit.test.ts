@@ -1,5 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapCheckLens, type GradeDocsCoverage, type GradeReadCoverage } from '#src/contracts/index.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import type { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 import { recordReadCoverage } from '#src/plan/common/memory/recordReadCoverage.ts';
 
 /** The arrangement one call to the fold takes, read off the function itself so no second spelling of it can drift. */

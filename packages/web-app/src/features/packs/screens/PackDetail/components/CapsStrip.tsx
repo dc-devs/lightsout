@@ -1,6 +1,6 @@
 import type { StandardsPackRuleListing } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
-import { SectionHeader } from '#src/appUI/index.ts';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
 import { getCapRules } from '#src/features/packs/common/utils/getCapRules.ts';
 
 interface Props {

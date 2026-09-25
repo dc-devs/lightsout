@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { readPlanningStandards } from '#src/cli/plan/index.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { readPlanningStandards } from '#src/cli/plan/readPlanningStandards.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 /** A one-rule standards pack to write inside the repo, in the code tree unless told otherwise. */

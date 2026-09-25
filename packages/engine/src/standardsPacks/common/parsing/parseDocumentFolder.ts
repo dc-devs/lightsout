@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { StandardsSet } from '@lightsout/standards-contracts';
 import { z } from 'zod';
-import type { StandardsSet } from '#src/contracts/index.ts';
 import { parseDeclaration } from '#src/standardsPacks/common/parsing/parseDeclaration.ts';
 import { parseRuleFolder } from '#src/standardsPacks/common/parsing/parseRuleFolder.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';

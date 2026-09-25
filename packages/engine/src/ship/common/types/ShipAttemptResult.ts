@@ -1,4 +1,4 @@
-import type { ShipResult } from '#src/contracts/index.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
 
 /** One complete shipping attempt's proposed outcome, before the outer loop decides whether to persist it or spend another attempt. */
 export interface ShipAttemptResult {

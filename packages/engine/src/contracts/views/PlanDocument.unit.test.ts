@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanDocument, PlanDocumentKind } from '#src/contracts/index.ts';
+import { PlanDocument } from '#src/contracts/views/PlanDocument.ts';
+import { PlanDocumentKind } from '#src/contracts/views/PlanDocumentKind.ts';
 
 const refactorWorklist = {
 	at: '2026-08-04T00:00:00.000Z',

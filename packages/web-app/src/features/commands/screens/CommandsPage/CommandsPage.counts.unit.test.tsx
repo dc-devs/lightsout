@@ -4,7 +4,7 @@ import { CommandRecordKind, PipelineKind } from '@lightsout/engine/contracts';
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { CommandsPage } from '#src/features/commands/index.ts';
+import { CommandsPage } from '#src/features/commands/screens/CommandsPage/CommandsPage.tsx';
 import { buildCommandCatalogEntry } from '#tests/helpers/buildCommandCatalogEntry.ts';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';

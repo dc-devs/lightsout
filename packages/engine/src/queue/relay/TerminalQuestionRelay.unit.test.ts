@@ -7,8 +7,8 @@ import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 

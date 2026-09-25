@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsTrendPoint } from '#src/contracts/index.ts';
+import { StandardsTrendPoint } from '#src/contracts/views/StandardsTrendPoint.ts';
 
 const setupPoint = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const point: Record<string, unknown> = {

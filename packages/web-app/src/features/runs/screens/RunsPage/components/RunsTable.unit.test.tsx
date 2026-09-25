@@ -5,7 +5,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
-import { type RunFilters, RunsTable } from '#src/features/runs/index.ts';
+import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
+import { RunsTable } from '#src/features/runs/screens/RunsPage/components/RunsTable.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 
 // Mocked Imports

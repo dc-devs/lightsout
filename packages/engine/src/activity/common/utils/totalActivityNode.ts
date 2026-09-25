@@ -1,4 +1,6 @@
-import type { ActivityTotals, HarnessProcessMark, HarnessProcessUsage } from '#src/contracts/index.ts';
+import type { ActivityTotals } from '#src/contracts/activity/ActivityTotals.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
 
 interface Params {
 	startedAt: string;

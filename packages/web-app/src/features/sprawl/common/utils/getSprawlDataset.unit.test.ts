@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getSprawlDataset } from '#src/features/sprawl/index.ts';
+import { getSprawlDataset } from '#src/features/sprawl/common/utils/getSprawlDataset.ts';
 
 /**
  * The committed `assets/sprawl-dataset.json` is parsed here rather than in a

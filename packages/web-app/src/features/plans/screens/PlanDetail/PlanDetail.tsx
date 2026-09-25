@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { ContentHeader, Tabs } from '#src/appUI/index.ts';
+import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
+import { Tabs } from '#src/appUI/Tabs.tsx';
 import { planWorkspaceQueryOptions } from '#src/features/plans/queries/planWorkspaceQueryOptions.ts';
 import { PlanDetailTab } from '#src/features/plans/screens/PlanDetail/common/constants/PlanDetailTab.ts';
 import { DecisionsTab } from '#src/features/plans/screens/PlanDetail/components/DecisionsTab.tsx';

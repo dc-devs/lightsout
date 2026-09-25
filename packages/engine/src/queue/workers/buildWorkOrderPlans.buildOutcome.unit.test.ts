@@ -1,8 +1,12 @@
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, RunStatus, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
 import { config, planAt, planOf, setupTicketPlanBuild, workOrderName } from '#tests/helpers/setupTicketPlanBuild.ts';

@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 // The colour is only observable on a TTY — piped output is the same text
 // whatever the status — so the arrangement pins isTTY and restores it after.

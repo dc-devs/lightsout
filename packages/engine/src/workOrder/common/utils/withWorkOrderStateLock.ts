@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from '
 import { join } from 'node:path';
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { isPidAlive } from '#src/runState/index.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 
 interface Params<Result> {

@@ -1,6 +1,6 @@
 import { StandardsSet } from '@lightsout/standards-contracts';
 import { z } from 'zod';
-import { StandardsSeverity } from '#src/contracts/standardsCheck/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 /**
  * One rule as a reader shows it: what the rule says, how this repo runs it, how

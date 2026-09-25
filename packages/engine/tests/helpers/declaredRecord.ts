@@ -1,4 +1,4 @@
-import type { PhaseDeclaration } from '#src/plan/index.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 
 interface Params {
 	/** Declarations as `parsePhaseDeclarations` returned them. */

@@ -2,8 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type RunLock, type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
-import { getRunProgress } from '#src/views/index.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 

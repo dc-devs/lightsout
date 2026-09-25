@@ -1,6 +1,6 @@
 import type { RunListing } from '@lightsout/engine';
 import { useEffect, useRef, useState } from 'react';
-import { FilterDropdown } from '#src/appUI/index.ts';
+import { FilterDropdown } from '#src/appUI/FilterDropdown.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { runStatusFamilies } from '#src/common/constants/runStatusFamilies.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';

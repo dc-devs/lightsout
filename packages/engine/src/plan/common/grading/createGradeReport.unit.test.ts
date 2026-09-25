@@ -1,15 +1,13 @@
 import { describe, expect, test } from '@jest/globals';
-import {
-	FindingSeverity,
-	GapArea,
-	GapCheckLens,
-	GapOutcome,
-	type GradedGap,
-	GradeScope,
-	PlanWeight,
-	StructuralCheck,
-	type StructuralFinding,
-} from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import { PlanWeight } from '#src/contracts/plan/grade/PlanWeight.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
 import { createGradeReport } from '#src/plan/common/grading/createGradeReport.ts';
 
 /** One judged reader finding, carrying only the outcome each case turns on. */

@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { resolveWatchTarget } from '#src/cli/common/utils/resolveWatchTarget.ts';
-import { PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */

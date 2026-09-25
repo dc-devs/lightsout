@@ -1,6 +1,7 @@
 import type { RunState } from '#src/common/services/RunState.ts';
-import type { RunStatus, StepRecord } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 
 interface Params {
 	run: RunState;

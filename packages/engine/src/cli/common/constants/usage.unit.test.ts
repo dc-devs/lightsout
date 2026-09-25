@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { usage } from '#src/cli/index.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 
 // `usage` is no longer a hand-written block: it is what the command catalog's

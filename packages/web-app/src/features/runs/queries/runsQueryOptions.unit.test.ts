@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import type { RunListing } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { runsQueryOptions } from '#src/features/runs/index.ts';
+import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 
 // Mocked Imports

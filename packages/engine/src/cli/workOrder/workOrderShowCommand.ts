@@ -5,8 +5,8 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { describePlanProgress } from '#src/cli/workOrder/common/utils/describePlanProgress.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { describeMissingWorkOrder } from '#src/common/utils/describeMissingWorkOrder.ts';
-import type { WorkOrderState } from '#src/contracts/index.ts';
-import { pullWorkOrderState } from '#src/workOrder/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 /** One line per plan, and one each for what the work order is waiting on. */
 const renderWorkOrderState = ({ record }: { record: WorkOrderState }) => [

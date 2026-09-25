@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { resolveWorktreePath } from '#src/worktree/index.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 
 /**

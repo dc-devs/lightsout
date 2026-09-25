@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { RunStatus } from '@lightsout/engine/contracts';
-import { getReader, type LightsoutReader } from '#src/lightsout/index.ts';
+import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 const runId = 'abcdef0123456789';
 

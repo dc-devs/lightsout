@@ -1,4 +1,4 @@
-import type { StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 export interface ResolvedRuleState {
 	/** May be `off` — a rule resolved to `off` is never run, so no finding ever carries it. */

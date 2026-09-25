@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 

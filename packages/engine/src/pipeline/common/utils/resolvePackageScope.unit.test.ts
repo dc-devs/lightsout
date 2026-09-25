@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PackagesSource } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
 import { resolvePackageScope } from '#src/pipeline/common/utils/resolvePackageScope.ts';
 
 const monorepo: LightsoutConfig = {

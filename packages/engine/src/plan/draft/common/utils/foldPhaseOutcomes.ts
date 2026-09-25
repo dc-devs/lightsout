@@ -1,4 +1,5 @@
-import { type PlanDraftReport, PlanDraftStatus } from '#src/contracts/index.ts';
+import type { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanDraftStatus } from '#src/contracts/plan/draft/PlanDraftStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { verifyDraftedFiles } from '#src/plan/common/paths/verifyDraftedFiles.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';

@@ -1,5 +1,7 @@
-import { type PlanFixReport, PlanFixStatus, type StructuralFinding } from '#src/contracts/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { PlanFixReport } from '#src/contracts/plan/draft/PlanFixReport.ts';
+import { PlanFixStatus } from '#src/contracts/plan/draft/PlanFixStatus.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { maxPlanRepairAttempts } from '#src/plan/common/constants/maxPlanRepairAttempts.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';

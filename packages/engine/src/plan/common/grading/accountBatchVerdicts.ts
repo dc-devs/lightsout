@@ -1,5 +1,7 @@
-import { type GapBatchVerdict, type GapGroupVerdict, GapOutcome } from '#src/contracts/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { GapBatchVerdict } from '#src/contracts/plan/grade/GapBatchVerdict.ts';
+import type { GapGroupVerdict } from '#src/contracts/plan/grade/GapGroupVerdict.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 import { noJudgeRanReason } from '#src/plan/common/constants/noJudgeRanReason.ts';
 import { confirmCitation } from '#src/plan/common/memory/confirmCitation.ts';
 import { dedupeObservations } from '#src/plan/common/observations/dedupeObservations.ts';

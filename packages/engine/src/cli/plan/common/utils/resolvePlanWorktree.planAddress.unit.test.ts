@@ -2,7 +2,10 @@ import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resolvePlanWorktree } from '#src/cli/plan/common/utils/resolvePlanWorktree.ts';
-import type { LightsoutConfig, RunLock, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { checkHandoffDeclared } from '#src/plan/lint/index.ts';
+import { checkHandoffDeclared } from '#src/plan/lint/checkHandoffDeclared.ts';
 import { overviewBody, phaseBody, phaseFile } from '#tests/helpers/phasePlan.ts';
 
 /** One implementable phase file whose `## What Next Plan Expects` carries exactly the given body. */

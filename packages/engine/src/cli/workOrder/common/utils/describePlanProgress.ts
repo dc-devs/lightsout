@@ -1,4 +1,4 @@
-import { PlanProgress } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
 
 interface Params {
 	progress: PlanProgress;

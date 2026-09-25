@@ -1,8 +1,8 @@
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { readWorkOrderRecordFile } from '#src/common/workspace/readWorkOrderRecordFile.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { findWorkOrderByTicketRef } from '#src/workOrder/index.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { findWorkOrderByTicketRef } from '#src/workOrder/findWorkOrderByTicketRef.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */

@@ -9,7 +9,7 @@ import { buildRefactorSteps } from '#src/pipeline/steps/buildSteps/common/utils/
 import { buildTestSteps } from '#src/pipeline/steps/buildSteps/common/utils/buildTestSteps.ts';
 import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
 import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
-import { parsePlan } from '#src/plan/index.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {
 	run: PipelineRun;

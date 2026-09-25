@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { readWorkOrderTicketRef } from '#src/workOrder/index.ts';
+import { readWorkOrderTicketRef } from '#src/workOrder/readWorkOrderTicketRef.ts';
 
 // Mocked Imports
 // -------------------------

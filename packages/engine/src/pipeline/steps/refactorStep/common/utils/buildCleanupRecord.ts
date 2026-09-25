@@ -1,4 +1,4 @@
-import type { StepRecord } from '#src/contracts/index.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import type { CleanupContext } from '#src/pipeline/steps/refactorStep/common/types/CleanupContext.ts';
 import type { CleanupState } from '#src/pipeline/steps/refactorStep/common/types/CleanupState.ts';
 

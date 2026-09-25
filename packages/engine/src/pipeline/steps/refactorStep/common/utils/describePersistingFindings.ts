@@ -1,6 +1,7 @@
 import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
-import type { StandardsFinding, WorkReport } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 
 interface Params {
 	/** The qualifying blocking findings still standing when cleanup ended. */

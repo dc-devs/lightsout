@@ -1,5 +1,7 @@
 import { basename } from 'node:path';
-import { type GapCheckLens, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import type { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { gapCheckLenses } from '#src/plan/common/constants/gapCheckLenses.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';

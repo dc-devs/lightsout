@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { ConfigNotFoundError } from '@lightsout/engine';
-import { getReader, type LightsoutReader } from '#src/lightsout/index.ts';
+import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /** The config this arrangement writes, as text — what a test overriding it writes its own version of. */
 const configText = JSON.stringify({

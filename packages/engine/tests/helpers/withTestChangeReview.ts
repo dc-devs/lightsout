@@ -1,4 +1,4 @@
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 /** The heading the test-change reviewer's brief emits for its change bundle, and nothing else does. */
 const bundleHeading = '# Changed test-side files';

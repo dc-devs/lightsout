@@ -1,7 +1,7 @@
 import { RunStatus } from '@lightsout/engine/contracts';
 import { queryOptions } from '@tanstack/react-query';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { getRunServerFn } from '#src/features/runDetail/serverFns/index.ts';
+import { getRunServerFn } from '#src/features/runDetail/serverFns/getRun/getRunServerFn.ts';
 
 interface Params {
 	/** Full run id, or the shortened form a report printed. */

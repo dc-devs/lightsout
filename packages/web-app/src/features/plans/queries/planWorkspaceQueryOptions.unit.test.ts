@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanWorkspaceView } from '@lightsout/engine';
-import { planWorkspaceQueryOptions } from '#src/features/plans/index.ts';
+import { planWorkspaceQueryOptions } from '#src/features/plans/queries/planWorkspaceQueryOptions.ts';
 import { buildPlanWorkspaceView } from '#tests/helpers/buildPlanWorkspaceView.ts';
 
 // Mocked Imports

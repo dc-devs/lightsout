@@ -2,7 +2,9 @@ import type { StandardsPackFixture, StandardsPackRuleListing } from '@lightsout/
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Badge, MetadataTag, Skeleton } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { Skeleton } from '#src/appUI/Skeleton.tsx';
 import { severityBadgeVariants } from '#src/features/packs/common/constants/severityBadgeVariants.ts';
 import { hasRuleFixtures } from '#src/features/packs/common/utils/hasRuleFixtures.ts';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';

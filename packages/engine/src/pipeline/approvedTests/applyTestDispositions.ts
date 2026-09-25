@@ -2,7 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { holdsTestTitle } from '#src/common/sourceFiles/holdsTestTitle.ts';
 import { isTestSideFile } from '#src/common/sourceFiles/isTestSideFile.ts';
-import { type AcceptanceTestRecord, type TestChangeReview, TestDisposition, TestReviewDecision } from '#src/contracts/index.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import type { TestChangeReview } from '#src/contracts/work/TestChangeReview.ts';
+import { TestDisposition } from '#src/contracts/work/TestDisposition.ts';
+import { TestReviewDecision } from '#src/contracts/work/TestReviewDecision.ts';
 import type { TestChange } from '#src/pipeline/approvedTests/common/types/TestChange.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 

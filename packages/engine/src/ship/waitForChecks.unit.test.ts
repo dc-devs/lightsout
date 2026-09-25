@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type ChecksSummary, readPullRequestChecks } from '#src/ship/forge/index.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import { readPullRequestChecks } from '#src/ship/forge/readPullRequestChecks.ts';
 import { waitForChecks } from '#src/ship/waitForChecks.ts';
 
 // The forge is mocked rather than stubbed on PATH: this unit is about waiting,

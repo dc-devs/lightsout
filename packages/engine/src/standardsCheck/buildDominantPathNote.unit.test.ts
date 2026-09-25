@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { buildDominantPathNote } from '#src/standardsCheck/buildDominantPathNote.ts';
 
 /** One advisory finding per path — the only field the diagnosis reads is the first file's path. */

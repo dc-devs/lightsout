@@ -1,5 +1,5 @@
 import { listSection } from '#src/agents/common/utils/listSection.ts';
-import type { RenameRule } from '#src/contracts/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
 
 interface Params {
 	/** The plan's declared renames, in declared order. */

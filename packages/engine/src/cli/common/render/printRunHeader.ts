@@ -2,8 +2,9 @@ import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import { defaultAgentTimeoutMinutes } from '#src/common/constants/defaultAgentTimeoutMinutes.ts';
 import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
-import { type LightsoutConfig, Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 interface Params {
 	config: LightsoutConfig;

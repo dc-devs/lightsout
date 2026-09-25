@@ -1,10 +1,10 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ScrollText } from 'lucide-react';
-import { PageHeader } from '#src/appUI/index.ts';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
 import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';

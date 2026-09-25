@@ -1,4 +1,4 @@
-import type { WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 /**
  * One entry of the work-orders directory: the folder's label and the record it

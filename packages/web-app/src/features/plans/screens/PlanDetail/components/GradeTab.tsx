@@ -1,5 +1,8 @@
 import { FindingSeverity, type GradedGap, type GradeReport, type StructuralFinding } from '@lightsout/engine/contracts';
-import { Badge, Card, MetadataTag, StatusBadge } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 import { planGradeBadgeConfig } from '#src/features/plans/common/constants/planGradeBadgeConfig.ts';

@@ -2,7 +2,8 @@ import { dim } from '#src/cli/common/terminal/dim.ts';
 import { green } from '#src/cli/common/terminal/green.ts';
 import { red } from '#src/cli/common/terminal/red.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
-import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 
 interface Params {
 	step: StepRecord;

@@ -1,6 +1,7 @@
 import type { PlanWorkspaceView } from '@lightsout/engine';
 import type { DecisionRow } from '@lightsout/engine/contracts';
-import { Badge, DataTable } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 

@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { buildBatchFixInvocation } from '#src/refactor/batch/buildBatchFixInvocation.ts';
 import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
 import type { BatchTools } from '#src/refactor/batch/common/types/BatchTools.ts';

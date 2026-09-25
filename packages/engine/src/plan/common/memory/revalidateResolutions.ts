@@ -1,4 +1,6 @@
-import { type GradeFindingRecord, GradeFindingStatus, type GradeMemory } from '#src/contracts/index.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import { confirmCitation } from '#src/plan/common/memory/confirmCitation.ts';
 import { recheckPlanText } from '#src/plan/common/memory/recheckPlanText.ts';
 import { recordResolutions } from '#src/plan/common/memory/recordResolutions.ts';

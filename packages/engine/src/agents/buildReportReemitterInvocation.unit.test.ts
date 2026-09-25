@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildReportReemitterInvocation } from '#src/agents/index.ts';
+import { buildReportReemitterInvocation } from '#src/agents/buildReportReemitterInvocation.ts';
 
 const setupReemitter = ({
 	rejectedText = 'Sure! Here is the report:\n\n```json\n{ "status": "complete" }\n```',

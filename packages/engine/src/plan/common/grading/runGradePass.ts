@@ -1,14 +1,12 @@
 import { basename, join } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import {
-	ActivityLevelKind,
-	type GradeInputs,
-	type GradeMemory,
-	type GradeReport,
-	type GradeScope,
-	RunStatus,
-	type StructuralFinding,
-} from '#src/contracts/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeScope } from '#src/contracts/plan/memory/GradeScope.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { appendGradeHistory } from '#src/plan/appendGradeHistory.ts';
 import { gradeFileName } from '#src/plan/common/constants/gradeFileName.ts';
 import { collapseGroupedGaps } from '#src/plan/common/grading/collapseGroupedGaps.ts';

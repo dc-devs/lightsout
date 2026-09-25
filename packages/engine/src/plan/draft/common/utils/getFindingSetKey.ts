@@ -1,4 +1,4 @@
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 
 interface Params {

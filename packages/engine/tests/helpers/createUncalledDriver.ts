@@ -1,4 +1,4 @@
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 
 interface Params {
 	/** What the throw says when the spawn a test asserts does NOT happen happens anyway. */

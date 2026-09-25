@@ -1,5 +1,5 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 type Ticket = WorkOrderRunOutcome['ticket'];
 type RunnableTicket = Ticket & { worker: NonNullable<Ticket['worker']> };

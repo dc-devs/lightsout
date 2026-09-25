@@ -6,8 +6,13 @@ import { loadActiveTicketBlock } from '#src/cli/common/queueBoard/loadActiveTick
 import { printQueueStatus } from '#src/cli/common/queueBoard/printQueueStatus.ts';
 import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
 import { renderTicketDetailBlock } from '#src/cli/common/queueBoard/renderTicketDetailBlock.ts';
-import { PipelineKind, type QueueBoard, type QueueBoardTicket, QueueLane, type RunListing, RunStatus } from '#src/contracts/index.ts';
-import { getQueueBoardPath } from '#src/queue/index.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';

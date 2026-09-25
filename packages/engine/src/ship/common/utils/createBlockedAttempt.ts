@@ -1,4 +1,5 @@
-import { type ShipBlockReason, ShipStatus } from '#src/contracts/index.ts';
+import type { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
 import type { ShipAttemptResult } from '#src/ship/common/types/ShipAttemptResult.ts';
 import type { ShipStopFields } from '#src/ship/common/types/ShipStopFields.ts';
 

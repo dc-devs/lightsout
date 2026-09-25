@@ -1,14 +1,16 @@
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { type StandardsFinding, type StandardsRuleView, StandardsSeverity, type StandardsView } from '#src/contracts/index.ts';
-import {
-	buildStandardsHealth,
-	listStandardsRules,
-	listStandardsSnapshots,
-	readStandardsSnapshot,
-	type StandardsHealthRule,
-	type StandardsRuleListing,
-} from '#src/standardsCheck/index.ts';
-import { type LoadedStandardsRule, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsRuleView } from '#src/contracts/views/StandardsRuleView.ts';
+import type { StandardsView } from '#src/contracts/views/StandardsView.ts';
+import { buildStandardsHealth } from '#src/standardsCheck/buildStandardsHealth.ts';
+import type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
+import { listStandardsRules } from '#src/standardsCheck/listStandardsRules.ts';
+import { listStandardsSnapshots } from '#src/standardsCheck/listStandardsSnapshots.ts';
+import { readStandardsSnapshot } from '#src/standardsCheck/readStandardsSnapshot.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 /** Open findings per rule id, counted once so no row has to scan the snapshot for itself. */
 const countByRule = ({ findings }: { findings: StandardsFinding[] }) => {

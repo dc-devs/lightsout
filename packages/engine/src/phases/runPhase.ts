@@ -1,10 +1,19 @@
 import { dirname, join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { ActivityLevelKind, type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { type PipelineResult, runImplementPipeline } from '#src/pipeline/index.ts';
-import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 /** Replace one step record, merge the coordinator's own fields, and persist — the loop's single write path. */
 const persistStep = ({

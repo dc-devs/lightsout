@@ -1,8 +1,8 @@
 import { printResult } from '#src/cli/common/render/printResult.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitAfterImplement } from '#src/cli/common/utils/exitAfterImplement.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 
 interface Params {
 	/** The config as it was read from disk, before the command stamped its harness on it. */

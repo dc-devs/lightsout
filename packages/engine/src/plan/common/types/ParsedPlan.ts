@@ -1,4 +1,6 @@
-import type { LedgerRow, ProseFile, RenameRule } from '#src/contracts/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
+import type { ProseFile } from '#src/contracts/plan/ledger/ProseFile.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
 import type { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
 
 /** A parsed plan file: its `##` sections plus the paths and scripts the checks key off. */

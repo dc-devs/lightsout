@@ -7,8 +7,11 @@ import { phaseSection } from '#src/agents/common/utils/phaseSection.ts';
 import planContractTemplate from '#src/agents/prompts/planContractTemplate.md';
 import planTemplate from '#src/agents/prompts/planTemplate.md';
 import planWriterPrompt from '#src/agents/prompts/planWriter.md';
-import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
-import type { PhaseDeclaration } from '#src/plan/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 
 interface Params {
 	facts: PlanFacts;

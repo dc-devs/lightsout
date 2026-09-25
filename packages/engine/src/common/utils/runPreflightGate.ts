@@ -1,6 +1,9 @@
 import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { runGates } from '#src/gates/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { runGates } from '#src/gates/runGates.ts';
 
 /**
  * The slice of a run this gate touches, structural on purpose: a coverage run

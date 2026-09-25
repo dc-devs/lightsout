@@ -1,11 +1,16 @@
 import { formatCost, formatDuration } from '@lightsout/shared';
-import { spanOfActivityNodes, totalActivityReports } from '#src/activity/index.ts';
+import { spanOfActivityNodes } from '#src/activity/common/utils/spanOfActivityNodes.ts';
+import { totalActivityReports } from '#src/activity/totalActivityReports.ts';
 import { harnessProcessLabel } from '#src/cli/common/activityReport/harnessProcessLabel.ts';
 import { renderActivityTree } from '#src/cli/common/activityReport/renderActivityTree.ts';
 import { printSectionHeading } from '#src/cli/common/render/printSectionHeading.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
-import { ActivityLevelKind, type ActivityNode, type ActivityReport, type ConfigPricing, type HarnessProcessMark } from '#src/contracts/index.ts';
-import type { PlanActivityReport } from '#src/views/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
+import type { PlanActivityReport } from '#src/views/common/types/PlanActivityReport.ts';
 
 interface Params {
 	/** The --plan value as given, so the heading names what the reader asked for. */

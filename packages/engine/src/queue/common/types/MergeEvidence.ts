@@ -1,4 +1,4 @@
-import type { PullRequestSummary } from '#src/ship/index.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 
 /**
  * Evidence that a branch has merged, and which source established it.

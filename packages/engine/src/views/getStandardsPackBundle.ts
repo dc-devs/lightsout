@@ -1,4 +1,5 @@
-import { FixtureSide, type StandardsPackBundle } from '#src/contracts/index.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
 import { listStandardsPackBundles } from '#src/views/listStandardsPackBundles.ts';
 import { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
 

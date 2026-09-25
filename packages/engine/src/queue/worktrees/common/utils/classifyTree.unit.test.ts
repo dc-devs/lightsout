@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type BranchState } from '#src/contracts/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import type { BranchState } from '#src/contracts/queue/BranchState.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { classifyTree } from '#src/queue/worktrees/common/utils/classifyTree.ts';
 

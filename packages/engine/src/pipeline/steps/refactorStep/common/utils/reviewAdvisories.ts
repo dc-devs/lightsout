@@ -1,7 +1,7 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import { runStandardsReview } from '#src/standardsCheck/runStandardsReview.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	run: PipelineRun;

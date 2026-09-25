@@ -4,7 +4,7 @@ import { PipelineKind, RunBurnDownBatchOutcome } from '@lightsout/engine/contrac
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RunDetail } from '#src/features/runDetail/index.ts';
+import { RunDetail } from '#src/features/runDetail/screens/RunDetail/RunDetail.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';

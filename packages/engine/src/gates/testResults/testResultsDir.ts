@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { resolveRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 /**
  * A package group is a directory name and a custom gate kind is a config key,

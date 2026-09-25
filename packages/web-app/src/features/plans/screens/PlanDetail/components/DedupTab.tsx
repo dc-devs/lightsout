@@ -1,5 +1,6 @@
 import type { DedupReport } from '@lightsout/engine/contracts';
-import { Card, MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 
 interface Props {
 	dedup?: DedupReport;

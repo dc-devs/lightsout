@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { readTestResults } from '#src/gates/testResults/readTestResults.ts';
 import { satisfiesGateKey } from '#src/gates/testResults/satisfiesGateKey.ts';
 

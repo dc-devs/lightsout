@@ -2,8 +2,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
-import type { WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 // Mocked Imports

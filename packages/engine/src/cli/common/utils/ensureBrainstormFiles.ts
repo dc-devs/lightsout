@@ -1,9 +1,10 @@
-import { restoreBrainstormFiles } from '#src/brainstorm/index.ts';
+import { restoreBrainstormFiles } from '#src/brainstorm/restore/restoreBrainstormFiles.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { planWorkspaceDir, readPlanWorkOrderRef } from '#src/plan/index.ts';
-import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 interface Params {
 	cwd: string;

@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { listStandardsPacks } from '#src/views/index.ts';
+import { listStandardsPacks } from '#src/views/listStandardsPacks.ts';
 
 /** Write a set of folder-relative files, creating the folders they need. */
 const writeTree = async ({ dir, files }: { dir: string; files: Record<string, string> }) => {

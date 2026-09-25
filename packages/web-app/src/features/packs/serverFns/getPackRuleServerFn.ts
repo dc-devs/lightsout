@@ -2,7 +2,7 @@ import { StandardsPackNotFoundError, StandardsPackRuleNotFoundError } from '@lig
 import { notFound } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * One rule whole — its argument and the files that prove it.

@@ -1,5 +1,5 @@
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import type { WorkOrderPlanOutcome } from '#src/workOrder/index.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import type { WorkOrderPlanOutcome } from '#src/workOrder/common/types/WorkOrderPlanOutcome.ts';
 
 interface Params {
 	/** What the ticket lifecycle helper made of the run it wrapped. */

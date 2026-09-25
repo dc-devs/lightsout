@@ -1,8 +1,9 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, jest, test } from '@jest/globals';
-import { commitRunWork } from '#src/commit/index.ts';
-import { WorktreeOwner } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { commitRunWork } from '#src/commit/commitRunWork.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';

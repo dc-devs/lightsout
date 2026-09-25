@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigDocs } from '#src/contracts/index.ts';
+import { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
 
 describe('ConfigDocs', () => {
 	test('accepts the block a repo actually writes — each surface a path and what it covers', () => {

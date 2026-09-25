@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GradeDocsCoverage } from '#src/contracts/index.ts';
+import { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
 
 const setupDocsCoverage = () => {
 	const entry = {

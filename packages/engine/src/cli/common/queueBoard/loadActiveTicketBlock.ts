@@ -2,13 +2,16 @@ import { loadPlanningProgressBlock } from '#src/cli/common/progressBlock/loadPla
 import { loadRunFamilyProgressBlock } from '#src/cli/common/progressBlock/loadRunFamilyProgressBlock.ts';
 import { loadShippingProgressBlock } from '#src/cli/common/progressBlock/loadShippingProgressBlock.ts';
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
-import { pathExists } from '#src/plan/index.ts';
-import { QueueWorker } from '#src/queue/index.ts';
-import { isPidAlive, readRunLock } from '#src/runState/index.ts';
-import { readShippingProgress } from '#src/ship/index.ts';
-import { listRuns } from '#src/views/index.ts';
-import { findNextPlanToPlan, readWorkOrderState } from '#src/workOrder/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
+import { readRunLock } from '#src/runState/lock/readRunLock.ts';
+import { readShippingProgress } from '#src/ship/progress/readShippingProgress.ts';
+import { listRuns } from '#src/views/listRuns.ts';
+import { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 
 /**
  * The ship lane's ticket: its shipping block, unless its worktree is gone — the

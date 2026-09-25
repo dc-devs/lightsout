@@ -1,6 +1,11 @@
 import { describe, expect, test } from '@jest/globals';
-import { BatchOutcome, type LightsoutConfig, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { seedResumeState } from '#src/refactor/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { seedResumeState } from '#src/refactor/seedResumeState.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 

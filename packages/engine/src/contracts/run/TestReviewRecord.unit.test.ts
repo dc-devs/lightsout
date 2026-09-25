@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { TestReviewRecord } from '#src/contracts/index.ts';
+import { TestReviewRecord } from '#src/contracts/run/TestReviewRecord.ts';
 
 /** One journal line: the checkpoint that ran the review, when, what it decided, and what it went red on. */
 const setupLine = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

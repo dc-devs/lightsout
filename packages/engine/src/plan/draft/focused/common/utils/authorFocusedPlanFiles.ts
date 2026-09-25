@@ -1,7 +1,8 @@
-import { buildFocusedPlanWriterInvocation } from '#src/agents/index.ts';
+import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/buildFocusedPlanWriterInvocation.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
 import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
-import { PlanDraftReport, PlanDraftStatus } from '#src/contracts/index.ts';
+import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanDraftStatus } from '#src/contracts/plan/draft/PlanDraftStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import type { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
 import { verifyDraftedFiles } from '#src/plan/common/paths/verifyDraftedFiles.ts';

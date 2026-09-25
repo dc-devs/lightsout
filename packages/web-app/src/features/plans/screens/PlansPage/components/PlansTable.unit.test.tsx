@@ -3,7 +3,7 @@ import type { PlanWorkspaceListing } from '@lightsout/engine';
 import { PlanGrade, PlanStage } from '@lightsout/engine/contracts';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { PlansTable } from '#src/features/plans/index.ts';
+import { PlansTable } from '#src/features/plans/screens/PlansPage/components/PlansTable.tsx';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 
 // Mocked Imports

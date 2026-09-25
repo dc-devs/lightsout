@@ -1,8 +1,13 @@
 import { relative } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanGapJudgeInvocation } from '#src/agents/index.ts';
-import { type Effort, GapBatchVerdict, type GradedGap, GradeFindingStatus, type GradeMemory, type Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanGapJudgeInvocation } from '#src/agents/buildPlanGapJudgeInvocation.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import { GapBatchVerdict } from '#src/contracts/plan/grade/GapBatchVerdict.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
 import { groupGapCandidates } from '#src/plan/common/grading/groupGapCandidates.ts';
 import { matchGapVerdicts } from '#src/plan/common/grading/matchGapVerdicts.ts';

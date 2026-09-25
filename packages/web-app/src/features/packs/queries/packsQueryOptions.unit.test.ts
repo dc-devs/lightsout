@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsPackListing } from '@lightsout/engine';
-import { packsQueryOptions } from '#src/features/packs/index.ts';
+import { packsQueryOptions } from '#src/features/packs/queries/packsQueryOptions.ts';
 import { buildStandardsPackListing } from '#tests/helpers/buildStandardsPackListing.ts';
 
 // Mocked Imports

@@ -1,4 +1,4 @@
-import type { StepRecord } from '#src/contracts/index.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 
 interface Params {
 	record: StepRecord;

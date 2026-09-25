@@ -4,7 +4,7 @@ import { resolveRunWorkspace } from '#src/cli/common/implementRun/resolveRunWork
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 interface Params {
 	/** The checkout the command was launched from. */

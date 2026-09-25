@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planLintCommand } from '#src/cli/plan/index.ts';
+import { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

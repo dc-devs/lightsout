@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { PlanFacts } from '#src/contracts/index.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { estimatePlanScope } from '#src/plan/draft/estimatePlanScope.ts';
 
 /** Facts whose one area touches the given modify and mirror paths. */

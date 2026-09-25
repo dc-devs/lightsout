@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { PlanVariant } from '#src/contracts/index.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

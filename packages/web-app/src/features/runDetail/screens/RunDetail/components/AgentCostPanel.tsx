@@ -1,6 +1,6 @@
 import type { AgentInvocation, RunStepView, RunUsage } from '@lightsout/engine';
 import { formatCost, formatTokenCount } from '@lightsout/shared';
-import { Card } from '#src/appUI/index.ts';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 
 /**

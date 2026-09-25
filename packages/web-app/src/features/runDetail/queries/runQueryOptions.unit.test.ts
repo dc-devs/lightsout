@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { RunNotFoundError, type RunView } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { runQueryOptions } from '#src/features/runDetail/index.ts';
+import { runQueryOptions } from '#src/features/runDetail/queries/runQueryOptions.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 
 // Mocked Imports

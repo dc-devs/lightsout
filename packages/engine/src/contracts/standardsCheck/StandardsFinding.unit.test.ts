@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {

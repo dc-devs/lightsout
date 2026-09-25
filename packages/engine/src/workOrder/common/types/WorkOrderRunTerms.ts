@@ -1,4 +1,4 @@
-import type { ShipRequestTerms } from '#src/ship/index.ts';
+import type { ShipRequestTerms } from '#src/ship/common/types/ShipRequestTerms.ts';
 
 /** What a work order state says about one run of one of its plans — see {@link readWorkOrderRunTerms}. */
 export interface WorkOrderRunTerms {

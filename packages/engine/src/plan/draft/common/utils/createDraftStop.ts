@@ -1,4 +1,5 @@
-import type { DraftImplementation, StructuralFinding } from '#src/contracts/index.ts';
+import type { DraftImplementation } from '#src/contracts/plan/draft/DraftImplementation.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 
 /** Distributes across the result union so every member keeps its own shape instead of collapsing into one merged object. */

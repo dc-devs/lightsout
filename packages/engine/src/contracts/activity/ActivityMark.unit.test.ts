@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ActivityMark } from '#src/contracts/index.ts';
+import { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
 
 const setupLevelStart = () => {
 	const lineWithoutLevel = {

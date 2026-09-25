@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsPackRuleView } from '@lightsout/engine';
-import { packRuleQueryOptions } from '#src/features/packs/index.ts';
+import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';
 
 // Mocked Imports

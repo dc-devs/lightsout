@@ -1,4 +1,4 @@
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 
 /**

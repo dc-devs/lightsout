@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { activityRecordPath } from '#src/activity/index.ts';
+import { activityRecordPath } from '#src/activity/activityRecordPath.ts';
 
 /**
  * A plan folder that was never created — the case a reader presents when it asks

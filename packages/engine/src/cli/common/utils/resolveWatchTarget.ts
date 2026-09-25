@@ -3,8 +3,8 @@ import { getRunFamilyRoot } from '#src/cli/common/runFamily/getRunFamilyRoot.ts'
 import { groupRunFamilies } from '#src/cli/common/runFamily/groupRunFamilies.ts';
 import type { RunFamily } from '#src/cli/common/types/RunFamily.ts';
 import type { WatchTarget } from '#src/cli/common/types/WatchTarget.ts';
-import { RunStatus } from '#src/contracts/index.ts';
-import { listRuns } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { listRuns } from '#src/views/listRuns.ts';
 
 /** Every run that has not finished, newest first — the order `listRuns` already answers in. */
 const findGoingRuns = async ({ cwd, rootRunId }: { cwd: string; rootRunId?: string }) =>

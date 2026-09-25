@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { DedupResolution, type DedupVerdict } from '#src/contracts/index.ts';
+import { DedupResolution } from '#src/contracts/dedup/DedupResolution.ts';
+import type { DedupVerdict } from '#src/contracts/dedup/DedupVerdict.ts';
 import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 

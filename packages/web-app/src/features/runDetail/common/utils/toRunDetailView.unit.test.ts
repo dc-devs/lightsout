@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { toRunDetailView } from '#src/features/runDetail/index.ts';
+import { toRunDetailView } from '#src/features/runDetail/common/utils/toRunDetailView.ts';
 import { buildRunStep } from '#tests/helpers/buildRunStep.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 

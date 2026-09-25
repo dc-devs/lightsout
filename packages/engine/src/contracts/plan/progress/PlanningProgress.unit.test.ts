@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanningProgress, PlanningStep } from '#src/contracts/index.ts';
+import { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
 
 const setupRecords = () => {
 	const finishedEntry = {

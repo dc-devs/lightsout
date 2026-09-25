@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { GradeReport } from '#src/contracts/index.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 
 interface Params {

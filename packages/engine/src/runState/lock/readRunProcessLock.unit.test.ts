@@ -2,8 +2,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { readRunProcessLock } from '#src/runState/lock/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
 
 const startedAt = '2026-07-03T00:00:00.000Z';
 

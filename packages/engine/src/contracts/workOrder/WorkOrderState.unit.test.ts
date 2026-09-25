@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 const setupWorkOrderState = () => {
 	const firstPlan = {

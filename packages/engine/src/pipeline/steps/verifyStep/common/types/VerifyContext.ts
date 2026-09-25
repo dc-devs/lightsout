@@ -1,4 +1,5 @@
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { FixBuilder } from '#src/pipeline/steps/common/types/FixBuilder.ts';
 

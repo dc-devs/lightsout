@@ -1,5 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapCheckLens, GapOutcome, type GradedGap } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapCheckLens } from '#src/contracts/plan/grade/GapCheckLens.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
 
 /** One gap per outcome given, each identifiable by its gap text so order is assertable. */

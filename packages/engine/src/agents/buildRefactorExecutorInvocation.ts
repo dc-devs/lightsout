@@ -5,7 +5,7 @@ import refactorScopeStandalonePrompt from '#src/agents/prompts/refactorScopeStan
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 interface Params {
 	/**

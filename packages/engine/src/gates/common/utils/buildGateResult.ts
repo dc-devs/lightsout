@@ -1,6 +1,6 @@
 import { relative } from 'node:path';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 
 interface Params {
 	cwd: string;

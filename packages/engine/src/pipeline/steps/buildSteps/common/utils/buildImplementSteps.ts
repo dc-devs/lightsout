@@ -1,10 +1,11 @@
-import { buildFeatureExecutorInvocation } from '#src/agents/index.ts';
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
+import { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutorInvocation.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import type { FixBuilder } from '#src/pipeline/steps/common/types/FixBuilder.ts';
 import { formatStep } from '#src/pipeline/steps/formatStep.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { workStep } from '#src/pipeline/steps/workStep.ts';
 
 interface Params {

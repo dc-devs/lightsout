@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { readTestResults } from '#src/gates/index.ts';
+import { readTestResults } from '#src/gates/testResults/readTestResults.ts';
 
 /** One results file as the reporter writes it: absolute test file path, one entry per assertion. */
 const resultsFile = ({ cwd, testFile, assertions }: { cwd: string; testFile: string; assertions: Record<string, unknown>[] }) =>

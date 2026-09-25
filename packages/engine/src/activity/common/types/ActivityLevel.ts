@@ -1,4 +1,6 @@
-import type { ActivityLevelKind, HarnessProcessMark, RunStatus } from '#src/contracts/index.ts';
+import type { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /**
  * A handle on one open level of an activity record — the value a writer holds

@@ -1,5 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapArea, GapOutcome, GradeFindingStatus } from '#src/contracts/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import { GradeFindingStatus } from '#src/contracts/plan/memory/GradeFindingStatus.ts';
 import { verifyOpenFindings } from '#src/plan/common/memory/verifyOpenFindings.ts';
 import {
 	firstPhaseLine,

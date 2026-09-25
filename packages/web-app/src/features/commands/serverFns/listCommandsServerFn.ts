@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * Every command lightsout offers, as the catalog states them.

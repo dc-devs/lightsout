@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { type SourceEvidenceIndex, SourceEvidenceKind } from '#src/contracts/index.ts';
-import { renderEvidenceBrief } from '#src/plan/evidence/index.ts';
+import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import { SourceEvidenceKind } from '#src/contracts/plan/evidence/SourceEvidenceKind.ts';
+import { renderEvidenceBrief } from '#src/plan/evidence/renderEvidenceBrief.ts';
 
 /**
  * The collected record a writer's brief is assembled from. Every entry is a

@@ -1,4 +1,6 @@
-import type { GradeDocsCoverage, GradeMemory, GradeReadCoverage } from '#src/contracts/index.ts';
+import type { GradeDocsCoverage } from '#src/contracts/plan/memory/GradeDocsCoverage.ts';
+import type { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 import { getInvalidatedPhases } from '#src/plan/common/scope/getInvalidatedPhases.ts';
 
 interface Params {

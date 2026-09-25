@@ -2,9 +2,10 @@ import { basename, extname } from 'node:path';
 import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
-import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { readWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 
 /**
  * The unit of work this run is, named the way the folders on disk name it, and

@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { GateHolds } from '#src/gates/index.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { listEligibleTickets } from '#src/queue/ticketSelection/listEligibleTickets.ts';

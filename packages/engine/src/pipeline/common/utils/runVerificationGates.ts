@@ -3,9 +3,12 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import type { GateResult } from '#src/contracts/index.ts';
-import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
-import { checkAcceptanceTests, collectGateObservations, resolveGateSchedule, runGates } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { checkChangedFilesExecuted } from '#src/coverage/checkChangedFilesExecuted.ts';
+import { collectGateObservations } from '#src/gates/common/utils/collectGateObservations.ts';
+import { resolveGateSchedule } from '#src/gates/common/utils/resolveGateSchedule.ts';
+import { runGates } from '#src/gates/runGates.ts';
+import { checkAcceptanceTests } from '#src/gates/testResults/checkAcceptanceTests.ts';
 import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';

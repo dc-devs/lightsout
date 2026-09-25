@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { ProofSection } from '#src/features/home/screens/Home/components/ProofSection.tsx';
-import { getDemoRunListings } from '#src/lightsout/index.ts';
+import { getDemoRunListings } from '#src/lightsout/common/utils/getDemoRunListings.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
 // Mocked Imports

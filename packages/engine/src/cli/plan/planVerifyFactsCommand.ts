@@ -6,8 +6,12 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { ensureBrainstormFiles } from '#src/cli/common/utils/ensureBrainstormFiles.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import { PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanVerifyFacts } from '#src/plan/index.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { recordPlanningStep } from '#src/plan/progress/recordPlanningStep.ts';
+import { runPlanVerifyFacts } from '#src/plan/runPlanVerifyFacts.ts';
 
 export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = getStringFlag({ flags, name: 'name' });

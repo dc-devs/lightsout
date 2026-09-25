@@ -1,9 +1,13 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildTestChangeReviewInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 import { defaultSupervisorTimeoutMinutes } from '#src/common/constants/defaultSupervisorTimeoutMinutes.ts';
-import { type AcceptanceTestRecord, type LightsoutConfig, Permissions, TestChangeReview } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import { TestChangeReview } from '#src/contracts/work/TestChangeReview.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 import type { TestChange } from '#src/pipeline/approvedTests/common/types/TestChange.ts';
 
 const reviewerPermissions = Permissions.ReadOnly;

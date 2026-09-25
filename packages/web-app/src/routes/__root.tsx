@@ -7,9 +7,10 @@ import { NotFound } from '#src/common/components/boundaries/NotFound.tsx';
 import { ResolvedTheme } from '#src/common/constants/ResolvedTheme.ts';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { themeStorageKey } from '#src/common/constants/themeStorageKey.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import appCss from '#src/styles/app.css?url';
-import { resolveThemeClass, ThemeProvider } from '#src/theme/index.ts';
+import { resolveThemeClass } from '#src/theme/resolveThemeClass.ts';
+import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 
 /**
  * The one inline script in the app.

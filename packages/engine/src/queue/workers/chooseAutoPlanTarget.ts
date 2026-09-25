@@ -1,8 +1,11 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
 import { toBranchSlug } from '#src/common/utils/toBranchSlug.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { addWorkOrderPlan, findNextPlanToPlan, pullWorkOrderState } from '#src/workOrder/index.ts';
+import { addWorkOrderPlan } from '#src/workOrder/addWorkOrderPlan.ts';
+import { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {
 	/** The work order's worktree, where a first plan's folder is created. */

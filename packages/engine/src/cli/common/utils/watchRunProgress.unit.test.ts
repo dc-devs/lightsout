@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { watchRunProgress } from '#src/cli/common/utils/watchRunProgress.ts';
-import { type RunManifest, RunStatus, ShipStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 

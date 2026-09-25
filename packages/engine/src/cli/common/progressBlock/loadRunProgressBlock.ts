@@ -1,6 +1,8 @@
 import { renderRunProgress } from '#src/cli/common/render/renderRunProgress.ts';
-import { readRunManifest, readRunProcessLock } from '#src/runState/index.ts';
-import { getRunProgress, type RunProgress } from '#src/views/index.ts';
+import { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import type { RunProgress } from '#src/views/common/types/RunProgress.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 
 interface Params {
 	cwd: string;

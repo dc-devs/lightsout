@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { ConfigNotFoundError, type ConfigView } from '@lightsout/engine';
-import { configQueryOptions } from '#src/features/config/index.ts';
+import { configQueryOptions } from '#src/features/config/queries/configQueryOptions.ts';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 
 // Mocked Imports

@@ -1,8 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
-import { toQueueBoardTickets } from '#src/queue/board/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { toQueueBoardTickets } from '#src/queue/board/toQueueBoardTickets.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { QueueDrainReport } from '#src/queue/index.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 

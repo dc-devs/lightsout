@@ -1,4 +1,5 @@
-import { WorkOrderEventKind, type WorkOrderState } from '#src/contracts/index.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
 
 interface Params {

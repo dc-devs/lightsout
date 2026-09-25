@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { TestResultsFile } from '#src/contracts/index.ts';
+import { TestResultsFile } from '#src/contracts/gates/TestResultsFile.ts';
 
 interface Params {
 	cwd: string;

@@ -1,4 +1,8 @@
-import { BatchOutcome, BatchReport, type RefactorBatch, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import { BatchReport } from '#src/contracts/refactor/BatchReport.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';

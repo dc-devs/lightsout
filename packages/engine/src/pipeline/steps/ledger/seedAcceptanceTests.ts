@@ -1,4 +1,5 @@
-import type { AcceptanceTestRecord, LedgerRow } from '#src/contracts/index.ts';
+import type { LedgerRow } from '#src/contracts/plan/ledger/LedgerRow.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 
 interface Params {
 	rows: LedgerRow[];

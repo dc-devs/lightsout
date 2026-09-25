@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrictionEntry } from '#src/contracts/friction/index.ts';
+import { FrictionEntry } from '#src/contracts/friction/FrictionEntry.ts';
 import { AdvisoryOutcome } from '#src/contracts/standardsCheck/AdvisoryOutcome.ts';
 import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 

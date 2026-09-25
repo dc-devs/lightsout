@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Effort } from '#src/contracts/Effort.ts';
-import { AgentUsage } from '#src/contracts/run/index.ts';
+import { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 
 /** One `agents.jsonl` line: an invocation's usage plus who ran, when, and for which step. */
 export const AgentInvocation = AgentUsage.extend({

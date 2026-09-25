@@ -2,7 +2,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { DemoRunDetail } from '#src/features/home/components/DemoRunDetail.tsx';
-import { DemoRunSlug, getDemoRunViews } from '#src/lightsout/index.ts';
+import { DemoRunSlug } from '#src/lightsout/common/constants/DemoRunSlug.ts';
+import { getDemoRunViews } from '#src/lightsout/common/utils/getDemoRunViews.ts';
 
 // Mocked Imports
 // -------------------------

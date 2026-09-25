@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { commandCatalog, renderUsage } from '#src/commands/index.ts';
+import { commandCatalog } from '#src/commands/commandCatalog.ts';
+import { renderUsage } from '#src/commands/renderUsage.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 
 /** The usage lines, without the header above them or the exit codes below. */

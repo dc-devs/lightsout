@@ -1,7 +1,9 @@
 import { expect, test } from '@jest/globals';
-import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/index.ts';
-import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
-import type { ExportCollision, PhaseDeclaration } from '#src/plan/index.ts';
+import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/buildFocusedPlanWriterInvocation.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
 
 type FocusedParams = Parameters<typeof buildFocusedPlanWriterInvocation>[0];
 

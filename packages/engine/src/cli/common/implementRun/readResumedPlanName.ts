@@ -1,7 +1,7 @@
 import { formatPlanAddress } from '#src/common/planAddress/formatPlanAddress.ts';
-import type { RunManifest } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { readWorkOrderState } from '#src/workOrder/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 
 interface Params {
 	/** The checkout the run builds in, whose primary checkout holds the ticket record. */

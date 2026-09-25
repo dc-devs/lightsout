@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { StandardsView } from '@lightsout/engine';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { standardsQueryOptions } from '#src/features/standards/index.ts';
+import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
 
 // Mocked Imports

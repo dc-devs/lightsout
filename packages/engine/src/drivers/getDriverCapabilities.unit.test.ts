@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { getDriver, getDriverCapabilities } from '#src/drivers/index.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import { getDriverCapabilities } from '#src/drivers/getDriverCapabilities.ts';
 
 describe('getDriverCapabilities', () => {
 	test('getDriverCapabilities: claude-code declares every isolation control', () => {

@@ -6,9 +6,19 @@ import { red } from '#src/cli/common/terminal/red.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
-import { GapOutcome, type GradeReport, type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { getBlockingGaps, gradeHistoryPath, gradeMemoryPath, PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanGrade } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { GapOutcome } from '#src/contracts/plan/grade/GapOutcome.ts';
+import type { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
+import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
+import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { recordPlanningStep } from '#src/plan/progress/recordPlanningStep.ts';
+import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 
 interface Params {
 	cwd: string;

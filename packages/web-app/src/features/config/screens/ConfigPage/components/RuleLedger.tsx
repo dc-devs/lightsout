@@ -2,7 +2,11 @@ import type { ConfigView } from '@lightsout/engine';
 import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Badge, DataTable, EmptyState, FilterDropdown, MetadataTag } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
+import { FilterDropdown } from '#src/appUI/FilterDropdown.tsx';
 import { ruleStateBadgeVariants } from '#src/common/constants/ruleStateBadgeVariants.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 

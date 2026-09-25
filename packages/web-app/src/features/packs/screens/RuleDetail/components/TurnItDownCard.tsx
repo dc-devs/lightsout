@@ -1,5 +1,6 @@
 import { StandardsSeverity } from '@lightsout/engine/contracts';
-import { CopyButton, SettingsCard } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 
 /** The one config line that changes how loudly a rule speaks, at the severity asked for. */
 const buildSeveritySnippet = ({ ruleId, severity }: { ruleId: string; severity: typeof StandardsSeverity.Advisory | typeof StandardsSeverity.Off }) =>

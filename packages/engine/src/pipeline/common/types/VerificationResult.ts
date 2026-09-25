@@ -1,5 +1,5 @@
-import type { GateResult } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 
 /**
  * What one run of a checkpoint's gates answered — the verdict every repair stage

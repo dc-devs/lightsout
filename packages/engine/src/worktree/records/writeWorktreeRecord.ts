@@ -1,7 +1,8 @@
 import { mkdir, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import type { WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
 
 interface Params {

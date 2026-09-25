@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { AgentInvocation, AgentUsage } from '#src/contracts/index.ts';
+import { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import { AgentInvocation } from '#src/contracts/views/AgentInvocation.ts';
 
 const setupInvocation = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const line: Record<string, unknown> = {

@@ -1,4 +1,6 @@
-import type { ExploreArea, PlanFacts, SourceEvidenceIndex } from '#src/contracts/index.ts';
+import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import type { ExploreArea } from '#src/contracts/plan/facts/ExploreArea.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 
 interface Params {

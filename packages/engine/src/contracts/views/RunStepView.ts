@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RunStatus } from '#src/contracts/run/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /** One pipeline step as the run detail page shows it: the manifest's record joined to what the agent ledger cost. */
 export const RunStepView = z.object({

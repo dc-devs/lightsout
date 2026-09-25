@@ -1,4 +1,4 @@
-import type { CoverageBatchReport } from '#src/contracts/index.ts';
+import type { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
 import { maxFileStrikes } from '#src/coverage/common/constants/maxFileStrikes.ts';
 import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
 

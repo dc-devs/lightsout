@@ -1,7 +1,7 @@
 import { type LucideIcon, Monitor, Moon, Sun } from 'lucide-react';
 import { Button } from '#src/appUI/buttons/Button.tsx';
 import { Theme } from '#src/common/constants/Theme.ts';
-import { useTheme } from '#src/theme/index.ts';
+import { useTheme } from '#src/theme/useTheme.ts';
 
 /** Light, then dark, then follow the system — one control cycling three states rather than three. */
 const nextTheme: Record<Theme, Theme> = {

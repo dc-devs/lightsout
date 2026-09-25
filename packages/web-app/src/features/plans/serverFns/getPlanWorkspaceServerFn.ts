@@ -2,7 +2,7 @@ import { PlanWorkspaceNotFoundError } from '@lightsout/engine';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 import { readOrNotFound } from '#src/common/utils/readOrNotFound.ts';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * One plan workspace as its page shows it: the files it holds, the records that

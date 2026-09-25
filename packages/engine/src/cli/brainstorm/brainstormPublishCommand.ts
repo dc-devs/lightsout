@@ -1,4 +1,4 @@
-import { publishBrainstorm } from '#src/brainstorm/index.ts';
+import { publishBrainstorm } from '#src/brainstorm/publish/publishBrainstorm.ts';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';

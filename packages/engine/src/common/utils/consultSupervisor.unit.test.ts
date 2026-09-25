@@ -1,7 +1,8 @@
 import { expect, test } from '@jest/globals';
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
 

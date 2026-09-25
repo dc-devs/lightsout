@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { reportCommand } from '#src/cli/reportCommand.ts';
-import { ActivityLevelKind, type ActivityMark, ActivityMarkKind, Effort, ProcessEndReason, RunStatus } from '#src/contracts/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
+import { ActivityMarkKind } from '#src/contracts/activity/ActivityMarkKind.ts';
+import { ProcessEndReason } from '#src/contracts/activity/ProcessEndReason.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { usageFixture } from '#tests/helpers/usageFixture.ts';
 

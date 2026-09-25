@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GradeMemory } from '#src/contracts/index.ts';
+import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 
 const setupMemory = (overrides: Record<string, unknown> = {}) => {
 	const inputs = {

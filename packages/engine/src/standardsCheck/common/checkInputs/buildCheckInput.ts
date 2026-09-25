@@ -1,5 +1,5 @@
+import { type StandardsCheckInput, StandardsInputKind } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { type StandardsCheckInput, StandardsInputKind } from '#src/contracts/index.ts';
 import { buildCloneSpansInput } from '#src/standardsCheck/common/checkInputs/buildCloneSpansInput.ts';
 import { buildFileListInput } from '#src/standardsCheck/common/checkInputs/buildFileListInput.ts';
 import { buildFileTextInput } from '#src/standardsCheck/common/checkInputs/buildFileTextInput.ts';

@@ -1,12 +1,15 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import { ShipBlockReason, ShippingStepId, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
 import { checkShipPreconditions } from '#src/ship/checkShipPreconditions.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
 import { quoteGitArgument } from '#src/ship/common/utils/quoteGitArgument.ts';
 import { runGit } from '#src/ship/common/utils/runGit.ts';
-import { ShippingProgressRecorder } from '#src/ship/progress/index.ts';
+import { ShippingProgressRecorder } from '#src/ship/progress/ShippingProgressRecorder.ts';
 import { runShipAttempt } from '#src/ship/runShipAttempt.ts';
 import { syncDefaultBranch } from '#src/ship/syncDefaultBranch.ts';
 import { writeShipResult } from '#src/ship/writeShipResult.ts';

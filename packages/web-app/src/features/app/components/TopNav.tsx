@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Dialog, ThemeToggle } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { ThemeToggle } from '#src/appUI/buttons/ThemeToggle.tsx';
+import { Dialog } from '#src/appUI/Dialog.tsx';
 
 /**
  * The sell zone's pages, in the order the bar reads them.

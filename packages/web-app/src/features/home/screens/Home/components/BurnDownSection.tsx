@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { SectionHeader } from '#src/appUI/index.ts';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
 
 /** The two commands that work on code a repo already has, each linking to its own manual. */
 const commands = [

@@ -1,4 +1,4 @@
-import type { WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 /** The work order state as the tracker carries it, paired with the bytes every hash comparison is made against. */
 export interface PublishedWorkOrderState {

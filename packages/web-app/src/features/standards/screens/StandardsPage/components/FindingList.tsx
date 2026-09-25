@@ -1,7 +1,11 @@
 import type { StandardsFinding } from '@lightsout/engine';
 import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { useState } from 'react';
-import { Badge, CopyButton, DataTable, EmptyState, MetadataTag } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 import { getFindingFolder } from '#src/features/standards/common/utils/getFindingFolder.ts';

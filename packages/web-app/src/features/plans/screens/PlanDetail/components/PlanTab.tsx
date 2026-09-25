@@ -1,6 +1,6 @@
 import type { PlanWorkspaceFile, PlanWorkspaceView } from '@lightsout/engine';
 import { useState } from 'react';
-import { MetadataTag } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { formatBytes } from '#src/features/plans/common/utils/formatBytes.ts';
 import { PlanDocumentBody } from '#src/features/plans/screens/PlanDetail/components/PlanDocumentBody.tsx';
 

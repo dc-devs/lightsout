@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { listWorkOrders } from '#src/workOrder/index.ts';
+import { listWorkOrders } from '#src/workOrder/listWorkOrders.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 /** A state the contract accepts, written by hand so the listing is the only thing under test. */

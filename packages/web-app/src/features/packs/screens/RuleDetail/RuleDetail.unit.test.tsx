@@ -4,7 +4,7 @@ import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RuleDetail } from '#src/features/packs/index.ts';
+import { RuleDetail } from '#src/features/packs/screens/RuleDetail/RuleDetail.tsx';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';
 import { buildStandardsPackView } from '#tests/helpers/buildStandardsPackView.ts';
 import { buildStandardsRuleView } from '#tests/helpers/buildStandardsRuleView.ts';

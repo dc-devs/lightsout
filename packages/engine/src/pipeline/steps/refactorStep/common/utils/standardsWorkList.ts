@@ -1,7 +1,10 @@
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { attributeStandardsFindings, runStandardsCheck, selectStandardsFindings } from '#src/standardsCheck/index.ts';
+import { attributeStandardsFindings } from '#src/standardsCheck/attributeStandardsFindings.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
+import { selectStandardsFindings } from '#src/standardsCheck/selectStandardsFindings.ts';
 
 interface Params {
 	run: PipelineRun;

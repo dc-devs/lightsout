@@ -4,7 +4,7 @@ import planWorkflowDark from '#assets/plan-workflow.svg?url';
 import planWorkflowLight from '#assets/plan-workflow-light.svg?url';
 import refactorWorkflowDark from '#assets/refactor-workflow.svg?url';
 import refactorWorkflowLight from '#assets/refactor-workflow-light.svg?url';
-import { Tabs } from '#src/appUI/index.ts';
+import { Tabs } from '#src/appUI/Tabs.tsx';
 
 /**
  * One shipped workflow graphic, in whichever theme the page is wearing.

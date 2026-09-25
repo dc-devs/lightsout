@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readStandardsPack } from '#src/standardsPacks/index.ts';
+import { readStandardsPack } from '#src/standardsPacks/readStandardsPack.ts';
 
 /** A temp standards pack holding the given pack-relative files. */
 const setupPack = ({ files }: { files: Record<string, string> }) => {

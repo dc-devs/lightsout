@@ -1,24 +1,23 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { formatCost, formatTokenCount } from '@lightsout/shared';
-import type { ActivityLevel } from '#src/activity/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import { RunState } from '#src/common/services/RunState.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
-import {
-	ActivityLevelKind,
-	type AgentUsage,
-	type LightsoutConfig,
-	Permissions,
-	type RunManifest,
-	RunStatus,
-	type StepRecord,
-	WorkReport,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { getAgentOutcomeStatus, invokeAgentWithContract } from '#src/invoke/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/getAgentOutcomeStatus.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
-import { resolveRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 const formatUsage = ({ usage }: { usage: AgentUsage }) =>
 	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · ${formatCost({ usd: usage.costUsd })}`;

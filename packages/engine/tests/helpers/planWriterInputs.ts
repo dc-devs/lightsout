@@ -1,5 +1,6 @@
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
-import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
+import { buildPlanWriterInvocation } from '#src/agents/buildPlanWriterInvocation/buildPlanWriterInvocation.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 
 /** A minimal verified PlanFacts with distinctive values to spot in the prompt — no assertion on an assembled invocation varies with it. */
 export const planFacts = (): PlanFacts => ({

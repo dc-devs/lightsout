@@ -1,10 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type AdvisoryOutcome, AdvisoryResponse, BatchOutcome, BatchReport, RefactorWorklist, type StandardsFinding } from '#src/contracts/index.ts';
-import { listRunIds, readRunManifest, resolveRunDir } from '#src/runState/index.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import { BatchReport } from '#src/contracts/refactor/BatchReport.ts';
+import { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import type { AdvisoryOutcome } from '#src/contracts/standardsCheck/AdvisoryOutcome.ts';
+import { AdvisoryResponse } from '#src/contracts/standardsCheck/AdvisoryResponse.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { listRunIds } from '#src/runState/listRunIds.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 import type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
 import type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 /** The running counts for one rule: every field of its report row except the ones the rule itself supplies. */
 type Tally = Omit<StandardsHealthRule, 'id' | 'set' | 'documentPath' | 'checked'>;

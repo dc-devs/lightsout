@@ -1,6 +1,9 @@
 import { defaultRefactorMaxRounds } from '#src/common/constants/defaultRefactorMaxRounds.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
-import { CleanupEndReason, type RefactorStepReport, RunStatus, type StandardsFinding } from '#src/contracts/index.ts';
+import { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import type { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
@@ -13,9 +16,9 @@ import { readPriorCleanup } from '#src/pipeline/steps/refactorStep/common/utils/
 import { reviewAdvisories } from '#src/pipeline/steps/refactorStep/common/utils/reviewAdvisories.ts';
 import { runCleanupRound } from '#src/pipeline/steps/refactorStep/common/utils/runCleanupRound.ts';
 import { standardsWorkList } from '#src/pipeline/steps/refactorStep/common/utils/standardsWorkList.ts';
-import { readRunStandardsBaseline } from '#src/runState/index.ts';
-import { resolveStandardsChannels } from '#src/standards/index.ts';
-import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import { readRunStandardsBaseline } from '#src/runState/standardsBaseline/readRunStandardsBaseline.ts';
+import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	run: PipelineRun;

@@ -1,10 +1,11 @@
 import type { StandardsRuleView } from '@lightsout/engine';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Badge, SettingsCard } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 import { ruleStateBadgeVariants } from '#src/common/constants/ruleStateBadgeVariants.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
-import { standardsQueryOptions } from '#src/features/standards/index.ts';
+import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 
 /** One group of recorded counts, with the sentence that says what recorded them. */
 const CountGroup = ({ title, note, counts }: { title: string; note: string; counts: Array<[string, number]> }) => (

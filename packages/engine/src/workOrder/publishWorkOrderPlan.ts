@@ -1,7 +1,9 @@
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { type LightsoutConfig, PlanProgress, type WorkOrderState } from '#src/contracts/index.ts';
-import { publishPlan } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { publishPlan } from '#src/plan/publish/publishPlan.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';
 import { findPlanPublishRefusal } from '#src/workOrder/common/utils/findPlanPublishRefusal.ts';

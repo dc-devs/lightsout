@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 import { settleCoverageGates } from '#src/coverage/batch/settleCoverageGates.ts';
 import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 /** One gate verdict, green unless the case says otherwise, with every channel spelled. */
 const gateResultOf = (overrides: Partial<GateRunResult> = {}): GateRunResult => ({

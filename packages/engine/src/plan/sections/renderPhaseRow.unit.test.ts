@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { renderPhaseRow } from '#src/plan/sections/index.ts';
+import { renderPhaseRow } from '#src/plan/sections/renderPhaseRow.ts';
 
 /** One phase record, complete by default so a test states only the field it varies. */
 const setupDeclaration = (overrides: Partial<PhaseDeclaration> = {}) => {

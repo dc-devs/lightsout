@@ -1,8 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { BranchPhase, type BranchState } from '#src/contracts/index.ts';
+import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import type { BranchState } from '#src/contracts/queue/BranchState.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { settleUnmergedTree } from '#src/queue/worktrees/common/utils/settleUnmergedTree.ts';
-import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';

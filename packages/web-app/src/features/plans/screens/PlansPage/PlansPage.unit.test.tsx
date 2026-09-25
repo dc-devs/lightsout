@@ -4,7 +4,7 @@ import { PlanStage } from '@lightsout/engine/contracts';
 import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { PlansPage } from '#src/features/plans/index.ts';
+import { PlansPage } from '#src/features/plans/screens/PlansPage/PlansPage.tsx';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

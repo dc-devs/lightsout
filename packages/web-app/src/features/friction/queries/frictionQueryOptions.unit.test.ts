@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { FrictionRecord } from '@lightsout/engine';
-import { frictionQueryOptions } from '#src/features/friction/index.ts';
+import { frictionQueryOptions } from '#src/features/friction/queries/frictionQueryOptions.ts';
 import { buildFrictionRecord } from '#tests/helpers/buildFrictionRecord.ts';
 
 // Mocked Imports

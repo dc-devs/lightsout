@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { renderTicketDetailBlock } from '#src/cli/common/queueBoard/renderTicketDetailBlock.ts';
-import { type QueueBoardTicket, QueueLane } from '#src/contracts/index.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 
 /** Status lines as the status command prints them: a title, an indented row, an empty line and a trailing space the block must keep. */
 const statusLines = [

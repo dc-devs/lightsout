@@ -1,5 +1,5 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import type { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 /**
  * A batch's window onto the live tree, bound to the one scope both its

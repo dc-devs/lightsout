@@ -1,7 +1,7 @@
 import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
+import { type CloneSpan, type CloneSpansInput, StandardsInputKind } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { type CloneSpan, type CloneSpansInput, StandardsInputKind } from '#src/contracts/index.ts';
 import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
 import { blankDelegationSpans } from '#src/standardsCheck/common/utils/blankDelegationSpans.ts';
 import { blankImportSpans } from '#src/standardsCheck/common/utils/blankImportSpans.ts';

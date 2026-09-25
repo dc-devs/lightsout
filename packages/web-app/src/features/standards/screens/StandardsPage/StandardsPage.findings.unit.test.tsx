@@ -3,7 +3,7 @@ import type { StandardsView } from '@lightsout/engine';
 import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { StandardsPage } from '#src/features/standards/index.ts';
+import { StandardsPage } from '#src/features/standards/screens/StandardsPage/StandardsPage.tsx';
 import { buildStandardsFinding } from '#tests/helpers/buildStandardsFinding.ts';
 import { buildStandardsRuleView } from '#tests/helpers/buildStandardsRuleView.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';

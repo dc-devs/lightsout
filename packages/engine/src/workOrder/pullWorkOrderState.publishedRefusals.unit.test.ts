@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { TrackerAttachment, TrackerSettings } from '#src/ticketTracker/index.ts';
-import { pullWorkOrderState } from '#src/workOrder/index.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { setupPullTicketRecord } from '#tests/helpers/setupPullTicketRecord.ts';
 
 /**

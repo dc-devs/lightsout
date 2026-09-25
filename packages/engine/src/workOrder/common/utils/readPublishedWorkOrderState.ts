@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { WorkOrderState } from '#src/contracts/index.ts';
-import { getTicketAttachments, readTicketAsset } from '#src/ticketTracker/index.ts';
+import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';
+import { readTicketAsset } from '#src/ticketTracker/readTicketAsset.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import type { PublishedWorkOrderState } from '#src/workOrder/common/types/PublishedWorkOrderState.ts';
 import type { TicketTrackerTarget } from '#src/workOrder/common/types/TicketTrackerTarget.ts';

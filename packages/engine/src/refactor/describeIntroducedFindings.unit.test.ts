@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { describeIntroducedFindings } from '#src/refactor/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { describeIntroducedFindings } from '#src/refactor/describeIntroducedFindings.ts';
 
 /** One introduced finding, sited in the file the run created. */
 const setupIntroduced = (): { findings: StandardsFinding[] } => ({

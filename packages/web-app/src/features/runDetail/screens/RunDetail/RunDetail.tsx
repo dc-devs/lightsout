@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { runQueryOptions } from '#src/features/runDetail/queries/runQueryOptions.ts';
 import { PlanDrawer } from '#src/features/runDetail/screens/RunDetail/components/PlanDrawer.tsx';
 import { RunDetailBody } from '#src/features/runDetail/screens/RunDetail/components/RunDetailBody.tsx';

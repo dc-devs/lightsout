@@ -1,6 +1,7 @@
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { publishedButUnrecorded } from '#src/workOrder/common/constants/publishedButUnrecorded.ts';
 import { WorkOrderSyncKeep } from '#src/workOrder/common/constants/WorkOrderSyncKeep.ts';
 import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
@@ -10,7 +11,8 @@ import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrde
 import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
 import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
 import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';
-import { keepLocalWorkOrderState, keepPublishedWorkOrderState } from '#src/workOrder/divergence/index.ts';
+import { keepLocalWorkOrderState } from '#src/workOrder/divergence/keepLocalWorkOrderState.ts';
+import { keepPublishedWorkOrderState } from '#src/workOrder/divergence/keepPublishedWorkOrderState.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {

@@ -1,5 +1,5 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import { ShipBlockReason } from '#src/contracts/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import type { IntegrationFailure } from '#src/ship/integration/common/types/IntegrationFailure.ts';
 import { invokeShipIntegrator } from '#src/ship/integration/invokeShipIntegrator.ts';

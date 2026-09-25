@@ -1,4 +1,5 @@
-import type { DedupFinding, DedupVerdict } from '#src/contracts/index.ts';
+import type { DedupFinding } from '#src/contracts/dedup/DedupFinding.ts';
+import type { DedupVerdict } from '#src/contracts/dedup/DedupVerdict.ts';
 import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 
 interface Params {

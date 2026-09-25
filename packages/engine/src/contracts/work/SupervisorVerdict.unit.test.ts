@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { SupervisorDecision, SupervisorVerdict } from '#src/contracts/index.ts';
+import { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
+import { SupervisorVerdict } from '#src/contracts/work/SupervisorVerdict.ts';
 
 const setupVerdict = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const verdict: Record<string, unknown> = {

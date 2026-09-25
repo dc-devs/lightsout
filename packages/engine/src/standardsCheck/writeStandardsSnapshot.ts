@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StandardsSnapshot } from '#src/contracts/index.ts';
+import type { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
 import { getStandardsCheckPath } from '#src/standardsCheck/common/paths/getStandardsCheckPath.ts';
 import { getStandardsSnapshotsDir } from '#src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts';
 

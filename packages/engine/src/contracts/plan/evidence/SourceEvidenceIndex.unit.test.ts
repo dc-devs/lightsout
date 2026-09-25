@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { SourceEvidenceIndex } from '#src/contracts/index.ts';
+import { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
 
 const setupIndex = () => {
 	const collected = {

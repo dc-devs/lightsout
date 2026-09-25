@@ -1,4 +1,4 @@
-import type { AgentOutcome } from '#src/invoke/index.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 interface Params<Report> {
 	/** One settled fan-out result, or `undefined` for a task `drainTasks` never started. */

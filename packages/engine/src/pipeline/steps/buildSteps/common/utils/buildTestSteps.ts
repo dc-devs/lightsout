@@ -1,11 +1,12 @@
-import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
-import type { AcceptanceTestRecord, RenameRule } from '#src/contracts/index.ts';
+import { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
+import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import type { FixBuilder } from '#src/pipeline/steps/common/types/FixBuilder.ts';
 import { formatStep } from '#src/pipeline/steps/formatStep.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { writeTestsStep } from '#src/pipeline/steps/writeTestsStep.ts';
 
 interface Params {

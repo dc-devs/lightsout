@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
-import { PipelineKind } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 
 interface Params {
 	/** The checkout the run builds in, which the plan path is resolved against. */

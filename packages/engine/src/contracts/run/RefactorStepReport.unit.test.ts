@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RefactorStepReport } from '#src/contracts/index.ts';
+import { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
 
 const setupFinding = ({
 	rule = 'size-file',

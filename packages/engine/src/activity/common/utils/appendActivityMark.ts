@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { ActivityMark } from '#src/contracts/index.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
 
 interface Params {
 	path: string;

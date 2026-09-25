@@ -1,7 +1,10 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { acquireRunLock, RunLockError, readRunLock, releaseRunLock } from '#src/runState/lock/index.ts';
+import { acquireRunLock } from '#src/runState/lock/acquireRunLock.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
+import { readRunLock } from '#src/runState/lock/readRunLock.ts';
+import { releaseRunLock } from '#src/runState/lock/releaseRunLock.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

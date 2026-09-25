@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { readPlanPackages } from '#src/pipeline/index.ts';
+import { readPlanPackages } from '#src/pipeline/readPlanPackages.ts';
 
 test('readPlanPackages parses the block-list form', () => {
 	const plan = '---\npackages:\n  - backend-api\n  - "shared"\n---\n# Plan\n';

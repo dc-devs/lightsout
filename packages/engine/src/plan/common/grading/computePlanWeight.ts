@@ -1,5 +1,6 @@
 import { packageOf } from '#src/common/workspace/packageOf.ts';
-import { type PhaseWeight, PlanWeight } from '#src/contracts/index.ts';
+import type { PhaseWeight } from '#src/contracts/plan/grade/PhaseWeight.ts';
+import { PlanWeight } from '#src/contracts/plan/grade/PlanWeight.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
 

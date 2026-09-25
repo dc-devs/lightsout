@@ -2,7 +2,9 @@ import { join } from 'node:path';
 import { matchesTestTitle } from '#src/common/sourceFiles/matchesTestTitle.ts';
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
-import { type GateResult, TestCaseStatus, type TestResultsFile } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { TestCaseStatus } from '#src/contracts/gates/TestCaseStatus.ts';
+import type { TestResultsFile } from '#src/contracts/gates/TestResultsFile.ts';
 import { readTestResults } from '#src/gates/testResults/readTestResults.ts';
 import { satisfiesGateKey } from '#src/gates/testResults/satisfiesGateKey.ts';
 

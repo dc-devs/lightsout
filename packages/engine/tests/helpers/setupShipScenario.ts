@@ -1,11 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import type { CheckFailure, ChecksSummary } from '#src/ship/forge/index.ts';
-import { runShip } from '#src/ship/index.ts';
+import type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import { runShip } from '#src/ship/runShip.ts';
 import { mockShip } from '#tests/helpers/mockShip.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';

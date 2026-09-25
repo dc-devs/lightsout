@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { commandCatalog } from '#src/commands/index.ts';
-import { CommandCatalogEntry } from '#src/contracts/index.ts';
+import { commandCatalog } from '#src/commands/commandCatalog.ts';
+import { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
 
 const setupCatalog = () => {
 	const ids = commandCatalog.map((entry) => entry.id);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanId } from '#src/contracts/index.ts';
+import { PlanId } from '#src/contracts/workOrder/PlanId.ts';
 
 const fortyCharacterSlug = 'search-basics-queue-order-ship-request-a';
 

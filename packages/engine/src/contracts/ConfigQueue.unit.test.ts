@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigQueue } from '#src/contracts/index.ts';
+import { ConfigQueue } from '#src/contracts/ConfigQueue.ts';
 
 const minimal = { 'max-parallel': 3 };
 

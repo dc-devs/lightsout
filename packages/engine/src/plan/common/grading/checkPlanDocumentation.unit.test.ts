@@ -2,8 +2,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { ConfigDocs } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { checkPlanDocumentation } from '#src/plan/common/grading/checkPlanDocumentation.ts';
 
 /** The two surfaces a declaring repository writes in these cases. */

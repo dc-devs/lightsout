@@ -1,12 +1,15 @@
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { describeGateHold, isTicketGateHeld, syncGateHolds } from '#src/gates/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { describeGateHold } from '#src/gates/gateHolds/common/utils/describeGateHold.ts';
+import { isTicketGateHeld } from '#src/gates/gateHolds/common/utils/isTicketGateHeld.ts';
+import { syncGateHolds } from '#src/gates/gateHolds/syncGateHolds.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
 import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
 import { resolveLifecycleSettings } from '#src/ticketLifecycle/resolveLifecycleSettings.ts';
 import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
-import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
-import { readWorkOrderTicketRef } from '#src/workOrder/index.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
+import { readWorkOrderTicketRef } from '#src/workOrder/readWorkOrderTicketRef.ts';
 
 interface Params {
 	/** The checkout source work is about to begin in. */

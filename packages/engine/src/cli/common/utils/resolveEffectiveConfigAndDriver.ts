@@ -1,6 +1,7 @@
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
 
 interface Params {
 	/** The config as it was read from disk, before this command's harness entry is applied. */

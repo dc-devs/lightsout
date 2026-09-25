@@ -1,4 +1,4 @@
-import type { GapObservation } from '#src/contracts/index.ts';
+import type { GapObservation } from '#src/contracts/plan/grade/GapObservation.ts';
 
 interface Params {
 	/** Every observation the finding holds; empty on a single-observation finding or a record written before grouping existed. */

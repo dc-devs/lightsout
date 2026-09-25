@@ -13,12 +13,13 @@ import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.t
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { recordPlanCommandRun } from '#src/plan/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/requireImplementLifecycle.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 /**
  * The pipeline the resolved plan target asks for — every phase of a folder

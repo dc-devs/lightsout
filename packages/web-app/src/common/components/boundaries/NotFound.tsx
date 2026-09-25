@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { Button } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
 
 interface Props {
 	/** Replaces the default sentence when the caller knows what was missing. */

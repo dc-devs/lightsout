@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { groupRunFamilies } from '#src/cli/common/runFamily/groupRunFamilies.ts';
-import { type RunListing, RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
 
 /** One runs-list row carrying what the grouping reads — the run's own id, and the coordinator it names when it is a phase child. */
 const runListing = ({ runId, parentRunId }: { runId: string; parentRunId?: string }): RunListing => ({

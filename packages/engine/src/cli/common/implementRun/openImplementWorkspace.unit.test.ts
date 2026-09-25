@@ -4,7 +4,7 @@ import { openImplementWorkspace } from '#src/cli/common/implementRun/openImpleme
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
 import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 // Mocked Imports
 // -------------------------

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildTestChangeReviewInvocation } from '#src/agents/index.ts';
+import { buildTestChangeReviewInvocation } from '#src/agents/buildTestChangeReviewInvocation.ts';
 
 /** Every markdown heading line in a prompt — one per section the builder actually emitted. */
 const headingsOf = (text: string): string[] => text.split('\n').filter((line) => /^#{1,6} /.test(line));

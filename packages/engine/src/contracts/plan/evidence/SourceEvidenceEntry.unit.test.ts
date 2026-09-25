@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { SourceEvidenceEntry } from '#src/contracts/index.ts';
+import { SourceEvidenceEntry } from '#src/contracts/plan/evidence/SourceEvidenceEntry.ts';
 
 const setupEntry = (overrides: Record<string, unknown> = {}) => {
 	const entry = {

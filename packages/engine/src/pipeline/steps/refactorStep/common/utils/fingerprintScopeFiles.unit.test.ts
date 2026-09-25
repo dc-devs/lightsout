@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { fingerprintScopeFiles } from '#src/pipeline/steps/refactorStep/common/utils/fingerprintScopeFiles.ts';
 import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';

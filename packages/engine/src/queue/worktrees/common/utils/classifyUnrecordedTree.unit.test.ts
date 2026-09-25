@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { BranchPhase } from '#src/contracts/index.ts';
+import type { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
 import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
 import { classifyUnrecordedTree } from '#src/queue/worktrees/common/utils/classifyUnrecordedTree.ts';
 

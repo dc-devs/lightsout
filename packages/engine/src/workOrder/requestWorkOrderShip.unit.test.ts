@@ -2,15 +2,17 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import {
-	excludeWorkOrderPlan,
-	requestWorkOrderShip,
-	retitleWorkOrderPlan,
-	setWorkOrderMode,
-	updateLocalWorkOrderState,
-	withdrawWorkOrderShipRequest,
-} from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
+import { requestWorkOrderShip } from '#src/workOrder/requestWorkOrderShip.ts';
+import { retitleWorkOrderPlan } from '#src/workOrder/retitleWorkOrderPlan.ts';
+import { setWorkOrderMode } from '#src/workOrder/setWorkOrderMode.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
+import { withdrawWorkOrderShipRequest } from '#src/workOrder/withdrawWorkOrderShipRequest.ts';
 
 /** The work order's label: the folder it sits in, and the name every command addresses it by. */
 const name = 'lo-140-multi';

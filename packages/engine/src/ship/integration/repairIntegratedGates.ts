@@ -1,6 +1,7 @@
 import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
-import { ShipBlockReason } from '#src/contracts/index.ts';
-import { type GateRunResult, runGates } from '#src/gates/index.ts';
+import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { runGates } from '#src/gates/runGates.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
 import { appendCommandOutput } from '#src/ship/common/utils/appendCommandOutput.ts';
 import type { IntegrationFailure } from '#src/ship/integration/common/types/IntegrationFailure.ts';

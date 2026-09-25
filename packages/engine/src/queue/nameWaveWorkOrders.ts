@@ -1,11 +1,13 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, WorkOrderMode } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import { createWorkOrder, findWorkOrderByTicketRef } from '#src/workOrder/index.ts';
+import { createWorkOrder } from '#src/workOrder/createWorkOrder.ts';
+import { findWorkOrderByTicketRef } from '#src/workOrder/findWorkOrderByTicketRef.ts';
 
 interface Params {
 	/** The MAIN repository checkout — where the records live and where a new one is written. */

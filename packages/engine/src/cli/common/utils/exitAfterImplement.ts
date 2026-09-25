@@ -6,12 +6,16 @@ import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrint
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
-import { type LightsoutConfig, PipelineKind, ShipStatus } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { resolveShipIntent, runShip } from '#src/ship/index.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { createWorkOrderShipGuard, readWorkOrderRunTerms } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
+import { resolveShipIntent } from '#src/ship/resolveShipIntent.ts';
+import { runShip } from '#src/ship/runShip.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/implementRun/createWorkOrderShipGuard.ts';
+import { readWorkOrderRunTerms } from '#src/workOrder/implementRun/readWorkOrderRunTerms.ts';
 
 interface Params {
 	config: LightsoutConfig;

@@ -1,4 +1,4 @@
-import type { GradeFindingRecord } from '#src/contracts/index.ts';
+import type { GradeFindingRecord } from '#src/contracts/plan/memory/GradeFindingRecord.ts';
 
 interface Params {
 	record: GradeFindingRecord;

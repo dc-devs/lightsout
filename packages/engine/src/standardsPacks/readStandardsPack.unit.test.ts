@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { StandardsCheckInput } from '#src/contracts/index.ts';
-import { StandardsInputKind } from '#src/contracts/index.ts';
-import { readStandardsPack } from '#src/standardsPacks/index.ts';
+import type { StandardsCheckInput } from '@lightsout/standards-contracts';
+import { StandardsInputKind } from '@lightsout/standards-contracts';
+import { readStandardsPack } from '#src/standardsPacks/readStandardsPack.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /** A temp standards pack holding the given pack-relative files, plus any empty folders. */

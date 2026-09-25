@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { speakText } from '#src/voice/index.ts';
+import { speakText } from '#src/voice/speakText.ts';
 
 // Mocked Imports
 // -------------------------

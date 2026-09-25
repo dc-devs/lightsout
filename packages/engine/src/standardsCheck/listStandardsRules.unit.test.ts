@@ -2,8 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { LightsoutConfig, StandardsSeverity } from '#src/contracts/index.ts';
-import { listStandardsRules } from '#src/standardsCheck/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { listStandardsRules } from '#src/standardsCheck/listStandardsRules.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 const baseConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false as const } };

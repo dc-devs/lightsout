@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { CommandCatalogEntry } from '#src/contracts/index.ts';
+import { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
 
 const setupEntry = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const row: Record<string, unknown> = {

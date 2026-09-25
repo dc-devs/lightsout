@@ -1,8 +1,12 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { queueCommand } from '#src/cli/queueCommand.ts';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import type { QueueDrainReport, QueueFailure, QueueSettings, WorkOrderRunOutcome } from '#src/queue/index.ts';
-import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
+import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { ShippingProgress } from '#src/contracts/index.ts';
+import { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
 import { mockShip } from '#tests/helpers/mockShip.ts';
 import { setupShipScenario as setupShip } from '#tests/helpers/setupShipScenario.ts';
 import { shipScenarioFixtures } from '#tests/helpers/shipScenarioFixtures.ts';
