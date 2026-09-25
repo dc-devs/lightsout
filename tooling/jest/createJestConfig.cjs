@@ -102,6 +102,12 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// read to pick the worst files — every package emits it, not just the one
 	// that happened to declare it first.
 	coverageReporters: ['text', 'lcov', 'json-summary'],
+	// An index.ts holds only re-export lines — the code-in-index-file standard
+	// keeps logic out of it — and every import names the file that declares
+	// what it imports, so no test loads one. Counting them would score each
+	// re-exported name as an uncovered function with no tested code behind it.
+	// Restating node_modules is required: naming this key replaces Jest's default.
+	coveragePathIgnorePatterns: ['/node_modules/', '/index\\.tsx?$'],
 	// lightsout names a reporter file on LIGHTSOUT_JEST_REPORTER when it runs a
 	// gate command, and that reporter records which cases each jest process
 	// actually ran — the evidence a plan's acceptance tests are proven by. The
