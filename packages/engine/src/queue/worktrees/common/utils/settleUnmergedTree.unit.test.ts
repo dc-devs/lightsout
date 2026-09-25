@@ -19,12 +19,14 @@ jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles
 // -------------------------
 const mockReadBranchState = jest.fn<(params: { cwd: string; branch: string }) => Promise<BranchState | undefined>>();
 
-jest.mock('#src/queue/branchState/index.ts', () => ({ readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params) }));
+jest.mock('#src/queue/branchState/readBranchState.ts', () => ({
+	readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params),
+}));
 // -------------------------
 const mockSetTicketLabel =
 	jest.fn<(params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({
 	setTicketLabel: (params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
 }));
 // -------------------------

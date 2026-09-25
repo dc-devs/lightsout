@@ -30,9 +30,7 @@ jest.mock('@tanstack/react-router', () => ({
 // build, where there is no repository to answer with.
 const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getStandards: () => mockGetStandards() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getStandards: () => mockGetStandards() }) }));
 // -------------------------
 
 // The local section subscribes to the standards view, so the key is always

@@ -22,10 +22,7 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // commit would carry.
 const mockCommitTicketWork = jest.fn<(params: CommitCall) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitCall) => mockCommitTicketWork(params) }));
 // -------------------------
 
 /** What the commit primitive was handed, restated here because a `jest.mock` factory may not reach outside the file. */

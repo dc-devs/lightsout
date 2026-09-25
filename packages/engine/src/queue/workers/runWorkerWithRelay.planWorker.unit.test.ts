@@ -42,10 +42,10 @@ const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 jest.mock('#src/queue/workers/runPlanFolderPipeline.ts', () => ({
 	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
 // -------------------------
 // The plan worker asks the disk whether the folder is there, then asks the ticket
 // for the plan when it is not. Only the tracker half is stubbed: whether a
@@ -54,8 +54,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAp
 const mockRestorePlanWorkspace =
 	jest.fn<(params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => Promise<{ restored: string[]; error?: string }>>();
 
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
+jest.mock('#src/plan/restore/restorePlanWorkspace.ts', () => ({
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
 // -------------------------
@@ -82,10 +81,10 @@ interface BodyBuildLifecycleParams {
 	run: (params: { runId: string }) => Promise<PipelineResult>;
 }
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
+jest.mock('#src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts', () => ({
 	runWorkOrderBodyBuildLifecycle: async ({ run }: BodyBuildLifecycleParams) => ({ result: await run({ runId: 'run-body-1' }) }),
 }));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;

@@ -45,11 +45,11 @@ interface ReviewStandardsParams {
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
-	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({
 	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
-	// The writer stays real — what the command leaves on disk is one of the things asserted below.
-	writeStandardsSnapshot: jest.requireActual<typeof import('#src/standardsCheck/index.ts')>('#src/standardsCheck/index.ts').writeStandardsSnapshot,
+}));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
+	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
 }));
 jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------

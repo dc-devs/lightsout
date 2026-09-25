@@ -30,7 +30,9 @@ type ExcludeTicketPlanResult = { record: WorkOrderState; notice?: string; publis
 
 const mockExcludeTicketPlan = jest.fn<(params: ExcludeTicketPlanParams) => Promise<ExcludeTicketPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ excludeWorkOrderPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params) }));
+jest.mock('#src/workOrder/excludeWorkOrderPlan.ts', () => ({
+	excludeWorkOrderPlan: (params: ExcludeTicketPlanParams) => mockExcludeTicketPlan(params),
+}));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

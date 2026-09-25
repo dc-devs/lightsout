@@ -38,8 +38,8 @@ type ChangeResult = { record: WorkOrderState; notice?: string; publishError?: st
 const mockRequestTicketShip = jest.fn<(params: RequestParams) => Promise<ChangeResult>>();
 const mockWithdrawTicketShipRequest = jest.fn<(params: WithdrawParams) => Promise<ChangeResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	requestWorkOrderShip: (params: RequestParams) => mockRequestTicketShip(params),
+jest.mock('#src/workOrder/requestWorkOrderShip.ts', () => ({ requestWorkOrderShip: (params: RequestParams) => mockRequestTicketShip(params) }));
+jest.mock('#src/workOrder/withdrawWorkOrderShipRequest.ts', () => ({
 	withdrawWorkOrderShipRequest: (params: WithdrawParams) => mockWithdrawTicketShipRequest(params),
 }));
 // -------------------------

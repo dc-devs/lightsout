@@ -19,12 +19,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // against it.
 const mockListCommands = jest.fn<() => Promise<CommandCatalogEntry[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs Home reads are
-	// committed JSON rather than disk this test has to fake.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
-	getReader: () => ({ listCommands: () => mockListCommands() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listCommands: () => mockListCommands() }) }));
 // -------------------------
 // Only the piece that needs a live router around it is stood in for, so the
 // route's own component can be rendered on its own. Everything else — above all

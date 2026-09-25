@@ -28,10 +28,14 @@ const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string 
 const mockSetTicketAttachment = jest.fn<(params: { ticketId: string; title: string }) => Promise<TrackerFailure | undefined>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<{ id: string; identifier: string }[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -41,6 +45,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 
 		return { provider: 'linear', ticketPrefix: block.team, team: block.team, apiKey: env[block['api-key-env']] ?? '' };
 	},
+}));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({
 	setTicketAttachment: (params: { ticketId: string; title: string }) => mockSetTicketAttachment(params),
 }));
 // -------------------------

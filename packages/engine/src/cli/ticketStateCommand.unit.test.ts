@@ -28,10 +28,10 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings
 const mockUpdateTicketLifecycle = jest.fn<(params: LifecycleParams) => Promise<TrackerFailure | undefined>>();
 const mockResolveTrackerSettings = jest.fn<(params: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => TrackerSettings | TrackerFailure>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	// Stubbed rather than run for real, so the credential never has to be planted
-	// on `process.env` — which nothing restores between files.
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: (params: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => mockResolveTrackerSettings(params),
 }));
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({

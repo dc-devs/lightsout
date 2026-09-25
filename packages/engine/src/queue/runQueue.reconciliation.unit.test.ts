@@ -44,31 +44,24 @@ const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	setTicketLabel: () => Promise.resolve(undefined),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: () => Promise.resolve(undefined) }));
 // -------------------------
 // The lifecycle barrel keeps every other member real: the queue's startup check
 // reads `TrackerStatusRole` through it.
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => ({
 	reconcileShippedTicket: (params: ReconcileShippedParams) => mockReconcileShippedTicket(params),
 }));
 // -------------------------
-jest.mock('#src/gates/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
-	runGates: (params: { cwd: string }) => mockRunGates(params),
-}));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // The two ends of the drain, stubbed on one barrel. Everything else stays real:
 // `PullRequestState` is a plain constant nothing gains from doubling.
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({ findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params) }));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 // Naming a wave creates work orders, which reads the tracker and spawns a
 // harness — the work order module's own job, with its own tests. These cases

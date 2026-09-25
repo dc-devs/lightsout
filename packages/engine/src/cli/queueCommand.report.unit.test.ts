@@ -34,30 +34,25 @@ const mockRunQueue = jest.fn<(params: RunQueueParams) => Promise<QueueDrainRepor
 const mockRelayClosed = jest.fn<() => void>();
 const mockEmptyRelayMailbox = jest.fn<(params: { directory: string }) => Promise<void>>();
 
-jest.mock('#src/queue/index.ts', () => {
-	// Declared inside the factory rather than beside the mocks above it: the
-	// factory runs before this module's own `const` bindings are initialised, so
-	// anything it *calls* has to be in scope at that moment.
-	const recordingRelay = () =>
-		class {
-			close() {
-				mockRelayClosed();
-			}
-		};
-
-	return {
-		resolveQueueSettings: () => mockResolveQueueSettings(),
-		runQueue: (params: RunQueueParams) => mockRunQueue(params),
-		emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params),
-		TerminalQuestionRelay: recordingRelay(),
-		FileQuestionRelay: recordingRelay(),
-		// Real, because the final board must be fed from the real projection of the
-		// report, and the exit code must read the real rule for which outcomes parked.
-		toQueueBoardTickets: jest.requireActual<typeof import('#src/queue/index.ts')>('#src/queue/index.ts').toQueueBoardTickets,
-		isParkedOutcome: jest.requireActual<typeof import('#src/queue/index.ts')>('#src/queue/index.ts').isParkedOutcome,
+/**
+ * A relay constructor whose instances only record that they were closed. A
+ * function declaration, so it is already in scope when the hoisted factories
+ * below run, before this module's own `const` bindings are initialised.
+ */
+function mockRecordingRelay() {
+	return class {
+		close() {
+			mockRelayClosed();
+		}
 	};
-});
-jest.mock('#src/ticketTracker/index.ts', () => ({ resolveTrackerSettings: () => mockResolveTrackerSettings() }));
+}
+
+jest.mock('#src/queue/startup/resolveQueueSettings.ts', () => ({ resolveQueueSettings: () => mockResolveQueueSettings() }));
+jest.mock('#src/queue/runQueue.ts', () => ({ runQueue: (params: RunQueueParams) => mockRunQueue(params) }));
+jest.mock('#src/queue/relay/emptyRelayMailbox.ts', () => ({ emptyRelayMailbox: (params: { directory: string }) => mockEmptyRelayMailbox(params) }));
+jest.mock('#src/queue/relay/TerminalQuestionRelay.ts', () => ({ TerminalQuestionRelay: mockRecordingRelay() }));
+jest.mock('#src/queue/relay/FileQuestionRelay.ts', () => ({ FileQuestionRelay: mockRecordingRelay() }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({ resolveTrackerSettings: () => mockResolveTrackerSettings() }));
 // -------------------------
 
 const settings = queueSettingsFixture();

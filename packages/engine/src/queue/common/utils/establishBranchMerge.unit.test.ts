@@ -14,12 +14,13 @@ const mockReadBranchState = jest.fn<(params: { cwd: string; branch: string }) =>
 const mockWriteBranchState = jest.fn<(params: { cwd: string; branch: string; phase: BranchPhase }) => Promise<void>>();
 const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
 
-jest.mock('#src/queue/branchState/index.ts', () => ({
+jest.mock('#src/queue/branchState/readBranchState.ts', () => ({
 	readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params),
+}));
+jest.mock('#src/queue/branchState/writeBranchState.ts', () => ({
 	writeBranchState: (params: { cwd: string; branch: string; phase: BranchPhase }) => mockWriteBranchState(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
 	findPullRequest: (params: { branch: string; cwd: string; state: string }) => mockFindPullRequest(params),
 }));
 // -------------------------

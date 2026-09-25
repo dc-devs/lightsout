@@ -32,15 +32,17 @@ interface GateParams {
 
 const mockRunGates = jest.fn<(params: GateParams) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: GateParams) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: GateParams) => mockRunGates(params) }));
 // -------------------------
 const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/worktree/index.ts', () => ({ readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params) }));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
+	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+}));
 // -------------------------
 const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
 
-jest.mock('#src/runState/index.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
+jest.mock('#src/runState/lock/readLiveRunLock.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
 // -------------------------
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 

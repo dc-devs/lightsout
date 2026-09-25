@@ -39,12 +39,12 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
 jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({
 	runQueueWorkOrder: (params: { workOrder: NamedWorkOrder; serializeWorktreeAdd: SerializeWorktreeAdd }) => mockRunQueueTicket(params),

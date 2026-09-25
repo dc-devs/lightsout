@@ -23,7 +23,7 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({
 	updateTicketLifecycle: (params: LifecycleParams) => mockUpdateTicketLifecycle(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
 }));
 // -------------------------

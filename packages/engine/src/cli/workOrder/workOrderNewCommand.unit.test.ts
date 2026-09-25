@@ -31,7 +31,7 @@ type CreateWorkOrderResult = { name: string; branch: string; record: WorkOrderSt
 
 const mockCreateWorkOrder = jest.fn<(params: CreateWorkOrderParams) => Promise<CreateWorkOrderResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params) }));
+jest.mock('#src/workOrder/createWorkOrder.ts', () => ({ createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params) }));
 // -------------------------
 // The dispatcher loads every subcommand beside this one, and each of those is
 // its own entry point — reading a record, publishing to a tracker. They are

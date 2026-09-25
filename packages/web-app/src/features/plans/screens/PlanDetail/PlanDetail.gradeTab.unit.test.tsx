@@ -13,7 +13,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // Nothing in this tab opens a file — it reads the grade record the workspace
 // view already carries — but the Plan tab beside it does, so the reader is stood
 // in for to keep the module graph off disk.
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPlan: ({ path }: { path: string }) => Promise.resolve<PlanDocument>({ path, kind: PlanDocumentKind.Missing }) }),
 }));
 // -------------------------

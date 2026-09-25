@@ -12,8 +12,8 @@ import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
 const mockScan = jest.fn<typeof listNextWave>();
 const mockReconcile = jest.fn<typeof reconcileMergedTickets>();
 
-jest.mock('#src/queue/ticketSelection/index.ts', () => ({
-	listNextWave: (params: Parameters<typeof listNextWave>[0]) => mockScan(params),
+jest.mock('#src/queue/ticketSelection/listNextWave.ts', () => ({ listNextWave: (params: Parameters<typeof listNextWave>[0]) => mockScan(params) }));
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
 // -------------------------

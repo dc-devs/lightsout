@@ -18,10 +18,8 @@ type TicketStatusParams = { settings: TrackerSettings; ticketId: string; statusN
 const mockSetExclusiveLabel = jest.fn<(params: ExclusiveLabelParams) => Promise<TrackerFailure | undefined>>();
 const mockSetTicketStatus = jest.fn<(params: TicketStatusParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
-	setExclusiveLabel: (params: ExclusiveLabelParams) => mockSetExclusiveLabel(params),
-	setTicketStatus: (params: TicketStatusParams) => mockSetTicketStatus(params),
-}));
+jest.mock('#src/ticketTracker/setExclusiveLabel.ts', () => ({ setExclusiveLabel: (params: ExclusiveLabelParams) => mockSetExclusiveLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketStatus.ts', () => ({ setTicketStatus: (params: TicketStatusParams) => mockSetTicketStatus(params) }));
 // -------------------------
 
 /**

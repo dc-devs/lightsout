@@ -29,7 +29,7 @@ type RetitleResult = { record: WorkOrderState; notice?: string; publishError?: s
 
 const mockRetitleTicketPlan = jest.fn<(params: RetitleParams) => Promise<RetitleResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ retitleWorkOrderPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
+jest.mock('#src/workOrder/retitleWorkOrderPlan.ts', () => ({ retitleWorkOrderPlan: (params: RetitleParams) => mockRetitleTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

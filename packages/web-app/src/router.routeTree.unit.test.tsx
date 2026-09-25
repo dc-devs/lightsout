@@ -22,11 +22,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs the proof section
-	// reads are committed JSON rather than disk this test has to fake, and
-	// stubbing them would make this suite prove a stub renders.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		listRuns: () => mockListRuns(),
 		getStandards: () => mockGetStandards(),

@@ -34,11 +34,9 @@ interface ReviewStandardsParams {
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({ listStandardsRules: () => Promise.resolve([]) }));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
 	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
-	listStandardsRules: () => Promise.resolve([]),
-	// The writer stays real — what the command leaves on disk is the whole subject here.
-	writeStandardsSnapshot: jest.requireActual<typeof import('#src/standardsCheck/index.ts')>('#src/standardsCheck/index.ts').writeStandardsSnapshot,
 }));
 jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------

@@ -22,8 +22,10 @@ import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 // filed under.
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 

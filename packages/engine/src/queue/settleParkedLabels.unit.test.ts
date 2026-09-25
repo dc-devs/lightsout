@@ -17,7 +17,7 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const outcomeOf = ({ number, ready }: { number: number; ready: boolean }): WorkOrderRunOutcome => ({

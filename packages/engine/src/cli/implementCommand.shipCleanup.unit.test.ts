@@ -23,15 +23,11 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // `exitAfterImplement.unit.test.ts` already pins what it does.
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: { cwd: string }) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------

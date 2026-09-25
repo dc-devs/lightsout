@@ -33,7 +33,7 @@ interface PublishParams {
 
 const mockPublishBrainstorm = jest.fn<(params: PublishParams) => Promise<BrainstormPublishReport>>();
 
-jest.mock('#src/brainstorm/index.ts', () => ({ publishBrainstorm: (params: PublishParams) => mockPublishBrainstorm(params) }));
+jest.mock('#src/brainstorm/publish/publishBrainstorm.ts', () => ({ publishBrainstorm: (params: PublishParams) => mockPublishBrainstorm(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

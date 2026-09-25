@@ -30,16 +30,11 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // would leave the machine, and it is where the integrated gates now run.
 const mockTakeGateHold = jest.fn<(params: { reason: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	takeGateHold: (params: { reason: string }) => mockTakeGateHold(params),
-}));
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: { reason: string }) => mockTakeGateHold(params) }));
 // -------------------------
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

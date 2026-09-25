@@ -37,14 +37,10 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?: string; rateLimited?: boolean }>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-	// The rest of the module is what the post-gate snapshot approval reaches
-	// for. It has its own test; here it must simply do nothing.
-	approveTestFiles: async () => [],
-	readApprovedTest: async () => undefined,
-	removeApprovedTests: async () => {},
-}));
+jest.mock('#src/pipeline/approvedTests/approveTestFiles.ts', () => ({ approveTestFiles: async () => [] }));
+jest.mock('#src/pipeline/approvedTests/readApprovedTest.ts', () => ({ readApprovedTest: async () => undefined }));
+jest.mock('#src/pipeline/approvedTests/removeApprovedTests.ts', () => ({ removeApprovedTests: async () => {} }));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 interface GateParams {
 	run: PipelineRun;

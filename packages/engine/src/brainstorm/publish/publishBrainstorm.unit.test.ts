@@ -23,8 +23,10 @@ type AttachmentWrite = { ticketId: string; title: string; content: Buffer; conte
 const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -45,8 +47,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 					apiUserEmail: env[block['api-user-email-env']] ?? '',
 				};
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

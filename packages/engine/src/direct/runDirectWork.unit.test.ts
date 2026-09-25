@@ -26,11 +26,11 @@ const mockInvokeAgentWithContract =
 	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
 		mockInvokeAgentWithContract(params),
 }));
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runGates.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
 }));
 // -------------------------

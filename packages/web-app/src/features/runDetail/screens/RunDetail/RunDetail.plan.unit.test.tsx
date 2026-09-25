@@ -22,9 +22,7 @@ jest.mock('@tanstack/react-router', () => ({
 // the filesystem is stood in for.
 const mockGetPlan = jest.fn<(params: { path: string }) => Promise<PlanDocument>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }) }));
 // -------------------------
 
 const runId = 'abcdef0123456789';

@@ -16,13 +16,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // of that chain. Stubbing the reader keeps the whole graph off disk.
 const mockGetRun = jest.fn<(params: { runId: string }) => Promise<RunView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs the proof section
-	// reads are committed JSON rather than disk this test has to fake, and
-	// stubbing them would make this suite prove a stub renders.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
-	getReader: () => ({ getRun: (params: { runId: string }) => mockGetRun(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getRun: (params: { runId: string }) => mockGetRun(params) }) }));
 // -------------------------
 // Whether a repo was found is answered by walking the real filesystem, so the
 // page would otherwise report whatever directory Jest happened to start in.

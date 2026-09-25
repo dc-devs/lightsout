@@ -11,12 +11,11 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // settles so nothing walks the real filesystem. Every other export is the real
 // thing — the frozen runs above all, which are committed JSON rather than disk a
 // test has to fake, and are the whole subject of this file.
-jest.mock('#src/lightsout/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ listPacks: () => new Promise(() => {}), getPackRule: () => new Promise(() => {}) }),
 }));
 // -------------------------
-jest.mock('#src/features/app/serverFns/index.ts', () => ({ getRepoRootServerFn: () => new Promise(() => {}) }));
+jest.mock('#src/features/app/serverFns/getRepoRoot/getRepoRootServerFn.ts', () => ({ getRepoRootServerFn: () => new Promise(() => {}) }));
 // -------------------------
 // The links, which need a live router around them to resolve a path, and the
 // not-found signal the pack server function raises — with no router mounted,

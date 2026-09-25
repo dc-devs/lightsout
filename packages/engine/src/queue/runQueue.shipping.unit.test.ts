@@ -62,11 +62,11 @@ const mockSetTicketLabel = jest.fn<(params: SetTicketLabelParams) => Promise<Que
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({
 	listEligibleTickets: (params: ListEligibleParams) => mockListEligibleTickets(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	setTicketLabel: (params: SetTicketLabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: SetTicketLabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 const mockScanParkedWorktrees = jest.fn<(params: ScanParkedParams) => Promise<ParkedWork | QueueFailure>>();
 
@@ -76,20 +76,14 @@ jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({
 // -------------------------
 const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
-	runGates: (params: RunGatesParams) => mockRunGates(params),
-}));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
 // -------------------------
 // The forge merge is the one thing here that would leave the machine. Git, the
 // worktree and the branch-state record all stay real, because what this file
 // asserts is what the queue does around the merge.
 const mockRunShip = jest.fn<(params: { cwd: string; integration: ShipIntegration }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string; integration: ShipIntegration }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string; integration: ShipIntegration }) => mockRunShip(params) }));
 // -------------------------
 // Naming a wave creates work orders, which reads the tracker and spawns a
 // harness — the work order module's own job, with its own tests. These cases

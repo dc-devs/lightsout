@@ -65,8 +65,7 @@ jest.mock('#src/cli/common/implementRun/continueDirectRun.ts', () => ({
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------

@@ -28,9 +28,11 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -63,8 +65,10 @@ type RestoreAnswer = { restored: string[] } | { error: string };
 const mockPullTicketRecord = jest.fn<(params: { cwd: string; name: string }) => Promise<PullAnswer>>();
 const mockRestoreTicketPlan = jest.fn<(params: { cwd: string; address: string }) => Promise<RestoreAnswer>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({
 	pullWorkOrderState: (params: { cwd: string; name: string }) => mockPullTicketRecord(params),
+}));
+jest.mock('#src/workOrder/restoreWorkOrderPlan.ts', () => ({
 	restoreWorkOrderPlan: (params: { cwd: string; address: string }) => mockRestoreTicketPlan(params),
 }));
 // -------------------------

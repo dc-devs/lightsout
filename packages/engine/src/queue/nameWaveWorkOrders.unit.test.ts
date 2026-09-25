@@ -31,9 +31,9 @@ type CreateWorkOrderResult = { name: string; branch: string; record: WorkOrderSt
 const mockFindWorkOrderByTicketRef = jest.fn<(params: { cwd: string; ticketRef: string }) => Promise<WorkOrderListing | undefined>>();
 const mockCreateWorkOrder = jest.fn<(params: CreateWorkOrderParams) => Promise<CreateWorkOrderResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/createWorkOrder.ts', () => ({ createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params) }));
+jest.mock('#src/workOrder/findWorkOrderByTicketRef.ts', () => ({
 	findWorkOrderByTicketRef: (params: { cwd: string; ticketRef: string }) => mockFindWorkOrderByTicketRef(params),
-	createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params),
 }));
 // -------------------------
 

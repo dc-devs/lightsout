@@ -56,14 +56,11 @@ jest.mock('#src/cli/common/implementRun/resolveRunWorkspace.ts', () => ({
 // -------------------------
 const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
+jest.mock('#src/direct/runDirectWork.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
 const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 

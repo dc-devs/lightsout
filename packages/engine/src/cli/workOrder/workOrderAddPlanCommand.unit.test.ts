@@ -33,7 +33,7 @@ type AddTicketPlanResult = { address: string; record: WorkOrderState; notice?: s
 
 const mockAddTicketPlan = jest.fn<(params: AddTicketPlanParams) => Promise<AddTicketPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ addWorkOrderPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
+jest.mock('#src/workOrder/addWorkOrderPlan.ts', () => ({ addWorkOrderPlan: (params: AddTicketPlanParams) => mockAddTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

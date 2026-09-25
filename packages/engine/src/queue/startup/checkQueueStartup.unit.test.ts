@@ -16,7 +16,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 // have to fire before the drain spends anything on git or a worktree.
 const mockListLabelNames = jest.fn<(params: { settings: TrackerSettings }) => Promise<string[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ listLabelNames: (params: { settings: TrackerSettings }) => mockListLabelNames(params) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({ listLabelNames: (params: { settings: TrackerSettings }) => mockListLabelNames(params) }));
 // -------------------------
 // Git is doubled at the one place the startup check reaches it, so the branch
 // and remote refusals below are arranged from outside rather than from a real

@@ -27,7 +27,7 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // id behaves.
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
 // -------------------------

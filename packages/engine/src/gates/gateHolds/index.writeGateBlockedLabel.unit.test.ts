@@ -18,10 +18,10 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockGetTicketsByIdentifiers = jest.fn<(params: ReadParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: ReadParams) => mockGetTicketsByIdentifiers(params),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const ticketOf = ({ id, identifier }: { id: string; identifier: string }): TrackerTicket => ({

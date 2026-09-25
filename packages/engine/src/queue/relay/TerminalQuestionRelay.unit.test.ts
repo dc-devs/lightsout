@@ -20,7 +20,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 const mockAppendTicketNote =
 	jest.fn<(params: { settings: TrackerSettings; ticketId: string; heading: string; line: string }) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({
 	appendTicketNote: (params: { settings: TrackerSettings; ticketId: string; heading: string; line: string }) => mockAppendTicketNote(params),
 }));
 // -------------------------

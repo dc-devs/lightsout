@@ -17,9 +17,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // every markdown file this page opens and only the filesystem is stood in for.
 const mockGetPlan = jest.fn<(params: { path: string }) => Promise<PlanDocument>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }) }));
 // -------------------------
 // The breadcrumb and every run link need a live router to resolve a path.
 jest.mock('@tanstack/react-router', () => ({

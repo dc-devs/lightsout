@@ -21,7 +21,7 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 // merge at its exit.
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
 // -------------------------
@@ -43,10 +43,11 @@ interface ReconcileParams {
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 const mockReconcileShippedTicket = jest.fn<(params: ReconcileParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
-	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => ({
 	reconcileShippedTicket: (params: ReconcileParams) => mockReconcileShippedTicket(params),
+}));
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
+	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
 

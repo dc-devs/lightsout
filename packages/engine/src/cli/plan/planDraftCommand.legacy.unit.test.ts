@@ -37,10 +37,7 @@ interface DraftParams {
 
 const mockRunPlanDraft = jest.fn<(params: DraftParams) => ReturnType<typeof runPlanDraft>>();
 
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	runPlanDraft: (params: DraftParams) => mockRunPlanDraft(params),
-}));
+jest.mock('#src/plan/draft/runPlanDraft.ts', () => ({ runPlanDraft: (params: DraftParams) => mockRunPlanDraft(params) }));
 // -------------------------
 
 /** Never invoked — the runner above is stubbed, so nothing reaches a harness. */

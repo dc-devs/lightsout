@@ -27,9 +27,13 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { settings: unknown; identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { settings: unknown; url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: unknown; identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
 	readTicketAsset: (params: { settings: unknown; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure =>
 		config['ticket-tracker'] === undefined
 			? { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' }

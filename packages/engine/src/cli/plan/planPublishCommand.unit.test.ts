@@ -40,10 +40,7 @@ interface PublishParams {
 
 const mockPublishTicketPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	publishWorkOrderPlan: (params: PublishParams) => mockPublishTicketPlan(params),
-}));
+jest.mock('#src/workOrder/publishWorkOrderPlan.ts', () => ({ publishWorkOrderPlan: (params: PublishParams) => mockPublishTicketPlan(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

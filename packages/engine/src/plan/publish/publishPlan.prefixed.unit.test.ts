@@ -26,9 +26,13 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) 
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -49,8 +53,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 					apiUserEmail: env[block['api-user-email-env']] ?? '',
 				};
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 // Publishing under a plan id prefix is the same upload with a different
 // namespace, so this file keeps the prefixed half of the contract: what the

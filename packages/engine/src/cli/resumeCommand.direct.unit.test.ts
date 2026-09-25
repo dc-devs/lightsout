@@ -49,21 +49,17 @@ type ExitAfterImplementParams = {
 
 const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
+jest.mock('#src/direct/runDirectWork.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
 const mockCommitRunWork = jest.fn<(params: CommitRunWorkParams) => Promise<string | undefined>>();
 const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitRunWork.ts', () => ({ commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params) }));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------

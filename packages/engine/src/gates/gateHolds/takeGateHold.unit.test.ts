@@ -26,9 +26,10 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings
 const mockSetTicketLabel =
 	jest.fn<(params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	resolveTrackerSettings: jest.requireActual<typeof import('#src/ticketTracker/index.ts')>('#src/ticketTracker/index.ts').resolveTrackerSettings,
+}));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({
 	setTicketLabel: (params: { settings: TrackerSettings; ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
 }));
 // -------------------------

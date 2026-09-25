@@ -14,7 +14,7 @@ import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts
 
 type LeftBehindTicket = QueueDrainReport['leftBehind'][number];
 type SettleMergedTreesParams = Parameters<typeof import('#src/queue/common/utils/settleMergedTrees.ts').settleMergedTrees>[0];
-type RunDrainLanesParams = Parameters<typeof import('#src/queue/drainLanes/index.ts').runDrainLanes>[0];
+type RunDrainLanesParams = Parameters<typeof import('#src/queue/drainLanes/runDrainLanes.ts').runDrainLanes>[0];
 
 // Mocked Imports
 // -------------------------
@@ -29,9 +29,7 @@ jest.mock('#src/queue/common/utils/settleMergedTrees.ts', () => ({
 // -------------------------
 const mockRunDrainLanes = jest.fn<(params: RunDrainLanesParams) => Promise<QueueDrainReport>>();
 
-jest.mock('#src/queue/drainLanes/index.ts', () => ({
-	runDrainLanes: (params: RunDrainLanesParams) => mockRunDrainLanes(params),
-}));
+jest.mock('#src/queue/drainLanes/runDrainLanes.ts', () => ({ runDrainLanes: (params: RunDrainLanesParams) => mockRunDrainLanes(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

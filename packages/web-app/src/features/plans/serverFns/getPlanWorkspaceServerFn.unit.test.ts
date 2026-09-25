@@ -10,7 +10,7 @@ import { buildPlanWorkspaceView } from '#tests/helpers/buildPlanWorkspaceView.ts
 // and only the filesystem at the far end of the reader is stood in for.
 const mockGetPlanWorkspace = jest.fn<(params: { name: string }) => Promise<PlanWorkspaceView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPlanWorkspace: (params: { name: string }) => mockGetPlanWorkspace(params) }),
 }));
 // -------------------------

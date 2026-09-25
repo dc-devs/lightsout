@@ -42,22 +42,20 @@ interface CommitRunWorkParams {
 const mockInvokeAgentWithContract =
 	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
 		mockInvokeAgentWithContract(params),
 }));
 // -------------------------
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runGates.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
 }));
 // -------------------------
 const mockCommitRunWork = jest.fn<(params: CommitRunWorkParams) => Promise<string | undefined>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params),
-}));
+jest.mock('#src/commit/commitRunWork.ts', () => ({ commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params) }));
 // -------------------------
 
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };

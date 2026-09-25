@@ -52,12 +52,12 @@ const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure
 const mockSyncGateHolds = jest.fn<(params: { cwd: string; settings: TrackerSettings; onProgress?: (message: string) => void }) => Promise<GateHolds>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: (params: ScanParams) => mockScanParkedWorktrees(params) }));
 jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
 jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));

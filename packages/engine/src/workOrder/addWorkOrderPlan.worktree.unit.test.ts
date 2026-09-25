@@ -25,10 +25,16 @@ type AttachmentWrite = { settings: TrackerSettings; ticketId: string; title: str
 
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: TrackerSettings; identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
 	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -42,8 +48,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 			? { error: `the tracker API key is missing: set the \`${block['api-key-env']}\` environment variable` }
 			: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey };
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 
 /** The work order's label, which is also the branch the worktree stands on. */

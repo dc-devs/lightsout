@@ -10,9 +10,7 @@ import { planQueryOptions } from '#src/features/runDetail/queries/planQueryOptio
 // seam stood in for.
 const mockGetPlan = jest.fn<(params: { path: string }) => Promise<PlanDocument>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getPlan: (params: { path: string }) => mockGetPlan(params) }) }));
 // -------------------------
 
 const path = '.lightsout/plans/add-search.md';

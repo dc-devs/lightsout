@@ -18,7 +18,7 @@ const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 const mockGetFriction = jest.fn<() => Promise<FrictionRecord[]>>();
 const mockGetConfig = jest.fn<() => Promise<ConfigView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		getStandards: () => mockGetStandards(),
 		getFriction: () => mockGetFriction(),

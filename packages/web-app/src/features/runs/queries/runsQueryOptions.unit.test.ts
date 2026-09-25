@@ -13,9 +13,7 @@ import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 // stub. What the transport does with that handler is the build's business.
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listRuns: () => mockListRuns() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listRuns: () => mockListRuns() }) }));
 // -------------------------
 
 interface PolledQuery {

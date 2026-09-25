@@ -45,14 +45,7 @@ interface SelfCheckResult {
 
 const mockRunSelfCheck = jest.fn<(params: SelfCheckParams) => Promise<SelfCheckResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	// The real constant, because the command narrows and keys on its members —
-	// a stubbed copy would drift from the reasons the gate run actually returns.
-	// Read through the module's own barrel, which is the only path a file
-	// outside the gates may reach it by.
-	SelfCheckReason: jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts').SelfCheckReason,
-	runSelfCheck: (params: SelfCheckParams) => mockRunSelfCheck(params),
-}));
+jest.mock('#src/gates/runSelfCheck.ts', () => ({ runSelfCheck: (params: SelfCheckParams) => mockRunSelfCheck(params) }));
 // -------------------------
 
 const redGate: GateResult = { kind: 'check', group: 'api', command: 'pnpm check', exitCode: 1, outputTail: 'src/thing.ts:3 unused import' };

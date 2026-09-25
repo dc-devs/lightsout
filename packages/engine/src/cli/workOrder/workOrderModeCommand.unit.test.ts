@@ -35,7 +35,7 @@ interface WorkOrderStateChange {
 
 const mockSetTicketMode = jest.fn<(params: SetTicketModeParams) => Promise<WorkOrderStateChange | { error: string }>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ setWorkOrderMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
+jest.mock('#src/workOrder/setWorkOrderMode.ts', () => ({ setWorkOrderMode: (params: SetTicketModeParams) => mockSetTicketMode(params) }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

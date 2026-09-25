@@ -39,11 +39,8 @@ type AddPlanResult = { address: string; record: WorkOrderState; notice?: string;
 const mockPullTicketRecord = jest.fn<(params: PullParams) => Promise<PullResult>>();
 const mockAddTicketPlan = jest.fn<(params: AddPlanParams) => Promise<AddPlanResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params),
-	addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params),
-	findNextPlanToPlan: jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts').findNextPlanToPlan,
-}));
+jest.mock('#src/workOrder/addWorkOrderPlan.ts', () => ({ addWorkOrderPlan: (params: AddPlanParams) => mockAddTicketPlan(params) }));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const branch = 'lo-140-multi';

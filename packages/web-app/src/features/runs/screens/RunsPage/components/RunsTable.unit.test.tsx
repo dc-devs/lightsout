@@ -14,9 +14,7 @@ import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 // The feature barrel reaches the engine's filesystem reader at the far end of
 // the runs server function. Nothing here calls it — the table is handed its
 // rows — so stubbing the reader just keeps the module graph off disk.
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listRuns: () => Promise.resolve([]) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listRuns: () => Promise.resolve([]) }) }));
 // -------------------------
 // Only the link, which needs a live router around it to resolve a path.
 jest.mock('@tanstack/react-router', () => {

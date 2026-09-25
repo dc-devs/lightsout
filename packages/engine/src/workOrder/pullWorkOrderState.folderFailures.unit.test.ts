@@ -22,9 +22,10 @@ type TrackerFailure = { error: string };
 const mockGetTicketAttachments = jest.fn<(params: { settings: TrackerSettings; identifier: string }) => Promise<TrackerAttachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { settings: TrackerSettings; url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketTracker/index.ts')>('#src/ticketTracker/index.ts'),
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: TrackerSettings; identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
 	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
 }));
 // -------------------------

@@ -28,7 +28,7 @@ jest.mock('@tanstack/react-router', () => ({
 // and answered here.
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({ getPackRule: (params: { name: string; rule: string }) => mockGetPackRule(params) }),
 }));
 // -------------------------

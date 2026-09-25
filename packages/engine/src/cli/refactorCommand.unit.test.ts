@@ -33,7 +33,9 @@ interface RunRefactorPipelineParams {
 
 const mockRunRefactorPipeline = jest.fn<(params: RunRefactorPipelineParams) => Promise<RefactorResult>>();
 
-jest.mock('#src/refactor/index.ts', () => ({ runRefactorPipeline: (params: RunRefactorPipelineParams) => mockRunRefactorPipeline(params) }));
+jest.mock('#src/refactor/runRefactorPipeline.ts', () => ({
+	runRefactorPipeline: (params: RunRefactorPipelineParams) => mockRunRefactorPipeline(params),
+}));
 // -------------------------
 
 const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({

@@ -8,7 +8,7 @@ import { setupDrainLaneState } from '#tests/helpers/setupDrainLaneState.ts';
 
 const mockReconcile = jest.fn<typeof reconcileMergedTickets>();
 
-jest.mock('#src/queue/ticketSelection/index.ts', () => ({
+jest.mock('#src/queue/ticketSelection/reconcileMergedTickets.ts', () => ({
 	reconcileMergedTickets: (params: Parameters<typeof reconcileMergedTickets>[0]) => mockReconcile(params),
 }));
 

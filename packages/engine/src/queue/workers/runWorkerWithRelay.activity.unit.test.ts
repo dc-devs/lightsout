@@ -49,15 +49,11 @@ interface PipelineCall {
 
 const mockRunImplementPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
-	runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params),
-}));
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({ runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params) }));
 // -------------------------
 const mockRunPhasesPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params) }));
 // -------------------------
 // Only the record pull is stubbed: the lifecycle helper around the build stays
 // real, so each case runs the build through the same wrapper the queue does.
@@ -73,10 +69,7 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
-}));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const branch = 'lo-70-drain';

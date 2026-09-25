@@ -37,9 +37,7 @@ interface InvokeCall {
 
 const mockInvokeAgentWithContract = jest.fn<(params: InvokeCall) => Promise<AgentOutcome<WorkReport>>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
-	invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params),
-}));
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({ invokeAgentWithContract: (params: InvokeCall) => mockInvokeAgentWithContract(params) }));
 // -------------------------
 // The engine's choice of plan and the ordered build around the session are each
 // covered by their own tests; stubbing them leaves the harness call these cases
@@ -54,7 +52,7 @@ jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({ buildWorkOrderPl
 // -------------------------
 const mockPullTicketRecord = jest.fn<() => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: () => mockPullTicketRecord() }));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: () => mockPullTicketRecord() }));
 // -------------------------
 
 const branch = 'lo-70-drain';

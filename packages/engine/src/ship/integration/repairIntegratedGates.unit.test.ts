@@ -17,7 +17,7 @@ import { shipIntegrationFixture } from '#tests/helpers/shipIntegrationFixture.ts
 // handed is read off the invocation the harness received.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 const mockRunPreShip = jest.fn<(params: { cwd: string; command: string; baseCommit?: string }) => Promise<ShipStepFailure | undefined>>();
 

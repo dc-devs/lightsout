@@ -24,7 +24,7 @@ interface RunGatesParams {
 
 const mockRunGates = jest.fn<(params: RunGatesParams) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: RunGatesParams) => mockRunGates(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'true' } };

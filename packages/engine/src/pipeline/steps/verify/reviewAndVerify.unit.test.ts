@@ -21,9 +21,7 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?: string; rateLimited?: boolean }>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-}));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 // The rename check has its own tests against a real repository. Here it is only
 // the judgment a rename-only checkpoint asks in place of the review.
@@ -35,7 +33,7 @@ interface RenameCheckParams {
 
 const mockCheckRenameOnlyChanges = jest.fn<(params: RenameCheckParams) => Promise<{ error?: string }>>();
 
-jest.mock('#src/pipeline/renameCheck/index.ts', () => ({
+jest.mock('#src/pipeline/renameCheck/checkRenameOnlyChanges.ts', () => ({
 	checkRenameOnlyChanges: (params: RenameCheckParams) => mockCheckRenameOnlyChanges(params),
 }));
 // -------------------------

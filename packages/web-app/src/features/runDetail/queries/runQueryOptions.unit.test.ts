@@ -12,9 +12,7 @@ import { buildRunView } from '#tests/helpers/buildRunView.ts';
 // fetcher is proved all the way down to the seam the app is allowed to stub.
 const mockGetRun = jest.fn<(params: { runId: string }) => Promise<RunView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getRun: (params: { runId: string }) => mockGetRun(params) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getRun: (params: { runId: string }) => mockGetRun(params) }) }));
 // -------------------------
 
 interface PolledQuery {

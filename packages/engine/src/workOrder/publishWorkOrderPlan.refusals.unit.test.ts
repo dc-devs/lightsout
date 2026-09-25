@@ -24,10 +24,14 @@ const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Pro
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -43,8 +47,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 			? { error: `the tracker API key is missing: set the \`${block['api-key-env']}\` environment variable` }
 			: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey };
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 
 const name = 'lo-140-multi-plan';

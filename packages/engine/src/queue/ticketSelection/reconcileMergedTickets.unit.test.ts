@@ -23,19 +23,20 @@ const mockReadBranchState = jest.fn<(params: { cwd: string; branch: string }) =>
 const mockWriteBranchState = jest.fn<(params: { cwd: string; branch: string; phase: BranchPhase }) => Promise<void>>();
 const mockReadGitPrimaryCheckout = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
 	findPullRequest: (params: { branch: string; cwd: string; state: string }) => mockFindPullRequest(params),
 }));
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => ({
 	reconcileShippedTicket: (params: { ticketRef: string | undefined }) => mockReconcileShippedTicket(params),
 }));
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({ readGitChangedFiles: (params: { cwd: string }) => mockReadGitChangedFiles(params) }));
 jest.mock('#src/worktree/removeWorktree.ts', () => ({
 	removeWorktree: (params: { cwd: string; worktreePath: string; branch: string }) => mockRemoveWorktree(params),
 }));
-jest.mock('#src/queue/branchState/index.ts', () => ({
+jest.mock('#src/queue/branchState/readBranchState.ts', () => ({
 	readBranchState: (params: { cwd: string; branch: string }) => mockReadBranchState(params),
+}));
+jest.mock('#src/queue/branchState/writeBranchState.ts', () => ({
 	writeBranchState: (params: { cwd: string; branch: string; phase: BranchPhase }) => mockWriteBranchState(params),
 }));
 jest.mock('#src/common/git/readGitPrimaryCheckout.ts', () => ({

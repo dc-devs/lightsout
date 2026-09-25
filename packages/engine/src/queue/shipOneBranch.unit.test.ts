@@ -45,11 +45,11 @@ const mockTakeGateHold =
 		}) => Promise<string | undefined>
 	>();
 
-jest.mock('#src/gates/index.ts', () => ({
-	runGates: (params: { cwd: string }) => mockRunGates(params),
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({
 	takeGateHold: (params: Parameters<typeof mockTakeGateHold>[0]) => mockTakeGateHold(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({ runShip: (params: Parameters<typeof mockRunShip>[0]) => mockRunShip(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: Parameters<typeof mockRunShip>[0]) => mockRunShip(params) }));
 // -------------------------
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

@@ -22,10 +22,7 @@ const mockListPacks = jest.fn<() => Promise<StandardsPackListing[]>>();
 const mockGetPack = jest.fn<(params: { name: string }) => Promise<StandardsPackView>>();
 const mockGetPackRule = jest.fn<(params: { name: string; rule: string }) => Promise<StandardsPackRuleView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs Home reads are
-	// committed JSON rather than disk this test has to fake.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		listPacks: () => mockListPacks(),
 		getPack: (params: { name: string }) => mockGetPack(params),

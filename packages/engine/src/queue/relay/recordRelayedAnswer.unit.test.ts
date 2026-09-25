@@ -20,7 +20,7 @@ type NoteParams = { settings: TrackerSettings; ticketId: string; heading: string
 
 const mockAppendTicketNote = jest.fn<(params: NoteParams) => Promise<QueueFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: (params: NoteParams) => mockAppendTicketNote(params) }));
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: (params: NoteParams) => mockAppendTicketNote(params) }));
 // -------------------------
 
 const settings = queueSettingsFixture();

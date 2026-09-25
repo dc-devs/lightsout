@@ -7,7 +7,7 @@ import { waitForChecks } from '#src/ship/waitForChecks.ts';
 // and the waits are half an hour long. Fake timers make them instant, and a
 // real child process under fake timers would be killed by its own deadline
 // rather than answering.
-jest.mock('#src/ship/forge/index.ts', () => ({ readPullRequestChecks: jest.fn<typeof readPullRequestChecks>() }));
+jest.mock('#src/ship/forge/readPullRequestChecks.ts', () => ({ readPullRequestChecks: jest.fn<typeof readPullRequestChecks>() }));
 
 const mockReadPullRequestChecks = jest.mocked(readPullRequestChecks);
 

@@ -35,12 +35,13 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { identifiers: string[] }) 
 const mockSetTicketLabel = jest.fn<(params: { ticketId: string; label: string | undefined; present: boolean }) => Promise<TrackerFailure | undefined>>();
 const mockFindPullRequest = jest.fn<(params: { branch: string; cwd: string; state: string }) => Promise<PullRequestSummary | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({
 	setTicketLabel: (params: { ticketId: string; label: string | undefined; present: boolean }) => mockSetTicketLabel(params),
 }));
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
 	findPullRequest: (params: { branch: string; cwd: string; state: string }) => mockFindPullRequest(params),
 }));
 // -------------------------

@@ -19,7 +19,7 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 // rather than by whichever commands the shared integration fixture configures.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 
 /**

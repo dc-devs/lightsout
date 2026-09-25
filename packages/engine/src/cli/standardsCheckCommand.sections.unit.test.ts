@@ -33,11 +33,11 @@ interface ReviewStandardsParams {
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({ listStandardsRules: () => Promise.resolve([]) }));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
 	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
-	listStandardsRules: () => Promise.resolve([]),
-	writeStandardsSnapshot: () => Promise.resolve(),
 }));
+jest.mock('#src/standardsCheck/writeStandardsSnapshot.ts', () => ({ writeStandardsSnapshot: () => Promise.resolve() }));
 jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------
 

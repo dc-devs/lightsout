@@ -14,7 +14,7 @@ type ListParams = { labelNames: string[]; statuses: string[] };
 
 const mockListTickets = jest.fn<(params: ListParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({ listTickets: (params: ListParams) => mockListTickets(params) }));
+jest.mock('#src/ticketTracker/listTickets.ts', () => ({ listTickets: (params: ListParams) => mockListTickets(params) }));
 // -------------------------
 
 const settings = queueSettingsFixture();

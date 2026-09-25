@@ -26,7 +26,7 @@ import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 // cannot stage on the machine it is running on.
 const mockRunBatchGates = jest.fn<(params: { cwd: string; coverage: boolean; step: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runBatchGates.ts', () => ({
 	runBatchGates: (params: { cwd: string; coverage: boolean; step: string }) => mockRunBatchGates(params),
 }));
 // -------------------------

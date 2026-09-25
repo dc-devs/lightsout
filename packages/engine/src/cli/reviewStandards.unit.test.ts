@@ -27,13 +27,13 @@ interface RunStandardsReviewParams {
 
 const mockRunStandardsReview = jest.fn<(params: RunStandardsReviewParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/runStandardsReview.ts', () => ({
 	runStandardsReview: (params: RunStandardsReviewParams) => mockRunStandardsReview(params),
 }));
 // -------------------------
 const mockResolveStandardsPacks = jest.fn<(params: { cwd: string; config?: LightsoutConfig }) => Promise<LoadedStandardsPack[]>>();
 
-jest.mock('#src/standardsPacks/index.ts', () => ({
+jest.mock('#src/standardsPacks/resolveStandardsPacks.ts', () => ({
 	resolveStandardsPacks: (params: { cwd: string; config?: LightsoutConfig }) => mockResolveStandardsPacks(params),
 }));
 // -------------------------

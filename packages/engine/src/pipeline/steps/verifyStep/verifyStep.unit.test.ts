@@ -36,7 +36,7 @@ interface HoldParams {
 
 const mockTakeGateHold = jest.fn<(params: HoldParams) => Promise<string | undefined>>();
 
-jest.mock('#src/gates/index.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
+jest.mock('#src/gates/gateHolds/takeGateHold.ts', () => ({ takeGateHold: (params: HoldParams) => mockTakeGateHold(params) }));
 // -------------------------
 // Which ticket the checkout's branch belongs to is the work order record's
 // answer, handed here directly rather than by making a git checkout and a
@@ -47,7 +47,9 @@ interface WorkOrderTicketRefParams {
 
 const mockReadWorkOrderTicketRef = jest.fn<(params: WorkOrderTicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params) }));
+jest.mock('#src/workOrder/readWorkOrderTicketRef.ts', () => ({
+	readWorkOrderTicketRef: (params: WorkOrderTicketRefParams) => mockReadWorkOrderTicketRef(params),
+}));
 // -------------------------
 
 /**

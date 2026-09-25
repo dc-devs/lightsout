@@ -14,7 +14,7 @@ const mockWriteBranchState = jest.fn<(params: { cwd: string; branch: string; pha
 jest.mock('#src/common/git/readGitCommitsAhead.ts', () => ({
 	readGitCommitsAhead: (params: { cwd: string; defaultBranch: string }) => mockReadGitCommitsAhead(params),
 }));
-jest.mock('#src/queue/branchState/index.ts', () => ({
+jest.mock('#src/queue/branchState/writeBranchState.ts', () => ({
 	writeBranchState: (params: { cwd: string; branch: string; phase: BranchPhase }) => mockWriteBranchState(params),
 }));
 // -------------------------

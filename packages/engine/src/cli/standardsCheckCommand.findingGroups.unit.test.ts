@@ -35,12 +35,13 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
-	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({
 	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
-	// This file reads what the command printed, never the evidence file it wrote.
-	writeStandardsSnapshot: () => Promise.resolve(),
 }));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
+	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+}));
+jest.mock('#src/standardsCheck/writeStandardsSnapshot.ts', () => ({ writeStandardsSnapshot: () => Promise.resolve() }));
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({

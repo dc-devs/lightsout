@@ -10,9 +10,7 @@ import { buildFrictionRecord } from '#tests/helpers/buildFrictionRecord.ts';
 // the fetcher is proved all the way down to the seam the app is allowed to stub.
 const mockGetFriction = jest.fn<() => Promise<FrictionRecord[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getFriction: mockGetFriction }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ getFriction: mockGetFriction }) }));
 // -------------------------
 
 const setupFrictionQueryOptions = ({ records = [buildFrictionRecord()] }: { records?: FrictionRecord[] } = {}) => {

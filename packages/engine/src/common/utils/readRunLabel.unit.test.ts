@@ -13,7 +13,7 @@ interface TicketRefParams {
 
 const mockReadWorkOrderTicketRef = jest.fn<(params: TicketRefParams) => Promise<string | undefined>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/readWorkOrderTicketRef.ts', () => ({
 	readWorkOrderTicketRef: (params: TicketRefParams) => mockReadWorkOrderTicketRef(params),
 }));
 // -------------------------

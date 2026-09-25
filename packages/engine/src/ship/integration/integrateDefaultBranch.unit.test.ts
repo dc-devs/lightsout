@@ -24,11 +24,11 @@ import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 // a stubbed git would prove none of it.
 const mockRunGates = jest.fn<(params: { cwd: string }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // -------------------------
 const mockResolveStandards = jest.fn<(params: { cwd: string; packages: string[] }) => Promise<ResolvedStandards>>();
 
-jest.mock('#src/standards/index.ts', () => ({
+jest.mock('#src/standards/resolveStandards.ts', () => ({
 	resolveStandards: (params: { cwd: string; packages: string[] }) => mockResolveStandards(params),
 }));
 // -------------------------

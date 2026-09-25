@@ -27,12 +27,16 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: unknown; identi
 const mockReadTicketAsset = jest.fn<(params: { settings: unknown; url: string }) => Promise<string | TrackerFailure>>();
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: unknown; identifier: string }) => mockGetTicketAttachments(params),
-	getTicketsByIdentifiers: (params: { settings: unknown; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	readTicketAsset: (params: { settings: unknown; url: string }) => mockReadTicketAsset(params),
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
+	getTicketsByIdentifiers: (params: { settings: unknown; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
+	readTicketAsset: (params: { settings: unknown; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 // Only the plan publish is replaced. `planWorkspaceDir` and `pathExists` stay
 // real, so the checkout the republished folder is looked for in is resolved
@@ -56,10 +60,7 @@ interface PublishReport {
 
 const mockPublishPlan = jest.fn<(params: PublishParams) => Promise<PublishReport>>();
 
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
-	publishPlan: (params: PublishParams) => mockPublishPlan(params),
-}));
+jest.mock('#src/plan/publish/publishPlan.ts', () => ({ publishPlan: (params: PublishParams) => mockPublishPlan(params) }));
 // -------------------------
 
 /** The work order's label, which is also the branch the linked worktree below stands on. */

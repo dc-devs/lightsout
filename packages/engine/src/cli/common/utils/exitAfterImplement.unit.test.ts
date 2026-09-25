@@ -24,8 +24,8 @@ import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 // state whichever of them ran first.
 const mockOnTrackerWrite = jest.fn<() => void>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => {
-	const actual = jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts');
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => {
+	const actual = jest.requireActual<typeof import('#src/ticketLifecycle/reconcileShippedTicket.ts')>('#src/ticketLifecycle/reconcileShippedTicket.ts');
 
 	type ReconcileParams = Parameters<typeof actual.reconcileShippedTicket>[0];
 

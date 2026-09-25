@@ -20,7 +20,9 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({ listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params) }));
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({
+	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
+}));
 // -------------------------
 
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];

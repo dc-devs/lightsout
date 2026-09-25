@@ -13,9 +13,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // The page's query reaches the engine's filesystem reader at the far end of the
 // plans server function. Stubbing the reader keeps that module graph off disk;
 // the seeded cache is what keeps the fetcher from ever being called.
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listPlanWorkspaces: () => Promise.resolve([]) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listPlanWorkspaces: () => Promise.resolve([]) }) }));
 // -------------------------
 // Only the pieces that need a live router around them. The page holds its stage
 // filter in the URL, so what it reads back and what it writes are exactly what

@@ -40,17 +40,13 @@ jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
 // reached at all is the claim of the single-phase row.
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 // Whether the tracker was written to before the run is what a refused plan has
 // to answer for, so the pre-source lifecycle write is a spy rather than a call.
 const mockRequireImplementLifecycle = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: { cwd: string }) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
@@ -59,11 +55,8 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 const mockCreateWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | { error: string }>>();
 const mockFetchDefaultBranch = jest.fn<(params: { cwd: string }) => Promise<string | { error: string }>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/worktree/index.ts')>('#src/worktree/index.ts'),
-	createWorktree: (params: { cwd: string; branch: string }) => mockCreateWorktree(params),
-	fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params),
-}));
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: { cwd: string; branch: string }) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/fetchDefaultBranch.ts', () => ({ fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params) }));
 // -------------------------
 // The report card reads a run directory a scripted pipeline never filled in.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();

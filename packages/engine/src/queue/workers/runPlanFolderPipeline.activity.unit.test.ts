@@ -35,15 +35,11 @@ interface PipelineCall {
 // -------------------------
 const mockRunPhasesPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params) }));
 // -------------------------
 const mockRunImplementPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
-	runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params),
-}));
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({ runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params) }));
 // -------------------------
 
 const name = 'lo-154-queue-owns-the-build';

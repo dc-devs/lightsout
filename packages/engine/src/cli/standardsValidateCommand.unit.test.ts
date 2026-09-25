@@ -16,12 +16,10 @@ const mockLoadStandardsPack = jest.fn<(params: { packPath: string }) => Promise<
 const mockResolveDefaultStandardsPack = jest.fn<() => string>();
 const mockValidateStandardsPack = jest.fn<(params: { pack: LoadedStandardsPack }) => Promise<{ problems: string[]; notes: string[] }>>();
 
-jest.mock('#src/standardsPacks/index.ts', () => ({
-	readStandardsPack: (params: { packPath: string }) => mockLoadStandardsPack(params),
-	resolveDefaultStandardsPack: () => mockResolveDefaultStandardsPack(),
-}));
+jest.mock('#src/standardsPacks/readStandardsPack.ts', () => ({ readStandardsPack: (params: { packPath: string }) => mockLoadStandardsPack(params) }));
+jest.mock('#src/standardsPacks/resolveDefaultStandardsPack.ts', () => ({ resolveDefaultStandardsPack: () => mockResolveDefaultStandardsPack() }));
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/validateStandardsPack.ts', () => ({
 	validateStandardsPack: (params: { pack: LoadedStandardsPack }) => mockValidateStandardsPack(params),
 }));
 // -------------------------

@@ -30,8 +30,10 @@ interface ResolveStandardsPacksParams {
 
 const mockResolveStandardsPacks = jest.fn<(params: ResolveStandardsPacksParams) => Promise<LoadedStandardsPack[]>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({ buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params) }));
-jest.mock('#src/standardsPacks/index.ts', () => ({
+jest.mock('#src/standardsCheck/buildStandardsHealth.ts', () => ({
+	buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params),
+}));
+jest.mock('#src/standardsPacks/resolveStandardsPacks.ts', () => ({
 	resolveStandardsPacks: (params: ResolveStandardsPacksParams) => mockResolveStandardsPacks(params),
 }));
 // -------------------------

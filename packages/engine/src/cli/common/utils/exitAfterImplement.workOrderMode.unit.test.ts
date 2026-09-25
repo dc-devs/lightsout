@@ -20,14 +20,11 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // pinned by the ship module's own tests. Here it stands in only so a case can
 // see WHETHER the chain reached it and WHAT it was handed — the ticket guard
 // above all, which is the record's say over the merge.
-type RunShip = typeof import('#src/ship/index.ts').runShip;
+type RunShip = typeof import('#src/ship/runShip.ts').runShip;
 
 const mockRunShip = jest.fn<RunShip>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: Parameters<RunShip>[0]) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: Parameters<RunShip>[0]) => mockRunShip(params) }));
 // -------------------------
 
 /** The ticket folder's name, which is also the branch its plans implement on. */

@@ -20,10 +20,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 const mockListPlans = jest.fn<() => Promise<PlanWorkspaceListing[]>>();
 const mockGetPlanWorkspace = jest.fn<() => Promise<PlanWorkspaceView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs the landing page
-	// reads are committed JSON rather than disk this test has to fake.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		listPlanWorkspaces: () => mockListPlans(),
 		getPlanWorkspace: () => mockGetPlanWorkspace(),

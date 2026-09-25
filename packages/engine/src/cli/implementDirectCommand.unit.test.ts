@@ -28,13 +28,10 @@ type CommitParams = {
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
 const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 
 const manifestOf = (status: RunStatus): RunManifest => ({
