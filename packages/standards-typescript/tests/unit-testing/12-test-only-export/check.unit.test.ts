@@ -29,10 +29,10 @@ describe('test-only-export check', () => {
 		]);
 	});
 
-	test('leaves an export a barrel publishes alongside its test alone — that pair is deliberate public API', async () => {
+	test('leaves an export the package entry publishes alongside its test alone — that pair is deliberate public API', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				['src/feature/index.ts', "export { buildGreeting } from './buildGreeting';"],
+				['src/index.ts', "export { buildGreeting } from './feature/buildGreeting';"],
 				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
 				['src/feature/buildGreeting.unit.test.ts', "import { buildGreeting } from './buildGreeting';"],
 			],
@@ -94,5 +94,19 @@ describe('test-only-export check', () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('reports an export a folder barrel lists beside its test, since nothing imports through a folder barrel', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['src/feature/index.ts', "export { buildGreeting } from './buildGreeting';"],
+				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
+				['src/feature/buildGreeting.unit.test.ts', "import { buildGreeting } from './buildGreeting';"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['test-only-export:src/feature/buildGreeting.ts']);
 	});
 });

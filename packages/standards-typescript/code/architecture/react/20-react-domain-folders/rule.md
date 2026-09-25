@@ -23,8 +23,7 @@ common/
 │   └── renderDateCell.tsx
 ```
 
-A domain folder is a grouping, not a module: it carries no `index.ts`
-([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)),
-and under `common/` the
-[common-barrel rule](../../../style-guide/structure/module-api/30-barrel-under-common/rule.md)
-bans one outright.
+A domain folder is a grouping, not a module
+([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)):
+callers import each file in it directly, and like every folder it carries no
+`index.ts` ([folder-index-file rule](../../../style-guide/structure/module-api/25-folder-index-file/rule.md)).

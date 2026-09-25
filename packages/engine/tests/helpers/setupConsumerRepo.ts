@@ -25,14 +25,14 @@ interface Params {
 /**
  * The rules that ask "does anything consume this?", switched off.
  *
- * For a fixture whose subject IS an unconsumed, hidden or barrel-only export —
+ * For a fixture whose subject IS an unconsumed or hidden export —
  * writer selection, import topology, unreachable-file handling — leaving these
  * on reports the fixture's own premise as work to delete, and the run never
  * reaches the question the test asks. Ordinary fixtures wire their modules into
  * a consumer with `writeSource` instead of switching anything off.
  */
 export const reachabilityRulesOff = {
-	'standards-checks': { 'dead-export': 'off', 'barrel-is-only-consumer': 'off', 'test-only-export': 'off' },
+	'standards-checks': { 'dead-export': 'off', 'test-only-export': 'off' },
 };
 
 /** The one source file a repo carries when a test plants none of its own. */

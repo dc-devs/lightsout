@@ -14,8 +14,8 @@ import { withTestChangeReview } from '#tests/helpers/withTestChangeReview.ts';
 
 interface SetupParams {
 	/**
-	 * Plant an ordinary barrelled module beside the route tree: `src/feature/`
-	 * publishes feature.ts and hides helper.ts.
+	 * Plant an ordinary module beside the route tree: `src/feature/` holds the
+	 * public feature.ts and an internal helper.ts nothing imports.
 	 */
 	withPlainModule?: boolean;
 }
@@ -28,7 +28,7 @@ interface SetupParams {
  * nothing imports either; the router is what reaches them.
  */
 const setupRouteTreeRun = async ({ withPlainModule = false }: SetupParams = {}) => {
-	// a route tree is unconsumed by construction, and so is the hidden helper the
+	// a route tree is unconsumed by construction, and so is the internal helper the
 	// plain module carries — leaving the rules that ask "does anything consume
 	// this?" on would report the fixture's own premise as work to do before the
 	// run ever reached the question the test asks.
@@ -77,20 +77,18 @@ const setupRouteTreeRun = async ({ withPlainModule = false }: SetupParams = {}) 
 					return { text: report({ changedFiles: routeFiles }), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'src/feature'), { recursive: true });
-				writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
+				mkdirSync(join(dir, 'src/feature/internal'), { recursive: true });
 				writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
-				// hidden behind the barrel on purpose: an ordinary module's index file is
-				// still a barrel, whatever the router root's is
-				writeFileSync(join(dir, 'src/feature/helper.ts'), 'export const helper = (): number => 2;\n');
+				// internal on purpose, and imported by nothing: an ordinary module's
+				// internal file is still walked up, whatever the router root holds
+				writeFileSync(join(dir, 'src/feature/internal/helper.ts'), 'export const helper = (): number => 2;\n');
 
 				return {
 					text: report({
 						changedFiles: [
 							...routeFiles,
-							{ path: 'src/feature/index.ts', summary: 'barrel' },
 							{ path: 'src/feature/feature.ts', summary: 'public' },
-							{ path: 'src/feature/helper.ts', summary: 'hidden' },
+							{ path: 'src/feature/internal/helper.ts', summary: 'internal' },
 						],
 					}),
 					exitCode: 0,
@@ -110,8 +108,8 @@ describe('runImplementPipeline', () => {
 		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress: (message) => progress.push(message) });
 
 		expect(result.ok).toBe(true);
-		// read as a barrel, index.tsx publishes nothing and hides runs.tsx, so
-		// neither file would have a public surface reaching it
+		// neither route sits in an internal/ folder, so each is its own subject —
+		// the index route is a route, never a list of what the folder hides
 		expect(result.manifest.testSubjects).toStrictEqual(['src/routes/index.tsx', 'src/routes/runs.tsx']);
 		expect(result.manifest.unreachableChangedFiles).toStrictEqual([]);
 		expect(writerPrompts.some((prompt) => prompt.includes('src/routes/index.tsx'))).toBeTruthy();
@@ -119,7 +117,7 @@ describe('runImplementPipeline', () => {
 		expect(progress.some((line) => line.startsWith('warning unreachable-changed-files'))).toBeFalsy();
 	});
 
-	test('an ordinary barrel beside the route tree still hides its own internals — the router fact silences one folder, not every index file', async () => {
+	test('an ordinary module beside the route tree still keeps its internals private — routes are public files, not an exemption', async () => {
 		const { dir, driver, config } = await setupRouteTreeRun({ withPlainModule: true });
 
 		const progress: string[] = [];
@@ -127,11 +125,11 @@ describe('runImplementPipeline', () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.manifest.testSubjects).toStrictEqual(['src/feature/feature.ts', 'src/routes/index.tsx', 'src/routes/runs.tsx']);
-		// the barrel-hidden helper is the only file nothing public reaches, and the
+		// the internal helper is the only file nothing public reaches, and the
 		// end-of-run re-check agrees with write-tests about which one that is
-		expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/helper.ts']);
+		expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/internal/helper.ts']);
 		expect(
-			progress.some((line) => line.startsWith('warning unreachable-changed-files: 1 changed file(s)') && line.includes('src/feature/helper.ts')),
+			progress.some((line) => line.startsWith('warning unreachable-changed-files: 1 changed file(s)') && line.includes('src/feature/internal/helper.ts')),
 		).toBeTruthy();
 		expect(progress.some((line) => line.startsWith('warning unreachable-changed-files') && line.includes('src/routes/'))).toBeFalsy();
 	});

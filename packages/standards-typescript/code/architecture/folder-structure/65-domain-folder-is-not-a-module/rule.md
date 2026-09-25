@@ -1,7 +1,7 @@
 ---
-summary: "a domain folder under `common/` carrying an `index.ts` or a private file"
+summary: "a domain folder under `common/` carrying a file that serves only its siblings"
 checked: false
 severity: advisory
 ---
 
-A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.
+A domain folder is **not** a concept with parts of its own — by the companion test every file in it is something its users call directly, and imports target those files one by one. The moment a domain folder needs a file that serves only its siblings, it has become a concept of its own and moves out of `common/`.

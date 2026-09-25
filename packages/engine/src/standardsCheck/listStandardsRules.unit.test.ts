@@ -30,14 +30,14 @@ const cwd = join(__dirname, '..', '..', '..', '..');
  * (path-test-untested-subject-not-public went that way, 2026-08-24). A rename
  * is not a retirement: on 2026-08-25 eighteen ids were renamed to say what the
  * rule finds rather than how it finds it — sixteen of them here, `clone` among
- * them — and the finding history keyed to the old spellings was reset.
+ * them — and the finding history keyed to the old spellings was reset. On
+ * 2026-09-24 the rules that read a folder's `index.ts` as its public API were
+ * retired with the model itself: `barrel-dead-entry`, `barrel-is-only-consumer`,
+ * `barrel-under-common`, `module-boundary`, and the check behind `placement`.
  */
 const durableRuleIds = [
 	'banned-folder-name',
-	'barrel-dead-entry',
-	'barrel-is-only-consumer',
 	'barrel-star',
-	'barrel-under-common',
 	'crowded-folder',
 	'dead-export',
 	'duplicate-code-block',
@@ -46,10 +46,8 @@ const durableRuleIds = [
 	'file-directly-in-common',
 	'filename-mismatch',
 	'folder-casing',
-	'module-boundary',
 	'multi-export',
 	'oversized-setup-factory',
-	'placement',
 	'single-file-domain-folder',
 	'size-file',
 	'size-function',
@@ -75,7 +73,7 @@ const durableRuleIds = [
 const durablePathRules = [
 	'banned-folder-name',
 	'file-directly-in-common',
-	'barrel-under-common',
+	'folder-index-file',
 	'test-in-tests-folder',
 	'test-not-beside-subject',
 	'test-support-in-src',
@@ -226,12 +224,12 @@ describe('listStandardsRules', () => {
 		);
 
 		// the check above proves a document is there, not that it is the right one:
-		// the no-barrels-under-common rule comes from module-api, the four
+		// the folder-index-file rule comes from module-api, the four
 		// test-location rules from unit-testing, and the rest from folder-structure
 		expect(docs).toStrictEqual({
 			'banned-folder-name': 'code/architecture/folder-structure',
 			'file-directly-in-common': 'code/architecture/folder-structure',
-			'barrel-under-common': 'code/style-guide/structure/module-api',
+			'folder-index-file': 'code/style-guide/structure/module-api',
 			'test-in-tests-folder': 'tests/unit-testing',
 			'test-not-beside-subject': 'tests/unit-testing',
 			'test-support-in-src': 'tests/unit-testing',
@@ -252,7 +250,7 @@ describe('listStandardsRules', () => {
 		expect(severities).toStrictEqual({
 			'banned-folder-name': StandardsSeverity.Advisory,
 			'file-directly-in-common': StandardsSeverity.Advisory,
-			'barrel-under-common': StandardsSeverity.Advisory,
+			'folder-index-file': StandardsSeverity.Advisory,
 			'test-in-tests-folder': StandardsSeverity.Advisory,
 			'test-not-beside-subject': StandardsSeverity.Advisory,
 			'test-support-in-src': StandardsSeverity.Advisory,
