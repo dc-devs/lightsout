@@ -155,7 +155,7 @@ describe('runImplementPipeline', () => {
 			onRefactor: ({ dir: cwd }) => {
 				// The repaired file exports nothing at all, so no finding — not even an
 				// advisory about a name or an unused export — survives the round.
-				writeFileSync(join(cwd, 'src/subject.js'), "import { one } from './index.js';\n\nconsole.log(one);\n");
+				writeFileSync(join(cwd, 'src/subject.js'), "console.log('cleaned');\n");
 
 				return report({ changedFiles: [{ path: 'src/subject.js', summary: 'split exports' }] });
 			},

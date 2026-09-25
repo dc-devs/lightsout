@@ -38,7 +38,10 @@ export const writeSource = ({ dir, path, source }: { dir: string; path: string; 
 
 	const names = exportedNames({ source });
 
-	if (names.length === 0) {
+	// An index file is an entry point, never imported from inside its own
+	// package, and the unused-export checks never judge one — so it gets no
+	// consumer, which would itself be an import through an index file.
+	if (names.length === 0 || /^index\.[cm]?[jt]sx?$/.test(basename(path))) {
 		return;
 	}
 
