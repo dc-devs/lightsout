@@ -126,6 +126,24 @@ describe('barrel-dead-entry check', () => {
 		]);
 	});
 
+	test('an import the compiler cannot place, naming the entry, is counted as a possible use — this run cannot say otherwise', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from 'unplaced-alias/ingestion';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('an outside module importing the name through the barrel still counts as a use', async () => {
 		const input = setupRepo({
 			sources: [

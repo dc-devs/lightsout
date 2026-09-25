@@ -122,4 +122,39 @@ describe('module-boundary check — package scope', () => {
 			},
 		]);
 	});
+
+	test('reports an import through an index file of the importer’s own package, and leaves another package’s entry alone', async () => {
+		const input = setupRepo({
+			paths: [
+				'packages/web/src/app.ts',
+				'packages/web/src/index.ts',
+				'packages/web/src/routes/runs.ts',
+				'packages/engine/src/index.ts',
+				'packages/engine/src/contracts/index.ts',
+				'packages/engine/src/contracts/RunStatus.ts',
+			],
+			edges: [
+				{ from: 'packages/engine/src/contracts/index.ts', to: 'packages/engine/src/contracts/RunStatus.ts' },
+				{ from: 'packages/web/src/app.ts', to: 'packages/web/src/index.ts' },
+				{ from: 'packages/web/src/app.ts', to: 'packages/engine/src/contracts/index.ts' },
+				{ from: 'packages/web/src/routes/runs.ts', to: 'packages/engine/src/index.ts' },
+			],
+			dependencies: [
+				['.', []],
+				['packages/engine', []],
+				['packages/web', []],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'module-boundary:packages/web/src/app.ts|packages/web/src/index.ts',
+				files: [{ path: 'packages/web/src/app.ts' }, { path: 'packages/web/src/index.ts' }],
+				detail: "imports through 'packages/web/src/index.ts' — import each name from the file that declares it instead",
+				guidance: 'An index file lists what its module makes public; nothing imports through it.',
+			},
+		]);
+	});
 });
