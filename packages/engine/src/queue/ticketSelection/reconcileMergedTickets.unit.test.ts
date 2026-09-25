@@ -5,7 +5,7 @@ import { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
 import type { BranchState } from '#src/contracts/queue/BranchState.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
 import { reconcileMergedTickets } from '#src/queue/ticketSelection/reconcileMergedTickets.ts';
 import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 

@@ -5,8 +5,8 @@ import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { TestCaseStatus } from '#src/contracts/gates/TestCaseStatus.ts';
 import type { TestResultsFile } from '#src/contracts/gates/TestResultsFile.ts';
+import { satisfiesGateKey } from '#src/gates/testResults/internal/satisfiesGateKey.ts';
 import { readTestResults } from '#src/gates/testResults/readTestResults.ts';
-import { satisfiesGateKey } from '#src/gates/testResults/satisfiesGateKey.ts';
 
 /**
  * Whether one gate execution could carry this row's result: it ran, it came back

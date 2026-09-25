@@ -1,1 +1,0 @@
-export { renderGreeting } from './renderGreeting';

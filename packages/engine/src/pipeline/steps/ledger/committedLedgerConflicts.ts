@@ -1,5 +1,5 @@
 import { holdsTestTitle } from '#src/common/sourceFiles/holdsTestTitle.ts';
-import { readCommittedTestSource } from '#src/pipeline/steps/ledger/readCommittedTestSource.ts';
+import { readCommittedTestSource } from '#src/pipeline/steps/ledger/internal/readCommittedTestSource.ts';
 
 interface Params {
 	cwd: string;

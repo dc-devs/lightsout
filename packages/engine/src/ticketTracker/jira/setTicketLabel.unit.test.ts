@@ -5,7 +5,7 @@ import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixt
 type JiraCallback = (client: { request: (params: unknown) => Promise<unknown> }) => Promise<unknown>;
 const mockRunJira = jest.fn<(params: { settings: unknown; request: JiraCallback }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/jira/runJira.ts', () => ({ runJira: (params: { settings: unknown; request: JiraCallback }) => mockRunJira(params) }));
+jest.mock('#src/ticketTracker/jira/internal/runJira.ts', () => ({ runJira: (params: { settings: unknown; request: JiraCallback }) => mockRunJira(params) }));
 
 describe('Jira setTicketLabel', () => {
 	test('does nothing when no parked label is configured', async () => {

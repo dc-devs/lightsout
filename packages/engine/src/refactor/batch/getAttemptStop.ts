@@ -4,8 +4,8 @@ import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
 import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
-import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
-import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
+import { BatchStopKind } from '#src/refactor/internal/common/constants/BatchStopKind.ts';
+import type { BatchStop } from '#src/refactor/internal/common/types/BatchStop.ts';
 
 interface Params {
 	batchId: string;

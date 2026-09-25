@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
+import type { RunWorkspace } from '#src/cli/internal/common/types/RunWorkspace.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
@@ -50,7 +50,7 @@ type ExitAfterImplementParams = {
 
 const mockResolveRunWorkspace = jest.fn<(params: ResolveRunWorkspaceParams) => Promise<RunWorkspace | { error: string }>>();
 
-jest.mock('#src/cli/common/implementRun/resolveRunWorkspace.ts', () => ({
+jest.mock('#src/cli/internal/common/implementRun/resolveRunWorkspace.ts', () => ({
 	resolveRunWorkspace: (params: ResolveRunWorkspaceParams) => mockResolveRunWorkspace(params),
 }));
 // -------------------------
@@ -64,7 +64,7 @@ jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (p
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: ExitAfterImplementParams) => mockExitAfterImplement(params),
 }));
 // -------------------------

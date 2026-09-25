@@ -15,7 +15,7 @@ import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts'
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';

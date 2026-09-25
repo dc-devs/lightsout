@@ -1,13 +1,13 @@
 import { FadeIn } from '#src/appUI/FadeIn.tsx';
-import { BurnDownSection } from '#src/features/home/screens/Home/components/BurnDownSection.tsx';
-import { FiveThingsSection } from '#src/features/home/screens/Home/components/FiveThingsSection.tsx';
-import { FixSection } from '#src/features/home/screens/Home/components/FixSection.tsx';
-import { HeroSection } from '#src/features/home/screens/Home/components/HeroSection.tsx';
-import { ProofSection } from '#src/features/home/screens/Home/components/ProofSection.tsx';
-import { QuickStartSection } from '#src/features/home/screens/Home/components/QuickStartSection.tsx';
-import { SlopSection } from '#src/features/home/screens/Home/components/SlopSection.tsx';
-import { SprawlSection } from '#src/features/home/screens/Home/components/SprawlSection.tsx';
-import { StandardsSection } from '#src/features/home/screens/Home/components/StandardsSection.tsx';
+import { BurnDownSection } from '#src/features/home/screens/Home/internal/components/BurnDownSection.tsx';
+import { FiveThingsSection } from '#src/features/home/screens/Home/internal/components/FiveThingsSection.tsx';
+import { FixSection } from '#src/features/home/screens/Home/internal/components/FixSection.tsx';
+import { HeroSection } from '#src/features/home/screens/Home/internal/components/HeroSection.tsx';
+import { ProofSection } from '#src/features/home/screens/Home/internal/components/ProofSection.tsx';
+import { QuickStartSection } from '#src/features/home/screens/Home/internal/components/QuickStartSection.tsx';
+import { SlopSection } from '#src/features/home/screens/Home/internal/components/SlopSection.tsx';
+import { SprawlSection } from '#src/features/home/screens/Home/internal/components/SprawlSection.tsx';
+import { StandardsSection } from '#src/features/home/screens/Home/internal/components/StandardsSection.tsx';
 
 /** The nine sections, in the order a reader meets them. Named rather than keyed on the function, whose name a minified build takes away. */
 const sections = [

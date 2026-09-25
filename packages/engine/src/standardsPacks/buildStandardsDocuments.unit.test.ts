@@ -1,10 +1,22 @@
 import { describe, expect, test } from '@jest/globals';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { buildStandardsDocuments } from '#src/standardsPacks/buildStandardsDocuments.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 
-const buildRule = ({ id, prose, channel = 'base' }: { id: string; prose: string; channel?: string }): LoadedStandardsRule => ({
+const buildRule = ({
+	id,
+	prose,
+	channel = 'base',
+	defaultSeverity = StandardsSeverity.Advisory,
+}: {
+	id: string;
+	prose: string;
+	channel?: string;
+	defaultSeverity?: StandardsSeverity;
+}): LoadedStandardsRule => ({
 	id,
 	set: 'code',
 	documentPath: 'code/example',
@@ -12,7 +24,7 @@ const buildRule = ({ id, prose, channel = 'base' }: { id: string; prose: string;
 	prose,
 	channel,
 	checked: false,
-	defaultSeverity: 'advisory',
+	defaultSeverity,
 	defaultSettings: {},
 	fixturesPath: `/pkg/code/example/${id}/fixtures`,
 });
@@ -53,11 +65,25 @@ const setupPack = (): LoadedStandardsPack => ({
 	],
 });
 
+/** A pack whose one document holds an ordinary rule and a rule it ships off, for repos to opt into. */
+const setupOptInPack = (): LoadedStandardsPack => ({
+	...setupPack(),
+	documents: [buildDocument({ path: 'code/modules', intro: '# Modules', ruleIds: ['graduation', 'internal-import'] })],
+	rules: [
+		buildRule({ id: 'graduation', prose: 'A concept earns its folder.' }),
+		buildRule({ id: 'internal-import', prose: 'Private files live in internal/.', defaultSeverity: StandardsSeverity.Off }),
+	],
+});
+
+/** A config whose `standards-checks` names one rule at one severity. */
+const buildConfig = ({ rule = 'internal-import', severity }: { rule?: string; severity: StandardsSeverity }) =>
+	LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false, build: 'true' }, 'standards-checks': { [rule]: severity } });
+
 describe('buildStandardsDocuments', () => {
 	test('assembles each document as a header, its intro, then its rule prose in order', () => {
 		const pack = setupPack();
 
-		const { code, tests } = buildStandardsDocuments({ pack, channels: [] });
+		const { code, tests } = buildStandardsDocuments({ pack, channels: [], config: undefined });
 
 		// the header names the pack and the document folder it came from
 		expect(code).toContain('<!-- lightsout defaults: code/architecture -->\n# Architecture\n\nA concept earns its folder.');
@@ -74,7 +100,7 @@ describe('buildStandardsDocuments', () => {
 	test('omits documents whose channel is not active, and orders active channels after the base ones', () => {
 		const pack = setupPack();
 
-		const { code } = buildStandardsDocuments({ pack, channels: ['tanstack', 'react'] });
+		const { code } = buildStandardsDocuments({ pack, channels: ['tanstack', 'react'], config: undefined });
 		const paths = (code ?? '').split('\n').filter((line) => line.startsWith('<!--'));
 
 		// base documents first in path order, then each active channel in the order given
@@ -85,14 +111,14 @@ describe('buildStandardsDocuments', () => {
 			'<!-- lightsout defaults: code/frameworks/react -->',
 		]);
 		// an inactive channel's prose is not injected at all
-		expect(buildStandardsDocuments({ pack, channels: ['react'] }).code).not.toContain('Routes are file-based.');
+		expect(buildStandardsDocuments({ pack, channels: ['react'], config: undefined }).code).not.toContain('Routes are file-based.');
 	});
 
 	test('leaves a set out entirely when no document is in play for it', () => {
 		const pack = setupPack();
 		const codeOnly: LoadedStandardsPack = { ...pack, documents: pack.documents.filter((document) => document.set === 'code') };
 
-		const assembled = buildStandardsDocuments({ pack: codeOnly, channels: [] });
+		const assembled = buildStandardsDocuments({ pack: codeOnly, channels: [], config: undefined });
 
 		// absent, not an empty string — nothing to inline is not the same as inlining nothing
 		expect(assembled.tests).toBe(undefined);
@@ -103,7 +129,7 @@ describe('buildStandardsDocuments', () => {
 		const pack = setupPack();
 		const testsOnly: LoadedStandardsPack = { ...pack, documents: pack.documents.filter((document) => document.set === 'tests') };
 
-		const assembled = buildStandardsDocuments({ pack: testsOnly, channels: [] });
+		const assembled = buildStandardsDocuments({ pack: testsOnly, channels: [], config: undefined });
 
 		expect(assembled.code).toBe(undefined);
 		expect('code' in assembled).toBeFalsy();
@@ -121,7 +147,7 @@ describe('buildStandardsDocuments', () => {
 			],
 		};
 
-		const { code } = buildStandardsDocuments({ pack: scrambled, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: scrambled, channels: [], config: undefined });
 
 		// 'code/a' moves ahead of both 'code/b' documents; the tied pair holds its original order
 		expect(code).toBe(
@@ -136,7 +162,7 @@ describe('buildStandardsDocuments', () => {
 			documents: [buildDocument({ path: 'code/dangling', intro: '# Dangling', ruleIds: ['missing', 'graduation'] })],
 		};
 
-		const { code } = buildStandardsDocuments({ pack: dangling, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: dangling, channels: [], config: undefined });
 
 		// the unknown id contributes nothing — no blank line, no placeholder
 		expect(code).toBe('<!-- lightsout defaults: code/dangling -->\n# Dangling\n\nA concept earns its folder.');
@@ -150,9 +176,36 @@ describe('buildStandardsDocuments', () => {
 			rules: [buildRule({ id: 'blank', prose: '' }), buildRule({ id: 'graduation', prose: 'A concept earns its folder.' })],
 		};
 
-		const { code } = buildStandardsDocuments({ pack: sparse, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: sparse, channels: [], config: undefined });
 
 		// an intro-less document starts at its first rule, with no leading blank line
 		expect(code).toBe('<!-- lightsout defaults: code/sparse -->\nA concept earns its folder.');
+	});
+
+	test("leaves out an opt-in rule's prose while the repo's config never names it", () => {
+		const pack = setupOptInPack();
+
+		const { code } = buildStandardsDocuments({ pack, channels: [], config: undefined });
+
+		expect(code).toBe('<!-- lightsout defaults: code/modules -->\n# Modules\n\nA concept earns its folder.');
+	});
+
+	test('includes an opt-in rule once the repo names it, at any severity', () => {
+		const pack = setupOptInPack();
+
+		const optedIn = buildStandardsDocuments({ pack, channels: [], config: buildConfig({ severity: StandardsSeverity.Blocking }) });
+		// off from the repo means its own linter enforces the rule: the standard still holds
+		const lintedElsewhere = buildStandardsDocuments({ pack, channels: [], config: buildConfig({ severity: StandardsSeverity.Off }) });
+
+		expect(optedIn.code).toContain('Private files live in internal/.');
+		expect(lintedElsewhere.code).toContain('Private files live in internal/.');
+	});
+
+	test('keeps the prose of a rule the repo turned off, when the pack ships it on', () => {
+		const pack = setupPack();
+
+		const { code } = buildStandardsDocuments({ pack, channels: [], config: buildConfig({ rule: 'graduation', severity: StandardsSeverity.Off }) });
+
+		expect(code).toContain('A concept earns its folder.');
 	});
 });

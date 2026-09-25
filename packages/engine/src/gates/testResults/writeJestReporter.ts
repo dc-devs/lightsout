@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { jestReporterSource } from '#src/gates/testResults/jestReporterSource.ts';
+import { jestReporterSource } from '#src/gates/testResults/internal/jestReporterSource.ts';
 import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 
 interface Params {

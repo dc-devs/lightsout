@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
 
 /** A parsed plan carrying only what this check reads. */

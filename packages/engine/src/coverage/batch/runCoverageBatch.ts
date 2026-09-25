@@ -2,14 +2,14 @@ import type { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchR
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
 import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
-import { checkTestsOnly } from '#src/coverage/batch/checkTestsOnly.ts';
-import { createCoverageInvoker } from '#src/coverage/batch/createCoverageInvoker.ts';
-import { getCoverageAttemptStop } from '#src/coverage/batch/getCoverageAttemptStop.ts';
-import { measureCoverageBatch } from '#src/coverage/batch/measureCoverageBatch.ts';
-import { settleCoverageGates } from '#src/coverage/batch/settleCoverageGates.ts';
-import { CoverageBatchStopKind } from '#src/coverage/common/constants/CoverageBatchStopKind.ts';
-import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
-import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
+import { checkTestsOnly } from '#src/coverage/batch/internal/checkTestsOnly.ts';
+import { createCoverageInvoker } from '#src/coverage/batch/internal/createCoverageInvoker.ts';
+import { getCoverageAttemptStop } from '#src/coverage/batch/internal/getCoverageAttemptStop.ts';
+import { measureCoverageBatch } from '#src/coverage/batch/internal/measureCoverageBatch.ts';
+import { settleCoverageGates } from '#src/coverage/batch/internal/settleCoverageGates.ts';
+import { CoverageBatchStopKind } from '#src/coverage/internal/common/constants/CoverageBatchStopKind.ts';
+import type { CoverageBatch } from '#src/coverage/internal/common/types/CoverageBatch.ts';
+import type { CoverageBatchStop } from '#src/coverage/internal/common/types/CoverageBatchStop.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { runBatchGates } from '#src/gates/runBatchGates.ts';
 

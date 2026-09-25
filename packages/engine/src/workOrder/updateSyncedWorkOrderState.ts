@@ -1,11 +1,11 @@
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
-import { publishedButUnrecorded } from '#src/workOrder/common/constants/publishedButUnrecorded.ts';
-import { attachWorkOrderStateIfUnmoved } from '#src/workOrder/common/utils/attachWorkOrderStateIfUnmoved.ts';
-import { readWorkOrderSyncState } from '#src/workOrder/common/utils/readWorkOrderSyncState.ts';
-import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
-import { resolveWorkOrderTrackerTarget } from '#src/workOrder/common/utils/resolveWorkOrderTrackerTarget.ts';
+import { publishedButUnrecorded } from '#src/workOrder/internal/common/constants/publishedButUnrecorded.ts';
+import { attachWorkOrderStateIfUnmoved } from '#src/workOrder/internal/common/utils/attachWorkOrderStateIfUnmoved.ts';
+import { readWorkOrderSyncState } from '#src/workOrder/internal/common/utils/readWorkOrderSyncState.ts';
+import { recordWorkOrderSyncState } from '#src/workOrder/internal/common/utils/recordWorkOrderSyncState.ts';
+import { resolveWorkOrderTrackerTarget } from '#src/workOrder/internal/common/utils/resolveWorkOrderTrackerTarget.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 

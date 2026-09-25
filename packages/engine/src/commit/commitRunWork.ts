@@ -1,8 +1,8 @@
 import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
-import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
-import { describeUnownedEdits } from '#src/commit/common/utils/describeUnownedEdits.ts';
-import { readRunCommitAddress } from '#src/commit/common/utils/readRunCommitAddress.ts';
 import { composeCommitMessage } from '#src/commit/composeCommitMessage.ts';
+import type { CommitAddress } from '#src/commit/internal/common/types/CommitAddress.ts';
+import { describeUnownedEdits } from '#src/commit/internal/common/utils/describeUnownedEdits.ts';
+import { readRunCommitAddress } from '#src/commit/internal/common/utils/readRunCommitAddress.ts';
 import { readGitHeadCommit } from '#src/common/git/readGitHeadCommit.ts';
 import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';

@@ -8,7 +8,7 @@ import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { reviewTestChanges } from '#src/pipeline/approvedTests/reviewTestChanges.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { createOffContractDriver } from '#tests/helpers/createOffContractDriver.ts';
 import { createRateLimitedDriver } from '#tests/helpers/createRateLimitedDriver.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';

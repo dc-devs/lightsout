@@ -6,9 +6,9 @@ severity: advisory
 
 ## Module Boundary Testing
 
-**Default to testing a module's public API** — the files its barrel
-(`index.ts`) exports, each imported from its own file — and cover internals
-*through* it. A boundary test pins
+**Default to testing a module's public API** — the files code outside the
+module calls, each imported from its own file — and cover internals *through*
+it. A boundary test pins
 behavior rather than internal decomposition, so a module's internals can be
 reorganized without touching a single test, and three code changes inside a
 module cost one test update instead of three.
@@ -22,18 +22,17 @@ module cost one test update instead of three.
 - coverage a gate demands is genuinely unreachable through any boundary input
   (and first ask whether that unreachable branch is dead code)
 
-A direct test needs no ceremony: it does not require promoting the file into
-the barrel, and an existing direct test is not debt to migrate. Write the
+A direct test needs no ceremony: it does not require making the file public,
+and an existing direct test is not debt to migrate. Write the
 boundary test when both would pin the same behavior; write the direct test when
 the file deserves one.
 
 **Rules that hold either way:**
 
-- Files with no runtime logic — barrels, type-only files, pure constants —
-  get no dedicated tests (see the files-that-must-not-have-dedicated-tests
-  rule).
+- Files with no runtime logic — index files, type-only files, pure
+  constants — get no dedicated tests (see the
+  files-that-must-not-have-dedicated-tests rule).
 - If a branch cannot be reached through any input, boundary or direct, it is
   dead code — flag it for deletion rather than forcing a test onto it.
-- A barrel entry whose only consumers are test files is legitimate public
-  API — a deliberate promotion whose contract the tests pin; demoting it is a
-  human decision.
+- A public export whose only consumers are test files may be a deliberate
+  promotion whose contract the tests pin; deleting it is a human decision.

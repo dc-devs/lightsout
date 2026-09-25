@@ -1,5 +1,5 @@
 import sprawlGif from '#assets/sprawl.gif?url';
-import { heroDescription } from '#src/features/home/common/constants/heroDescription.ts';
+import { heroDescription } from '#src/features/home/internal/common/constants/heroDescription.ts';
 
 /**
  * Where this build is served from, when the deploy said.

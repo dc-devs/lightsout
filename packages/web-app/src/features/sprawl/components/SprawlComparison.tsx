@@ -1,8 +1,8 @@
 import { cn } from '#src/common/utils/cn.ts';
-import { SprawlLane } from '#src/features/sprawl/common/constants/SprawlLane.ts';
 import { getSprawlDataset } from '#src/features/sprawl/common/utils/getSprawlDataset.ts';
 import { SprawlChart } from '#src/features/sprawl/components/SprawlChart.tsx';
-import { useSprawlFrameLoop } from '#src/features/sprawl/hooks/useSprawlFrameLoop.ts';
+import { SprawlLane } from '#src/features/sprawl/internal/common/constants/SprawlLane.ts';
+import { useSprawlFrameLoop } from '#src/features/sprawl/internal/hooks/useSprawlFrameLoop.ts';
 
 interface Props {
 	className?: string;

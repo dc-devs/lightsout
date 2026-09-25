@@ -5,11 +5,11 @@ import type { AttachmentManifest } from '#src/common/types/AttachmentManifest.ts
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { planAttachmentManifestName } from '#src/plan/common/constants/planAttachmentManifestName.ts';
 import { isDurablePlanAttachmentName } from '#src/plan/common/utils/isDurablePlanAttachmentName.ts';
-import { isPlanOnlyAttachmentName } from '#src/plan/common/utils/isPlanOnlyAttachmentName.ts';
-import { validatePlanAttachmentGeneration } from '#src/plan/common/validatePlanAttachmentGeneration.ts';
+import { isPlanOnlyAttachmentName } from '#src/plan/internal/common/utils/isPlanOnlyAttachmentName.ts';
+import { validatePlanAttachmentGeneration } from '#src/plan/internal/common/validatePlanAttachmentGeneration.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
-import type { ReadGenerationFile } from '#src/plan/restore/common/types/ReadGenerationFile.ts';
-import { writeRestoredGeneration } from '#src/plan/restore/common/utils/writeRestoredGeneration.ts';
+import type { ReadGenerationFile } from '#src/plan/restore/internal/common/types/ReadGenerationFile.ts';
+import { writeRestoredGeneration } from '#src/plan/restore/internal/common/utils/writeRestoredGeneration.ts';
 import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
 import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { getTicketAttachments } from '#src/ticketTracker/getTicketAttachments.ts';

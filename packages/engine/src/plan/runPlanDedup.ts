@@ -11,17 +11,17 @@ import type { Effort } from '#src/contracts/Effort.ts';
 import type { Permissions } from '#src/contracts/Permissions.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
-import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { planAgentConcurrency } from '#src/plan/common/constants/planAgentConcurrency.ts';
-import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
-import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
-import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
-import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
-import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
+import { getPlanRunStatus } from '#src/plan/internal/common/activity/getPlanRunStatus.ts';
+import { planAgentConcurrency } from '#src/plan/internal/common/constants/planAgentConcurrency.ts';
+import type { DeliverableFile } from '#src/plan/internal/common/types/DeliverableFile.ts';
+import type { PriorArtCandidate } from '#src/plan/internal/common/types/PriorArtCandidate.ts';
+import { createPlanAgentRunner } from '#src/plan/internal/common/utils/createPlanAgentRunner.ts';
+import { drainTasks } from '#src/plan/internal/common/utils/drainTasks.ts';
+import { getPlanDetectionPass } from '#src/plan/internal/common/utils/getPlanDetectionPass.ts';
+import { isRateLimited } from '#src/plan/internal/common/utils/isRateLimited.ts';
+import { matchDedupVerdicts } from '#src/plan/internal/common/utils/matchDedupVerdicts.ts';
 import { checkDeliverableSections } from '#src/plan/lint/checkDeliverableSections.ts';
 
 interface Params {

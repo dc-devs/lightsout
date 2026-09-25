@@ -10,6 +10,6 @@ Place shared code at the lowest common ancestor `common/` folder (each package's
 
 1. **First:** search whether it already exists in `common/` at any level — if found, use it.
 2. **Second:** if not found, start local and promote later — moving code up when reuse is proven beats premature generalization.
-3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules — shared code is a primitive or a module, never a third thing.
+3. **When promoting, the destination is decided by the companion test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private companions becomes its own module at that level. `common/` never contains folder-modules — shared code is a primitive or a module, never a third thing.
 
-Import granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): every import names the file that declares what it imports — within your own module any file, across a boundary only the files the module's `index.ts` exports. Never import through an `index.ts`, and never from your own package's root barrel.
+Import granularity follows the import rule ([module-api.md](../style-guide/structure/module-api.md#import-from-the-declaring-file)): every import names the file that declares what it imports. Never import through an `index.ts`, and never from your own package's entry.

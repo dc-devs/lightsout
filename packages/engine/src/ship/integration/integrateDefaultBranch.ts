@@ -1,15 +1,15 @@
 import { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 import type { ShipIntegration } from '#src/ship/common/types/ShipIntegration.ts';
-import { runGit } from '#src/ship/common/utils/runGit.ts';
 import type { IntegrationFailure } from '#src/ship/integration/common/types/IntegrationFailure.ts';
-import { hasOpenMerge } from '#src/ship/integration/common/utils/hasOpenMerge.ts';
-import { mergeDefaultBranch } from '#src/ship/integration/mergeDefaultBranch.ts';
-import { readConflictMarkerPaths } from '#src/ship/integration/readConflictMarkerPaths.ts';
-import { readUnmergedPaths } from '#src/ship/integration/readUnmergedPaths.ts';
-import { repairCiFailure } from '#src/ship/integration/repairCiFailure.ts';
-import { repairIntegratedGates } from '#src/ship/integration/repairIntegratedGates.ts';
-import { resolveMergeConflicts } from '#src/ship/integration/resolveMergeConflicts.ts';
-import { restorePreIntegrationState } from '#src/ship/integration/restorePreIntegrationState.ts';
+import { hasOpenMerge } from '#src/ship/integration/internal/common/utils/hasOpenMerge.ts';
+import { mergeDefaultBranch } from '#src/ship/integration/internal/mergeDefaultBranch.ts';
+import { readConflictMarkerPaths } from '#src/ship/integration/internal/readConflictMarkerPaths.ts';
+import { readUnmergedPaths } from '#src/ship/integration/internal/readUnmergedPaths.ts';
+import { repairCiFailure } from '#src/ship/integration/internal/repairCiFailure.ts';
+import { repairIntegratedGates } from '#src/ship/integration/internal/repairIntegratedGates.ts';
+import { resolveMergeConflicts } from '#src/ship/integration/internal/resolveMergeConflicts.ts';
+import { restorePreIntegrationState } from '#src/ship/integration/internal/restorePreIntegrationState.ts';
+import { runGit } from '#src/ship/internal/common/utils/runGit.ts';
 import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {

@@ -21,7 +21,7 @@ conventions around them.
 - Never change a public API. Moving an export is not a public-API change while
   the repo still offers the same names to the same importers — update every
   importer you break, in the same pass. Deleting one is. A dead-export-family
-  advisory (`dead-export`, `test-only-export`, `barrel-is-only-consumer`) is
+  advisory (`dead-export`, `test-only-export`) is
   therefore REPORTED rather than acted on, unless the finding itself proves
   nothing consumes the export.
 - An advisory whose only available fix would change a public API is REPORTED as

@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import type { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
-import { getRunStandardsBaselinePath } from '#src/runState/standardsBaseline/getRunStandardsBaselinePath.ts';
+import { getRunStandardsBaselinePath } from '#src/runState/standardsBaseline/internal/getRunStandardsBaselinePath.ts';
 
 interface Params {
 	cwd: string;

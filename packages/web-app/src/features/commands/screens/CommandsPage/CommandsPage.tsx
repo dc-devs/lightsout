@@ -3,9 +3,9 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { Terminal } from 'lucide-react';
 import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
-import { commandGroupLabels } from '#src/features/commands/common/constants/commandGroupLabels.ts';
+import { commandGroupLabels } from '#src/features/commands/internal/common/constants/commandGroupLabels.ts';
 import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
-import { CommandCard } from '#src/features/commands/screens/CommandsPage/components/CommandCard.tsx';
+import { CommandCard } from '#src/features/commands/screens/CommandsPage/internal/components/CommandCard.tsx';
 
 /** The four groups in the order the page reads them: building, burning down, the standards themselves, and keeping the install honest. */
 const groupOrder = [CommandGroup.Build, CommandGroup.BurnDown, CommandGroup.Standards, CommandGroup.Housekeeping];

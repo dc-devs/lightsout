@@ -1,6 +1,6 @@
 {
   "name": "lightsout-defaults",
-  "description": "The default TypeScript pack: architecture, style, documentation and unit-testing rules, 53 of them enforced by code.",
+  "description": "The default TypeScript pack: architecture, style, documentation and unit-testing rules, 51 of them enforced by code.",
   "homepage": "https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript",
   "isDefault": true,
   "rootPath": "packages/standards-typescript",
@@ -13,11 +13,11 @@
     "tanstack"
   ],
   "totals": {
-    "rules": 112,
-    "checked": 53,
-    "judgment": 59,
+    "rules": 111,
+    "checked": 51,
+    "judgment": 60,
     "documents": 24,
-    "withFixtures": 112
+    "withFixtures": 111
   },
   "documents": [
     {
@@ -42,11 +42,11 @@
       "set": "code",
       "path": "code/architecture/folder-structure",
       "channel": "base",
-      "intro": "# Folder Structure\n\nUse a `common/` folder pattern for shared code — it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` lists its public API — the files code outside the folder may import — and every import names the file that declares what it imports, never the `index.ts`; everything under its `common/` is internal.",
+      "intro": "# Folder Structure\n\nUse a `common/` folder pattern for shared code — it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder holds a concept and the companions that serve it, and every import names the file that declares what it imports. A folder carries no `index.ts` — only a package's entry does.",
       "ruleIds": [
         "placement",
         "file-directly-in-common",
-        "barrel-omission-test",
+        "graduating-out-of-common",
         "top-level-domain-nouns",
         "banned-folder-name",
         "growing-without-new-rules",
@@ -221,12 +221,11 @@
       "channel": "base",
       "intro": "# Module Boundaries & Exports",
       "ruleIds": [
-        "module-boundary",
+        "import-through-index",
         "module-exports",
         "barrel-star",
-        "barrel-dead-entry",
-        "barrel-is-only-consumer",
-        "barrel-under-common",
+        "internal-import-from-outside",
+        "folder-index-file",
         "code-in-index-file"
       ]
     },
@@ -485,186 +484,10 @@
       ]
     },
     {
-      "id": "barrel-dead-entry",
-      "set": "code",
-      "documentPath": "code/style-guide/structure/module-api",
-      "summary": "a barrel entry no file outside the module consumes",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {},
-      "fixtureCounts": {
-        "pass": 7,
-        "fail": 4
-      },
-      "prose": "```typescript\n// ingestion/index.ts — RawRecord re-exported on purpose; normalizeRecord stays internal\nexport { ingestRecords } from '@/ingestion/ingestRecords';\nexport type { RawRecord } from '@/ingestion/common/types/RawRecord';\n```\n\nA folder the package's framework mandates as a module — a TanStack Start screen under `features/*/screens/*` — is a boundary whatever the barrel-omission test says, so its barrel answers for its dead entries exactly as a graduated module's does.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "package.json",
-          "text": "{\n\t\"name\": \"barrel-dead-entry-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"1.168.3\",\n\t\t\"@tanstack/react-start\": \"1.167.5\"\n\t}\n}\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/common/utils/normalizeRecord.ts",
-          "text": "export const normalizeRecord = (): number => 1;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/reporting/buildReport.ts",
-          "text": "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/index.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nconst RunsIndex = () => <section>runs</section>;\n\nexport const Route = createFileRoute('/')({ component: RunsIndex });\n"
-        },
-        {
-          "side": "pass",
-          "path": "tsconfig.json",
-          "text": "{\n\t\"compilerOptions\": {\n\t\t\"target\": \"ES2022\",\n\t\t\"module\": \"ESNext\",\n\t\t\"moduleResolution\": \"Bundler\",\n\t\t\"jsx\": \"preserve\",\n\t\t\"strict\": true,\n\t\t\"noEmit\": true\n\t},\n\t\"include\": [\"src\"]\n}\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/common/utils/normalizeRecord.ts",
-          "text": "export const normalizeRecord = (): number => 1;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
-        },
-        {
-          "side": "fail",
-          "path": "tsconfig.json",
-          "text": "{\n\t\"compilerOptions\": {\n\t\t\"target\": \"ES2022\",\n\t\t\"module\": \"ESNext\",\n\t\t\"moduleResolution\": \"Bundler\",\n\t\t\"strict\": true,\n\t\t\"noEmit\": true\n\t},\n\t\"include\": [\"src\"]\n}\n"
-        }
-      ]
-    },
-    {
-      "id": "barrel-is-only-consumer",
-      "set": "code",
-      "documentPath": "code/style-guide/structure/module-api",
-      "summary": "an export reached only through a barrel, with no consuming module",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {},
-      "fixtureCounts": {
-        "pass": 7,
-        "fail": 2
-      },
-      "prose": "",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "package.json",
-          "text": "{\n\t\"name\": \"barrel-is-only-consumer-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"1.168.3\",\n\t\t\"@tanstack/react-start\": \"1.167.5\"\n\t}\n}\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/app/screens/RunsIndex/index.ts",
-          "text": "export { RunsIndex } from './RunsIndex';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/app/screens/RunsIndex/RunsIndex.tsx",
-          "text": "// The route file below is what consumes this name. The framework reaches that\n// route without any import, which is why it counts as a consumer at all.\nexport const RunsIndex = () => <h1>Runs</h1>;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "export const ingestRecords = (): number => 1;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/reporting/buildReport.ts",
-          "text": "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/index.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\nimport { RunsIndex } from '../features/app/screens/RunsIndex/RunsIndex';\n\nexport const Route = createFileRoute('/')({ component: RunsIndex });\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "export const ingestRecords = (): number => 1;\n"
-        }
-      ]
-    },
-    {
-      "id": "barrel-omission-test",
-      "set": "code",
-      "documentPath": "code/architecture/folder-structure",
-      "summary": "a shared concept with private internals left inside `common/` instead of graduating to its own module",
-      "channel": "base",
-      "checked": false,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {},
-      "fixtureCounts": {
-        "pass": 3,
-        "fail": 2
-      },
-      "prose": "## What Lives in `common/` — the Barrel-Omission Test\n\n`common/` holds shared **file-modules only**: single-file primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.\n\nA shared concept must leave `common/` and become a module — a sibling of the features that use it — the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**\n\n- Everything would be exported → it is a bag of primitives → its files go in `common/<type>/` (or a domain folder)\n- The barrel would hide something → it is a module with a boundary worth enforcing → module with its own `index.ts`\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) — there is no third place.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/permissions/common/utils/normalizeRole.ts",
-          "text": "export const normalizeRole = () => 'admin';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/permissions/hasPermission.ts",
-          "text": "import { normalizeRole } from './common/utils/normalizeRole';\n\nexport const hasPermission = () => normalizeRole() === 'admin';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/permissions/index.ts",
-          "text": "export { hasPermission } from './hasPermission';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/common/permissions/hasPermission.ts",
-          "text": "import { normalizeRole } from './normalizeRole';\n\nexport const hasPermission = () => normalizeRole() === 'admin';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/common/permissions/normalizeRole.ts",
-          "text": "export const normalizeRole = () => 'admin';\n"
-        }
-      ]
-    },
-    {
       "id": "barrel-star",
       "set": "code",
       "documentPath": "code/style-guide/structure/module-api",
-      "summary": "a barrel re-exporting with `export *` instead of naming what it publishes",
+      "summary": "an index file re-exporting with `export *` instead of naming what it publishes",
       "channel": "base",
       "checked": true,
       "defaultSeverity": "advisory",
@@ -673,64 +496,27 @@
         "pass": 2,
         "fail": 2
       },
-      "prose": "## Barrel Files (`index.ts`)\n\nA barrel is the module's **public API contract** — it lists exactly what consumers may use; everything it omits is internal. It is a list, not an import path: consumers import each name from the file that declares it, and only files the barrel exports.\n\n1. **Every folder-module has an `index.ts`** — the list of files other modules may import\n2. **Named re-exports** — `export { Foo } from '<path>'` (alias when configured), never `export *`: a star re-export publishes whatever the target happens to export, so the contract stops being a decision and the scanner stops being able to read it\n3. **Export deliberately** — the barrel MAY re-export from subfolders when those items are intentionally public; omissions are internal\n4. **No barrels anywhere under `common/`** — a barrel is a boundary marker (the barrel-omission test), and `common/` is definitionally boundary-less; imports into `common/` always target the file directly. An `index.ts` there would assert a boundary that does not exist — and sits where the scanner deliberately does not look\n\nLine shape is the formatter's business, not this rule's — how re-exports wrap or merge follows the project's formatter configuration.\n\nThe barrel question is answered for every source dialect: an `index.js`, `index.mjs`, `index.jsx` or `index.tsx` barrel is judged exactly as `index.ts` is.",
+      "prose": "## Package Entry Files (`index.ts`)\n\nA package's entry `index.ts` is its **public API contract** — it lists exactly what other packages may use. It is the one index file a package keeps: inside the package, every import names the file that declares what it imports.\n\n1. **Named re-exports** — `export { Foo } from '<path>'` (alias when configured), never `export *`: a star re-export publishes whatever the target happens to export, so the contract stops being a decision and the scanner stops being able to read it\n2. **Export deliberately** — the entry lists what other packages need, and nothing only the package itself uses\n\nLine shape is the formatter's business, not this rule's — how re-exports wrap or merge follows the project's formatter configuration.\n\nThe question is answered for every source dialect: an `index.js`, `index.mjs`, `index.jsx` or `index.tsx` is judged exactly as `index.ts` is.",
       "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/feature/index.ts",
-          "text": "export { renderGreeting } from './renderGreeting';\n"
-        },
         {
           "side": "pass",
           "path": "src/feature/renderGreeting.ts",
           "text": "export const renderGreeting = (): string => 'hello';\n"
         },
         {
-          "side": "fail",
-          "path": "src/feature/index.ts",
-          "text": "export * from './renderGreeting';\n"
+          "side": "pass",
+          "path": "src/index.ts",
+          "text": "export { renderGreeting } from './feature/renderGreeting';\n"
         },
         {
           "side": "fail",
           "path": "src/feature/renderGreeting.ts",
           "text": "export const renderGreeting = (): string => 'hello';\n"
-        }
-      ]
-    },
-    {
-      "id": "barrel-under-common",
-      "set": "code",
-      "documentPath": "code/style-guide/structure/module-api",
-      "summary": "a barrel under `common/`, where there is no boundary for it to mark",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {},
-      "fixtureCounts": {
-        "pass": 2,
-        "fail": 2
-      },
-      "prose": "",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/billing/common/utils/formatRate.ts",
-          "text": "export const formatRate = (): string => '1';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/billing/index.ts",
-          "text": "export { formatRate } from './common/utils/formatRate';\n"
         },
         {
           "side": "fail",
-          "path": "src/billing/common/utils/formatRate.ts",
-          "text": "export const formatRate = (): string => '1';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/billing/common/utils/index.ts",
-          "text": "export { formatRate } from './formatRate';\n"
+          "path": "src/index.ts",
+          "text": "export * from './feature/renderGreeting';\n"
         }
       ]
     },
@@ -945,19 +731,14 @@
       "defaultSettings": {},
       "fixtureCounts": {
         "pass": 1,
-        "fail": 2
+        "fail": 1
       },
-      "prose": "## File vs Folder — The Graduation Rule\n\nClasses follow the same graduation rule as everything else (see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)):\n\n- **A class starts as a single file** — `RateLimiter.ts` with its test beside it; non-exported helpers may co-locate.\n- **A class graduates to a folder** — `HttpClient/` — only when it needs private companions (bundled utils, types, or constants that serve only it). Companions live under `common/` by category (`utils/`, `types/`, `constants/`), each with a barrel; the class folder's `index.ts` exports the class and the boundary rule applies.\n- Do NOT create a folder for a class with no companions — that is ceremony, not structure.",
+      "prose": "## File vs Folder — The Graduation Rule\n\nClasses follow the same graduation rule as everything else (see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)):\n\n- **A class starts as a single file** — `RateLimiter.ts` with its test beside it; non-exported helpers may co-locate.\n- **A class graduates to a folder** — `HttpClient/` — only when it needs private companions (bundled utils, types, or constants that serve only it). Companions live under `common/` by category (`utils/`, `types/`, `constants/`), and callers import the class from its own file — `HttpClient/HttpClient.ts`.\n- Do NOT create a folder for a class with no companions — that is ceremony, not structure.",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/rate/RateLimiter.ts",
           "text": "interface ConstructorParams {\n\ttokens: number;\n}\n\n// No companions, so no folder: the file is the module and the compiler enforces\n// its boundary for free.\nexport class RateLimiter {\n\tprivate remaining: number;\n\n\tconstructor({ tokens }: ConstructorParams) {\n\t\tthis.remaining = tokens;\n\t}\n\n\ttake(): boolean {\n\t\tconst allowed = this.remaining > 0;\n\n\t\tif (allowed) {\n\t\t\tthis.remaining -= 1;\n\t\t}\n\n\t\treturn allowed;\n\t}\n}\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/rate/RateLimiter/index.ts",
-          "text": "export { RateLimiter } from './RateLimiter';\n"
         },
         {
           "side": "fail",
@@ -1065,7 +846,7 @@
         "pass": 5,
         "fail": 2
       },
-      "prose": "## Index Files Hold No Code\n\nAn `index.ts` is a doorway, never a program. Every rule that reads modules — boundary checks, dead-entry checks, the test-surface check — reads the barrel as the module's public API, so an index file that declares values, wires tables, or runs anything makes the whole module illegible.\n\n1. **Re-export lines only** — `export { Foo } from '<path>'` and `export type { Bar } from '<path>'`, plus comments\n2. **Executable code gets a named entry file** — conventionally `main.ts` — which imports what it runs from the files the modules beneath it export\n3. An entry point is a legitimate thing; it is just never named `index.ts`",
+      "prose": "## Index Files Hold No Code\n\nAn `index.ts` is a doorway, never a program. A package's entry is the list other packages build against, so an index file that declares values, wires tables, or runs anything makes that list illegible.\n\n1. **Re-export lines only** — `export { Foo } from '<path>'` and `export type { Bar } from '<path>'`, plus comments\n2. **Executable code gets a named entry file** — conventionally `main.ts` — which imports what it runs from the files that declare it\n3. An entry point is a legitimate thing; it is just never named `index.ts`",
       "fixtures": [
         {
           "side": "pass",
@@ -1074,18 +855,18 @@
         },
         {
           "side": "pass",
-          "path": "src/feature/index.ts",
-          "text": "export { renderGreeting } from './renderGreeting';\n"
-        },
-        {
-          "side": "pass",
           "path": "src/feature/renderGreeting.ts",
           "text": "export const renderGreeting = (): string => 'hello';\n"
         },
         {
           "side": "pass",
+          "path": "src/index.ts",
+          "text": "export { renderGreeting } from './feature/renderGreeting';\n"
+        },
+        {
+          "side": "pass",
           "path": "src/main.ts",
-          "text": "import { renderGreeting } from './feature';\n\nconsole.log(renderGreeting());\n"
+          "text": "import { renderGreeting } from './feature/renderGreeting';\n\nconsole.log(renderGreeting());\n"
         },
         {
           "side": "pass",
@@ -1094,13 +875,13 @@
         },
         {
           "side": "fail",
-          "path": "src/feature/index.ts",
-          "text": "import { renderGreeting } from './renderGreeting';\n\nconsole.log(renderGreeting());\n"
+          "path": "src/feature/renderGreeting.ts",
+          "text": "export const renderGreeting = (): string => 'hello';\n"
         },
         {
           "side": "fail",
-          "path": "src/feature/renderGreeting.ts",
-          "text": "export const renderGreeting = (): string => 'hello';\n"
+          "path": "src/index.ts",
+          "text": "import { renderGreeting } from './feature/renderGreeting';\n\nconsole.log(renderGreeting());\n"
         }
       ]
     },
@@ -1117,7 +898,7 @@
         "pass": 3,
         "fail": 2
       },
-      "prose": "## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level — if found, use it.\n2. **Second:** if not found, start local and promote later — moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules — shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): every import names the file that declares what it imports — within your own module any file, across a boundary only the files the module's `index.ts` exports. Never import through an `index.ts`, and never from your own package's root barrel.",
+      "prose": "## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level — if found, use it.\n2. **Second:** if not found, start local and promote later — moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the companion test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private companions becomes its own module at that level. `common/` never contains folder-modules — shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the import rule ([module-api.md](../style-guide/structure/module-api.md#import-from-the-declaring-file)): every import names the file that declares what it imports. Never import through an `index.ts`, and never from your own package's entry.",
       "fixtures": [
         {
           "side": "pass",
@@ -1156,20 +937,15 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 4,
-        "fail": 2
+        "pass": 3,
+        "fail": 1
       },
-      "prose": "## Component File Structure\n\nThe [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)\napplied to components: a component is a single `.tsx` file until it has private\ncompanions — utilities, types, or constants of its own — and graduates to a\nfolder only then.\n\n```\ncomponents/\n├── StatusBadge.tsx                  ✅ Single file (the default)\n├── InstallPanel/                    ✅ Graduated: it bundles private companions\n│   ├── common/\n│   │   └── utils/\n│   │       └── getInstallStepLabel.ts\n│   ├── InstallPanel.tsx\n│   └── index.ts\n```\n\nThe folder's inside is the ordinary\n[fractal skeleton](../../folder-structure/40-fractal-skeleton/rule.md):\ncompanions live under `common/`, which carries no barrel\n([common-barrel rule](../../../style-guide/structure/module-api/30-barrel-under-common/rule.md));\nthe folder's own `index.ts` republishes the component. A folder holding only\n`Component.tsx` and `index.ts` bundles nothing and should be the single file —\nthe [single-file folder rule](../../folder-structure/60-single-file-domain-folder/rule.md),\napplied to a component.",
+      "prose": "## Component File Structure\n\nThe [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)\napplied to components: a component is a single `.tsx` file until it has private\ncompanions — utilities, types, or constants of its own — and graduates to a\nfolder only then.\n\n```\ncomponents/\n├── StatusBadge.tsx                  ✅ Single file (the default)\n├── InstallPanel/                    ✅ Graduated: it bundles private companions\n│   ├── common/\n│   │   └── utils/\n│   │       └── getInstallStepLabel.ts\n│   └── InstallPanel.tsx\n```\n\nThe folder's inside is the ordinary\n[fractal skeleton](../../folder-structure/40-fractal-skeleton/rule.md):\ncompanions live under `common/`, and callers import the component from\n`InstallPanel/InstallPanel.tsx` itself — a folder carries no `index.ts`\n([folder-index-file rule](../../../style-guide/structure/module-api/25-folder-index-file/rule.md)).\nA folder holding only `Component.tsx` bundles nothing and should be the single file —\nthe [single-file folder rule](../../folder-structure/60-single-file-domain-folder/rule.md),\napplied to a component.",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/components/InstallPanel/common/utils/getInstallStepLabel.ts",
           "text": "export const getInstallStepLabel = ({ step }: { step: number }): string => `Step ${step} of 4`;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/components/InstallPanel/index.ts",
-          "text": "export { InstallPanel } from './InstallPanel';\n"
         },
         {
           "side": "pass",
@@ -1180,11 +956,6 @@
           "side": "pass",
           "path": "src/components/StatusBadge.tsx",
           "text": "interface Props {\n\tstatus: 'connected' | 'notInstalled';\n}\n\nexport const StatusBadge = ({ status }: Props) => <span className={status}>{status}</span>;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/components/StatusBadge/index.ts",
-          "text": "export { StatusBadge } from './StatusBadge';\n"
         },
         {
           "side": "fail",
@@ -1233,7 +1004,7 @@
         "pass": 2,
         "fail": 2
       },
-      "prose": "## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package — not duplicated per-package.\n\nA pure-contracts/shared package — one where everything is public by design —\nis a `common/`-like space: its `src/` holds **domain folders**, not modules.\nThe barrel-omission test computes this per folder (a barrel that hides\nnothing → domain folder, no boundary), which is also how the scanner\nclassifies it.",
+      "prose": "## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package — not duplicated per-package.\n\nA pure-contracts/shared package — one where everything is public by design —\nis a `common/`-like space: its `src/` holds **domain folders**, not modules.\nThe companion test decides this per folder: a folder whose every file is\nsomething its users call directly is a domain folder.",
       "fixtures": [
         {
           "side": "pass",
@@ -1401,11 +1172,6 @@
         },
         {
           "side": "fail",
-          "path": "src/wide/index.ts",
-          "text": "export { wide0 } from './wide0';\n"
-        },
-        {
-          "side": "fail",
           "path": "src/wide/wide0.ts",
           "text": "export const wide0 = 0;\n"
         },
@@ -1471,6 +1237,11 @@
         },
         {
           "side": "fail",
+          "path": "src/wide/wide20.ts",
+          "text": "export const wide20 = 19;\n"
+        },
+        {
+          "side": "fail",
           "path": "src/wide/wide3.ts",
           "text": "export const wide3 = 3;\n"
         },
@@ -1533,33 +1304,33 @@
         },
         {
           "side": "pass",
-          "path": "src/feature/index.ts",
-          "text": "// `renderGreeting` is reached through the barrel and `buildGreeting` from\n// inside the module — every export in the folder has something that consumes it.\nexport { renderGreeting } from './renderGreeting';\n"
-        },
-        {
-          "side": "pass",
           "path": "src/feature/renderGreeting.ts",
           "text": "import { buildGreeting } from './buildGreeting';\n\nexport const renderGreeting = ({ name }: { name: string }): string => `<p>${buildGreeting({ name })}</p>`;\n"
         },
         {
           "side": "pass",
+          "path": "src/index.ts",
+          "text": "// `renderGreeting` is published by the package entry and `buildGreeting` used\n// by it — every export in the package has something that consumes it.\nexport { renderGreeting } from './feature/renderGreeting';\n"
+        },
+        {
+          "side": "pass",
           "path": "src/router.tsx",
-          "text": "import { createRootRoute, createRouter } from '@tanstack/react-router';\n\nconst routeTree = createRootRoute();\n\n// The Start plugin resolves this file by convention. Nothing in the app imports\n// `getRouter` and no barrel publishes it — which is exactly what makes it read\n// as dead to a check that does not know the framework named it.\nexport const getRouter = () => createRouter({ routeTree });\n"
+          "text": "import { createRootRoute, createRouter } from '@tanstack/react-router';\n\nconst routeTree = createRootRoute();\n\n// The Start plugin resolves this file by convention. Nothing in the app imports\n// `getRouter` and no entry publishes it — which is exactly what makes it read\n// as dead to a check that does not know the framework named it.\nexport const getRouter = () => createRouter({ routeTree });\n"
         },
         {
           "side": "fail",
           "path": "src/feature/buildGreeting.ts",
-          "text": "// Nothing in this repo mentions `buildGreeting` — no module, no barrel, no\n// test. Version control has its history; the file does not need to keep it.\nexport const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/feature/index.ts",
-          "text": "export { renderGreeting } from './renderGreeting';\n"
+          "text": "// Nothing in this repo mentions `buildGreeting` — no module, no entry, no\n// test. Version control has its history; the file does not need to keep it.\nexport const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;\n"
         },
         {
           "side": "fail",
           "path": "src/feature/renderGreeting.ts",
           "text": "export const renderGreeting = ({ name }: { name: string }): string => `<p>Hello, ${name}.</p>`;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/index.ts",
+          "text": "export { renderGreeting } from './feature/renderGreeting';\n"
         }
       ]
     },
@@ -1678,16 +1449,16 @@
       "id": "domain-folder-is-not-a-module",
       "set": "code",
       "documentPath": "code/architecture/folder-structure",
-      "summary": "a domain folder under `common/` carrying an `index.ts` or a private file",
+      "summary": "a domain folder under `common/` carrying a file that serves only its siblings",
       "channel": "base",
       "checked": false,
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
         "pass": 2,
-        "fail": 3
+        "fail": 2
       },
-      "prose": "A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.",
+      "prose": "A domain folder is **not** a concept with parts of its own — by the companion test every file in it is something its users call directly, and imports target those files one by one. The moment a domain folder needs a file that serves only its siblings, it has become a concept of its own and moves out of `common/`.",
       "fixtures": [
         {
           "side": "pass",
@@ -1698,11 +1469,6 @@
           "side": "pass",
           "path": "src/billing/common/parsing/parseTime.ts",
           "text": "export const parseTime = () => 2;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/billing/common/parsing/index.ts",
-          "text": "export { parseDate } from './parseDate';\n"
         },
         {
           "side": "fail",
@@ -1883,10 +1649,10 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 4,
+        "pass": 2,
         "fail": 2
       },
-      "prose": "## Feature Structure\n\nA feature under `src/features/` is a module: its `index.ts` lists its public API\n([module boundary](../../../style-guide/structure/module-api/05-module-boundary/rule.md)),\nand everything inside it grows by the\n[graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md) — a\nsingle file until companions or a shared subject earn a folder. There is no\nfixed feature tree to stamp out; these are the domain folders a TanStack\nfeature *commonly grows*, each created when graduation triggers and never\nbefore:\n\n- `screens/` — route-destination components; a screen graduates to its own\n  folder exactly as any component does\n  ([component file structure](../../react/10-component-file-structure/rule.md))\n- `queries/` — query-options factories (see the query-options rule)\n- `serverFns/` — server functions (see the server-functions rule)\n- `hooks/` — query-wrapping hooks\n- `components/` — feature-wide components\n- `common/` — feature-internal shared code\n\nWhere a piece of code lives — app-wide `src/common/`, feature `common/`, or\nbeside its one consumer — is the base\n[placement rule](../../folder-structure/05-placement/rule.md), unchanged here.\n\nNone of this is TanStack's requirement. What TanStack mandates — route\nfilenames under `routes/`, the `router.tsx`/`server.ts`/`client.tsx` entry\nfiles — lives in the framework carve-out table; the layout above is this\npack's convention for the code the framework says nothing about.",
+      "prose": "## Feature Structure\n\nA feature under `src/features/` is a module — callers import each file it\noffers directly, and it carries no `index.ts`\n([folder-index-file rule](../../../style-guide/structure/module-api/25-folder-index-file/rule.md)) —\nand everything inside it grows by the\n[graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md) — a\nsingle file until companions or a shared subject earn a folder. There is no\nfixed feature tree to stamp out; these are the domain folders a TanStack\nfeature *commonly grows*, each created when graduation triggers and never\nbefore:\n\n- `screens/` — route-destination components; a screen graduates to its own\n  folder exactly as any component does\n  ([component file structure](../../react/10-component-file-structure/rule.md))\n- `queries/` — query-options factories (see the query-options rule)\n- `serverFns/` — server functions (see the server-functions rule)\n- `hooks/` — query-wrapping hooks\n- `components/` — feature-wide components\n- `common/` — feature-internal shared code\n\nWhere a piece of code lives — app-wide `src/common/`, feature `common/`, or\nbeside its one consumer — is the base\n[placement rule](../../folder-structure/05-placement/rule.md), unchanged here.\n\nNone of this is TanStack's requirement. What TanStack mandates — route\nfilenames under `routes/`, the `router.tsx`/`server.ts`/`client.tsx` entry\nfiles — lives in the framework carve-out table; the layout above is this\npack's convention for the code the framework says nothing about.",
       "fixtures": [
         {
           "side": "pass",
@@ -1895,18 +1661,8 @@
         },
         {
           "side": "pass",
-          "path": "src/features/issues/index.ts",
-          "text": "// Feature-wide shared code under `common/`, route destinations under\n// `screens/`, and one barrel stating what the feature offers.\nexport { IssuesScreen } from './screens/IssuesScreen';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/issues/screens/IssuesScreen/index.ts",
-          "text": "export { IssuesScreen } from './IssuesScreen';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/issues/screens/IssuesScreen/IssuesScreen.tsx",
-          "text": "import { getIssueRows } from '../../common/utils/getIssueRows';\n\nexport const IssuesScreen = () => <ul>{getIssueRows().map((row) => <li key={row}>{row}</li>)}</ul>;\n"
+          "path": "src/features/issues/screens/IssuesScreen.tsx",
+          "text": "import { getIssueRows } from '../common/utils/getIssueRows';\n\nexport const IssuesScreen = () => <ul>{getIssueRows().map((row) => <li key={row}>{row}</li>)}</ul>;\n"
         },
         {
           "side": "fail",
@@ -1930,16 +1686,11 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 2,
+        "pass": 1,
         "fail": 2
       },
       "prose": "",
       "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/billing/common/index.ts",
-          "text": "export { formatRate } from './utils/formatRate';\n"
-        },
         {
           "side": "pass",
           "path": "src/billing/common/utils/formatRate.ts",
@@ -2089,9 +1840,9 @@
       "defaultSettings": {},
       "fixtureCounts": {
         "pass": 5,
-        "fail": 5
+        "fail": 3
       },
-      "prose": "## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic — they are covered when consumed:\n\n- **Pure constants** — only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** — only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`) — a list of what a module makes public; code imports the files it lists, never the barrel\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths — not the static value.\n\n### Exception — a package's published entry\n\nThe `index.ts` a package names in its `exports` map is the one barrel that is\n**not** covered when consumed, because nothing inside the repo consumes it. It is\nthe contract with the outside world: a name dropped from it in a rename or a\nmerge breaks every downstream build while every other test in the suite keeps\npassing.\n\nA dedicated test on that file may pin only what no other test can reach:\n\n- the exact set of exported names\n- that each one arrived as a value rather than erasing to `undefined`\n\nIt must not re-prove what the exported things do — that belongs to each one's own\ntest file. Every barrel below the published entry holds only that list — nothing\nimports through it — and still must not have a dedicated test.",
+      "prose": "## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic — they are covered when consumed:\n\n- **Pure constants** — only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** — only `type`/`interface` declarations\n- **Index files** (`index.ts`) — a list of re-exports; code imports the files it lists, never the index file\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths — not the static value.\n\n### Exception — a package's published entry\n\nThe `index.ts` a package names in its `exports` map is the one index file that is\n**not** covered when consumed, because nothing inside the repo consumes it. It is\nthe contract with the outside world: a name dropped from it in a rename or a\nmerge breaks every downstream build while every other test in the suite keeps\npassing.\n\nA dedicated test on that file may pin only what no other test can reach:\n\n- the exact set of exported names\n- that each one arrived as a value rather than erasing to `undefined`\n\nIt must not re-prove what the exported things do — that belongs to each one's own\ntest file.",
       "fixtures": [
         {
           "side": "pass",
@@ -2132,16 +1883,6 @@
           "side": "fail",
           "path": "src/common/utils/getTimeout.ts",
           "text": "import { defaultTimeout } from '../constants/defaultTimeout';\n\nexport const getTimeout = (raw?: string): number => (raw === undefined ? defaultTimeout : Number(raw));\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/common/utils/index.ts",
-          "text": "export { getTimeout } from './getTimeout';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/common/utils/index.unit.test.ts",
-          "text": "import { expect, describe, test } from '@jest/globals';\nimport { getTimeout } from './index';\n\n// An internal barrel, not the package's published entry. Every file that imports\n// through it already proves it resolves, so this test pins nothing — and the\n// exception for a published entry does not reach down here.\ndescribe('the utils barrel', () => {\n\ttest('re-exports getTimeout', () => {\n\t\texpect(typeof getTimeout).toBe('function');\n\t});\n});\n"
         }
       ]
     },
@@ -2183,6 +1924,53 @@
       ]
     },
     {
+      "id": "folder-index-file",
+      "set": "code",
+      "documentPath": "code/style-guide/structure/module-api",
+      "summary": "an `index.ts` in a folder that is not a package's entry",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {},
+      "fixtureCounts": {
+        "pass": 4,
+        "fail": 2
+      },
+      "prose": "## No Folder Index Files\n\nAn `index.ts` is a package's entry — the file its manifest publishes to other packages — and nothing else.\n\n- **Every import already names the declaring file**, so an `index.ts` in a folder lists names that nothing reads through it. It is a second copy of what the folder holds, kept by hand, that drifts the first time someone adds a file and forgets it.\n- **A package's entry stays.** Other packages import it, so it is the package's contract. It sits at the package root or its `src/`, or the manifest names it — a subpath export such as `\"./contracts\": \"./src/contracts/index.ts\"` makes that file an entry too.\n- **A route is not an index file.** A file router's `src/routes/index.tsx` is a route the framework loads.\n\nDelete a folder's `index.ts`, and import each name from the file that declares it.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "package.json",
+          "text": "{\n\t\"name\": \"folder-index-file-pass-fixture\",\n\t\"private\": true,\n\t\"exports\": { \".\": \"./src/index.ts\" },\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"1.168.3\",\n\t\t\"@tanstack/react-start\": \"1.167.5\"\n\t}\n}\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/index.ts",
+          "text": "export { ingestRecords } from './ingestion/ingestRecords';\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "export const ingestRecords = (): number => 1;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/index.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nconst RunsIndex = () => <section>runs</section>;\n\nexport const Route = createFileRoute('/')({ component: RunsIndex });\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/index.ts",
+          "text": "export { ingestRecords } from './ingestRecords';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "export const ingestRecords = (): number => 1;\n"
+        }
+      ]
+    },
+    {
       "id": "formatter-config",
       "set": "code",
       "documentPath": "code/style-guide/conventions/lint-and-formatting",
@@ -2219,20 +2007,15 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 3,
+        "pass": 2,
         "fail": 2
       },
-      "prose": "## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape — its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.",
+      "prose": "## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape — its main file and (when needed) `common/`. No feature invents its own layout.",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/features/issues/common/utils/getIssueRows.ts",
           "text": "export const getIssueRows = () => [];\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/issues/index.ts",
-          "text": "export { issues } from './issues';\n"
         },
         {
           "side": "pass",
@@ -2279,6 +2062,43 @@
       ]
     },
     {
+      "id": "graduating-out-of-common",
+      "set": "code",
+      "documentPath": "code/architecture/folder-structure",
+      "summary": "a shared concept with companions only it uses left inside `common/` instead of graduating to its own folder",
+      "channel": "base",
+      "checked": false,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {},
+      "fixtureCounts": {
+        "pass": 2,
+        "fail": 2
+      },
+      "prose": "## What Lives in `common/` — the Companion Test\n\n`common/` holds shared **single files only**: primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never holds a concept with parts of its own.\n\nA shared concept must leave `common/` and become its own folder — a sibling of the features that use it — the moment it has companions: files that exist only to serve it. The mechanical test: **does any of its files serve only the concept itself?**\n\n- No — every file is something its users call directly → it is a bag of primitives → its files go in `common/<type>/` (or a domain folder)\n- Yes → it is a concept with parts of its own → it graduates to its own folder, and its companions go with it\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a concept with its own folder (a domain sibling) — there is no third place.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "src/permissions/common/utils/normalizeRole.ts",
+          "text": "export const normalizeRole = () => 'admin';\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/permissions/hasPermission.ts",
+          "text": "import { normalizeRole } from './common/utils/normalizeRole';\n\nexport const hasPermission = () => normalizeRole() === 'admin';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/common/permissions/hasPermission.ts",
+          "text": "import { normalizeRole } from './normalizeRole';\n\nexport const hasPermission = () => normalizeRole() === 'admin';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/common/permissions/normalizeRole.ts",
+          "text": "export const normalizeRole = () => 'admin';\n"
+        }
+      ]
+    },
+    {
       "id": "growing-without-new-rules",
       "set": "code",
       "documentPath": "code/architecture/folder-structure",
@@ -2288,20 +2108,15 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 3,
+        "pass": 2,
         "fail": 2
       },
-      "prose": "## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place — it is always one of two mechanical moves:\n\n- **Graduate** — a file needs private companions → it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** — a level holds more than ~20 modules → group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)",
+      "prose": "## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place — it is always one of two mechanical moves:\n\n- **Graduate** — a file needs private companions → it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** — a level holds more than ~20 modules → group related sibling modules under a new parent domain module (recursive: a module within a module)",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/billing/charges/getCharge.ts",
           "text": "export const getCharge = () => 2;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/billing/index.ts",
-          "text": "export { getInvoice } from './invoices/getInvoice';\n"
         },
         {
           "side": "pass",
@@ -2333,7 +2148,7 @@
         "pass": 3,
         "fail": 3
       },
-      "prose": "**Use the package's configured path alias for every import.**\n\n- When a package defines path aliases — in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths` — NEVER use relative paths (`./`, `../`) — not even for sibling files, `common/` subfolders, or barrel re-exports\n- Either declaration counts: a package that declares `imports` has configured aliases just as surely as one that declares `paths`\n- If a package defines **no** path aliases, use relative paths consistently — and consider adding aliases\n- This applies to every file: components, constants, interfaces, types, utils, hooks, etc.\n\n✅ GOOD: Path alias for everything\n\nA package that declares `imports` in `package.json` — the specifier carries its extension:\n\n```typescript\nimport { ClassName } from '#src/path/to/ClassName.ts';\nimport { methodName } from '#src/common/utils/methodName.ts';\nimport { features } from '#src/features/home/components/HomeIssueDetails/common/constants/features.ts';\nimport { MockIssuePanel } from '#src/features/home/components/HomeIssueDetails/components/MockIssuePanel.tsx';\n```\n\nA package that declares `paths` in `tsconfig.json`:\n\n```typescript\nimport { ClassName } from '@/path/to/ClassName';\nimport { methodName } from '@/common/utils/methodName';\nimport { features } from '@/features/home/components/HomeIssueDetails/common/constants/features';\nimport { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/components/MockIssuePanel';\n```\n\n❌ BAD: Relative paths in an alias-configured package\n\n```typescript\nimport { helper } from './helper';\nimport { util } from '../common/utils/util';\nimport { features } from './common/constants/features';\n```",
+      "prose": "**Use the package's configured path alias for every import.**\n\n- When a package defines path aliases — in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths` — NEVER use relative paths (`./`, `../`) — not even for sibling files, `common/` subfolders, or a package entry's re-exports\n- Either declaration counts: a package that declares `imports` has configured aliases just as surely as one that declares `paths`\n- If a package defines **no** path aliases, use relative paths consistently — and consider adding aliases\n- This applies to every file: components, constants, interfaces, types, utils, hooks, etc.\n\n✅ GOOD: Path alias for everything\n\nA package that declares `imports` in `package.json` — the specifier carries its extension:\n\n```typescript\nimport { ClassName } from '#src/path/to/ClassName.ts';\nimport { methodName } from '#src/common/utils/methodName.ts';\nimport { features } from '#src/features/home/components/HomeIssueDetails/common/constants/features.ts';\nimport { MockIssuePanel } from '#src/features/home/components/HomeIssueDetails/components/MockIssuePanel.tsx';\n```\n\nA package that declares `paths` in `tsconfig.json`:\n\n```typescript\nimport { ClassName } from '@/path/to/ClassName';\nimport { methodName } from '@/common/utils/methodName';\nimport { features } from '@/features/home/components/HomeIssueDetails/common/constants/features';\nimport { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/components/MockIssuePanel';\n```\n\n❌ BAD: Relative paths in an alias-configured package\n\n```typescript\nimport { helper } from './helper';\nimport { util } from '../common/utils/util';\nimport { features } from './common/constants/features';\n```",
       "fixtures": [
         {
           "side": "pass",
@@ -2364,6 +2179,68 @@
           "side": "fail",
           "path": "tsconfig.json",
           "text": "{\n\t\"compilerOptions\": {\n\t\t\"paths\": {\n\t\t\t\"@/*\": [\"./src/*\"]\n\t\t}\n\t}\n}\n"
+        }
+      ]
+    },
+    {
+      "id": "import-through-index",
+      "set": "code",
+      "documentPath": "code/style-guide/structure/module-api",
+      "summary": "an import through an `index.ts` of the importer's own package instead of from the file that declares the name",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {},
+      "fixtureCounts": {
+        "pass": 5,
+        "fail": 4
+      },
+      "prose": "## Import From the Declaring File\n\nEvery import names the file that declares what it imports — `@/ingestion/ingestRecords`, never `@/ingestion`.\n\n- **Never through an `index.ts`:** an import through one loads every file it re-exports, and everything those files import, to reach one name. A bundler drops the rest again; a test runner does not, so every test file that imports through an index pays for the whole folder.\n- **Another package's entry is its public API:** an import from another workspace package goes through that package's entry — `@acme/engine`, not a path into its `src/`. Code inside a package never imports its own entry.\n- **An index file may re-export from another**, and an index file's own test imports the file it tests.\n\nA route file the framework loads is not an index file in this sense — `src/routes/index.tsx` is a route, and importing it is importing that route.\n\nWhere a package keeps its folders is the package's own business, so this rule judges only a file that belongs to a package. Where the repo's manifests declare workspace packages, a file outside every one of them — a build script at the repo root, say — is not held to it. A repo whose manifests declare no workspace package is itself one package, and every file in it is judged.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "package.json",
+          "text": "{\n\t\"name\": \"import-through-index-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"1.168.3\",\n\t\t\"@tanstack/react-start\": \"1.167.5\"\n\t}\n}\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/ingestion/common/utils/normalizeRecord.ts",
+          "text": "export const normalizeRecord = (): number => 1;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/reporting/buildReport.ts",
+          "text": "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/index.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nconst RunsIndex = () => <section>runs</section>;\n\nexport const Route = createFileRoute('/')({ component: RunsIndex });\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/common/utils/normalizeRecord.ts",
+          "text": "export const normalizeRecord = (): number => 1;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/index.ts",
+          "text": "export { ingestRecords } from './ingestRecords';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/reporting/buildReport.ts",
+          "text": "import { ingestRecords } from '../ingestion';\n\nexport const buildReport = (): number => ingestRecords();\n"
         }
       ]
     },
@@ -2437,6 +2314,53 @@
       ]
     },
     {
+      "id": "internal-import-from-outside",
+      "set": "code",
+      "documentPath": "code/style-guide/structure/module-api",
+      "summary": "a file inside an `internal/` folder imported from outside the folder that holds it",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "off",
+      "defaultSettings": {},
+      "fixtureCounts": {
+        "pass": 3,
+        "fail": 3
+      },
+      "prose": "## Private Files Live in `internal/`\n\nA folder's private files sit in its `internal/` folder, and only files inside that folder import them. Everything outside `internal/` is the folder's public API.\n\n```\nsrc/ingestion/\n├─ ingestRecords.ts        # public — anyone may import it\n├─ ingestRecords.unit.test.ts\n└─ internal/\n   ├─ parseRow.ts          # private to src/ingestion/\n   └─ parseRow.unit.test.ts\n```\n\n- **Inside the folder:** `src/ingestion/ingestRecords.ts` imports `./internal/parseRow` — correct. So does any test under `src/ingestion/`.\n- **Outside it:** `src/reporting/buildReport.ts` importing `../ingestion/internal/parseRow` is a finding. Import the public file that uses it, or — if the file is genuinely shared — move it out of `internal/`.\n- **The path is the whole statement.** Privacy is where the file sits, so a reader sees it in the import line itself, with no list in another file to consult.\n- **Nested folders nest the rule.** `src/ingestion/parser/internal/tokenize.ts` is private to `src/ingestion/parser/`.\n- **`internal/` marks privacy, not a new kind of place.** What goes inside it follows the same placement rules as any other folder — shared helpers in a `common/` under it, a graduated concept in its own folder.\n\nA repo opts into this rule by naming it in `standards-checks`; until it does, nothing here applies to it.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "import { parseRow } from './internal/parseRow';\n\nexport const ingestRecords = (): number => parseRow();\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/ingestion/internal/parseRow.ts",
+          "text": "export const parseRow = (): number => 2;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/reporting/buildReport.ts",
+          "text": "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/ingestRecords.ts",
+          "text": "import { parseRow } from './internal/parseRow';\n\nexport const ingestRecords = (): number => parseRow();\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/ingestion/internal/parseRow.ts",
+          "text": "export const parseRow = (): number => 2;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/reporting/buildReport.ts",
+          "text": "import { parseRow } from '../ingestion/internal/parseRow';\n\nexport const buildReport = (): number => parseRow();\n"
+        }
+      ]
+    },
+    {
       "id": "jest-spyon-vs-jest-mock",
       "set": "tests",
       "documentPath": "tests/unit-testing",
@@ -2491,83 +2415,6 @@
       ]
     },
     {
-      "id": "module-boundary",
-      "set": "code",
-      "documentPath": "code/style-guide/structure/module-api",
-      "summary": "an import through a folder's `index.ts`, or of a file another module's `index.ts` does not export",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {},
-      "fixtureCounts": {
-        "pass": 6,
-        "fail": 6
-      },
-      "prose": "## Module Boundaries\n\nA **folder-module** (feature, route, screen, graduated class or component — see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)) has a public API, and its `index.ts` lists it.\n\n- **Import from the file that declares the name:** never through a folder's `index.ts` (`@/ingestion/ingestRecords`, not `@/ingestion`). An import through an `index.ts` loads every file it re-exports, and everything those files import, to reach one name — which a bundler drops again, and a test runner does not. Only another `index.ts` points at an `index.ts`, to re-export what a lower module publishes.\n- **Crossing a module boundary:** import ONLY files the module's `index.ts` exports — directly or through a lower `index.ts` — never another module's internals (`@/ingestion/ingestRecords`, not `@/ingestion/common/utils/normalizeRecord`). With modules inside modules, the outermost module the import enters decides.\n- **Inside a module:** import directly from specific files — imports between your own module's files are correct, and so is a test beside its file importing that file.\n- **The package entry:** a package's own `src/index.ts` is its public API for other packages. Code inside the package does not import it; other packages do.\n\nA folder the package's framework mandates as a module — a TanStack Start screen under `features/*/screens/*` — is a boundary whatever the barrel-omission test says; the mandate, not the concealment, is what declares it.\n\nModule boundaries are a package's own architecture, so this rule judges only a file that belongs to a package. Where the repo's manifests declare workspace packages, a file outside every one of them — a build script at the repo root, say — belongs to no package's architecture and is not held to this rule. A repo whose manifests declare no workspace package is itself one package, and every file in it is judged. The exemption reads the importing file only: a file inside a package stays held to the rule whatever it reaches for.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "package.json",
-          "text": "{\n\t\"name\": \"module-boundary-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"1.168.3\",\n\t\t\"@tanstack/react-start\": \"1.167.5\"\n\t}\n}\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/common/utils/normalizeRecord.ts",
-          "text": "export const normalizeRecord = (): number => 1;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/reporting/buildReport.ts",
-          "text": "import { ingestRecords } from '../ingestion/ingestRecords';\n\nexport const buildReport = (): number => ingestRecords();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/index.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nconst RunsIndex = () => <section>runs</section>;\n\nexport const Route = createFileRoute('/')({ component: RunsIndex });\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/common/utils/normalizeRecord.ts",
-          "text": "export const normalizeRecord = (): number => 1;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/ingestRecords.ts",
-          "text": "import { normalizeRecord } from './common/utils/normalizeRecord';\n\nexport const ingestRecords = (): number => normalizeRecord();\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/parseRow.ts",
-          "text": "export const parseRow = (): number => 2;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/reporting/buildReport.ts",
-          "text": "import { ingestRecords } from '../ingestion';\n\nexport const buildReport = (): number => ingestRecords();\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/reporting/summarize.ts",
-          "text": "import { parseRow } from '../ingestion/parseRow';\n\nexport const summarize = (): number => parseRow();\n"
-        }
-      ]
-    },
-    {
       "id": "module-boundary-testing",
       "set": "tests",
       "documentPath": "tests/unit-testing",
@@ -2577,20 +2424,15 @@
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 4,
-        "fail": 4
+        "pass": 3,
+        "fail": 3
       },
-      "prose": "## Module Boundary Testing\n\n**Default to testing a module's public API** — the files its barrel\n(`index.ts`) exports, each imported from its own file — and cover internals\n*through* it. A boundary test pins\nbehavior rather than internal decomposition, so a module's internals can be\nreorganized without touching a single test, and three code changes inside a\nmodule cost one test update instead of three.\n\n**A direct test on any file is allowed** when the file earns one:\n\n- its cases are combinatorial and driving them all through the boundary is\n  impractical\n- it states a contract meaningful on its own (a parser, a date formatter — a\n  thing callers rely on regardless of which module holds it today)\n- coverage a gate demands is genuinely unreachable through any boundary input\n  (and first ask whether that unreachable branch is dead code)\n\nA direct test needs no ceremony: it does not require promoting the file into\nthe barrel, and an existing direct test is not debt to migrate. Write the\nboundary test when both would pin the same behavior; write the direct test when\nthe file deserves one.\n\n**Rules that hold either way:**\n\n- Files with no runtime logic — barrels, type-only files, pure constants —\n  get no dedicated tests (see the files-that-must-not-have-dedicated-tests\n  rule).\n- If a branch cannot be reached through any input, boundary or direct, it is\n  dead code — flag it for deletion rather than forcing a test onto it.\n- A barrel entry whose only consumers are test files is legitimate public\n  API — a deliberate promotion whose contract the tests pin; demoting it is a\n  human decision.",
+      "prose": "## Module Boundary Testing\n\n**Default to testing a module's public API** — the files code outside the\nmodule calls, each imported from its own file — and cover internals *through*\nit. A boundary test pins\nbehavior rather than internal decomposition, so a module's internals can be\nreorganized without touching a single test, and three code changes inside a\nmodule cost one test update instead of three.\n\n**A direct test on any file is allowed** when the file earns one:\n\n- its cases are combinatorial and driving them all through the boundary is\n  impractical\n- it states a contract meaningful on its own (a parser, a date formatter — a\n  thing callers rely on regardless of which module holds it today)\n- coverage a gate demands is genuinely unreachable through any boundary input\n  (and first ask whether that unreachable branch is dead code)\n\nA direct test needs no ceremony: it does not require making the file public,\nand an existing direct test is not debt to migrate. Write the\nboundary test when both would pin the same behavior; write the direct test when\nthe file deserves one.\n\n**Rules that hold either way:**\n\n- Files with no runtime logic — index files, type-only files, pure\n  constants — get no dedicated tests (see the\n  files-that-must-not-have-dedicated-tests rule).\n- If a branch cannot be reached through any input, boundary or direct, it is\n  dead code — flag it for deletion rather than forcing a test onto it.\n- A public export whose only consumers are test files may be a deliberate\n  promotion whose contract the tests pin; deleting it is a human decision.",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/ingestion/common/utils/normalizeRecord.ts",
           "text": "export const normalizeRecord = ({ raw }: { raw: string }): string => raw.trim();\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
         },
         {
           "side": "pass",
@@ -2611,11 +2453,6 @@
           "side": "fail",
           "path": "src/ingestion/common/utils/normalizeRecord.unit.test.ts",
           "text": "import { expect, describe, test } from '@jest/globals';\nimport { normalizeRecord } from './normalizeRecord';\n\n// A dedicated test on a trivial internal whose exact behavior the boundary\n// test beside it already pins — duplicate coverage, not a file that earned a\n// direct test.\ndescribe('normalizeRecord', () => {\n\ttest('trims the record it is given', () => {\n\t\tconst record = normalizeRecord({ raw: ' a ' });\n\n\t\texpect(record).toBe('a');\n\t});\n});\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/ingestion/index.ts",
-          "text": "export { ingestRecords } from './ingestRecords';\n"
         },
         {
           "side": "fail",
@@ -2655,26 +2492,21 @@
       "id": "modules-and-the-graduation-rule",
       "set": "code",
       "documentPath": "code/architecture/architecture-decisions",
-      "summary": "a folder created for a concept with no private companions, or a module's internals reached from outside it",
+      "summary": "a folder created for a concept with no private companions, or a folder's internals reached from outside it",
       "channel": "base",
       "checked": false,
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
         "pass": 1,
-        "fail": 2
+        "fail": 1
       },
-      "prose": "## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions — its own utils, types, or constants that serve only it — it graduates to a folder with an `index.ts` that lists its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files → folder; doesn't → file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing → the concept is primitives; its files belong in `common/<type>/`. Hides internals → it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Every import names the file that declares what it imports — never a folder's `index.ts`. The `index.ts` lists what the module makes public; it is not an import path. Importing through it loads every file it re-exports, and every file those import, for one name.\n2. Cross-module imports reach **only** the files the module's `index.ts` exports — directly or through a lower `index.ts` — never another module's internals\n3. Inside a module, imports between its files are correct\n4. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n5. Test imports obey the same boundary: a test OUTSIDE a module imports only the files its `index.ts` exports, never its internals — including in repos that keep tests in a separate directory. (A test living beside its file is inside the module; it imports that file directly.)\n\nThe rule is recursive — a graduated component folder inside a feature folder is a module within a module.",
+      "prose": "## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions — its own utils, types, or constants that serve only it — it graduates to a folder holding the concept and its companions.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files → folder; doesn't → file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the companion test:** does any of the concept's files serve only the concept itself? No → the concept is primitives; its files belong in `common/<type>/`. Yes → it is a module. This applies to shared code too: a shared concept with private companions graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-companion-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Every import names the file that declares what it imports. A folder carries no `index.ts`; only a package's entry does, and code inside the package never imports through it.\n2. Code outside a folder-module imports the files it is meant to use — the concept's own file, and what that file's callers need — never the companions that serve only the concept\n3. Inside a module, imports between its files are correct\n4. Tests target the module's public files; its companions are covered through them (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n5. Test imports obey the same boundary: a test OUTSIDE a module imports only its public files, never its companions — including in repos that keep tests in a separate directory. (A test living beside its file is inside the module; it imports that file directly.)\n\nThe rule is recursive — a graduated component folder inside a feature folder is a module within a module.",
       "fixtures": [
         {
           "side": "pass",
           "path": "src/RateLimiter.ts",
           "text": "interface ConstructorParams {\n\tperMinute: number;\n}\n\n// One file until it needs private companions. The compiler already enforces the\n// boundary: nothing here is exported but the class itself.\nexport class RateLimiter {\n\tprivate remaining: number;\n\n\tconstructor({ perMinute }: ConstructorParams) {\n\t\tthis.remaining = perMinute;\n\t}\n\n\ttake(): boolean {\n\t\tconst allowed = this.remaining > 0;\n\n\t\tif (allowed) {\n\t\t\tthis.remaining -= 1;\n\t\t}\n\n\t\treturn allowed;\n\t}\n}\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/RateLimiter/index.ts",
-          "text": "export { RateLimiter } from './RateLimiter';\n"
         },
         {
           "side": "fail",
@@ -2961,7 +2793,7 @@
         "pass": 1,
         "fail": 1
       },
-      "prose": "## Path Aliases\n\nEach package declares its own path aliases, in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths`. Common patterns:\n\n| Alias | Declared in | Example |\n| --- | --- | --- |\n| `#src/*` | `package.json` → `imports` | `import { X } from '#src/common/utils/X.ts'` |\n| `@/*` | `tsconfig.json` → `paths` | `import { X } from '@/common/utils/X'` |\n| `@src/*` | `tsconfig.json` → `paths` | `import { X } from '@src/common/utils/X'` |\n\n**Rule:** Always read the package's own declaration to determine the correct alias. Do not hardcode aliases from memory.\n\n**Gotcha — a package-imports alias resolves its target literally.** `\"#src/*\": \"./src/*\"` substitutes the captured text and stops: Node, TypeScript and esbuild do no extension probing on an `imports` target, so the specifier must carry the file extension it resolves to (`#src/runState/summarizeRun.ts`, `#src/cli/index.ts`). An extensionless `#src/cli` names a file that does not exist. A tsconfig `paths` alias is probed the ordinary way, so `@/cli` is correct there.",
+      "prose": "## Path Aliases\n\nEach package declares its own path aliases, in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths`. Common patterns:\n\n| Alias | Declared in | Example |\n| --- | --- | --- |\n| `#src/*` | `package.json` → `imports` | `import { X } from '#src/common/utils/X.ts'` |\n| `@/*` | `tsconfig.json` → `paths` | `import { X } from '@/common/utils/X'` |\n| `@src/*` | `tsconfig.json` → `paths` | `import { X } from '@src/common/utils/X'` |\n\n**Rule:** Always read the package's own declaration to determine the correct alias. Do not hardcode aliases from memory.\n\n**Gotcha — a package-imports alias resolves its target literally.** `\"#src/*\": \"./src/*\"` substitutes the captured text and stops: Node, TypeScript and esbuild do no extension probing on an `imports` target, so the specifier must carry the file extension it resolves to (`#src/runState/summarizeRun.ts`, `#src/cli/shipCommand.ts`). An extensionless `#src/cli/shipCommand` names a file that does not exist. A tsconfig `paths` alias is probed the ordinary way, so `@/cli` is correct there.",
       "fixtures": [
         {
           "side": "pass",
@@ -3016,16 +2848,16 @@
       "id": "placement",
       "set": "code",
       "documentPath": "code/architecture/folder-structure",
-      "summary": "module-internal shared code leaking out of its module's common/",
+      "summary": "shared code sitting in a `common/` above or below the lowest folder that holds everyone using it",
       "channel": "base",
-      "checked": true,
+      "checked": false,
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 5,
-        "fail": 4
+        "pass": 4,
+        "fail": 3
       },
-      "prose": "## Rules\n\n1. **Keep `common/` close to consumers** — the lowest level where all dependents can reach it\n2. **Promote when reused** — move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** — update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** — every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** — a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless functions — pure or IO-performing (`formatDate()`, `loadConfig()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## Example\n\n```\nsrc/\n├─ common/            # shared across ALL modules\n│  ├─ utils/          #   (formatDate.ts — no barrels under common/)\n│  ├─ types/\n│  ├─ services/\n│  ├─ formatting/     # domain folder: 2+ related pure functions\n├─ featureA/\n│  ├─ common/         # shared within featureA only\n│  │  ├─ utils/\n│  │  ├─ types/\n│  ├─ featureA.ts\n│  └─ index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\nA module's `index.ts` may publish a file from its own `common/` — a type its exported functions take, say. That file is then part of the module's public API, and code outside the module imports it from its own file like any other export; only an unpublished file under `common/` is internal.",
+      "prose": "## Rules\n\n1. **Keep `common/` close to consumers** — the lowest level where all dependents can reach it\n2. **Promote when reused** — move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** — update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** — every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** — a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless functions — pure or IO-performing (`formatDate()`, `loadConfig()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## Example\n\n```\nsrc/\n├─ common/            # shared across ALL modules\n│  ├─ utils/          #   (formatDate.ts)\n│  ├─ types/\n│  ├─ services/\n│  ├─ formatting/     # domain folder: 2+ related pure functions\n├─ featureA/\n│  ├─ common/         # shared within featureA only\n│  │  ├─ utils/\n│  │  ├─ types/\n│  └─ featureA.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\nA file in a folder's `common/` may still be what the folder offers others — a type its exported functions take, say. Code outside the folder imports that from its own file like any other export, and it stays where it is. What moves is a general helper the folder merely happened to hold first: once a second folder needs it for its own work, it belongs in the `common/` of the lowest folder containing both.",
       "fixtures": [
         {
           "side": "pass",
@@ -3044,11 +2876,6 @@
         },
         {
           "side": "pass",
-          "path": "src/pay/index.ts",
-          "text": "export { pay } from './pay';\n"
-        },
-        {
-          "side": "pass",
           "path": "src/pay/pay.ts",
           "text": "import { round } from './common/utils/round';\n\nexport const pay = round;\n"
         },
@@ -3061,11 +2888,6 @@
           "side": "fail",
           "path": "src/pay/common/utils/round.ts",
           "text": "export const round = 1;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/pay/index.ts",
-          "text": "export { pay } from './pay';\n"
         },
         {
           "side": "fail",
@@ -3215,7 +3037,7 @@
         "pass": 2,
         "fail": 1
       },
-      "prose": "### Query Options\n\nQuery-options factories live in the feature's `queries/` folder — the\nconventional [domain folder](../../folder-structure/55-ungrouped-domain-utils/rule.md)\nfor a feature's query definitions (a grouping, not a module: no `index.ts`,\nper [a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)).\nThis pack's convention — consistency across TanStack repos is worth the noun —\nnot a TanStack requirement.\n\n```typescript\n// features/issues/queries/issuesQueryOptions.ts\ninterface Params {\n\tsearchParams: IssuesSearchParams;\n}\n\nexport const issuesQueryOptions = ({ searchParams }: Params) =>\n\tqueryOptions({\n\t\tqueryKey: [QueryKey.Issues, searchParams],\n\t\tqueryFn: () => findAllIssuesServerFn({ data: searchParams }),\n\t});\n```\n\nThe factory's inferred return type is deliberate — see the return-types note in\nthis channel's [document](../document.md).",
+      "prose": "### Query Options\n\nQuery-options factories live in the feature's `queries/` folder — the\nconventional [domain folder](../../folder-structure/55-ungrouped-domain-utils/rule.md)\nfor a feature's query definitions (a grouping, not a module, per\n[a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)).\nThis pack's convention — consistency across TanStack repos is worth the noun —\nnot a TanStack requirement.\n\n```typescript\n// features/issues/queries/issuesQueryOptions.ts\ninterface Params {\n\tsearchParams: IssuesSearchParams;\n}\n\nexport const issuesQueryOptions = ({ searchParams }: Params) =>\n\tqueryOptions({\n\t\tqueryKey: [QueryKey.Issues, searchParams],\n\t\tqueryFn: () => findAllIssuesServerFn({ data: searchParams }),\n\t});\n```\n\nThe factory's inferred return type is deliberate — see the return-types note in\nthis channel's [document](../document.md).",
       "fixtures": [
         {
           "side": "pass",
@@ -3274,7 +3096,7 @@
         "pass": 2,
         "fail": 2
       },
-      "prose": "## Domain Folders\n\nThe [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)\napplied to JSX-producing helpers: two or more functions sharing a subject\ngraduate out of `utils/` into a named domain folder, exactly as pure functions\ndo.\n\n```\ncommon/\n├── utils/                         # Ungrouped pure functions\n├── stepConfigs/                   # ✅ Domain folder — 2+ related JSX config builders\n│   ├── getDesignStepConfig.tsx\n│   ├── getInstallStepConfig.tsx\n│   └── getStepContentConfig.tsx\n├── cellRenderers/                 # ✅ Domain folder — 2+ related JSX renderers\n│   ├── renderStatusCell.tsx\n│   └── renderDateCell.tsx\n```\n\nA domain folder is a grouping, not a module: it carries no `index.ts`\n([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)),\nand under `common/` the\n[common-barrel rule](../../../style-guide/structure/module-api/30-barrel-under-common/rule.md)\nbans one outright.",
+      "prose": "## Domain Folders\n\nThe [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)\napplied to JSX-producing helpers: two or more functions sharing a subject\ngraduate out of `utils/` into a named domain folder, exactly as pure functions\ndo.\n\n```\ncommon/\n├── utils/                         # Ungrouped pure functions\n├── stepConfigs/                   # ✅ Domain folder — 2+ related JSX config builders\n│   ├── getDesignStepConfig.tsx\n│   ├── getInstallStepConfig.tsx\n│   └── getStepContentConfig.tsx\n├── cellRenderers/                 # ✅ Domain folder — 2+ related JSX renderers\n│   ├── renderStatusCell.tsx\n│   └── renderDateCell.tsx\n```\n\nA domain folder is a grouping, not a module\n([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)):\ncallers import each file in it directly, and like every folder it carries no\n`index.ts` ([folder-index-file rule](../../../style-guide/structure/module-api/25-folder-index-file/rule.md)).",
       "fixtures": [
         {
           "side": "pass",
@@ -3354,16 +3176,16 @@
       "id": "server-functions",
       "set": "code",
       "documentPath": "code/architecture/tanstack-start",
-      "summary": "a server function living outside a `serverFns/` folder, or wrapped in a one-file folder with a barrel it has not earned",
+      "summary": "a server function living outside a `serverFns/` folder, or wrapped in a one-file folder it has not earned",
       "channel": "tanstack",
       "checked": false,
       "defaultSeverity": "advisory",
       "defaultSettings": {},
       "fixtureCounts": {
-        "pass": 3,
+        "pass": 2,
         "fail": 1
       },
-      "prose": "### Server Functions\n\nServer functions live in a `serverFns/` folder at feature or app level — the\nconventional [domain folder](../../folder-structure/55-ungrouped-domain-utils/rule.md)\nfor a feature's server calls, this pack's convention rather than TanStack's\nrequirement. Each server function follows the graduation rule like everything\nelse: **a file by default, a folder only when it has private companions**.\n\n```\nserverFns/\n├── countIssuesServerFn.ts        # default: one file, no folder ceremony\n└── findIssues/                   # graduated: it has a private companion\n    ├── FindIssuesDocument.ts     #   the GraphQL document only it uses\n    ├── findIssuesServerFn.ts\n    └── index.ts\n```\n\nA folder holding one server function and a barrel is ceremony the graduation\nrule forbids — the framework mandates nothing about this layout; the trigger\nfor a folder is the companion file, never the category.",
+      "prose": "### Server Functions\n\nServer functions live in a `serverFns/` folder at feature or app level — the\nconventional [domain folder](../../folder-structure/55-ungrouped-domain-utils/rule.md)\nfor a feature's server calls, this pack's convention rather than TanStack's\nrequirement. Each server function follows the graduation rule like everything\nelse: **a file by default, a folder only when it has private companions**.\n\n```\nserverFns/\n├── countIssuesServerFn.ts        # default: one file, no folder ceremony\n└── findIssues/                   # graduated: it has a private companion\n    ├── FindIssuesDocument.ts     #   the GraphQL document only it uses\n    └── findIssuesServerFn.ts\n```\n\nA folder holding one server function and nothing else is ceremony the graduation\nrule forbids — the framework mandates nothing about this layout; the trigger\nfor a folder is the companion file, never the category.",
       "fixtures": [
         {
           "side": "pass",
@@ -3374,11 +3196,6 @@
           "side": "pass",
           "path": "src/features/issues/serverFns/countIssues/countIssuesServerFn.ts",
           "text": "import { createServerFn } from '@tanstack/react-start';\nimport { CountIssuesDocument } from './CountIssuesDocument';\n\nexport const countIssuesServerFn = createServerFn().handler(async () => CountIssuesDocument.length);\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/features/issues/serverFns/countIssues/index.ts",
-          "text": "// One folder per server function, holding the function and the document it\n// sends, behind a barrel the rest of the feature imports.\nexport { countIssuesServerFn } from './countIssuesServerFn';\n"
         },
         {
           "side": "fail",
@@ -3573,7 +3390,7 @@
         "pass": 2,
         "fail": 1
       },
-      "prose": "Files stay under ~250 lines (~300 for `.tsx` — JSX and props interfaces earn the slack) — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\nThe cap exempts a barrel in any source dialect — `index.tsx` included — because a module's public API cannot take the remedy a size finding asks for.",
+      "prose": "Files stay under ~250 lines (~300 for `.tsx` — JSX and props interfaces earn the slack) — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\nThe cap exempts an index file in any source dialect — `index.tsx` included — because a package's entry is its public API, which cannot take the remedy a size finding asks for.",
       "fixtures": [
         {
           "side": "pass",
@@ -3582,8 +3399,8 @@
         },
         {
           "side": "pass",
-          "path": "src/catalog/index.ts",
-          "text": "// A barrel past the cap, and exempt at any length: the remedy a size finding\n// asks for — split the file, or graduate the concept — is the one thing a\n// module's public API cannot do.\nexport { getCatalogEntry001 } from './entries/getCatalogEntry001';\nexport { getCatalogEntry002 } from './entries/getCatalogEntry002';\nexport { getCatalogEntry003 } from './entries/getCatalogEntry003';\nexport { getCatalogEntry004 } from './entries/getCatalogEntry004';\nexport { getCatalogEntry005 } from './entries/getCatalogEntry005';\nexport { getCatalogEntry006 } from './entries/getCatalogEntry006';\nexport { getCatalogEntry007 } from './entries/getCatalogEntry007';\nexport { getCatalogEntry008 } from './entries/getCatalogEntry008';\nexport { getCatalogEntry009 } from './entries/getCatalogEntry009';\nexport { getCatalogEntry010 } from './entries/getCatalogEntry010';\nexport { getCatalogEntry011 } from './entries/getCatalogEntry011';\nexport { getCatalogEntry012 } from './entries/getCatalogEntry012';\nexport { getCatalogEntry013 } from './entries/getCatalogEntry013';\nexport { getCatalogEntry014 } from './entries/getCatalogEntry014';\nexport { getCatalogEntry015 } from './entries/getCatalogEntry015';\nexport { getCatalogEntry016 } from './entries/getCatalogEntry016';\nexport { getCatalogEntry017 } from './entries/getCatalogEntry017';\nexport { getCatalogEntry018 } from './entries/getCatalogEntry018';\nexport { getCatalogEntry019 } from './entries/getCatalogEntry019';\nexport { getCatalogEntry020 } from './entries/getCatalogEntry020';\nexport { getCatalogEntry021 } from './entries/getCatalogEntry021';\nexport { getCatalogEntry022 } from './entries/getCatalogEntry022';\nexport { getCatalogEntry023 } from './entries/getCatalogEntry023';\nexport { getCatalogEntry024 } from './entries/getCatalogEntry024';\nexport { getCatalogEntry025 } from './entries/getCatalogEntry025';\nexport { getCatalogEntry026 } from './entries/getCatalogEntry026';\nexport { getCatalogEntry027 } from './entries/getCatalogEntry027';\nexport { getCatalogEntry028 } from './entries/getCatalogEntry028';\nexport { getCatalogEntry029 } from './entries/getCatalogEntry029';\nexport { getCatalogEntry030 } from './entries/getCatalogEntry030';\nexport { getCatalogEntry031 } from './entries/getCatalogEntry031';\nexport { getCatalogEntry032 } from './entries/getCatalogEntry032';\nexport { getCatalogEntry033 } from './entries/getCatalogEntry033';\nexport { getCatalogEntry034 } from './entries/getCatalogEntry034';\nexport { getCatalogEntry035 } from './entries/getCatalogEntry035';\nexport { getCatalogEntry036 } from './entries/getCatalogEntry036';\nexport { getCatalogEntry037 } from './entries/getCatalogEntry037';\nexport { getCatalogEntry038 } from './entries/getCatalogEntry038';\nexport { getCatalogEntry039 } from './entries/getCatalogEntry039';\nexport { getCatalogEntry040 } from './entries/getCatalogEntry040';\nexport { getCatalogEntry041 } from './entries/getCatalogEntry041';\nexport { getCatalogEntry042 } from './entries/getCatalogEntry042';\nexport { getCatalogEntry043 } from './entries/getCatalogEntry043';\nexport { getCatalogEntry044 } from './entries/getCatalogEntry044';\nexport { getCatalogEntry045 } from './entries/getCatalogEntry045';\nexport { getCatalogEntry046 } from './entries/getCatalogEntry046';\nexport { getCatalogEntry047 } from './entries/getCatalogEntry047';\nexport { getCatalogEntry048 } from './entries/getCatalogEntry048';\nexport { getCatalogEntry049 } from './entries/getCatalogEntry049';\nexport { getCatalogEntry050 } from './entries/getCatalogEntry050';\nexport { getCatalogEntry051 } from './entries/getCatalogEntry051';\nexport { getCatalogEntry052 } from './entries/getCatalogEntry052';\nexport { getCatalogEntry053 } from './entries/getCatalogEntry053';\nexport { getCatalogEntry054 } from './entries/getCatalogEntry054';\nexport { getCatalogEntry055 } from './entries/getCatalogEntry055';\nexport { getCatalogEntry056 } from './entries/getCatalogEntry056';\nexport { getCatalogEntry057 } from './entries/getCatalogEntry057';\nexport { getCatalogEntry058 } from './entries/getCatalogEntry058';\nexport { getCatalogEntry059 } from './entries/getCatalogEntry059';\nexport { getCatalogEntry060 } from './entries/getCatalogEntry060';\nexport { getCatalogEntry061 } from './entries/getCatalogEntry061';\nexport { getCatalogEntry062 } from './entries/getCatalogEntry062';\nexport { getCatalogEntry063 } from './entries/getCatalogEntry063';\nexport { getCatalogEntry064 } from './entries/getCatalogEntry064';\nexport { getCatalogEntry065 } from './entries/getCatalogEntry065';\nexport { getCatalogEntry066 } from './entries/getCatalogEntry066';\nexport { getCatalogEntry067 } from './entries/getCatalogEntry067';\nexport { getCatalogEntry068 } from './entries/getCatalogEntry068';\nexport { getCatalogEntry069 } from './entries/getCatalogEntry069';\nexport { getCatalogEntry070 } from './entries/getCatalogEntry070';\nexport { getCatalogEntry071 } from './entries/getCatalogEntry071';\nexport { getCatalogEntry072 } from './entries/getCatalogEntry072';\nexport { getCatalogEntry073 } from './entries/getCatalogEntry073';\nexport { getCatalogEntry074 } from './entries/getCatalogEntry074';\nexport { getCatalogEntry075 } from './entries/getCatalogEntry075';\nexport { getCatalogEntry076 } from './entries/getCatalogEntry076';\nexport { getCatalogEntry077 } from './entries/getCatalogEntry077';\nexport { getCatalogEntry078 } from './entries/getCatalogEntry078';\nexport { getCatalogEntry079 } from './entries/getCatalogEntry079';\nexport { getCatalogEntry080 } from './entries/getCatalogEntry080';\nexport { getCatalogEntry081 } from './entries/getCatalogEntry081';\nexport { getCatalogEntry082 } from './entries/getCatalogEntry082';\nexport { getCatalogEntry083 } from './entries/getCatalogEntry083';\nexport { getCatalogEntry084 } from './entries/getCatalogEntry084';\nexport { getCatalogEntry085 } from './entries/getCatalogEntry085';\nexport { getCatalogEntry086 } from './entries/getCatalogEntry086';\nexport { getCatalogEntry087 } from './entries/getCatalogEntry087';\nexport { getCatalogEntry088 } from './entries/getCatalogEntry088';\nexport { getCatalogEntry089 } from './entries/getCatalogEntry089';\nexport { getCatalogEntry090 } from './entries/getCatalogEntry090';\nexport { getCatalogEntry091 } from './entries/getCatalogEntry091';\nexport { getCatalogEntry092 } from './entries/getCatalogEntry092';\nexport { getCatalogEntry093 } from './entries/getCatalogEntry093';\nexport { getCatalogEntry094 } from './entries/getCatalogEntry094';\nexport { getCatalogEntry095 } from './entries/getCatalogEntry095';\nexport { getCatalogEntry096 } from './entries/getCatalogEntry096';\nexport { getCatalogEntry097 } from './entries/getCatalogEntry097';\nexport { getCatalogEntry098 } from './entries/getCatalogEntry098';\nexport { getCatalogEntry099 } from './entries/getCatalogEntry099';\nexport { getCatalogEntry100 } from './entries/getCatalogEntry100';\nexport { getCatalogEntry101 } from './entries/getCatalogEntry101';\nexport { getCatalogEntry102 } from './entries/getCatalogEntry102';\nexport { getCatalogEntry103 } from './entries/getCatalogEntry103';\nexport { getCatalogEntry104 } from './entries/getCatalogEntry104';\nexport { getCatalogEntry105 } from './entries/getCatalogEntry105';\nexport { getCatalogEntry106 } from './entries/getCatalogEntry106';\nexport { getCatalogEntry107 } from './entries/getCatalogEntry107';\nexport { getCatalogEntry108 } from './entries/getCatalogEntry108';\nexport { getCatalogEntry109 } from './entries/getCatalogEntry109';\nexport { getCatalogEntry110 } from './entries/getCatalogEntry110';\nexport { getCatalogEntry111 } from './entries/getCatalogEntry111';\nexport { getCatalogEntry112 } from './entries/getCatalogEntry112';\nexport { getCatalogEntry113 } from './entries/getCatalogEntry113';\nexport { getCatalogEntry114 } from './entries/getCatalogEntry114';\nexport { getCatalogEntry115 } from './entries/getCatalogEntry115';\nexport { getCatalogEntry116 } from './entries/getCatalogEntry116';\nexport { getCatalogEntry117 } from './entries/getCatalogEntry117';\nexport { getCatalogEntry118 } from './entries/getCatalogEntry118';\nexport { getCatalogEntry119 } from './entries/getCatalogEntry119';\nexport { getCatalogEntry120 } from './entries/getCatalogEntry120';\nexport { getCatalogEntry121 } from './entries/getCatalogEntry121';\nexport { getCatalogEntry122 } from './entries/getCatalogEntry122';\nexport { getCatalogEntry123 } from './entries/getCatalogEntry123';\nexport { getCatalogEntry124 } from './entries/getCatalogEntry124';\nexport { getCatalogEntry125 } from './entries/getCatalogEntry125';\nexport { getCatalogEntry126 } from './entries/getCatalogEntry126';\nexport { getCatalogEntry127 } from './entries/getCatalogEntry127';\nexport { getCatalogEntry128 } from './entries/getCatalogEntry128';\nexport { getCatalogEntry129 } from './entries/getCatalogEntry129';\nexport { getCatalogEntry130 } from './entries/getCatalogEntry130';\nexport { getCatalogEntry131 } from './entries/getCatalogEntry131';\nexport { getCatalogEntry132 } from './entries/getCatalogEntry132';\nexport { getCatalogEntry133 } from './entries/getCatalogEntry133';\nexport { getCatalogEntry134 } from './entries/getCatalogEntry134';\nexport { getCatalogEntry135 } from './entries/getCatalogEntry135';\nexport { getCatalogEntry136 } from './entries/getCatalogEntry136';\nexport { getCatalogEntry137 } from './entries/getCatalogEntry137';\nexport { getCatalogEntry138 } from './entries/getCatalogEntry138';\nexport { getCatalogEntry139 } from './entries/getCatalogEntry139';\nexport { getCatalogEntry140 } from './entries/getCatalogEntry140';\nexport { getCatalogEntry141 } from './entries/getCatalogEntry141';\nexport { getCatalogEntry142 } from './entries/getCatalogEntry142';\nexport { getCatalogEntry143 } from './entries/getCatalogEntry143';\nexport { getCatalogEntry144 } from './entries/getCatalogEntry144';\nexport { getCatalogEntry145 } from './entries/getCatalogEntry145';\nexport { getCatalogEntry146 } from './entries/getCatalogEntry146';\nexport { getCatalogEntry147 } from './entries/getCatalogEntry147';\nexport { getCatalogEntry148 } from './entries/getCatalogEntry148';\nexport { getCatalogEntry149 } from './entries/getCatalogEntry149';\nexport { getCatalogEntry150 } from './entries/getCatalogEntry150';\nexport { getCatalogEntry151 } from './entries/getCatalogEntry151';\nexport { getCatalogEntry152 } from './entries/getCatalogEntry152';\nexport { getCatalogEntry153 } from './entries/getCatalogEntry153';\nexport { getCatalogEntry154 } from './entries/getCatalogEntry154';\nexport { getCatalogEntry155 } from './entries/getCatalogEntry155';\nexport { getCatalogEntry156 } from './entries/getCatalogEntry156';\nexport { getCatalogEntry157 } from './entries/getCatalogEntry157';\nexport { getCatalogEntry158 } from './entries/getCatalogEntry158';\nexport { getCatalogEntry159 } from './entries/getCatalogEntry159';\nexport { getCatalogEntry160 } from './entries/getCatalogEntry160';\nexport { getCatalogEntry161 } from './entries/getCatalogEntry161';\nexport { getCatalogEntry162 } from './entries/getCatalogEntry162';\nexport { getCatalogEntry163 } from './entries/getCatalogEntry163';\nexport { getCatalogEntry164 } from './entries/getCatalogEntry164';\nexport { getCatalogEntry165 } from './entries/getCatalogEntry165';\nexport { getCatalogEntry166 } from './entries/getCatalogEntry166';\nexport { getCatalogEntry167 } from './entries/getCatalogEntry167';\nexport { getCatalogEntry168 } from './entries/getCatalogEntry168';\nexport { getCatalogEntry169 } from './entries/getCatalogEntry169';\nexport { getCatalogEntry170 } from './entries/getCatalogEntry170';\nexport { getCatalogEntry171 } from './entries/getCatalogEntry171';\nexport { getCatalogEntry172 } from './entries/getCatalogEntry172';\nexport { getCatalogEntry173 } from './entries/getCatalogEntry173';\nexport { getCatalogEntry174 } from './entries/getCatalogEntry174';\nexport { getCatalogEntry175 } from './entries/getCatalogEntry175';\nexport { getCatalogEntry176 } from './entries/getCatalogEntry176';\nexport { getCatalogEntry177 } from './entries/getCatalogEntry177';\nexport { getCatalogEntry178 } from './entries/getCatalogEntry178';\nexport { getCatalogEntry179 } from './entries/getCatalogEntry179';\nexport { getCatalogEntry180 } from './entries/getCatalogEntry180';\nexport { getCatalogEntry181 } from './entries/getCatalogEntry181';\nexport { getCatalogEntry182 } from './entries/getCatalogEntry182';\nexport { getCatalogEntry183 } from './entries/getCatalogEntry183';\nexport { getCatalogEntry184 } from './entries/getCatalogEntry184';\nexport { getCatalogEntry185 } from './entries/getCatalogEntry185';\nexport { getCatalogEntry186 } from './entries/getCatalogEntry186';\nexport { getCatalogEntry187 } from './entries/getCatalogEntry187';\nexport { getCatalogEntry188 } from './entries/getCatalogEntry188';\nexport { getCatalogEntry189 } from './entries/getCatalogEntry189';\nexport { getCatalogEntry190 } from './entries/getCatalogEntry190';\nexport { getCatalogEntry191 } from './entries/getCatalogEntry191';\nexport { getCatalogEntry192 } from './entries/getCatalogEntry192';\nexport { getCatalogEntry193 } from './entries/getCatalogEntry193';\nexport { getCatalogEntry194 } from './entries/getCatalogEntry194';\nexport { getCatalogEntry195 } from './entries/getCatalogEntry195';\nexport { getCatalogEntry196 } from './entries/getCatalogEntry196';\nexport { getCatalogEntry197 } from './entries/getCatalogEntry197';\nexport { getCatalogEntry198 } from './entries/getCatalogEntry198';\nexport { getCatalogEntry199 } from './entries/getCatalogEntry199';\nexport { getCatalogEntry200 } from './entries/getCatalogEntry200';\nexport { getCatalogEntry201 } from './entries/getCatalogEntry201';\nexport { getCatalogEntry202 } from './entries/getCatalogEntry202';\nexport { getCatalogEntry203 } from './entries/getCatalogEntry203';\nexport { getCatalogEntry204 } from './entries/getCatalogEntry204';\nexport { getCatalogEntry205 } from './entries/getCatalogEntry205';\nexport { getCatalogEntry206 } from './entries/getCatalogEntry206';\nexport { getCatalogEntry207 } from './entries/getCatalogEntry207';\nexport { getCatalogEntry208 } from './entries/getCatalogEntry208';\nexport { getCatalogEntry209 } from './entries/getCatalogEntry209';\nexport { getCatalogEntry210 } from './entries/getCatalogEntry210';\nexport { getCatalogEntry211 } from './entries/getCatalogEntry211';\nexport { getCatalogEntry212 } from './entries/getCatalogEntry212';\nexport { getCatalogEntry213 } from './entries/getCatalogEntry213';\nexport { getCatalogEntry214 } from './entries/getCatalogEntry214';\nexport { getCatalogEntry215 } from './entries/getCatalogEntry215';\nexport { getCatalogEntry216 } from './entries/getCatalogEntry216';\nexport { getCatalogEntry217 } from './entries/getCatalogEntry217';\nexport { getCatalogEntry218 } from './entries/getCatalogEntry218';\nexport { getCatalogEntry219 } from './entries/getCatalogEntry219';\nexport { getCatalogEntry220 } from './entries/getCatalogEntry220';\nexport { getCatalogEntry221 } from './entries/getCatalogEntry221';\nexport { getCatalogEntry222 } from './entries/getCatalogEntry222';\nexport { getCatalogEntry223 } from './entries/getCatalogEntry223';\nexport { getCatalogEntry224 } from './entries/getCatalogEntry224';\nexport { getCatalogEntry225 } from './entries/getCatalogEntry225';\nexport { getCatalogEntry226 } from './entries/getCatalogEntry226';\nexport { getCatalogEntry227 } from './entries/getCatalogEntry227';\nexport { getCatalogEntry228 } from './entries/getCatalogEntry228';\nexport { getCatalogEntry229 } from './entries/getCatalogEntry229';\nexport { getCatalogEntry230 } from './entries/getCatalogEntry230';\nexport { getCatalogEntry231 } from './entries/getCatalogEntry231';\nexport { getCatalogEntry232 } from './entries/getCatalogEntry232';\nexport { getCatalogEntry233 } from './entries/getCatalogEntry233';\nexport { getCatalogEntry234 } from './entries/getCatalogEntry234';\nexport { getCatalogEntry235 } from './entries/getCatalogEntry235';\nexport { getCatalogEntry236 } from './entries/getCatalogEntry236';\nexport { getCatalogEntry237 } from './entries/getCatalogEntry237';\nexport { getCatalogEntry238 } from './entries/getCatalogEntry238';\nexport { getCatalogEntry239 } from './entries/getCatalogEntry239';\nexport { getCatalogEntry240 } from './entries/getCatalogEntry240';\nexport { getCatalogEntry241 } from './entries/getCatalogEntry241';\nexport { getCatalogEntry242 } from './entries/getCatalogEntry242';\nexport { getCatalogEntry243 } from './entries/getCatalogEntry243';\nexport { getCatalogEntry244 } from './entries/getCatalogEntry244';\nexport { getCatalogEntry245 } from './entries/getCatalogEntry245';\nexport { getCatalogEntry246 } from './entries/getCatalogEntry246';\nexport { getCatalogEntry247 } from './entries/getCatalogEntry247';\nexport { getCatalogEntry248 } from './entries/getCatalogEntry248';\nexport { getCatalogEntry249 } from './entries/getCatalogEntry249';\nexport { getCatalogEntry250 } from './entries/getCatalogEntry250';\nexport { getCatalogEntry251 } from './entries/getCatalogEntry251';\nexport { getCatalogEntry252 } from './entries/getCatalogEntry252';\nexport { getCatalogEntry253 } from './entries/getCatalogEntry253';\nexport { getCatalogEntry254 } from './entries/getCatalogEntry254';\nexport { getCatalogEntry255 } from './entries/getCatalogEntry255';\nexport { getCatalogEntry256 } from './entries/getCatalogEntry256';\nexport { getCatalogEntry257 } from './entries/getCatalogEntry257';\nexport { getCatalogEntry258 } from './entries/getCatalogEntry258';\nexport { getCatalogEntry259 } from './entries/getCatalogEntry259';\nexport { getCatalogEntry260 } from './entries/getCatalogEntry260';\n"
+          "path": "src/index.ts",
+          "text": "// A package entry past the cap, and exempt at any length: the remedy a size finding\n// asks for — split the file, or graduate the concept — is the one thing a\n// package's public API cannot do.\nexport { getCatalogEntry001 } from './catalog/entries/getCatalogEntry001';\nexport { getCatalogEntry002 } from './catalog/entries/getCatalogEntry002';\nexport { getCatalogEntry003 } from './catalog/entries/getCatalogEntry003';\nexport { getCatalogEntry004 } from './catalog/entries/getCatalogEntry004';\nexport { getCatalogEntry005 } from './catalog/entries/getCatalogEntry005';\nexport { getCatalogEntry006 } from './catalog/entries/getCatalogEntry006';\nexport { getCatalogEntry007 } from './catalog/entries/getCatalogEntry007';\nexport { getCatalogEntry008 } from './catalog/entries/getCatalogEntry008';\nexport { getCatalogEntry009 } from './catalog/entries/getCatalogEntry009';\nexport { getCatalogEntry010 } from './catalog/entries/getCatalogEntry010';\nexport { getCatalogEntry011 } from './catalog/entries/getCatalogEntry011';\nexport { getCatalogEntry012 } from './catalog/entries/getCatalogEntry012';\nexport { getCatalogEntry013 } from './catalog/entries/getCatalogEntry013';\nexport { getCatalogEntry014 } from './catalog/entries/getCatalogEntry014';\nexport { getCatalogEntry015 } from './catalog/entries/getCatalogEntry015';\nexport { getCatalogEntry016 } from './catalog/entries/getCatalogEntry016';\nexport { getCatalogEntry017 } from './catalog/entries/getCatalogEntry017';\nexport { getCatalogEntry018 } from './catalog/entries/getCatalogEntry018';\nexport { getCatalogEntry019 } from './catalog/entries/getCatalogEntry019';\nexport { getCatalogEntry020 } from './catalog/entries/getCatalogEntry020';\nexport { getCatalogEntry021 } from './catalog/entries/getCatalogEntry021';\nexport { getCatalogEntry022 } from './catalog/entries/getCatalogEntry022';\nexport { getCatalogEntry023 } from './catalog/entries/getCatalogEntry023';\nexport { getCatalogEntry024 } from './catalog/entries/getCatalogEntry024';\nexport { getCatalogEntry025 } from './catalog/entries/getCatalogEntry025';\nexport { getCatalogEntry026 } from './catalog/entries/getCatalogEntry026';\nexport { getCatalogEntry027 } from './catalog/entries/getCatalogEntry027';\nexport { getCatalogEntry028 } from './catalog/entries/getCatalogEntry028';\nexport { getCatalogEntry029 } from './catalog/entries/getCatalogEntry029';\nexport { getCatalogEntry030 } from './catalog/entries/getCatalogEntry030';\nexport { getCatalogEntry031 } from './catalog/entries/getCatalogEntry031';\nexport { getCatalogEntry032 } from './catalog/entries/getCatalogEntry032';\nexport { getCatalogEntry033 } from './catalog/entries/getCatalogEntry033';\nexport { getCatalogEntry034 } from './catalog/entries/getCatalogEntry034';\nexport { getCatalogEntry035 } from './catalog/entries/getCatalogEntry035';\nexport { getCatalogEntry036 } from './catalog/entries/getCatalogEntry036';\nexport { getCatalogEntry037 } from './catalog/entries/getCatalogEntry037';\nexport { getCatalogEntry038 } from './catalog/entries/getCatalogEntry038';\nexport { getCatalogEntry039 } from './catalog/entries/getCatalogEntry039';\nexport { getCatalogEntry040 } from './catalog/entries/getCatalogEntry040';\nexport { getCatalogEntry041 } from './catalog/entries/getCatalogEntry041';\nexport { getCatalogEntry042 } from './catalog/entries/getCatalogEntry042';\nexport { getCatalogEntry043 } from './catalog/entries/getCatalogEntry043';\nexport { getCatalogEntry044 } from './catalog/entries/getCatalogEntry044';\nexport { getCatalogEntry045 } from './catalog/entries/getCatalogEntry045';\nexport { getCatalogEntry046 } from './catalog/entries/getCatalogEntry046';\nexport { getCatalogEntry047 } from './catalog/entries/getCatalogEntry047';\nexport { getCatalogEntry048 } from './catalog/entries/getCatalogEntry048';\nexport { getCatalogEntry049 } from './catalog/entries/getCatalogEntry049';\nexport { getCatalogEntry050 } from './catalog/entries/getCatalogEntry050';\nexport { getCatalogEntry051 } from './catalog/entries/getCatalogEntry051';\nexport { getCatalogEntry052 } from './catalog/entries/getCatalogEntry052';\nexport { getCatalogEntry053 } from './catalog/entries/getCatalogEntry053';\nexport { getCatalogEntry054 } from './catalog/entries/getCatalogEntry054';\nexport { getCatalogEntry055 } from './catalog/entries/getCatalogEntry055';\nexport { getCatalogEntry056 } from './catalog/entries/getCatalogEntry056';\nexport { getCatalogEntry057 } from './catalog/entries/getCatalogEntry057';\nexport { getCatalogEntry058 } from './catalog/entries/getCatalogEntry058';\nexport { getCatalogEntry059 } from './catalog/entries/getCatalogEntry059';\nexport { getCatalogEntry060 } from './catalog/entries/getCatalogEntry060';\nexport { getCatalogEntry061 } from './catalog/entries/getCatalogEntry061';\nexport { getCatalogEntry062 } from './catalog/entries/getCatalogEntry062';\nexport { getCatalogEntry063 } from './catalog/entries/getCatalogEntry063';\nexport { getCatalogEntry064 } from './catalog/entries/getCatalogEntry064';\nexport { getCatalogEntry065 } from './catalog/entries/getCatalogEntry065';\nexport { getCatalogEntry066 } from './catalog/entries/getCatalogEntry066';\nexport { getCatalogEntry067 } from './catalog/entries/getCatalogEntry067';\nexport { getCatalogEntry068 } from './catalog/entries/getCatalogEntry068';\nexport { getCatalogEntry069 } from './catalog/entries/getCatalogEntry069';\nexport { getCatalogEntry070 } from './catalog/entries/getCatalogEntry070';\nexport { getCatalogEntry071 } from './catalog/entries/getCatalogEntry071';\nexport { getCatalogEntry072 } from './catalog/entries/getCatalogEntry072';\nexport { getCatalogEntry073 } from './catalog/entries/getCatalogEntry073';\nexport { getCatalogEntry074 } from './catalog/entries/getCatalogEntry074';\nexport { getCatalogEntry075 } from './catalog/entries/getCatalogEntry075';\nexport { getCatalogEntry076 } from './catalog/entries/getCatalogEntry076';\nexport { getCatalogEntry077 } from './catalog/entries/getCatalogEntry077';\nexport { getCatalogEntry078 } from './catalog/entries/getCatalogEntry078';\nexport { getCatalogEntry079 } from './catalog/entries/getCatalogEntry079';\nexport { getCatalogEntry080 } from './catalog/entries/getCatalogEntry080';\nexport { getCatalogEntry081 } from './catalog/entries/getCatalogEntry081';\nexport { getCatalogEntry082 } from './catalog/entries/getCatalogEntry082';\nexport { getCatalogEntry083 } from './catalog/entries/getCatalogEntry083';\nexport { getCatalogEntry084 } from './catalog/entries/getCatalogEntry084';\nexport { getCatalogEntry085 } from './catalog/entries/getCatalogEntry085';\nexport { getCatalogEntry086 } from './catalog/entries/getCatalogEntry086';\nexport { getCatalogEntry087 } from './catalog/entries/getCatalogEntry087';\nexport { getCatalogEntry088 } from './catalog/entries/getCatalogEntry088';\nexport { getCatalogEntry089 } from './catalog/entries/getCatalogEntry089';\nexport { getCatalogEntry090 } from './catalog/entries/getCatalogEntry090';\nexport { getCatalogEntry091 } from './catalog/entries/getCatalogEntry091';\nexport { getCatalogEntry092 } from './catalog/entries/getCatalogEntry092';\nexport { getCatalogEntry093 } from './catalog/entries/getCatalogEntry093';\nexport { getCatalogEntry094 } from './catalog/entries/getCatalogEntry094';\nexport { getCatalogEntry095 } from './catalog/entries/getCatalogEntry095';\nexport { getCatalogEntry096 } from './catalog/entries/getCatalogEntry096';\nexport { getCatalogEntry097 } from './catalog/entries/getCatalogEntry097';\nexport { getCatalogEntry098 } from './catalog/entries/getCatalogEntry098';\nexport { getCatalogEntry099 } from './catalog/entries/getCatalogEntry099';\nexport { getCatalogEntry100 } from './catalog/entries/getCatalogEntry100';\nexport { getCatalogEntry101 } from './catalog/entries/getCatalogEntry101';\nexport { getCatalogEntry102 } from './catalog/entries/getCatalogEntry102';\nexport { getCatalogEntry103 } from './catalog/entries/getCatalogEntry103';\nexport { getCatalogEntry104 } from './catalog/entries/getCatalogEntry104';\nexport { getCatalogEntry105 } from './catalog/entries/getCatalogEntry105';\nexport { getCatalogEntry106 } from './catalog/entries/getCatalogEntry106';\nexport { getCatalogEntry107 } from './catalog/entries/getCatalogEntry107';\nexport { getCatalogEntry108 } from './catalog/entries/getCatalogEntry108';\nexport { getCatalogEntry109 } from './catalog/entries/getCatalogEntry109';\nexport { getCatalogEntry110 } from './catalog/entries/getCatalogEntry110';\nexport { getCatalogEntry111 } from './catalog/entries/getCatalogEntry111';\nexport { getCatalogEntry112 } from './catalog/entries/getCatalogEntry112';\nexport { getCatalogEntry113 } from './catalog/entries/getCatalogEntry113';\nexport { getCatalogEntry114 } from './catalog/entries/getCatalogEntry114';\nexport { getCatalogEntry115 } from './catalog/entries/getCatalogEntry115';\nexport { getCatalogEntry116 } from './catalog/entries/getCatalogEntry116';\nexport { getCatalogEntry117 } from './catalog/entries/getCatalogEntry117';\nexport { getCatalogEntry118 } from './catalog/entries/getCatalogEntry118';\nexport { getCatalogEntry119 } from './catalog/entries/getCatalogEntry119';\nexport { getCatalogEntry120 } from './catalog/entries/getCatalogEntry120';\nexport { getCatalogEntry121 } from './catalog/entries/getCatalogEntry121';\nexport { getCatalogEntry122 } from './catalog/entries/getCatalogEntry122';\nexport { getCatalogEntry123 } from './catalog/entries/getCatalogEntry123';\nexport { getCatalogEntry124 } from './catalog/entries/getCatalogEntry124';\nexport { getCatalogEntry125 } from './catalog/entries/getCatalogEntry125';\nexport { getCatalogEntry126 } from './catalog/entries/getCatalogEntry126';\nexport { getCatalogEntry127 } from './catalog/entries/getCatalogEntry127';\nexport { getCatalogEntry128 } from './catalog/entries/getCatalogEntry128';\nexport { getCatalogEntry129 } from './catalog/entries/getCatalogEntry129';\nexport { getCatalogEntry130 } from './catalog/entries/getCatalogEntry130';\nexport { getCatalogEntry131 } from './catalog/entries/getCatalogEntry131';\nexport { getCatalogEntry132 } from './catalog/entries/getCatalogEntry132';\nexport { getCatalogEntry133 } from './catalog/entries/getCatalogEntry133';\nexport { getCatalogEntry134 } from './catalog/entries/getCatalogEntry134';\nexport { getCatalogEntry135 } from './catalog/entries/getCatalogEntry135';\nexport { getCatalogEntry136 } from './catalog/entries/getCatalogEntry136';\nexport { getCatalogEntry137 } from './catalog/entries/getCatalogEntry137';\nexport { getCatalogEntry138 } from './catalog/entries/getCatalogEntry138';\nexport { getCatalogEntry139 } from './catalog/entries/getCatalogEntry139';\nexport { getCatalogEntry140 } from './catalog/entries/getCatalogEntry140';\nexport { getCatalogEntry141 } from './catalog/entries/getCatalogEntry141';\nexport { getCatalogEntry142 } from './catalog/entries/getCatalogEntry142';\nexport { getCatalogEntry143 } from './catalog/entries/getCatalogEntry143';\nexport { getCatalogEntry144 } from './catalog/entries/getCatalogEntry144';\nexport { getCatalogEntry145 } from './catalog/entries/getCatalogEntry145';\nexport { getCatalogEntry146 } from './catalog/entries/getCatalogEntry146';\nexport { getCatalogEntry147 } from './catalog/entries/getCatalogEntry147';\nexport { getCatalogEntry148 } from './catalog/entries/getCatalogEntry148';\nexport { getCatalogEntry149 } from './catalog/entries/getCatalogEntry149';\nexport { getCatalogEntry150 } from './catalog/entries/getCatalogEntry150';\nexport { getCatalogEntry151 } from './catalog/entries/getCatalogEntry151';\nexport { getCatalogEntry152 } from './catalog/entries/getCatalogEntry152';\nexport { getCatalogEntry153 } from './catalog/entries/getCatalogEntry153';\nexport { getCatalogEntry154 } from './catalog/entries/getCatalogEntry154';\nexport { getCatalogEntry155 } from './catalog/entries/getCatalogEntry155';\nexport { getCatalogEntry156 } from './catalog/entries/getCatalogEntry156';\nexport { getCatalogEntry157 } from './catalog/entries/getCatalogEntry157';\nexport { getCatalogEntry158 } from './catalog/entries/getCatalogEntry158';\nexport { getCatalogEntry159 } from './catalog/entries/getCatalogEntry159';\nexport { getCatalogEntry160 } from './catalog/entries/getCatalogEntry160';\nexport { getCatalogEntry161 } from './catalog/entries/getCatalogEntry161';\nexport { getCatalogEntry162 } from './catalog/entries/getCatalogEntry162';\nexport { getCatalogEntry163 } from './catalog/entries/getCatalogEntry163';\nexport { getCatalogEntry164 } from './catalog/entries/getCatalogEntry164';\nexport { getCatalogEntry165 } from './catalog/entries/getCatalogEntry165';\nexport { getCatalogEntry166 } from './catalog/entries/getCatalogEntry166';\nexport { getCatalogEntry167 } from './catalog/entries/getCatalogEntry167';\nexport { getCatalogEntry168 } from './catalog/entries/getCatalogEntry168';\nexport { getCatalogEntry169 } from './catalog/entries/getCatalogEntry169';\nexport { getCatalogEntry170 } from './catalog/entries/getCatalogEntry170';\nexport { getCatalogEntry171 } from './catalog/entries/getCatalogEntry171';\nexport { getCatalogEntry172 } from './catalog/entries/getCatalogEntry172';\nexport { getCatalogEntry173 } from './catalog/entries/getCatalogEntry173';\nexport { getCatalogEntry174 } from './catalog/entries/getCatalogEntry174';\nexport { getCatalogEntry175 } from './catalog/entries/getCatalogEntry175';\nexport { getCatalogEntry176 } from './catalog/entries/getCatalogEntry176';\nexport { getCatalogEntry177 } from './catalog/entries/getCatalogEntry177';\nexport { getCatalogEntry178 } from './catalog/entries/getCatalogEntry178';\nexport { getCatalogEntry179 } from './catalog/entries/getCatalogEntry179';\nexport { getCatalogEntry180 } from './catalog/entries/getCatalogEntry180';\nexport { getCatalogEntry181 } from './catalog/entries/getCatalogEntry181';\nexport { getCatalogEntry182 } from './catalog/entries/getCatalogEntry182';\nexport { getCatalogEntry183 } from './catalog/entries/getCatalogEntry183';\nexport { getCatalogEntry184 } from './catalog/entries/getCatalogEntry184';\nexport { getCatalogEntry185 } from './catalog/entries/getCatalogEntry185';\nexport { getCatalogEntry186 } from './catalog/entries/getCatalogEntry186';\nexport { getCatalogEntry187 } from './catalog/entries/getCatalogEntry187';\nexport { getCatalogEntry188 } from './catalog/entries/getCatalogEntry188';\nexport { getCatalogEntry189 } from './catalog/entries/getCatalogEntry189';\nexport { getCatalogEntry190 } from './catalog/entries/getCatalogEntry190';\nexport { getCatalogEntry191 } from './catalog/entries/getCatalogEntry191';\nexport { getCatalogEntry192 } from './catalog/entries/getCatalogEntry192';\nexport { getCatalogEntry193 } from './catalog/entries/getCatalogEntry193';\nexport { getCatalogEntry194 } from './catalog/entries/getCatalogEntry194';\nexport { getCatalogEntry195 } from './catalog/entries/getCatalogEntry195';\nexport { getCatalogEntry196 } from './catalog/entries/getCatalogEntry196';\nexport { getCatalogEntry197 } from './catalog/entries/getCatalogEntry197';\nexport { getCatalogEntry198 } from './catalog/entries/getCatalogEntry198';\nexport { getCatalogEntry199 } from './catalog/entries/getCatalogEntry199';\nexport { getCatalogEntry200 } from './catalog/entries/getCatalogEntry200';\nexport { getCatalogEntry201 } from './catalog/entries/getCatalogEntry201';\nexport { getCatalogEntry202 } from './catalog/entries/getCatalogEntry202';\nexport { getCatalogEntry203 } from './catalog/entries/getCatalogEntry203';\nexport { getCatalogEntry204 } from './catalog/entries/getCatalogEntry204';\nexport { getCatalogEntry205 } from './catalog/entries/getCatalogEntry205';\nexport { getCatalogEntry206 } from './catalog/entries/getCatalogEntry206';\nexport { getCatalogEntry207 } from './catalog/entries/getCatalogEntry207';\nexport { getCatalogEntry208 } from './catalog/entries/getCatalogEntry208';\nexport { getCatalogEntry209 } from './catalog/entries/getCatalogEntry209';\nexport { getCatalogEntry210 } from './catalog/entries/getCatalogEntry210';\nexport { getCatalogEntry211 } from './catalog/entries/getCatalogEntry211';\nexport { getCatalogEntry212 } from './catalog/entries/getCatalogEntry212';\nexport { getCatalogEntry213 } from './catalog/entries/getCatalogEntry213';\nexport { getCatalogEntry214 } from './catalog/entries/getCatalogEntry214';\nexport { getCatalogEntry215 } from './catalog/entries/getCatalogEntry215';\nexport { getCatalogEntry216 } from './catalog/entries/getCatalogEntry216';\nexport { getCatalogEntry217 } from './catalog/entries/getCatalogEntry217';\nexport { getCatalogEntry218 } from './catalog/entries/getCatalogEntry218';\nexport { getCatalogEntry219 } from './catalog/entries/getCatalogEntry219';\nexport { getCatalogEntry220 } from './catalog/entries/getCatalogEntry220';\nexport { getCatalogEntry221 } from './catalog/entries/getCatalogEntry221';\nexport { getCatalogEntry222 } from './catalog/entries/getCatalogEntry222';\nexport { getCatalogEntry223 } from './catalog/entries/getCatalogEntry223';\nexport { getCatalogEntry224 } from './catalog/entries/getCatalogEntry224';\nexport { getCatalogEntry225 } from './catalog/entries/getCatalogEntry225';\nexport { getCatalogEntry226 } from './catalog/entries/getCatalogEntry226';\nexport { getCatalogEntry227 } from './catalog/entries/getCatalogEntry227';\nexport { getCatalogEntry228 } from './catalog/entries/getCatalogEntry228';\nexport { getCatalogEntry229 } from './catalog/entries/getCatalogEntry229';\nexport { getCatalogEntry230 } from './catalog/entries/getCatalogEntry230';\nexport { getCatalogEntry231 } from './catalog/entries/getCatalogEntry231';\nexport { getCatalogEntry232 } from './catalog/entries/getCatalogEntry232';\nexport { getCatalogEntry233 } from './catalog/entries/getCatalogEntry233';\nexport { getCatalogEntry234 } from './catalog/entries/getCatalogEntry234';\nexport { getCatalogEntry235 } from './catalog/entries/getCatalogEntry235';\nexport { getCatalogEntry236 } from './catalog/entries/getCatalogEntry236';\nexport { getCatalogEntry237 } from './catalog/entries/getCatalogEntry237';\nexport { getCatalogEntry238 } from './catalog/entries/getCatalogEntry238';\nexport { getCatalogEntry239 } from './catalog/entries/getCatalogEntry239';\nexport { getCatalogEntry240 } from './catalog/entries/getCatalogEntry240';\nexport { getCatalogEntry241 } from './catalog/entries/getCatalogEntry241';\nexport { getCatalogEntry242 } from './catalog/entries/getCatalogEntry242';\nexport { getCatalogEntry243 } from './catalog/entries/getCatalogEntry243';\nexport { getCatalogEntry244 } from './catalog/entries/getCatalogEntry244';\nexport { getCatalogEntry245 } from './catalog/entries/getCatalogEntry245';\nexport { getCatalogEntry246 } from './catalog/entries/getCatalogEntry246';\nexport { getCatalogEntry247 } from './catalog/entries/getCatalogEntry247';\nexport { getCatalogEntry248 } from './catalog/entries/getCatalogEntry248';\nexport { getCatalogEntry249 } from './catalog/entries/getCatalogEntry249';\nexport { getCatalogEntry250 } from './catalog/entries/getCatalogEntry250';\nexport { getCatalogEntry251 } from './catalog/entries/getCatalogEntry251';\nexport { getCatalogEntry252 } from './catalog/entries/getCatalogEntry252';\nexport { getCatalogEntry253 } from './catalog/entries/getCatalogEntry253';\nexport { getCatalogEntry254 } from './catalog/entries/getCatalogEntry254';\nexport { getCatalogEntry255 } from './catalog/entries/getCatalogEntry255';\nexport { getCatalogEntry256 } from './catalog/entries/getCatalogEntry256';\nexport { getCatalogEntry257 } from './catalog/entries/getCatalogEntry257';\nexport { getCatalogEntry258 } from './catalog/entries/getCatalogEntry258';\nexport { getCatalogEntry259 } from './catalog/entries/getCatalogEntry259';\nexport { getCatalogEntry260 } from './catalog/entries/getCatalogEntry260';\n"
         },
         {
           "side": "fail",
@@ -3742,7 +3559,7 @@
         "pass": 2,
         "fail": 2
       },
-      "prose": "## Test Files\n\n- A unit test sits **beside** its source file: `src/auth/AuthService.ts` → `src/auth/AuthService.unit.test.ts`.\n- **Scenario suites**: when one boundary genuinely needs more than one test\n  file (a pipeline with distinct monorepo/nested/park scenarios), qualify the\n  name — `<File>.<scenario>.unit.test.ts`, e.g.\n  `runImplementPipeline.monorepo.unit.test.ts`. The first segment must name a\n  real source file in the folder; the qualifier is camelCase. A test file\n  whose subjects span several source files is a split candidate, not a naming\n  exception — one subject per test file.\n- **A test imports its subject from the subject's own file**: a test beside its\n  source imports the file it tests (`./AuthService`), never the module's barrel\n  (`./index`) — an import through a barrel loads every file the module\n  re-exports to reach one name. A test inside a module may import that\n  module's other files too; a test outside it imports only the files its\n  barrel exports. A barrel entry whose only consumers are test files is\n  legitimate public API — it marks a deliberate promotion whose contract the\n  tests pin; demoting it is a human decision, not a dead-code cleanup.\n- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, a `__mocks__/` folder beside the module it doubles); only test files themselves sit beside their source. Test-support code under `src/` would read as production source — to scanners and humans alike.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` — but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** — scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\nTest files live adjacent to the file they test — never in separate `__tests__/` directories.",
+      "prose": "## Test Files\n\n- A unit test sits **beside** its source file: `src/auth/AuthService.ts` → `src/auth/AuthService.unit.test.ts`.\n- **Scenario suites**: when one boundary genuinely needs more than one test\n  file (a pipeline with distinct monorepo/nested/park scenarios), qualify the\n  name — `<File>.<scenario>.unit.test.ts`, e.g.\n  `runImplementPipeline.monorepo.unit.test.ts`. The first segment must name a\n  real source file in the folder; the qualifier is camelCase. A test file\n  whose subjects span several source files is a split candidate, not a naming\n  exception — one subject per test file.\n- **A test imports its subject from the subject's own file**: a test beside its\n  source imports the file it tests (`./AuthService`), never an index file\n  (`./index`) — an import through one loads every file it re-exports to reach\n  one name. A test inside a module may import that module's other files too;\n  a test outside it imports only the module's public files, as any other\n  caller would.\n- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, a `__mocks__/` folder beside the module it doubles); only test files themselves sit beside their source. Test-support code under `src/` would read as production source — to scanners and humans alike.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` — but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** — scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\nTest files live adjacent to the file they test — never in separate `__tests__/` directories.",
       "fixtures": [
         {
           "side": "pass",
@@ -4148,7 +3965,7 @@
         "pass": 1,
         "fail": 1
       },
-      "prose": "## Test Files Have a Line Cap Too\n\nTest files stay under ~400 lines. Arrangement earns tests more room than source gets, but a test file past the cap is almost never \"thorough\" — it is the boundary test of an under-graduated module, absorbing the contracts of every internal unit behind a one-name barrel.\n\nThe fix is a reshape of the module, not of the test file:\n\n1. **Give each internal unit** the oversized file is really testing a direct test beside it, asserting on the unit itself. The unit may not be a file yet — a long schema or config object tested block by block is several contracts living in one file; split the source into its blocks first, then test each. (A direct test needs no barrel promotion — see the module-boundary-testing rule.)\n2. **Leave the boundary file only what the boundary owns** — sequencing, short-circuits, which units run at all, ordering of the result.\n3. **Then delete the boundary tests the move made redundant.** A boundary test whose every claim is now pinned by a unit's direct test (or by another module's own test of the same renderer or parser) is duplicate coverage — deleting it is consolidation. What stays banned is deleting a claim that afterward lives nowhere.\n\nOne shape is different: a pipeline orchestrator whose internal units are already promoted and directly tested, whose oversized file is genuinely end-to-end scenarios of the orchestrator's own outcomes. There is no unit left to graduate — so there, and only there, split the scenario suite by named concern (`runPipeline.supervisor.unit.test.ts`, `runPipeline.advisories.unit.test.ts`), each file carrying one concern and its own fixtures.\n\nSplitting a test file into unnamed halves, or deleting assertions to duck the cap, clears the finding and keeps the disease — neither is a fix.",
+      "prose": "## Test Files Have a Line Cap Too\n\nTest files stay under ~400 lines. Arrangement earns tests more room than source gets, but a test file past the cap is almost never \"thorough\" — it is the boundary test of an under-graduated module, absorbing the contracts of every internal unit behind its one public file.\n\nThe fix is a reshape of the module, not of the test file:\n\n1. **Give each internal unit** the oversized file is really testing a direct test beside it, asserting on the unit itself. The unit may not be a file yet — a long schema or config object tested block by block is several contracts living in one file; split the source into its blocks first, then test each. (A direct test needs no promotion of the unit to public — see the module-boundary-testing rule.)\n2. **Leave the boundary file only what the boundary owns** — sequencing, short-circuits, which units run at all, ordering of the result.\n3. **Then delete the boundary tests the move made redundant.** A boundary test whose every claim is now pinned by a unit's direct test (or by another module's own test of the same renderer or parser) is duplicate coverage — deleting it is consolidation. What stays banned is deleting a claim that afterward lives nowhere.\n\nOne shape is different: a pipeline orchestrator whose internal units are already promoted and directly tested, whose oversized file is genuinely end-to-end scenarios of the orchestrator's own outcomes. There is no unit left to graduate — so there, and only there, split the scenario suite by named concern (`runPipeline.supervisor.unit.test.ts`, `runPipeline.advisories.unit.test.ts`), each file carrying one concern and its own fixtures.\n\nSplitting a test file into unnamed halves, or deleting assertions to duck the cap, clears the finding and keeps the disease — neither is a fix.",
       "fixtures": [
         {
           "side": "pass",

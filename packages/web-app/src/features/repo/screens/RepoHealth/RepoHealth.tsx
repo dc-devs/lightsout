@@ -4,11 +4,11 @@ import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { frictionQueryOptions } from '#src/features/friction/queries/frictionQueryOptions.ts';
-import { HealthTiles } from '#src/features/repo/screens/RepoHealth/components/HealthTiles.tsx';
-import { NeedsYouPanel } from '#src/features/repo/screens/RepoHealth/components/NeedsYouPanel.tsx';
-import { RecentRuns } from '#src/features/repo/screens/RepoHealth/components/RecentRuns.tsx';
-import { RepoStrip } from '#src/features/repo/screens/RepoHealth/components/RepoStrip.tsx';
-import { TopRulesPanel } from '#src/features/repo/screens/RepoHealth/components/TopRulesPanel.tsx';
+import { HealthTiles } from '#src/features/repo/screens/RepoHealth/internal/components/HealthTiles.tsx';
+import { NeedsYouPanel } from '#src/features/repo/screens/RepoHealth/internal/components/NeedsYouPanel.tsx';
+import { RecentRuns } from '#src/features/repo/screens/RepoHealth/internal/components/RecentRuns.tsx';
+import { RepoStrip } from '#src/features/repo/screens/RepoHealth/internal/components/RepoStrip.tsx';
+import { TopRulesPanel } from '#src/features/repo/screens/RepoHealth/internal/components/TopRulesPanel.tsx';
 import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 

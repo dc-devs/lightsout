@@ -1,4 +1,4 @@
-import { gatherNodeProcesses } from '#src/activity/common/utils/gatherNodeProcesses.ts';
+import { gatherNodeProcesses } from '#src/activity/internal/common/utils/gatherNodeProcesses.ts';
 import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
 import type { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
 

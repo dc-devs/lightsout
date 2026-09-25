@@ -7,7 +7,6 @@ const setupCarveOut = ({ directory = '.', routerRoots = ['routes'] }: { director
 	entryFiles: [],
 	exemptFolderNames: [],
 	kebabCase: false,
-	moduleFolders: [],
 	routerRoots,
 });
 

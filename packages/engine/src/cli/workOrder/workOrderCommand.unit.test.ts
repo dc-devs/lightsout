@@ -22,25 +22,25 @@ const mockWorkOrderRetitlePlanCommand = jest.fn<(params: CommandContext) => Prom
 const mockWorkOrderShowCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 const mockWorkOrderSyncCommand = jest.fn<(params: CommandContext) => Promise<void>>();
 
-jest.mock('#src/cli/workOrder/workOrderAddPlanCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderAddPlanCommand.ts', () => ({
 	workOrderAddPlanCommand: (params: CommandContext) => mockWorkOrderAddPlanCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderModeCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderModeCommand.ts', () => ({
 	workOrderModeCommand: (params: CommandContext) => mockWorkOrderModeCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderRequestShipCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderRequestShipCommand.ts', () => ({
 	workOrderRequestShipCommand: (params: CommandContext) => mockWorkOrderRequestShipCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderExcludePlanCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderExcludePlanCommand.ts', () => ({
 	workOrderExcludePlanCommand: (params: CommandContext) => mockWorkOrderExcludePlanCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderRetitlePlanCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderRetitlePlanCommand.ts', () => ({
 	workOrderRetitlePlanCommand: (params: CommandContext) => mockWorkOrderRetitlePlanCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderShowCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderShowCommand.ts', () => ({
 	workOrderShowCommand: (params: CommandContext) => mockWorkOrderShowCommand(params),
 }));
-jest.mock('#src/cli/workOrder/workOrderSyncCommand.ts', () => ({
+jest.mock('#src/cli/workOrder/internal/workOrderSyncCommand.ts', () => ({
 	workOrderSyncCommand: (params: CommandContext) => mockWorkOrderSyncCommand(params),
 }));
 // -------------------------

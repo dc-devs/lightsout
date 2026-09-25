@@ -1,6 +1,6 @@
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
 import { renderPhaseDeclaration } from '#src/plan/sections/renderPhaseDeclaration.ts';
 import { renderPhaseRow } from '#src/plan/sections/renderPhaseRow.ts';
 import { writePlanSection } from '#src/plan/sections/writePlanSection.ts';

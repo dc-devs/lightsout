@@ -6,7 +6,7 @@ import { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
 import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
-import { buildWorklist } from '#src/refactor/buildWorklist.ts';
+import { buildWorklist } from '#src/refactor/internal/buildWorklist.ts';
 import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
 import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
 import { createRun } from '#src/runState/createRun.ts';

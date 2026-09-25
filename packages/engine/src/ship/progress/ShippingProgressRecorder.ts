@@ -4,7 +4,7 @@ import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
 import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
-import { getShippingProgressPath } from '#src/ship/progress/common/utils/getShippingProgressPath.ts';
+import { getShippingProgressPath } from '#src/ship/progress/internal/common/utils/getShippingProgressPath.ts';
 
 type ShippingStepRecord = ShippingProgress['steps'][number];
 

@@ -1,14 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Button } from '#src/appUI/buttons/Button.tsx';
 import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
-import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
-import { filterPackRules } from '#src/features/packs/common/utils/filterPackRules.ts';
+import type { PackRuleFilters } from '#src/features/packs/internal/common/types/PackRuleFilters.ts';
+import { filterPackRules } from '#src/features/packs/internal/common/utils/filterPackRules.ts';
 import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
-import { CapsStrip } from '#src/features/packs/screens/PackDetail/components/CapsStrip.tsx';
-import { PackFilterBar } from '#src/features/packs/screens/PackDetail/components/PackFilterBar.tsx';
-import { PackHeader } from '#src/features/packs/screens/PackDetail/components/PackHeader.tsx';
-import { RulesByDocument } from '#src/features/packs/screens/PackDetail/components/RulesByDocument.tsx';
-import { ShowcaseStrip } from '#src/features/packs/screens/PackDetail/components/ShowcaseStrip.tsx';
+import { CapsStrip } from '#src/features/packs/screens/PackDetail/internal/components/CapsStrip.tsx';
+import { PackFilterBar } from '#src/features/packs/screens/PackDetail/internal/components/PackFilterBar.tsx';
+import { PackHeader } from '#src/features/packs/screens/PackDetail/internal/components/PackHeader.tsx';
+import { RulesByDocument } from '#src/features/packs/screens/PackDetail/internal/components/RulesByDocument.tsx';
+import { ShowcaseStrip } from '#src/features/packs/screens/PackDetail/internal/components/ShowcaseStrip.tsx';
 
 interface Props {
 	/** The pack's own `name`, which is what the URL carries. */

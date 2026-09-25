@@ -12,7 +12,7 @@ const setupRepo = ({
 	contents,
 	files,
 	rule = 'dead-export',
-	matches = ({ barrel, test }: UnconsumedExport['reachedBy']) => !barrel && !test,
+	matches = ({ test }: UnconsumedExport['reachedBy']) => !test,
 	detail = 'referenced nowhere else',
 	guidance = 'A dead code candidate. Delete it — version control has the history.',
 	standardsPacks = [],
@@ -44,7 +44,6 @@ const startCarveOuts: FrameworkCarveOut[] = [
 		entryFiles: ['router.tsx', 'server.ts', 'client.tsx'],
 		exemptFolderNames: [],
 		kebabCase: false,
-		moduleFolders: [],
 		routerRoots: ['routes'],
 	},
 ];
@@ -53,7 +52,7 @@ describe('buildUnconsumedFindings', () => {
 	test('reports the export no other file mentions, keyed by the rule and the file declaring it', () => {
 		const { files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance } = setupRepo({
 			contents: [
-				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting';"],
+				['src/index.ts', "export { renderGreeting } from './feature/renderGreeting';"],
 				['src/feature/renderGreeting.ts', 'export const renderGreeting = ({ name }: { name: string }): string => `<p>${name}</p>`;'],
 				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
 			],
@@ -74,7 +73,7 @@ describe('buildUnconsumedFindings', () => {
 	test('an export another source file imports is consumed, so the verdict passes it over', () => {
 		const { files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance } = setupRepo({
 			contents: [
-				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting';"],
+				['src/index.ts', "export { renderGreeting } from './feature/renderGreeting';"],
 				[
 					'src/feature/renderGreeting.ts',
 					"import { buildGreeting } from './buildGreeting';\n\nexport const renderGreeting = ({ name }: { name: string }): string => `<p>${buildGreeting({ name })}</p>`;",
@@ -112,7 +111,7 @@ describe('buildUnconsumedFindings', () => {
 				['src/feature/buildGreeting.unit.test.ts', "import { buildGreeting } from './buildGreeting';"],
 			],
 			rule: 'test-only-export',
-			matches: ({ barrel, test }) => test && !barrel,
+			matches: ({ test }) => test,
 			detail: 'referenced only by tests',
 			guidance: 'A production-dead candidate: only its own tests keep it alive.',
 		});
@@ -129,48 +128,20 @@ describe('buildUnconsumedFindings', () => {
 		]);
 	});
 
-	test('a verdict claiming barrel-reached exports reports the one only a barrel mentions', () => {
-		const { files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance } = setupRepo({
-			contents: [
-				['src/feature/index.ts', "export { buildGreeting } from './buildGreeting';"],
-				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
-			],
-			rule: 'barrel-is-only-consumer',
-			matches: ({ barrel, test }) => barrel && !test,
-			detail: 'exported from a barrel nothing imports',
-			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
-		});
-
-		const findings = buildUnconsumedFindings({ files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance });
-
-		expect(findings).toStrictEqual([
-			{
-				siteKey: 'barrel-is-only-consumer:src/feature/buildGreeting.ts',
-				files: [{ path: 'src/feature/buildGreeting.ts' }],
-				detail: "'buildGreeting' is exported from a barrel nothing imports",
-				guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
-			},
-		]);
-	});
-
-	test('forwards the carve-outs, so a route file consuming a barrel-published screen leaves it unreported', () => {
+	test('forwards the carve-outs, so a route file consuming a screen leaves it unreported, whatever a folder barrel lists', () => {
 		const { files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance } = setupRepo({
 			contents: [
 				['src/routes/index.tsx', "import { RunsIndex } from '../features/app/screens/RunsIndex';\n\nexport const Route = { component: RunsIndex };"],
 				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex';"],
 				['src/features/app/screens/RunsIndex/RunsIndex.tsx', 'export const RunsIndex = (): null => null;'],
 			],
-			rule: 'barrel-is-only-consumer',
-			matches: ({ barrel, test }) => barrel && !test,
-			detail: 'exported from a barrel nothing imports',
-			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
 			carveOuts: startCarveOuts,
 		});
 
 		const findings = buildUnconsumedFindings({ files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance });
 
 		// counted without the carve-outs, that route file is a barrel and the screen
-		// it renders reads as published to nobody
+		// it renders reads as used by nobody
 		expect(findings).toStrictEqual([]);
 	});
 
@@ -180,10 +151,6 @@ describe('buildUnconsumedFindings', () => {
 				['src/app/index.ts', "import { startApp } from './startApp';\n\nstartApp();"],
 				['src/app/startApp.ts', 'export const startApp = (): void => {};'],
 			],
-			rule: 'barrel-is-only-consumer',
-			matches: ({ barrel }) => barrel,
-			detail: 'exported from a barrel nothing imports',
-			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
 		});
 
 		const findings = buildUnconsumedFindings({ files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance });

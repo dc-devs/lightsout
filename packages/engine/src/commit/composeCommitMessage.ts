@@ -1,6 +1,6 @@
 import { buildCommitMessageInvocation } from '#src/agents/buildCommitMessageInvocation.ts';
-import { buildRunCommitMessage } from '#src/commit/buildRunCommitMessage.ts';
-import type { CommitAddress } from '#src/commit/common/types/CommitAddress.ts';
+import { buildRunCommitMessage } from '#src/commit/internal/buildRunCommitMessage.ts';
+import type { CommitAddress } from '#src/commit/internal/common/types/CommitAddress.ts';
 import { readGitStagedChange } from '#src/common/git/readGitStagedChange.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';

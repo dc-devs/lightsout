@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CommitFailure } from '#src/commit/common/types/CommitFailure.ts';
+import type { CommitFailure } from '#src/commit/internal/common/types/CommitFailure.ts';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';

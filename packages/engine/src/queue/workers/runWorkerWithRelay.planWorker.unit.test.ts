@@ -12,8 +12,8 @@ import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts'
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
 import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
@@ -39,7 +39,7 @@ const mockRunPlanFolderPipeline = jest.fn<(params: { cwd: string; name: string }
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 
-jest.mock('#src/queue/workers/runPlanFolderPipeline.ts', () => ({
+jest.mock('#src/queue/workers/internal/runPlanFolderPipeline.ts', () => ({
 	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
 jest.mock('#src/direct/runDirectWork.ts', () => ({
@@ -98,7 +98,7 @@ interface BuildTicketPlansParams {
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+jest.mock('#src/queue/workers/internal/buildWorkOrderPlans.ts', () => ({
 	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------

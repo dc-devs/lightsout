@@ -1,12 +1,12 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildUnconsumedExportCheck } from '../../../common/checks/buildUnconsumedExportCheck.ts';
 
-// An export reached from BOTH a barrel and a test is deliberate public API
-// whose contract the tests pin — the prose says so outright — so only the
-// test-and-nothing-else case is reported.
+// Tests are the only mention: a package entry listing the name would have
+// counted as a use, since other packages read it, so a name the package
+// publishes is never reported here.
 export const check: StandardsCheckModule = buildUnconsumedExportCheck({
 	rule: 'test-only-export',
-	matches: ({ barrel, test }) => test && !barrel,
+	matches: ({ test }) => test,
 	detail: 'referenced only by tests',
 	guidance: 'A production-dead candidate: only its own tests keep it alive.',
 });

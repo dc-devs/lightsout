@@ -5,7 +5,7 @@ import { jiraTrackerSettingsFixture } from '#tests/helpers/jiraQueueSettingsFixt
 type JiraCallback = (client: { request: (params: unknown) => Promise<unknown> }) => Promise<unknown>;
 const mockRunJira = jest.fn<(params: { settings: unknown; request: JiraCallback }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/jira/runJira.ts', () => ({ runJira: (params: { settings: unknown; request: JiraCallback }) => mockRunJira(params) }));
+jest.mock('#src/ticketTracker/jira/internal/runJira.ts', () => ({ runJira: (params: { settings: unknown; request: JiraCallback }) => mockRunJira(params) }));
 
 const description = { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Body' }] }] };
 const issue = {

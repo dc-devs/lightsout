@@ -1,15 +1,14 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { StandardsPackRoot, StandardsSet } from '@lightsout/standards-contracts';
-import { standardsPackFrameworksFile } from '#src/common/constants/standardsPackFrameworksFile.ts';
 import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
-import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
-import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
+import { parseDocumentFolder } from '#src/standardsPacks/internal/common/parsing/parseDocumentFolder.ts';
+import { formatSchemaIssues } from '#src/standardsPacks/internal/common/utils/formatSchemaIssues.ts';
+import { hasFile } from '#src/standardsPacks/internal/common/utils/hasFile.ts';
 
 interface Params {
 	packPath: string;
@@ -137,13 +136,6 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 	const frameworkOwnedFixturesPath = join(packPath, 'fixtures', 'framework-owned');
 	const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
 
-	// Recorded the same way, and for the same reason: a pack that ships no
-	// framework facts leaves the engine's mirrors answering no rather than
-	// failing the load. The constant is pack-relative and `/`-separated, so
-	// `join` is what makes it a path on this machine.
-	const frameworksModulePath = join(packPath, standardsPackFrameworksFile);
-	const hasFrameworksModule = await hasFile({ path: frameworksModulePath });
-
 	return {
 		name: root.data.name,
 		formatVersion: root.data.formatVersion,
@@ -152,7 +144,6 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 		homepage: root.data.homepage,
 		rootPath: packPath,
 		...(hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {}),
-		...(hasFrameworksModule ? { frameworksModulePath } : {}),
 		documents,
 		rules,
 	};

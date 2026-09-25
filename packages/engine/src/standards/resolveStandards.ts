@@ -33,7 +33,7 @@ interface Params {
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
 	const loaded = await resolveStandardsPacks({ cwd, config });
 	const channels = await resolveStandardsChannels({ cwd, config, packages });
-	const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels }));
+	const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels, config }));
 
 	const stack = ({ set }: { set: StandardsSet }) => {
 		const texts = assembled.map((documents) => documents[set]).filter((text) => text !== undefined);

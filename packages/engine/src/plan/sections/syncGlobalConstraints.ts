@@ -1,6 +1,6 @@
 import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
 import type { SyncedPlanFile } from '#src/plan/common/types/SyncedPlanFile.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
 import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 import { writePlanSection } from '#src/plan/sections/writePlanSection.ts';
 

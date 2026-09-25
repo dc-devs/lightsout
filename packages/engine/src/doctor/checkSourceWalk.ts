@@ -1,8 +1,8 @@
 import { relative } from 'node:path';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
-import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import { probeTimeoutMs } from '#src/doctor/internal/common/constants/probeTimeoutMs.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
 
 interface Params {
 	cwd: string;

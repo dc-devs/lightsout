@@ -24,7 +24,7 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:src/cli/index.ts',
 				files: [{ path: 'src/cli/index.ts' }],
 				detail: '3 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});
@@ -70,7 +70,7 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:src/reporting/index.ts',
 				files: [{ path: 'src/reporting/index.ts' }],
 				detail: '2 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});
@@ -87,7 +87,7 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:src/features/Dashboard/index.tsx',
 				files: [{ path: 'src/features/Dashboard/index.tsx' }],
 				detail: '1 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});
@@ -102,17 +102,17 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:src/index.ts',
 				files: [{ path: 'src/index.ts' }],
 				detail: '1 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});
 
-	test('spares an index under common/, whose very existence is another rule’s objection', async () => {
+	test('reports an index under common/ holding code like any other', async () => {
 		const input = setupSyntaxTreeInput({ sources: [['src/billing/common/utils/index.ts', "console.log('boot');"]] });
 
 		const findings = await check.run({ input, settings: {} });
 
-		expect(findings).toStrictEqual([]);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['code-in-index-file:src/billing/common/utils/index.ts']);
 	});
 
 	test('says nothing about a named entry file, which is exactly where the code belongs', async () => {
@@ -154,7 +154,7 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:packages/web-app/src/features/index.ts',
 				files: [{ path: 'packages/web-app/src/features/index.ts' }],
 				detail: '1 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});
@@ -172,7 +172,7 @@ describe('code-in-index-file check', () => {
 				siteKey: 'code-in-index-file:packages/api/src/routes/index.ts',
 				files: [{ path: 'packages/api/src/routes/index.ts' }],
 				detail: '1 statement(s) other than re-export lines, the first at line 1',
-				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+				guidance: 'An index file is the package’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
 			},
 		]);
 	});

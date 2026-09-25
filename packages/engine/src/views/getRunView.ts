@@ -13,10 +13,10 @@ import { readRunProcessLock } from '#src/runState/lock/readRunProcessLock.ts';
 import { readFriction } from '#src/runState/readFriction.ts';
 import { readRunManifest } from '#src/runState/readRunManifest.ts';
 import { summarizeRun } from '#src/runState/summarizeRun.ts';
-import { buildRunBurnDown } from '#src/views/common/utils/buildRunBurnDown.ts';
-import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
-import { readFrozenWorklist } from '#src/views/common/utils/readFrozenWorklist.ts';
-import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
+import { buildRunBurnDown } from '#src/views/internal/common/utils/buildRunBurnDown.ts';
+import { getRunTitle } from '#src/views/internal/common/utils/getRunTitle.ts';
+import { readFrozenWorklist } from '#src/views/internal/common/utils/readFrozenWorklist.ts';
+import { readRunListing } from '#src/views/internal/common/utils/readRunListing.ts';
 
 /** The per-step spend summarizeRun attributed, keyed by step id. */
 type StepUsage = Map<string, { invocations: number; outputTokens: number; costUsd: number }>;

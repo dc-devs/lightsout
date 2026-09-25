@@ -1,12 +1,12 @@
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
-import { applyExclusion } from '#src/workOrder/common/exclusion/applyExclusion.ts';
-import { findExclusionRefusal } from '#src/workOrder/common/exclusion/findExclusionRefusal.ts';
-import { verifyWorkOrderBranch } from '#src/workOrder/common/exclusion/verifyWorkOrderBranch.ts';
-import { changeExistingWorkOrderState } from '#src/workOrder/common/record/changeExistingWorkOrderState.ts';
-import { isPlanImplementationStarted } from '#src/workOrder/common/record/isPlanImplementationStarted.ts';
-import { requireWorkOrderState } from '#src/workOrder/common/record/requireWorkOrderState.ts';
-import { resolveWorkOrderPlan } from '#src/workOrder/common/record/resolveWorkOrderPlan.ts';
 import type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
+import { applyExclusion } from '#src/workOrder/internal/common/exclusion/applyExclusion.ts';
+import { findExclusionRefusal } from '#src/workOrder/internal/common/exclusion/findExclusionRefusal.ts';
+import { verifyWorkOrderBranch } from '#src/workOrder/internal/common/exclusion/verifyWorkOrderBranch.ts';
+import { changeExistingWorkOrderState } from '#src/workOrder/internal/common/record/changeExistingWorkOrderState.ts';
+import { isPlanImplementationStarted } from '#src/workOrder/internal/common/record/isPlanImplementationStarted.ts';
+import { requireWorkOrderState } from '#src/workOrder/internal/common/record/requireWorkOrderState.ts';
+import { resolveWorkOrderPlan } from '#src/workOrder/internal/common/record/resolveWorkOrderPlan.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {

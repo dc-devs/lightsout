@@ -4,19 +4,19 @@ import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRec
 import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
-import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
-import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
-import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts';
-import { getAdvisoryFindings } from '#src/plan/draft/common/utils/getAdvisoryFindings.ts';
-import { stopForPhaseFailure } from '#src/plan/draft/common/utils/stopForPhaseFailure.ts';
+import { convergePlanStructure } from '#src/plan/draft/internal/common/utils/convergePlanStructure.ts';
+import { createDraftStop } from '#src/plan/draft/internal/common/utils/createDraftStop.ts';
+import { getAdvisoryFindings } from '#src/plan/draft/internal/common/utils/getAdvisoryFindings.ts';
+import { stopForPhaseFailure } from '#src/plan/draft/internal/common/utils/stopForPhaseFailure.ts';
 import { authorPhaseFiles } from '#src/plan/draft/legacy/authorPhaseFiles.ts';
-import { authorPlanFiles } from '#src/plan/draft/legacy/common/utils/authorPlanFiles.ts';
+import { authorPlanFiles } from '#src/plan/draft/legacy/internal/common/utils/authorPlanFiles.ts';
 import { repairPhaseBreakdown } from '#src/plan/draft/repairPhaseBreakdown.ts';
 import { stampPhaseCounts } from '#src/plan/draft/stampPhaseCounts.ts';
+import { planDraftOutputs } from '#src/plan/internal/common/paths/planDraftOutputs.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
+import type { RunPlanDraftResult } from '#src/plan/internal/common/types/RunPlanDraftResult.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 

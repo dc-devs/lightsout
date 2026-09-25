@@ -4,7 +4,7 @@ import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';
 import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
 
 // Mocked Imports
@@ -49,13 +49,13 @@ type GateOutcome = GateRunResult & { failures: GateResult[]; gates: GateResult[]
 
 const mockRunVerificationGates = jest.fn<(params: GateParams) => Promise<GateOutcome>>();
 
-jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
+jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => ({
 	runVerificationGates: (params: GateParams) => mockRunVerificationGates(params),
 }));
 // -------------------------
 const mockApproveRunnerSnapshots = jest.fn<(params: { run: PipelineRun }) => Promise<number>>();
 
-jest.mock('#src/pipeline/steps/verify/approveRunnerSnapshots.ts', () => ({
+jest.mock('#src/pipeline/steps/verify/internal/approveRunnerSnapshots.ts', () => ({
 	approveRunnerSnapshots: (params: { run: PipelineRun }) => mockApproveRunnerSnapshots(params),
 }));
 // -------------------------

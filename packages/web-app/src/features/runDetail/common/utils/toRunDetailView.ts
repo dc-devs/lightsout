@@ -1,5 +1,5 @@
 import type { RunView } from '@lightsout/engine';
-import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
+import type { RunDetailView } from '#src/features/runDetail/internal/common/types/RunDetailView.ts';
 
 interface Params {
 	/** A run view exactly as the engine assembled it. */

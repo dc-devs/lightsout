@@ -18,7 +18,6 @@ describe('the package entry', () => {
 		expect(Object.keys(contracts).sort()).toStrictEqual([
 			'RawStandardsFinding',
 			'StandardsCheckModule',
-			'StandardsFrameworksModule',
 			'StandardsInputKind',
 			'StandardsPackRoot',
 			'StandardsSet',

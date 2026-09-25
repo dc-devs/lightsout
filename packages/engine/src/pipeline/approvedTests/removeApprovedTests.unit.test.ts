@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { removeApprovedTests } from '#src/pipeline/approvedTests/removeApprovedTests.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const runId = 'run-1';

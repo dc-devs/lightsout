@@ -1,11 +1,11 @@
 import { cn } from '#src/common/utils/cn.ts';
-import { SprawlLane } from '#src/features/sprawl/common/constants/SprawlLane.ts';
 import { sprawlUnitBox } from '#src/features/sprawl/common/constants/sprawlUnitBox.ts';
 import { buildSprawlLaneStates } from '#src/features/sprawl/common/rendering/buildSprawlLaneStates.ts';
 import { buildSprawlLayout } from '#src/features/sprawl/common/rendering/buildSprawlLayout.ts';
 import { getSprawlMaxLines } from '#src/features/sprawl/common/rendering/getSprawlMaxLines.ts';
 import { getSprawlDataset } from '#src/features/sprawl/common/utils/getSprawlDataset.ts';
-import { useSprawlFrameLoop } from '#src/features/sprawl/hooks/useSprawlFrameLoop.ts';
+import { SprawlLane } from '#src/features/sprawl/internal/common/constants/SprawlLane.ts';
+import { useSprawlFrameLoop } from '#src/features/sprawl/internal/hooks/useSprawlFrameLoop.ts';
 
 interface Props {
 	/** Which lane to draw; omit for the single-lane hero. */

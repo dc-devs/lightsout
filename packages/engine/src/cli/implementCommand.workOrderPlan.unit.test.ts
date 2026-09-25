@@ -24,15 +24,15 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // the intent on it, and then fails at a plan file that is not there, before any
 // harness is spawned. The ticket record, the order rules and the progress
 // writing all run for real throughout.
-const { runPipelineOrFailFast: actualRunPipeline } = jest.requireActual<typeof import('#src/cli/common/utils/runPipelineOrFailFast.ts')>(
-	'#src/cli/common/utils/runPipelineOrFailFast.ts',
+const { runPipelineOrFailFast: actualRunPipeline } = jest.requireActual<typeof import('#src/cli/internal/common/utils/runPipelineOrFailFast.ts')>(
+	'#src/cli/internal/common/utils/runPipelineOrFailFast.ts',
 );
 
 type PipelineParams = Parameters<typeof actualRunPipeline>[0];
 
 const mockRunPipelineOrFailFast = jest.fn<(params: PipelineParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: PipelineParams) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
@@ -61,7 +61,7 @@ jest.mock('#src/worktree/fetchDefaultBranch.ts', () => ({ fetchDefaultBranch: (p
 // The report card reads a run directory a scripted pipeline never filled in.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/render/printResult.ts', () => ({
+jest.mock('#src/cli/internal/common/render/printResult.ts', () => ({
 	printResult: (params: { result: PipelineResult; cwd: string }) => mockPrintResult(params),
 }));
 // -------------------------

@@ -11,7 +11,7 @@ import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
 import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
-import { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
+import { gradeMemoryPath } from '#src/plan/common/utils/gradeMemoryPath.ts';
 import { gradeHistoryPath } from '#src/plan/gradeHistoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';

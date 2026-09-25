@@ -3,12 +3,12 @@ import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
 import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
 import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
-import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
-import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
-import type { BatchTools } from '#src/refactor/batch/common/types/BatchTools.ts';
-import { createFixInvoker } from '#src/refactor/batch/createFixInvoker.ts';
-import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
-import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
+import { SettleKind } from '#src/refactor/batch/internal/common/constants/SettleKind.ts';
+import { standaloneBanner } from '#src/refactor/batch/internal/common/constants/standaloneBanner.ts';
+import type { BatchTools } from '#src/refactor/batch/internal/common/types/BatchTools.ts';
+import { createFixInvoker } from '#src/refactor/batch/internal/createFixInvoker.ts';
+import { BatchStopKind } from '#src/refactor/internal/common/constants/BatchStopKind.ts';
+import type { BatchStop } from '#src/refactor/internal/common/types/BatchStop.ts';
 
 interface Params {
 	tools: BatchTools;

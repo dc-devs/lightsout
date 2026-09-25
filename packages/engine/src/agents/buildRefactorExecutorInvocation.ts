@@ -1,4 +1,4 @@
-import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
+import { selfCheckSection } from '#src/agents/internal/common/utils/selfCheckSection.ts';
 import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
 import refactorScopeFeaturePrompt from '#src/agents/prompts/refactorScopeFeature.md';
 import refactorScopeStandalonePrompt from '#src/agents/prompts/refactorScopeStandalone.md';

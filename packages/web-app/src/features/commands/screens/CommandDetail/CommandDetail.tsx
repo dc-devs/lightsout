@@ -1,8 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
 import { commandsQueryOptions } from '#src/features/commands/queries/commandsQueryOptions.ts';
-import { CommandHistory } from '#src/features/commands/screens/CommandDetail/components/CommandHistory.tsx';
-import { CommandManual } from '#src/features/commands/screens/CommandDetail/components/CommandManual.tsx';
+import { CommandHistory } from '#src/features/commands/screens/CommandDetail/internal/components/CommandHistory.tsx';
+import { CommandManual } from '#src/features/commands/screens/CommandDetail/internal/components/CommandManual.tsx';
 
 interface Props {
 	/** The route param — a catalog id such as `implement` or `standards-check`. */

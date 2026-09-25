@@ -1,14 +1,14 @@
 import { buildSelfCheckCommand } from '#src/common/selfCheck/buildSelfCheckCommand.ts';
 import { isTestSideFile } from '#src/common/sourceFiles/isTestSideFile.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { buildFeatureFix } from '#src/pipeline/steps/buildSteps/common/utils/buildFeatureFix.ts';
-import { buildImplementSteps } from '#src/pipeline/steps/buildSteps/common/utils/buildImplementSteps.ts';
-import { buildLedgerLintSteps } from '#src/pipeline/steps/buildSteps/common/utils/buildLedgerLintSteps.ts';
-import { buildRefactorSteps } from '#src/pipeline/steps/buildSteps/common/utils/buildRefactorSteps.ts';
-import { buildTestSteps } from '#src/pipeline/steps/buildSteps/common/utils/buildTestSteps.ts';
-import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
-import { writeLedgerTestsStep } from '#src/pipeline/steps/writeLedgerTestsStep.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/internal/PipelineStep.ts';
+import { cleanSlateStep } from '#src/pipeline/internal/steps/cleanSlateStep.ts';
+import { writeLedgerTestsStep } from '#src/pipeline/internal/steps/writeLedgerTestsStep.ts';
+import { buildFeatureFix } from '#src/pipeline/steps/buildSteps/internal/common/utils/buildFeatureFix.ts';
+import { buildImplementSteps } from '#src/pipeline/steps/buildSteps/internal/common/utils/buildImplementSteps.ts';
+import { buildLedgerLintSteps } from '#src/pipeline/steps/buildSteps/internal/common/utils/buildLedgerLintSteps.ts';
+import { buildRefactorSteps } from '#src/pipeline/steps/buildSteps/internal/common/utils/buildRefactorSteps.ts';
+import { buildTestSteps } from '#src/pipeline/steps/buildSteps/internal/common/utils/buildTestSteps.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
 interface Params {

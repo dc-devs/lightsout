@@ -3,14 +3,14 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
 import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
 import { readQueueBoard } from '#src/queue/board/readQueueBoard.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
 import { runDrainLanes } from '#src/queue/drainLanes/runDrainLanes.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WaveSelection } from '#src/queue/internal/common/types/WaveSelection.ts';
+import { createMainCheckoutSerializer } from '#src/queue/internal/common/utils/createMainCheckoutSerializer.ts';
 import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
@@ -26,7 +26,7 @@ type NameWaveParams = { tickets: RunnableTicket[] };
 // -------------------------
 const mockShipOneBranch = jest.fn<(params: ShipParams) => Promise<WorkOrderRunOutcome>>();
 
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipParams) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/internal/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipParams) => mockShipOneBranch(params) }));
 // -------------------------
 const mockListNextWave = jest.fn<(params: ScanParams) => Promise<WaveSelection | QueueFailure>>();
 

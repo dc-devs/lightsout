@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
-import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
+import type { PackageDir } from '#src/doctor/internal/common/types/PackageDir.ts';
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': 'pnpm test:coverage' };
 

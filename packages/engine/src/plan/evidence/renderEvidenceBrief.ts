@@ -1,7 +1,7 @@
 import type { SourceEvidenceEntry } from '#src/contracts/plan/evidence/SourceEvidenceEntry.ts';
 import type { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
 import { SourceEvidenceKind } from '#src/contracts/plan/evidence/SourceEvidenceKind.ts';
-import { wholeFileEvidenceLimit } from '#src/plan/evidence/common/constants/wholeFileEvidenceLimit.ts';
+import { wholeFileEvidenceLimit } from '#src/plan/evidence/internal/common/constants/wholeFileEvidenceLimit.ts';
 
 interface Params {
 	index: SourceEvidenceIndex;

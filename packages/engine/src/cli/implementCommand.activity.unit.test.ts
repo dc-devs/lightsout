@@ -56,7 +56,7 @@ jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 // whose status is the outcome the command run's end mark has to carry.
 const mockRunPipelineOrFailFast = jest.fn<(params: { cwd: string; planPath: string }) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: { cwd: string; planPath: string }) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
@@ -64,13 +64,13 @@ jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
 // pipeline ever wrote, and neither is what these cases are about.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/render/printResult.ts', () => ({
+jest.mock('#src/cli/internal/common/render/printResult.ts', () => ({
 	printResult: (params: { result: PipelineResult; cwd: string }) => mockPrintResult(params),
 }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: { cwd: string; result: PipelineResult }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: { cwd: string; result: PipelineResult }) => mockExitAfterImplement(params),
 }));
 // -------------------------

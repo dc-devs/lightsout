@@ -1,12 +1,12 @@
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
-import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
-import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
-import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
-import { parseRenames } from '#src/plan/common/parsing/parseRenames.ts';
-import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
-import { pathPairFromLine } from '#src/plan/common/paths/pathPairFromLine.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
+import { PlanFileKind } from '#src/plan/internal/common/constants/PlanFileKind.ts';
+import { parseAcceptanceLedger } from '#src/plan/internal/common/parsing/parseAcceptanceLedger.ts';
+import { parseProseFiles } from '#src/plan/internal/common/parsing/parseProseFiles.ts';
+import { parseRenames } from '#src/plan/internal/common/parsing/parseRenames.ts';
+import { pathFromLine } from '#src/plan/internal/common/paths/pathFromLine.ts';
+import { pathPairFromLine } from '#src/plan/internal/common/paths/pathPairFromLine.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { planCreatePaths } from '#src/plan/internal/planCreatePaths.ts';
 
 /**
  * Split a plan into its `##` sections (a `###` subheading stays inside its

@@ -8,8 +8,8 @@ import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
-import { recordHarnessProcess } from '#src/invoke/common/utils/recordHarnessProcess.ts';
 import { extractJsonReport } from '#src/invoke/extractJsonReport.ts';
+import { recordHarnessProcess } from '#src/invoke/internal/common/utils/recordHarnessProcess.ts';
 
 /**
  * Usage summed across every rung of the ladder — a re-emit retry and a re-run

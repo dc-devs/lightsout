@@ -22,7 +22,7 @@ describe('barrel-star check', () => {
 				siteKey: 'barrel-star:src/feature/index.ts',
 				files: [{ path: 'src/feature/index.ts' }],
 				detail: "'./renderGreeting' re-exported with `export *`",
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				guidance: 'An index file is a package’s public API — list named re-exports instead.',
 			},
 		]);
 	});
@@ -43,7 +43,7 @@ describe('barrel-star check', () => {
 				siteKey: 'barrel-star:src/feature/index.ts',
 				files: [{ path: 'src/feature/index.ts' }],
 				detail: "'./renderGreeting', './buildGreeting' re-exported with `export *`",
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				guidance: 'An index file is a package’s public API — list named re-exports instead.',
 			},
 		]);
 	});
@@ -61,7 +61,7 @@ describe('barrel-star check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('spares a package’s src root barrel, whose consumers sit outside this repo', async () => {
+	test('reports a package’s entry too, since other packages build against what it lists', async () => {
 		const input = setupFileTextInput({
 			contents: [
 				['src/index.ts', "export * from './bootstrap';"],
@@ -71,15 +71,16 @@ describe('barrel-star check', () => {
 
 		const findings = await check.run({ input, settings: {} });
 
-		expect(findings).toStrictEqual([]);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['barrel-star:src/index.ts']);
 	});
 
-	test('spares a barrel under common/, whose very existence is another rule’s objection', async () => {
+	test('spares a route index file the framework loads, which is no index file', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				['src/billing/common/utils/index.ts', "export * from './formatRate';"],
-				['src/billing/common/utils/formatRate.ts', "export const formatRate = (): string => '1';"],
+				['src/routes/index.tsx', "export * from './home';"],
+				['package.json', JSON.stringify({ dependencies: { '@tanstack/react-router': '1.0.0' } })],
 			],
+			files: ['src/routes/index.tsx'],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -102,7 +103,7 @@ describe('barrel-star check', () => {
 				siteKey: 'barrel-star:src/ingestion/index.js',
 				files: [{ path: 'src/ingestion/index.js' }],
 				detail: "'./ingestRecords.js' re-exported with `export *`",
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				guidance: 'An index file is a package’s public API — list named re-exports instead.',
 			},
 		]);
 	});
@@ -124,13 +125,13 @@ describe('barrel-star check', () => {
 				siteKey: 'barrel-star:src/reporting/index.mjs',
 				files: [{ path: 'src/reporting/index.mjs' }],
 				detail: "'./collectRows.mjs' re-exported with `export *`",
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				guidance: 'An index file is a package’s public API — list named re-exports instead.',
 			},
 			{
 				siteKey: 'barrel-star:src/widgets/index.jsx',
 				files: [{ path: 'src/widgets/index.jsx' }],
 				detail: "'./Widget.jsx' re-exported with `export *`",
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				guidance: 'An index file is a package’s public API — list named re-exports instead.',
 			},
 		]);
 	});

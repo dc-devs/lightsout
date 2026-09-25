@@ -7,11 +7,11 @@ import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.
 import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
-import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
-import { composePlanId } from '#src/workOrder/common/record/composePlanId.ts';
-import { recordShipRequestWithdrawal } from '#src/workOrder/common/record/recordShipRequestWithdrawal.ts';
-import { requireWorkOrderState } from '#src/workOrder/common/record/requireWorkOrderState.ts';
 import type { WorkOrderStateChange } from '#src/workOrder/common/types/WorkOrderStateChange.ts';
+import { appendWorkOrderEvent } from '#src/workOrder/internal/common/record/appendWorkOrderEvent.ts';
+import { composePlanId } from '#src/workOrder/internal/common/record/composePlanId.ts';
+import { recordShipRequestWithdrawal } from '#src/workOrder/internal/common/record/recordShipRequestWithdrawal.ts';
+import { requireWorkOrderState } from '#src/workOrder/internal/common/record/requireWorkOrderState.ts';
 import { updateSyncedWorkOrderState } from '#src/workOrder/updateSyncedWorkOrderState.ts';
 
 interface Params {

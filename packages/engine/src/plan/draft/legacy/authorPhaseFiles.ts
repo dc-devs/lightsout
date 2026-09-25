@@ -12,15 +12,15 @@ import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
 import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
-import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
-import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
-import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
-import type { AuthorPhaseFilesResult } from '#src/plan/draft/common/types/AuthorPhaseFilesResult.ts';
-import type { PhaseOutcome } from '#src/plan/draft/common/types/PhaseOutcome.ts';
-import { foldPhaseOutcomes } from '#src/plan/draft/common/utils/foldPhaseOutcomes.ts';
+import type { AuthorPhaseFilesResult } from '#src/plan/draft/internal/common/types/AuthorPhaseFilesResult.ts';
+import type { PhaseOutcome } from '#src/plan/draft/internal/common/types/PhaseOutcome.ts';
+import { foldPhaseOutcomes } from '#src/plan/draft/internal/common/utils/foldPhaseOutcomes.ts';
+import { getPlanRunStatus } from '#src/plan/internal/common/activity/getPlanRunStatus.ts';
+import { planDraftConcurrency } from '#src/plan/internal/common/constants/planDraftConcurrency.ts';
+import { createPlanAgentRunner } from '#src/plan/internal/common/utils/createPlanAgentRunner.ts';
+import { drainTasks } from '#src/plan/internal/common/utils/drainTasks.ts';
+import { isRateLimited } from '#src/plan/internal/common/utils/isRateLimited.ts';
 
 interface Params {
 	cwd: string;

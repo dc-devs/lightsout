@@ -28,7 +28,7 @@ interface WaitForChecksParams {
 
 const mockWaitForChecks = jest.fn<(params: WaitForChecksParams) => Promise<ChecksSummary>>();
 
-jest.mock('#src/ship/waitForChecks.ts', () => ({ waitForChecks: (params: WaitForChecksParams) => mockWaitForChecks(params) }));
+jest.mock('#src/ship/internal/waitForChecks.ts', () => ({ waitForChecks: (params: WaitForChecksParams) => mockWaitForChecks(params) }));
 // -------------------------
 
 const viewed = '{"number":41,"url":"https://forge.example/acme/repo/pull/41","title":"Add the ship command","headRefName":"lo-60-ship"}';

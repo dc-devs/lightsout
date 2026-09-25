@@ -100,13 +100,15 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 
 	linkTypescript({ dir });
 
-	// The module pre-exists the run: its barrel exports pub.ts only, and pub.ts
-	// imports both internals — the run will change ONLY the internals.
-	mkdirSync(join(dir, 'src/mod'), { recursive: true });
-	writeFileSync(join(dir, 'src/mod/index.ts'), "export { pub } from './pub';\n");
-	writeFileSync(join(dir, 'src/mod/pub.ts'), "import { a } from './a';\nimport { b } from './b';\n\nexport const pub = (): number => a() + b();\n");
-	writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 1;\n');
-	writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 2;\n');
+	// The module pre-exists the run: pub.ts is its public file and imports both
+	// internals — the run will change ONLY the internals.
+	mkdirSync(join(dir, 'src/mod/internal'), { recursive: true });
+	writeFileSync(
+		join(dir, 'src/mod/pub.ts'),
+		"import { a } from './internal/a';\nimport { b } from './internal/b';\n\nexport const pub = (): number => a() + b();\n",
+	);
+	writeFileSync(join(dir, 'src/mod/internal/a.ts'), 'export const a = (): number => 1;\n');
+	writeFileSync(join(dir, 'src/mod/internal/b.ts'), 'export const b = (): number => 2;\n');
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm module', { cwd: dir });
 
 	const writerPrompts: string[] = [];
@@ -136,15 +138,15 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 					return { text: report(), exitCode: 0 };
 				}
 
-				// Implement: both internals change; pub.ts and the barrel do not.
-				writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 10;\n');
-				writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 20;\n');
+				// Implement: both internals change; pub.ts does not.
+				writeFileSync(join(dir, 'src/mod/internal/a.ts'), 'export const a = (): number => 10;\n');
+				writeFileSync(join(dir, 'src/mod/internal/b.ts'), 'export const b = (): number => 20;\n');
 
 				return {
 					text: report({
 						changedFiles: [
-							{ path: 'src/mod/a.ts', summary: 'internal' },
-							{ path: 'src/mod/b.ts', summary: 'internal' },
+							{ path: 'src/mod/internal/a.ts', summary: 'internal' },
+							{ path: 'src/mod/internal/b.ts', summary: 'internal' },
 						],
 					}),
 					exitCode: 0,
@@ -168,7 +170,7 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 	// the unchanged public file is the subject; the changed internals ride the must-execute list
 	expect(
 		writerPrompts[0]?.includes(
-			'# Test subjects — write tests through these public surfaces\n\n- src/mod/pub.ts\n\n# Changed internals that must execute under those tests\n\n- src/mod/a.ts\n- src/mod/b.ts',
+			'# Test subjects — write tests through these public surfaces\n\n- src/mod/pub.ts\n\n# Changed internals that must execute under those tests\n\n- src/mod/internal/a.ts\n- src/mod/internal/b.ts',
 		),
 	).toBeTruthy();
 	// the unchanged subject is what the run records for fix re-invocations

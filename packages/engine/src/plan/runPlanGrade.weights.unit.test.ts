@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@jest/globals';
 import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
 import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
-import { gradeMemoryPath } from '#src/plan/common/memory/gradeMemoryPath.ts';
+import { gradeMemoryPath } from '#src/plan/common/utils/gradeMemoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';

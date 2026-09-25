@@ -6,10 +6,10 @@ import { canonicalJson } from '#src/common/utils/canonicalJson.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
 import { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
-import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
-import { readWorkOrderStateFile } from '#src/workOrder/common/utils/readWorkOrderStateFile.ts';
-import { serializeWorkOrderState } from '#src/workOrder/common/utils/serializeWorkOrderState.ts';
-import { withWorkOrderStateLock } from '#src/workOrder/common/utils/withWorkOrderStateLock.ts';
+import { workOrderFileNames } from '#src/workOrder/internal/common/constants/workOrderFileNames.ts';
+import { readWorkOrderStateFile } from '#src/workOrder/internal/common/utils/readWorkOrderStateFile.ts';
+import { serializeWorkOrderState } from '#src/workOrder/internal/common/utils/serializeWorkOrderState.ts';
+import { withWorkOrderStateLock } from '#src/workOrder/internal/common/utils/withWorkOrderStateLock.ts';
 
 interface Params {
 	/** Any checkout of the repository: the one record this machine holds is found from it. */

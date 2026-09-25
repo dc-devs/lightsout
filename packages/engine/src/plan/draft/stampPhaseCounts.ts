@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
-import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
+import { getPlanTouchedPaths } from '#src/plan/internal/common/utils/getPlanTouchedPaths.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 

@@ -7,7 +7,7 @@ import { EmptyState } from '#src/appUI/EmptyState.tsx';
 import { FilterDropdown } from '#src/appUI/FilterDropdown.tsx';
 import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
-import { planStageLabels } from '#src/features/plans/common/constants/planStageLabels.ts';
+import { planStageLabels } from '#src/features/plans/internal/common/constants/planStageLabels.ts';
 import { planWorkspacesQueryOptions } from '#src/features/plans/queries/planWorkspacesQueryOptions.ts';
 import { PlansTable } from '#src/features/plans/screens/PlansPage/components/PlansTable.tsx';
 

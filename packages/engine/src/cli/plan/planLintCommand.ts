@@ -1,11 +1,11 @@
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
-import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
-import { bold } from '#src/cli/common/terminal/bold.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
-import { red } from '#src/cli/common/terminal/red.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
+import { printStructuralFinding } from '#src/cli/internal/common/render/printStructuralFinding.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { green } from '#src/cli/internal/common/terminal/green.ts';
+import { red } from '#src/cli/internal/common/terminal/red.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { runPlanLint } from '#src/plan/runPlanLint.ts';

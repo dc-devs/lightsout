@@ -1,8 +1,8 @@
-import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
-import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
-import { changedFilesSection } from '#src/agents/common/utils/changedFilesSection.ts';
-import { renameOnlySection } from '#src/agents/common/utils/renameOnlySection.ts';
-import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
+import { acceptanceTestsSection } from '#src/agents/internal/common/utils/acceptanceTestsSection.ts';
+import { applyPromptTokens } from '#src/agents/internal/common/utils/applyPromptTokens.ts';
+import { changedFilesSection } from '#src/agents/internal/common/utils/changedFilesSection.ts';
+import { renameOnlySection } from '#src/agents/internal/common/utils/renameOnlySection.ts';
+import { selfCheckSection } from '#src/agents/internal/common/utils/selfCheckSection.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import type { RenameRule } from '#src/contracts/plan/renames/RenameRule.ts';

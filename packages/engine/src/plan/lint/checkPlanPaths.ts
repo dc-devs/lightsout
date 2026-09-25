@@ -3,7 +3,7 @@ import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
 
 interface Params {
 	plan: ParsedPlan;

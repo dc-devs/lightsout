@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
-import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
-import { runGh } from '#src/ship/forge/runGh.ts';
+import { parseForgeJson } from '#src/ship/forge/internal/common/utils/parseForgeJson.ts';
+import { runGh } from '#src/ship/forge/internal/runGh.ts';
 
 interface Params {
 	prNumber: number;

@@ -1,12 +1,12 @@
 import { formatDuration } from '@lightsout/shared';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
-import { printFindingGroups } from '#src/cli/common/render/printFindingGroups.ts';
-import { printSectionHeading } from '#src/cli/common/render/printSectionHeading.ts';
-import { printStandardsRuleList } from '#src/cli/common/render/printStandardsRuleList.ts';
-import { printStandardsSummary } from '#src/cli/common/render/printStandardsSummary.ts';
-import { dim } from '#src/cli/common/terminal/dim.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { printFindingGroups } from '#src/cli/internal/common/render/printFindingGroups.ts';
+import { printSectionHeading } from '#src/cli/internal/common/render/printSectionHeading.ts';
+import { printStandardsRuleList } from '#src/cli/internal/common/render/printStandardsRuleList.ts';
+import { printStandardsSummary } from '#src/cli/internal/common/render/printStandardsSummary.ts';
+import { dim } from '#src/cli/internal/common/terminal/dim.ts';
 import { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
 import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';

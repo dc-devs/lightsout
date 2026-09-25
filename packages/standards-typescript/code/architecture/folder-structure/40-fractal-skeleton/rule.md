@@ -6,4 +6,4 @@ severity: advisory
 
 ## Fractal Skeleton
 
-Every graduated feature folder shares one internal shape — its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.
+Every graduated feature folder shares one internal shape — its main file and (when needed) `common/`. No feature invents its own layout.

@@ -1,1 +1,0 @@
-export { getTimeout } from './getTimeout';

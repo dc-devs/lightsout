@@ -1,9 +1,9 @@
 import { gateBlockedLabel } from '#src/gates/gateHolds/common/constants/gateBlockedLabel.ts';
 import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
-import { readGateHolds } from '#src/gates/gateHolds/common/utils/readGateHolds.ts';
-import { removeGateHold } from '#src/gates/gateHolds/common/utils/removeGateHold.ts';
-import { writeGateBlockedLabel } from '#src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts';
-import { writeGateHold } from '#src/gates/gateHolds/common/utils/writeGateHold.ts';
+import { readGateHolds } from '#src/gates/gateHolds/internal/common/utils/readGateHolds.ts';
+import { removeGateHold } from '#src/gates/gateHolds/internal/common/utils/removeGateHold.ts';
+import { writeGateBlockedLabel } from '#src/gates/gateHolds/internal/common/utils/writeGateBlockedLabel.ts';
+import { writeGateHold } from '#src/gates/gateHolds/internal/common/utils/writeGateHold.ts';
 import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';

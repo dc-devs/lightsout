@@ -23,7 +23,7 @@ interface Params {
  * on anything but a `this`-held field — is not the mandated shape and stays a
  * duplicate candidate.
  *
- * @mirrors packages/engine/src/standardsCheck/common/utils/isDelegationForwardBody.ts
+ * @mirrors packages/engine/src/standardsCheck/internal/common/utils/isDelegationForwardBody.ts
  */
 export const isDelegationForwardBody = ({ body, compiler }: Params): boolean => {
 	const statements = compiler.isBlock(body) ? body.statements : undefined;

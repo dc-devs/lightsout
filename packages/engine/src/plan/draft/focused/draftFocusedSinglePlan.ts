@@ -2,18 +2,18 @@ import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
 import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
-import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
 import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/buildPlanSyncDecisionsCommand.ts';
 import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 import { buildPlanLintCommand } from '#src/plan/draft/common/utils/buildPlanLintCommand.ts';
-import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
-import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts';
-import { deleteAbandonedPlan } from '#src/plan/draft/common/utils/deleteAbandonedPlan.ts';
-import { authorFocusedPlanFiles } from '#src/plan/draft/focused/common/utils/authorFocusedPlanFiles.ts';
-import { renderDraftEvidenceBrief } from '#src/plan/draft/focused/common/utils/renderDraftEvidenceBrief.ts';
 import { draftFocusedPhasedPlan } from '#src/plan/draft/focused/draftFocusedPhasedPlan.ts';
+import { authorFocusedPlanFiles } from '#src/plan/draft/focused/internal/common/utils/authorFocusedPlanFiles.ts';
+import { renderDraftEvidenceBrief } from '#src/plan/draft/focused/internal/common/utils/renderDraftEvidenceBrief.ts';
+import { convergePlanStructure } from '#src/plan/draft/internal/common/utils/convergePlanStructure.ts';
+import { createDraftStop } from '#src/plan/draft/internal/common/utils/createDraftStop.ts';
+import { deleteAbandonedPlan } from '#src/plan/draft/internal/common/utils/deleteAbandonedPlan.ts';
+import { planDraftOutputs } from '#src/plan/internal/common/paths/planDraftOutputs.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
+import type { RunPlanDraftResult } from '#src/plan/internal/common/types/RunPlanDraftResult.ts';
 import { syncGlobalConstraints } from '#src/plan/sections/syncGlobalConstraints.ts';
 
 interface Params {

@@ -4,8 +4,8 @@ import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProg
 import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
 import type { PlanningStepRecord } from '#src/contracts/plan/progress/PlanningStepRecord.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
-import { writePlanningProgress } from '#src/plan/progress/common/utils/writePlanningProgress.ts';
 import { getPlanningProgressPath } from '#src/plan/progress/getPlanningProgressPath.ts';
+import { writePlanningProgress } from '#src/plan/progress/internal/common/utils/writePlanningProgress.ts';
 import { readPlanningProgress } from '#src/plan/progress/readPlanningProgress.ts';
 
 /** Every other step's entry kept as it was, this step's replaced, and the whole list in `PlanningStep` order. */

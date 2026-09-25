@@ -2,7 +2,7 @@ import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { JiraTrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import type { JiraAttachment } from '#src/ticketTracker/jira/getTicketAttachments.ts';
-import { runJira } from '#src/ticketTracker/jira/runJira.ts';
+import { runJira } from '#src/ticketTracker/jira/internal/runJira.ts';
 
 interface Params {
 	settings: JiraTrackerSettings;

@@ -1,5 +1,5 @@
 import type { GateEvidence } from '#src/contracts/views/GateEvidence.ts';
-import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
+import { appendRunLog } from '#src/runState/internal/common/utils/appendRunLog.ts';
 
 interface Params {
 	cwd: string;

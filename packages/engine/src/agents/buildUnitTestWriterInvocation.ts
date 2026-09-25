@@ -1,4 +1,4 @@
-import { acceptanceTestsSection } from '#src/agents/common/utils/acceptanceTestsSection.ts';
+import { acceptanceTestsSection } from '#src/agents/internal/common/utils/acceptanceTestsSection.ts';
 import unitTestWriterPrompt from '#src/agents/prompts/unitTestWriter.md';
 import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 

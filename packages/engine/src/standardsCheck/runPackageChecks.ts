@@ -5,11 +5,11 @@ import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
-import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
-import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
-import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
-import { findFoldersWithoutAliasSource } from '#src/standardsCheck/common/utils/findFoldersWithoutAliasSource.ts';
-import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
+import { buildCheckInput } from '#src/standardsCheck/internal/common/checkInputs/buildCheckInput.ts';
+import { typescriptInputKinds } from '#src/standardsCheck/internal/common/constants/typescriptInputKinds.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/internal/common/types/ResolvedRuleState.ts';
+import { findFoldersWithoutAliasSource } from '#src/standardsCheck/internal/common/utils/findFoldersWithoutAliasSource.ts';
+import { runRuleCheck } from '#src/standardsCheck/internal/common/utils/runRuleCheck.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 /** A rule that will actually run, with everything the run needs already resolved. */

@@ -1,7 +1,7 @@
-import { printCoverageResult } from '#src/cli/common/render/printCoverageResult.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
+import { printCoverageResult } from '#src/cli/internal/common/render/printCoverageResult.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { runBatchedCommand } from '#src/cli/internal/common/utils/runBatchedCommand.ts';
 import { runCoveragePipeline } from '#src/coverage/runCoveragePipeline.ts';
 
 export const testCoverageToThresholdCommand = ({ flags, cwd }: CommandContext): Promise<void> =>

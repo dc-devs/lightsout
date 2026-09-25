@@ -8,8 +8,8 @@ import type { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
 import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
-import { runDirectoryIndex } from '#src/runState/common/constants/runDirectoryIndex.ts';
 import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
+import { runDirectoryIndex } from '#src/runState/internal/common/constants/runDirectoryIndex.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {

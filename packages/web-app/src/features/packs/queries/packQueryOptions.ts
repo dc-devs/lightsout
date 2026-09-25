@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { getPackServerFn } from '#src/features/packs/serverFns/getPackServerFn.ts';
+import { getPackServerFn } from '#src/features/packs/internal/serverFns/getPackServerFn.ts';
 
 interface Params {
 	/** The pack's own `name`, which is what the URL carries. */

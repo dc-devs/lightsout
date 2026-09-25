@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { buildPiArgs, type PiVariant } from '#src/drivers/buildPiArgs.ts';
 import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { DriverResult } from '#src/drivers/common/types/DriverResult.ts';
-import { isRateLimitMessage } from '#src/drivers/common/utils/isRateLimitMessage.ts';
-import { spawnCollect } from '#src/drivers/common/utils/spawnCollect.ts';
-import { writeSystemPromptFile } from '#src/drivers/common/utils/writeSystemPromptFile.ts';
+import { isRateLimitMessage } from '#src/drivers/internal/common/utils/isRateLimitMessage.ts';
+import { spawnCollect } from '#src/drivers/internal/common/utils/spawnCollect.ts';
+import { writeSystemPromptFile } from '#src/drivers/internal/common/utils/writeSystemPromptFile.ts';
 
 /**
  * One message of the pi-family json stream (`<binary> -p --mode json`): NDJSON,
