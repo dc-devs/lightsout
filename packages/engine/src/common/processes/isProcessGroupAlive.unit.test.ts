@@ -2,9 +2,13 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
 import { isProcessGroupAlive } from '#src/common/processes/isProcessGroupAlive.ts';
 
-/** A detached shell, so its pid is also the id of the group it leads — exactly how a gate command is spawned. */
+/**
+ * A detached `sleep`, so its pid is also its group id. No shell: a shell may fork
+ * `sleep` as a second group member, left as a zombie after the kill until init
+ * reaps it, which would make the group read alive after the leader is gone.
+ */
 const setupDetachedChild = async () => {
-	const child = spawn('sleep 30', { shell: true, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+	const child = spawn('sleep', ['30'], { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 
 	await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -30,9 +34,6 @@ describe('isProcessGroupAlive', () => {
 		await stopGroup({ child, pgid });
 		const afterExit = isProcessGroupAlive({ pgid });
 
-		// a reservation left by a killed engine is only reclaimable once the gate
-		// groups it recorded are gone, so this answer decides whether a second run
-		// gets the machine while the first run's suites are still burning it
 		expect({ whileRunning, afterExit }).toStrictEqual({ whileRunning: true, afterExit: false });
 	});
 });
