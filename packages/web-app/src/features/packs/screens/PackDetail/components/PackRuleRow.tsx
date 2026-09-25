@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Badge } from '#src/appUI/badges/Badge.tsx';
 import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { Skeleton } from '#src/appUI/Skeleton.tsx';
-import { severityBadgeVariants } from '#src/features/packs/common/constants/severityBadgeVariants.ts';
+import { severityBadgeVariants } from '#src/common/constants/severityBadgeVariants.ts';
 import { hasRuleFixtures } from '#src/features/packs/common/utils/hasRuleFixtures.ts';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
 import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';

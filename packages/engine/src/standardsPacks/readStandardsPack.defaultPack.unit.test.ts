@@ -66,7 +66,7 @@ describe('readStandardsPack', () => {
 	test('assembles both sets for a repo running no framework, each document headed by where it came from', async () => {
 		const { pack } = await setupDefaultPack();
 
-		const { code, tests } = buildStandardsDocuments({ pack, channels: [] });
+		const { code, tests } = buildStandardsDocuments({ pack, channels: [], config: undefined });
 
 		expect(code?.match(/^<!-- lightsout-defaults: code\/.+ -->$/gm)).toHaveLength(17);
 		expect(tests?.match(/^<!-- lightsout-defaults: tests\/.+ -->$/gm)).toHaveLength(2);
@@ -78,7 +78,7 @@ describe('readStandardsPack', () => {
 	test('brings the framework documents in for a repo that runs them, after the base ones', async () => {
 		const { pack } = await setupDefaultPack();
 
-		const { code, tests } = buildStandardsDocuments({ pack, channels: ['react', 'tanstack'] });
+		const { code, tests } = buildStandardsDocuments({ pack, channels: ['react', 'tanstack'], config: undefined });
 
 		// 17 base + 2 react + 1 tanstack on the code side; 2 base + 1 react on the tests side
 		expect(code?.match(/^<!-- lightsout-defaults: code\/.+ -->$/gm)).toHaveLength(20);

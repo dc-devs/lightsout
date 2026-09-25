@@ -1,4 +1,6 @@
 import { StandardsSet } from '@lightsout/standards-contracts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
@@ -6,6 +8,8 @@ interface Params {
 	pack: LoadedStandardsPack;
 	/** Active framework channels; base documents always apply. */
 	channels: string[];
+	/** The repo's config — its `standards-checks` entries decide which opt-in rules are in play. */
+	config: LightsoutConfig | undefined;
 }
 
 /** Lexicographic by pack-relative path — assembly order within one channel group. Comparator shape is the caller's. */
@@ -27,11 +31,20 @@ const renderDocument = ({ name, document, proseById }: { name: string; document:
  * given; within a group, documents sort by their pack-relative path. A set
  * with nothing in play is absent rather than empty.
  *
+ * A rule the pack ships `off` is one a repo opts into, so its prose is left out
+ * until the repo's config names it: an agent told to follow a convention the
+ * repo never chose writes code the repo's own reviewers reject. A rule the repo
+ * turned off itself keeps its prose — off there means its own linter enforces
+ * the rule, and the standard still holds.
+ *
  * @param pack - the loaded pack
  * @param channels - framework channels active for the repo being worked on
+ * @param config - the repo's config, whose `standards-checks` opts rules in
  */
-export const buildStandardsDocuments = ({ pack, channels }: Params): { code?: string; tests?: string } => {
-	const proseById = new Map<string, string>(pack.rules.map((rule) => [rule.id, rule.prose]));
+export const buildStandardsDocuments = ({ pack, channels, config }: Params): { code?: string; tests?: string } => {
+	const named = config?.['standards-checks'] ?? {};
+	const inPlay = pack.rules.filter((rule) => rule.defaultSeverity !== StandardsSeverity.Off || Object.hasOwn(named, rule.id));
+	const proseById = new Map<string, string>(inPlay.map((rule) => [rule.id, rule.prose]));
 
 	const renderSet = ({ set }: { set: StandardsSet }) => {
 		const inSet = pack.documents.filter((document) => document.set === set);

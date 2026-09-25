@@ -182,6 +182,14 @@ describe('RuleDetail', () => {
 		expect(screen.getByRole('button', { name: /copy off/i })).toBeInTheDocument();
 	});
 
+	test('offers the two ways to turn on a rule the pack ships off, since a repo opts into it', () => {
+		setupRuleDetail({ rule: buildStandardsPackRuleView({ overrides: { defaultSeverity: StandardsSeverity.Off } }) });
+
+		expect(screen.getByRole('heading', { name: 'Turn it on' })).toBeInTheDocument();
+		expect(screen.getByText('"standards-checks": { "type-assertion": "blocking" }')).toBeInTheDocument();
+		expect(screen.getByText('"standards-checks": { "type-assertion": "advisory" }')).toBeInTheDocument();
+	});
+
 	test('says what the repo the app has open does with this rule, and how much is open under it', () => {
 		setupRuleDetail({ loadedHere: true });
 

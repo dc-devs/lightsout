@@ -16,7 +16,7 @@ export interface PackRuleFilters {
 	channel?: string;
 	/** true = enforced by code, false = judgment, undefined = both. */
 	checked?: boolean;
-	/** A rule ships blocking or advisory; `off` is a repo's own choice and never a pack's default. */
-	severity?: typeof StandardsSeverity.Blocking | typeof StandardsSeverity.Advisory;
+	/** What the pack ships the rule at — `off` for a rule a repo opts into. */
+	severity?: StandardsSeverity;
 	text?: string;
 }

@@ -7,7 +7,7 @@ import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { DataTable } from '#src/appUI/DataTable.tsx';
 import { EmptyState } from '#src/appUI/EmptyState.tsx';
 import { FilterDropdown } from '#src/appUI/FilterDropdown.tsx';
-import { ruleStateBadgeVariants } from '#src/common/constants/ruleStateBadgeVariants.ts';
+import { severityBadgeVariants } from '#src/common/constants/severityBadgeVariants.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 
 /** One row of the ledger — a loaded rule and the state this repo runs it at. */
@@ -43,7 +43,7 @@ const columns: Array<DataTableColumn<RuleState>> = [
 		key: 'severity',
 		header: 'severity here',
 		sortValue: (state) => state.severity,
-		render: (state) => <Badge variant={ruleStateBadgeVariants[state.severity]}>{state.severity}</Badge>,
+		render: (state) => <Badge variant={severityBadgeVariants[state.severity]}>{state.severity}</Badge>,
 	},
 	{
 		key: 'fromConfig',

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Badge } from '#src/appUI/badges/Badge.tsx';
 import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
-import { ruleStateBadgeVariants } from '#src/common/constants/ruleStateBadgeVariants.ts';
+import { severityBadgeVariants } from '#src/common/constants/severityBadgeVariants.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 
@@ -93,7 +93,7 @@ export const RuleInThisRepo = ({ ruleId }: Props) => {
 		<SettingsCard title="In this repo" description="What the repository the app has open does with this rule.">
 			<div className="flex flex-col gap-4">
 				<div className="flex flex-wrap items-center gap-2 text-sm">
-					<Badge variant={ruleStateBadgeVariants[rule.severity]}>{rule.severity}</Badge>
+					<Badge variant={severityBadgeVariants[rule.severity]}>{rule.severity}</Badge>
 					<span className="text-muted-foreground">{rule.fromConfig ? "set by this repo's config" : 'as the pack ships it'}</span>
 					<Link to="/repo/standards" search={{ rule: rule.rule }} className="text-brand-to underline underline-offset-4">
 						{formatCount({ count: rule.findingCount, noun: 'open finding' })} →

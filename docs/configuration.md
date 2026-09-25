@@ -345,6 +345,8 @@ The three severities are:
 - `advisory` — reported, and handed to the refactor agent as a judgment call. Never blocks.
 - `off` — not run at all. This is what you set when your own linter already enforces the rule.
 
+A pack may also ship a rule `off`: a convention some repositories want and most do not, which a repository opts into by naming it here at `blocking` or `advisory`. Until it does, the rule neither runs nor reaches an agent's instructions. A rule you turn `off` yourself still reaches them, because the standard still holds and your linter is what enforces it.
+
 Severity is the only lever a run gates on. There is no separate list of blockable rules, so the only way to stop a rule blocking is to write `advisory` or `off` for it here — an explicit line in a committed file. A mistyped rule id fails config parsing rather than silently disabling an override you believe is active.
 
 Run `lightsout standards-check --list` to print every rule with the standards document it enforces and the state it runs at in your repo — the live answer, rather than a list here that goes stale.

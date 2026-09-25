@@ -141,6 +141,23 @@ describe('readStandardsPack', () => {
 		expect(functions?.prose).toBe('Prose.');
 	});
 
+	test('reads a rule the pack ships off, for a repo to opt into', async () => {
+		const { packPath } = setupPack({
+			files: {
+				...rootFile,
+				'code/modules/document.md': '# Modules\n',
+				...ruleFiles({
+					path: 'code/modules/01-internal-import',
+					markdown: '---\nsummary: an internal file imported from outside\nseverity: off\n---\n\nProse.\n',
+				}),
+			},
+		});
+
+		const pkg = await readStandardsPack({ packPath });
+
+		expect(pkg.rules.find((rule) => rule.id === 'internal-import')?.defaultSeverity).toBe('off');
+	});
+
 	test('reports every structural and honesty problem in one error rather than the first', async () => {
 		const { packPath } = setupPack({
 			folders: ['code/style/patterns/04-empty-fixtures/fixtures/pass'],

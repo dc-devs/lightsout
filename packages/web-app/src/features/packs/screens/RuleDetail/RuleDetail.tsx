@@ -8,7 +8,7 @@ import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryO
 import { RuleHeader } from '#src/features/packs/screens/RuleDetail/components/RuleHeader.tsx';
 import { RuleInThisRepo } from '#src/features/packs/screens/RuleDetail/components/RuleInThisRepo.tsx';
 import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/components/RuleSettingsCard.tsx';
-import { TurnItDownCard } from '#src/features/packs/screens/RuleDetail/components/TurnItDownCard.tsx';
+import { SeverityOverrideCard } from '#src/features/packs/screens/RuleDetail/components/SeverityOverrideCard.tsx';
 
 interface Props {
 	packName: string;
@@ -49,7 +49,7 @@ export const RuleDetail = ({ packName, ruleId }: Props) => {
 				<FixtureDiff fixtures={rule.fixtures} />
 			</Card>
 			<RuleSettingsCard rule={rule} />
-			<TurnItDownCard ruleId={rule.id} />
+			<SeverityOverrideCard ruleId={rule.id} defaultSeverity={rule.defaultSeverity} />
 			<RuleInThisRepo ruleId={rule.id} />
 		</div>
 	);

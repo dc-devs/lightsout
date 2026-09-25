@@ -28,7 +28,7 @@ interface PackSearch {
 	set?: StandardsSet;
 	channel?: string;
 	enforcedBy?: EnforcedBy;
-	severity?: typeof StandardsSeverity.Blocking | typeof StandardsSeverity.Advisory;
+	severity?: StandardsSeverity;
 	text?: string;
 }
 
@@ -42,7 +42,7 @@ const validateSearch = (search: Record<string, unknown>): PackSearch => ({
 	set: readOption({ value: search.set, options: [StandardsSet.Code, StandardsSet.Tests] }),
 	channel: readText({ value: search.channel }),
 	enforcedBy: readOption({ value: search.enforcedBy, options: [EnforcedBy.Code, EnforcedBy.Judgment] }),
-	severity: readOption({ value: search.severity, options: [StandardsSeverity.Blocking, StandardsSeverity.Advisory] }),
+	severity: readOption({ value: search.severity, options: [StandardsSeverity.Blocking, StandardsSeverity.Advisory, StandardsSeverity.Off] }),
 	text: readText({ value: search.text }),
 });
 

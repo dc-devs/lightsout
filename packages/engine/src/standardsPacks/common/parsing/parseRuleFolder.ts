@@ -22,7 +22,7 @@ interface Params {
 const ruleDeclaration = z.object({
 	summary: z.string().min(1),
 	checked: z.boolean().default(false),
-	severity: z.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]).default(StandardsSeverity.Advisory),
+	severity: z.enum(StandardsSeverity).default(StandardsSeverity.Advisory),
 	settings: z.record(z.string(), z.number()).default({}),
 });
 

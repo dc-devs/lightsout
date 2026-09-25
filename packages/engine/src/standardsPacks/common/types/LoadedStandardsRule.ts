@@ -16,7 +16,8 @@ export interface LoadedStandardsRule {
 	channel: string;
 	/** True when the folder declares (and ships) a machine check. */
 	checked: boolean;
-	defaultSeverity: typeof StandardsSeverity.Blocking | typeof StandardsSeverity.Advisory;
+	/** `off` marks a rule a repo opts into: it runs, and its prose reaches agents, only once the repo's config names it. */
+	defaultSeverity: StandardsSeverity;
 	defaultSettings: Record<string, number>;
 	/** Present iff checked. */
 	inputKind?: StandardsInputKind;

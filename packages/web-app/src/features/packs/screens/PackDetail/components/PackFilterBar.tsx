@@ -75,7 +75,9 @@ interface Props {
  */
 export const PackFilterBar = ({ rules, filters, onChange, matchCount }: Props) => {
 	const sets = [StandardsSet.Code, StandardsSet.Tests].filter((set) => rules.some((rule) => rule.set === set));
-	const severities = [StandardsSeverity.Blocking, StandardsSeverity.Advisory].filter((severity) => rules.some((rule) => rule.defaultSeverity === severity));
+	const severities = [StandardsSeverity.Blocking, StandardsSeverity.Advisory, StandardsSeverity.Off].filter((severity) =>
+		rules.some((rule) => rule.defaultSeverity === severity),
+	);
 	const enforced = [true, false].filter((checked) => rules.some((rule) => rule.checked === checked));
 	const channels = [...new Set(rules.map((rule) => rule.channel))].sort();
 
