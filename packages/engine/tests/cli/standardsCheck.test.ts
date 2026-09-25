@@ -131,7 +131,7 @@ test('cli: standards-check --list marks the rules this repo configured', async (
 
 	// "this is our policy" reads apart from "this is the default"
 	expect(stdout).toMatch(/│ synonym-export-name\s+│\s+off \(config\)\s+│/);
-	expect(stdout).toMatch(/│ 112 rule\(s\)\s+│\s+15 blocking\s+│\s+96 advisory, 1 off\s+│\s+53 by code, 59 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 111 rule\(s\)\s+│\s+15 blocking\s+│\s+94 advisory, 2 off\s+│\s+51 by code, 60 by judgment\s+│/);
 	expect(code).toBe(0);
 });
 
