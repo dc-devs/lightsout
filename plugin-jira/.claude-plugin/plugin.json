@@ -1,6 +1,6 @@
 {
 	"name": "lightsout-jira",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "Jira Cloud mechanics for the LightsOut ticket workflow",
 	"slash-commands": "./prompts"
 }
