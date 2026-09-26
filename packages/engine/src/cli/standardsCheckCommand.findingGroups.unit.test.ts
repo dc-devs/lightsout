@@ -45,7 +45,7 @@ jest.mock('#src/standardsCheck/writeStandardsSnapshot.ts', () => ({ writeStandar
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -54,7 +54,7 @@ const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding =>
 });
 
 const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	doc: 'lightsout-defaults: code/style-guide/structure/size',
 	summary: 'a function longer than the size cap',
 	checked: true,
@@ -109,7 +109,7 @@ describe('standardsCheckCommand finding groups', () => {
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ duplicate-code-block · 2 blocking', 'ℹ size-function · 2 advisories']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ duplicate-code-block · 2 blocking', 'ℹ function-size · 2 advisories']);
 	});
 
 	test('a finding that starts and ends on one line names that line once, never as a range onto itself', async () => {

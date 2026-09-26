@@ -7,6 +7,7 @@ interface Params {
 	built?: boolean;
 	path?: string;
 	channels?: string[];
+	channelTotals?: StandardsPackListing['channelTotals'];
 	totals?: Partial<StandardsPackListing['totals']>;
 	/** Applied last, so a test can drop an optional field the defaults fill — `{ description: undefined }`. */
 	overrides?: Partial<StandardsPackListing>;
@@ -20,6 +21,10 @@ export const buildStandardsPackListing = ({
 	built = false,
 	path = 'packages/standards-typescript',
 	channels = ['base', 'react'],
+	channelTotals = [
+		{ channel: 'base', rules: 101, checked: 47, judgment: 54 },
+		{ channel: 'react', rules: 10, checked: 5, judgment: 5 },
+	],
 	totals = {},
 	overrides = {},
 }: Params = {}): StandardsPackListing => ({
@@ -30,6 +35,7 @@ export const buildStandardsPackListing = ({
 	path,
 	built,
 	channels,
+	channelTotals,
 	totals: { rules: 111, checked: 52, judgment: 59, documents: 24, withFixtures: 111, ...totals },
 	...overrides,
 });

@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 
-const setupCopyButton = ({ refused = false }: { refused?: boolean } = {}) => {
+const setupCopyButton = ({ refused = false, isLabelHidden = false }: { refused?: boolean; isLabelHidden?: boolean } = {}) => {
 	jest.useFakeTimers();
 
 	const mockWriteText = jest.fn<(text: string) => Promise<void>>();
@@ -16,7 +16,7 @@ const setupCopyButton = ({ refused = false }: { refused?: boolean } = {}) => {
 	// jsdom implements the DOM, not the platform around it: navigator has no
 	// clipboard at all, so the property is defined rather than spied on.
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText: mockWriteText }, configurable: true });
-	render(<CopyButton value="lightsout resume --run abcdef01" label="Copy resume command" />);
+	render(<CopyButton value="lightsout resume --run abcdef01" label="Copy resume command" isLabelHidden={isLabelHidden} />);
 
 	return { button: screen.getByRole('button'), mockWriteText };
 };
@@ -69,5 +69,21 @@ describe('CopyButton', () => {
 		});
 
 		expect(button).toHaveTextContent('Copy resume command');
+	});
+
+	test('keeps the label as the accessible name when only the icon shows', () => {
+		const { button } = setupCopyButton({ isLabelHidden: true });
+
+		expect({ name: button.getAttribute('aria-label'), text: button.textContent }).toStrictEqual({ name: 'Copy resume command', text: '' });
+	});
+
+	test('confirms the copy through the accessible name when only the icon shows', async () => {
+		const { button } = setupCopyButton({ isLabelHidden: true });
+
+		await act(async () => {
+			fireEvent.click(button);
+		});
+
+		expect(button).toHaveAttribute('aria-label', 'Copied');
 	});
 });

@@ -28,7 +28,7 @@ interface Props {
  *
  * The config is subscribed to rather than suspended on. A `lightsout.config.json`
  * that will not parse is a real state with a real message — one this page
- * deliberately sends the reader to `/repo/config` to read — and it should cost
+ * deliberately sends the reader to `/app/config` to read — and it should cost
  * two chips here, never the whole health page.
  */
 export const RepoStrip = ({ runs }: Props) => {
@@ -38,7 +38,7 @@ export const RepoStrip = ({ runs }: Props) => {
 	const { data: config, isError } = useQuery(configQueryOptions());
 	// `null` is what the view says when the file states neither, and the chip is
 	// dropped rather than filled with the engine's fallback — the Harness section
-	// on /repo/config is the page that explains what happens then.
+	// on /app/config is the page that explains what happens then.
 	const harness = config?.harness ?? undefined;
 	const model = config?.model ?? undefined;
 
@@ -53,7 +53,7 @@ export const RepoStrip = ({ runs }: Props) => {
 			{harness === undefined ? null : <MetadataTag>{harness}</MetadataTag>}
 			{model === undefined ? null : <MetadataTag>{model}</MetadataTag>}
 			{isError ? (
-				<Link to="/repo/config" className="underline underline-offset-4">
+				<Link to="/app/config" className="underline underline-offset-4">
 					config unreadable
 				</Link>
 			) : null}

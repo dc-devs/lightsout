@@ -53,7 +53,7 @@ describe('buildRunBurnDown', () => {
 	test('a refactor run reports what its work-list froze against what its batches left standing', () => {
 		const batches = [
 			buildBatch({ id: 'batch-01:multi-export:engine', blocking: 3 }),
-			buildBatch({ id: 'batch-02:size-file:engine', rule: 'size-file', blocking: 2 }),
+			buildBatch({ id: 'batch-02:file-size:engine', rule: 'file-size', blocking: 2 }),
 		];
 		const burnDown = buildRunBurnDown({
 			manifest: buildManifest({
@@ -80,7 +80,7 @@ describe('buildRunBurnDown', () => {
 				{ id: batches[0].id, rule: 'multi-export', folder: 'packages/engine', blocking: 3, outcome: 'resolved', rationale: [], advisoryOutcomes: [] },
 				{
 					id: batches[1].id,
-					rule: 'size-file',
+					rule: 'file-size',
 					folder: 'packages/engine',
 					blocking: 2,
 					outcome: 'declined',
@@ -142,6 +142,13 @@ describe('buildRunBurnDown', () => {
 		const burnDown = buildRunBurnDown({ manifest: buildManifest({ pipeline: PipelineKind.Refactor }), worklist: frozen({ batches }) });
 
 		expect(burnDown?.overCap).toBe(undefined);
+	});
+
+	test('a run saved before the size rules were renamed still counts its over-cap batches', () => {
+		const batches = [buildBatch({ id: 'batch-01:crowded-folder:engine', rule: 'crowded-folder', blocking: 2 })];
+		const burnDown = buildRunBurnDown({ manifest: buildManifest({ pipeline: PipelineKind.Refactor }), worklist: frozen({ batches }) });
+
+		expect(burnDown?.overCap).toStrictEqual({ before: 2, after: 2 });
 	});
 
 	test('a refactor run whose frozen work-list is missing or unparseable gets no panel at all', () => {

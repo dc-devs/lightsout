@@ -20,7 +20,7 @@ const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding =>
 });
 
 test('buildRefactorExecutorInvocation: the advisory-outcomes section is opt-in — callers that record nothing never ask for it', () => {
-	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
+	const advisories = [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory })];
 	const silent = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], advisories });
 	const asking = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], advisories, reportAdvisoryOutcomes: true });
 
@@ -62,7 +62,7 @@ test('buildRefactorExecutorInvocation: the advisory-outcomes ask names the two o
 		scope,
 		planContent,
 		changedFiles: ['src/widget.ts'],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory })],
 		reportAdvisoryOutcomes: true,
 	});
 
@@ -74,13 +74,13 @@ test('buildRefactorExecutorInvocation: the advisory-outcomes ask names the two o
 	// and the worked example carries the same field names the parser reads
 	expect(
 		prompt.includes(
-			'{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }',
+			'{ "rule": "function-size", "siteKey": "function-size:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }',
 		),
 	).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: asking for advisory outcomes leaves the cached system prompt untouched', () => {
-	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
+	const advisories = [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory })];
 	const silent = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards, advisories });
 	const asking = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'], standards, advisories, reportAdvisoryOutcomes: true });
 
@@ -93,7 +93,7 @@ test('buildRefactorExecutorInvocation: the advisory-outcomes ask follows the adv
 		scope,
 		planContent,
 		changedFiles: ['src/widget.ts'],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory })],
 		reportAdvisoryOutcomes: true,
 		errorContext: 'GATE-SENTINEL',
 	});

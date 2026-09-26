@@ -34,27 +34,27 @@ export const ZoneNav = () => {
 				</MetadataTag>
 			</header>
 			<nav aria-label="Your repo" className="flex min-w-0 gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-				<Link to="/repo" className={zoneLinkClasses} activeProps={zoneLinkActive} activeOptions={{ exact: true }}>
+				<Link to="/app" className={zoneLinkClasses} activeProps={zoneLinkActive} activeOptions={{ exact: true }}>
 					<Activity aria-hidden="true" className="size-4" />
 					Health
 				</Link>
-				<Link to="/repo/runs" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+				<Link to="/app/runs" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<ScrollText aria-hidden="true" className="size-4" />
 					Runs
 				</Link>
-				<Link to="/repo/plans" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+				<Link to="/app/plans" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<NotebookPen aria-hidden="true" className="size-4" />
 					Plans
 				</Link>
-				<Link to="/repo/standards" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+				<Link to="/app/standards" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<SquareCheckBig aria-hidden="true" className="size-4" />
 					Standards
 				</Link>
-				<Link to="/repo/friction" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+				<Link to="/app/friction" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<MessageSquareWarning aria-hidden="true" className="size-4" />
 					Friction
 				</Link>
-				<Link to="/repo/config" className={zoneLinkClasses} activeProps={zoneLinkActive}>
+				<Link to="/app/config" className={zoneLinkClasses} activeProps={zoneLinkActive}>
 					<FileCog aria-hidden="true" className="size-4" />
 					Config
 				</Link>

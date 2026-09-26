@@ -4,7 +4,7 @@ import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFi
 import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts', startLine: 10, endLine: 90 }],
@@ -31,7 +31,7 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({ findings: [finding(), finding({ siteKey: 'size:two' })] });
 
-		expect(logged).toContain('ℹ size-function · 2 advisories');
+		expect(logged).toContain('ℹ function-size · 2 advisories');
 	});
 
 	test('names the severity, not a noun, for a blocking group', () => {
@@ -50,8 +50,8 @@ describe('printFindingGroups', () => {
 		});
 
 		// `size` reports an oversized file as work and an oversized function as advice
-		expect(logged).toContain('⚠ size-function · 1 blocking');
-		expect(logged).toContain('ℹ size-function · 1 advisory');
+		expect(logged).toContain('⚠ function-size · 1 blocking');
+		expect(logged).toContain('ℹ function-size · 1 advisory');
 	});
 
 	test('aligns the single-site rows in a group so their measurements can be compared', () => {
@@ -163,7 +163,7 @@ describe('printFindingGroups', () => {
 
 		// `blocking` is the severity's name, so it reads the same at any count
 		expect(logged).toContain('⚠ duplicate-code-block · 2 blocking');
-		expect(logged).toContain('ℹ size-function · 2 advisories');
+		expect(logged).toContain('ℹ function-size · 2 advisories');
 	});
 
 	test('a single-line span is rendered as one number, not a range onto itself', () => {

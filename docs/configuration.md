@@ -333,8 +333,8 @@ Every rule the standards check enforces ships with a default severity and, where
     "filename-mismatch": "off",
     "duplicate-code-block": "blocking",
     // Or an object, to change the severity, the rule's settings, or both.
-    "size-file": { "settings": { "file": 300, "tsxFile": 400 } },
-    "crowded-folder": { "severity": "blocking", "settings": { "cap": 15 } },
+    "file-size": { "settings": { "file": 300, "tsxFile": 400 } },
+    "folder-size": { "severity": "blocking", "settings": { "cap": 15 } },
   },
 }
 ```
@@ -367,7 +367,7 @@ A repository that wants the strict profile promotes those rules itself — an ex
     "casing": "blocking",
     "class-inheritance": "blocking",
     "code-in-index-file": "blocking",
-    "crowded-folder": "blocking",
+    "folder-size": "blocking",
     "file-directly-in-common": "blocking",
     "folder-casing": "blocking",
     "folder-index-file": "blocking",
@@ -378,14 +378,14 @@ A repository that wants the strict profile promotes those rules itself — an ex
     "oversized-setup-factory": "blocking",
     "single-file-domain-folder": "blocking",
     "single-use-scalar": "blocking",
-    "size-file": "blocking",
-    "size-function": "blocking",
+    "file-size": "blocking",
+    "function-size": "blocking",
     "test-in-tests-folder": "blocking",
     "test-manual-mock-cleanup": "blocking",
     "test-mock-return-in-hook": "blocking",
     "test-nested-describe": "blocking",
     "test-not-beside-subject": "blocking",
-    "test-size-file": "blocking",
+    "test-file-size": "blocking",
     "test-support-in-src": "blocking",
   },
 }
@@ -959,7 +959,7 @@ The following example shows how the optional configuration fields fit together:
     // Ask for a longer duplicated stretch before it counts.
     "duplicate-code-block": { "settings": { "minTokens": 70 } },
     // .tsx files here carry more JSX than the default budget assumes.
-    "size-file": { "settings": { "tsxFile": 400 } },
+    "file-size": { "settings": { "tsxFile": 400 } },
   },
 }
 ```

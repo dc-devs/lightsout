@@ -103,4 +103,10 @@ describe('Button', () => {
 
 		expect(classes).not.toContain('shadow-xs');
 	});
+
+	test('shows the pointer on hover, which Tailwind v4 no longer gives a button by default', () => {
+		setupButton();
+
+		expect(screen.getByRole('button', { name: 'Open' })).toHaveClass('cursor-pointer');
+	});
 });

@@ -1,8 +1,10 @@
 import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { cn } from '#src/common/utils/cn.ts';
 
-/** What a reader types into Claude Code to get this. The one command Home asks for. */
-const installCommand = '/plugin marketplace add dc-devs/lightsout';
+/** The slash command a reader types into Claude Code, and what it is given. Split so the command word can be coloured apart from its argument. */
+const installCommand = { name: '/plugin', rest: 'marketplace add dc-devs/lightsout' };
+
+const installText = `${installCommand.name} ${installCommand.rest}`;
 
 interface Props {
 	className?: string;
@@ -14,14 +16,19 @@ interface Props {
  *
  * The audience is on a command line already, so the shortest path from reading
  * the page to running the thing is the command itself — in mono, because mono is
- * this app's mark for text a reader takes somewhere else. The brand gradient on
- * the border is one of the three places it is spent.
+ * this app's mark for text a reader takes somewhere else. It wears FeedbackDrop's
+ * pill: white, round, with the copy as a blue disc.
  */
 export const InstallLine = ({ className }: Props) => (
-	<div className={cn('rounded-md bg-[image:var(--brand-gradient)] p-px', className)}>
-		<div className="flex items-center gap-2 rounded-[calc(0.375rem-1px)] bg-background py-1.5 pr-1.5 pl-3">
-			<code className="min-w-0 flex-1 truncate font-mono text-sm">{installCommand}</code>
-			<CopyButton value={installCommand} label="Copy install command" />
-		</div>
+	<div className={cn('flex h-14 min-w-0 items-center gap-4 rounded-full border border-border bg-card pr-2 pl-6 shadow-lg', className)}>
+		<code className="min-w-0 flex-1 truncate text-left font-mono text-base text-foreground">
+			<span className="text-primary">{installCommand.name}</span> {installCommand.rest}
+		</code>
+		<CopyButton
+			value={installText}
+			label="Copy install command"
+			isLabelHidden
+			className="size-10 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground"
+		/>
 	</div>
 );

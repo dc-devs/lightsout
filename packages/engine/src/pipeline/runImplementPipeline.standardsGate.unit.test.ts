@@ -273,7 +273,7 @@ test('a ledgered site the run measurably worsened still qualifies, and an unchan
 	// committed debt ledger at the repo root. The run grows one and rewrites the
 	// other at exactly the same length.
 	const dir = setupConsumerRepo({
-		config: { 'standards-checks': { 'size-file': { severity: 'blocking', settings: { file: 6 } } } },
+		config: { 'standards-checks': { 'file-size': { severity: 'blocking', settings: { file: 6 } } } },
 		sources: {
 			'src/index.js': 'export const one = 1;\n',
 			'src/grown.js': overCapSource({ name: 'grown', note: 'first', pad: 7 }),
@@ -282,7 +282,7 @@ test('a ledgered site the run measurably worsened still qualifies, and an unchan
 	});
 	writeFileSync(
 		join(dir, 'lightsout.standards-baseline.json'),
-		JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', siteKeys: ['size-file:src/grown.js', 'size-file:src/steady.js'] }),
+		JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', siteKeys: ['file-size:src/grown.js', 'file-size:src/steady.js'] }),
 	);
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm ledger', { cwd: dir });
 	// the line-count rule reads a parsed tree, so the repo needs a compiler
@@ -308,13 +308,13 @@ test('a ledgered site the run measurably worsened still qualifies, and an unchan
 
 	// the ledger accepted this site and the run made it bigger — the live check
 	// has to read past the ledger, or accepted debt could grow unwatched
-	expect(refactorPrompts[0] ?? '').toContain('[size-file] src/grown.js');
-	expect(remaining).toContain('size-file:src/grown.js');
+	expect(refactorPrompts[0] ?? '').toContain('[file-size] src/grown.js');
+	expect(remaining).toContain('file-size:src/grown.js');
 	// the same rule on a file the run rewrote at the same length is debt it
 	// inherited: recorded, never handed back as work
-	expect(refactorPrompts[0] ?? '').not.toContain('[size-file] src/steady.js');
-	expect(cleanup.inherited.map((finding) => finding.siteKey)).toContain('size-file:src/steady.js');
-	expect(remaining).not.toContain('size-file:src/steady.js');
+	expect(refactorPrompts[0] ?? '').not.toContain('[file-size] src/steady.js');
+	expect(cleanup.inherited.map((finding) => finding.siteKey)).toContain('file-size:src/steady.js');
+	expect(remaining).not.toContain('file-size:src/steady.js');
 	expect(result.ok).toBe(true);
 });
 
@@ -323,7 +323,7 @@ test('a folder finding already in the baseline never gates a change inside the f
 	// edits one file inside it and creates none, so the folder measures exactly
 	// what the baseline recorded — the case that used to stop an unattended run.
 	const dir = setupConsumerRepo({
-		config: { 'standards-checks': { 'crowded-folder': { severity: 'blocking', settings: { cap: 3 } } } },
+		config: { 'standards-checks': { 'folder-size': { severity: 'blocking', settings: { cap: 3 } } } },
 		sources: {
 			'src/index.js': 'export const one = 1;\n',
 			'src/pile/alpha.js': 'export const alpha = () => 1;\n',
@@ -349,9 +349,9 @@ test('a folder finding already in the baseline never gates a change inside the f
 
 	// the folder is in scope because a file under it changed — and that is
 	// exactly why it must not be work: the run did not crowd it
-	expect(cleanup.inherited.map((finding) => finding.siteKey)).toContain('crowded-folder:src/pile');
+	expect(cleanup.inherited.map((finding) => finding.siteKey)).toContain('folder-size:src/pile');
 	expect(cleanup.remaining).toStrictEqual([]);
-	expect(refactorPrompts.every((prompt) => !prompt.includes('[crowded-folder]'))).toBe(true);
+	expect(refactorPrompts.every((prompt) => !prompt.includes('[folder-size]'))).toBe(true);
 	expect(result.ok).toBe(true);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
 });

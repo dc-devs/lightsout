@@ -84,7 +84,7 @@ const setupFrictionRoute = ({ friction = records, runs = [buildRunListing()] }: 
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/repo/friction'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/app/friction'];
 
 	return { friction, queryClient, route, runs };
 };
@@ -191,7 +191,7 @@ describe('routeTree', () => {
 
 		const link = screen.getByRole('link', { name: /add search/ });
 
-		expect(link).toHaveAttribute('href', `/repo/runs/${runId}`);
+		expect(link).toHaveAttribute('href', `/app/runs/${runId}`);
 	});
 
 	test('the friction route keeps an entry whose run directory was deleted, under its short id alone', () => {

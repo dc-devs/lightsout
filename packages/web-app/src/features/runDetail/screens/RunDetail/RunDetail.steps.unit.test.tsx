@@ -78,7 +78,7 @@ describe('RunDetail steps', () => {
 
 		const links = screen.getAllByRole('link', { name: 'ffff0000' });
 
-		expect(links.map((link) => link.getAttribute('href'))).toStrictEqual(['/repo/runs/ffff0000ffff1111', '/repo/runs/ffff0000ffff1111']);
+		expect(links.map((link) => link.getAttribute('href'))).toStrictEqual(['/app/runs/ffff0000ffff1111', '/app/runs/ffff0000ffff1111']);
 	});
 
 	test("offers a coordinator's phase file to the plan drawer", () => {
@@ -96,7 +96,7 @@ describe('RunDetail steps', () => {
 					outcome: 'declined',
 					remainingSiteKeys: ['src/a.ts:doThing'],
 					rationale: ['splitting would hide the flow'],
-					advisoryOutcomes: [{ rule: 'size-function', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
+					advisoryOutcomes: [{ rule: 'function-size', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
 				},
 			},
 		});

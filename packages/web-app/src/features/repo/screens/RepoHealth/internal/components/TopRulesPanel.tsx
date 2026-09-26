@@ -36,7 +36,7 @@ export const TopRulesPanel = ({ rules }: Props) => {
 				<ul className="flex flex-col gap-2">
 					{top.map((rule) => (
 						<li key={rule.rule} className="flex flex-col gap-1">
-							<Link to="/repo/standards" search={{ rule: rule.rule }} className="flex items-baseline justify-between gap-3 text-sm hover:underline">
+							<Link to="/app/standards" search={{ rule: rule.rule }} className="flex items-baseline justify-between gap-3 text-sm hover:underline">
 								<span className="min-w-0 truncate font-mono">{rule.rule}</span>
 								<span className="whitespace-nowrap text-muted-foreground text-xs">{formatCount({ count: rule.findingCount, noun: 'finding' })}</span>
 							</Link>

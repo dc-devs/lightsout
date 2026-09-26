@@ -2,9 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import { RefactorStepReport } from '#src/contracts/run/RefactorStepReport.ts';
 
 const setupFinding = ({
-	rule = 'size-file',
+	rule = 'file-size',
 	severity = 'blocking',
-	siteKey = 'size-file:src/pipeline/steps/refactorStep.ts',
+	siteKey = 'file-size:src/pipeline/steps/refactorStep.ts',
 	measure,
 }: {
 	rule?: string;
@@ -27,8 +27,8 @@ const setupReport = ({ omit }: { omit?: string } = {}) => {
 		remaining: [setupFinding({ measure: 310 })],
 		inherited: [
 			setupFinding({
-				rule: 'crowded-folder',
-				siteKey: 'crowded-folder:src/pipeline/steps',
+				rule: 'folder-size',
+				siteKey: 'folder-size:src/pipeline/steps',
 				measure: 21,
 			}),
 		],
@@ -76,8 +76,8 @@ describe('RefactorStepReport', () => {
 			expect.objectContaining({
 				roundsUsed: 2,
 				endReason: 'budget-exhausted',
-				remaining: [expect.objectContaining({ siteKey: 'size-file:src/pipeline/steps/refactorStep.ts', measure: 310 })],
-				inherited: [expect.objectContaining({ siteKey: 'crowded-folder:src/pipeline/steps' })],
+				remaining: [expect.objectContaining({ siteKey: 'file-size:src/pipeline/steps/refactorStep.ts', measure: 310 })],
+				inherited: [expect.objectContaining({ siteKey: 'folder-size:src/pipeline/steps' })],
 				uncertain: [expect.objectContaining({ siteKey: 'star-re-export:src/contracts/index.ts' })],
 				failures: ['refactor executor timed out after 20 minutes'],
 				initialReview: [expect.objectContaining({ rule: 'naming' })],

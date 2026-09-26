@@ -18,12 +18,12 @@ const setupCleanupStep = ({ endReason }: { endReason?: CleanupEndReason } = {}):
 		report: {
 			roundsUsed: 3,
 			...(endReason === undefined ? {} : { endReason }),
-			remaining: countableFindings({ rule: 'size-file', count: 2 }),
-			inherited: countableFindings({ rule: 'crowded-folder', count: 3 }),
+			remaining: countableFindings({ rule: 'file-size', count: 2 }),
+			inherited: countableFindings({ rule: 'folder-size', count: 3 }),
 			uncertain: countableFindings({ rule: 'star-re-export', count: 1 }),
 			failures: ['refactor executor timed out after 20 minutes'],
 			initialReview: countableFindings({ rule: 'naming', count: 7 }),
-			finalReview: countableFindings({ rule: 'size-function', count: 5 }),
+			finalReview: countableFindings({ rule: 'function-size', count: 5 }),
 		},
 	},
 });

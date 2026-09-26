@@ -47,9 +47,9 @@ const stepOf = (overrides: Partial<StepRecord> = {}): StepRecord => ({
 
 /** One deterministic finding, as `StandardsFinding` declares it — only its presence in a list matters here. */
 const finding = {
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: 'blocking',
-	siteKey: 'size-file:src/views/getRunProgress.ts',
+	siteKey: 'file-size:src/views/getRunProgress.ts',
 	files: [{ path: 'src/views/getRunProgress.ts' }],
 	detail: 'the file is over its line cap',
 };

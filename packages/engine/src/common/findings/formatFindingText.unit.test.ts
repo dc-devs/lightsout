@@ -4,7 +4,7 @@ import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFi
 import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],

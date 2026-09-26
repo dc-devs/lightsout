@@ -85,9 +85,9 @@ describe('StandardsSnapshot', () => {
 			extra: {
 				findings: [
 					{
-						rule: 'size-function',
+						rule: 'function-size',
 						severity: 'blocking',
-						siteKey: 'size-function:src/refactor/runBatch.ts:90',
+						siteKey: 'function-size:src/refactor/runBatch.ts:90',
 						files: [{ path: 'src/refactor/runBatch.ts', startLine: 90, endLine: 190 }],
 						detail: 'a 100-line function',
 					},
@@ -109,9 +109,9 @@ describe('StandardsSnapshot', () => {
 		// file order — a reordered or thinned finding would rebatch the burn-down
 		expect(parsed.findings).toStrictEqual([
 			{
-				rule: 'size-function',
+				rule: 'function-size',
 				severity: 'blocking',
-				siteKey: 'size-function:src/refactor/runBatch.ts:90',
+				siteKey: 'function-size:src/refactor/runBatch.ts:90',
 				files: [{ path: 'src/refactor/runBatch.ts', startLine: 90, endLine: 190 }],
 				detail: 'a 100-line function',
 			},
@@ -184,7 +184,7 @@ describe('StandardsSnapshot', () => {
 						files: [{ path: 'src/a.ts' }],
 						detail: 'a repeated span',
 					},
-					{ rule: 'size-file', severity: 'off', siteKey: 'size-file:src/b.ts', files: [{ path: 'src/b.ts' }], detail: 'too long' },
+					{ rule: 'file-size', severity: 'off', siteKey: 'file-size:src/b.ts', files: [{ path: 'src/b.ts' }], detail: 'too long' },
 				],
 			},
 		});

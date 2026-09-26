@@ -55,7 +55,7 @@ jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: Revi
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -84,7 +84,7 @@ const setupCheck = ({
 
 	// The run path reads the listing too — it is where each reported rule's
 	// one-line summary comes from — so the stub answers on both paths.
-	mockListStandardsRules.mockResolvedValue(rules ?? [listing({ rule: 'size-function', summary: 'a function longer than the size cap' })]);
+	mockListStandardsRules.mockResolvedValue(rules ?? [listing({ rule: 'function-size', summary: 'a function longer than the size cap' })]);
 
 	mockRunStandardsCheck.mockImplementation(async ({ onProgress }) => {
 		for (const message of check.progress ?? []) {
@@ -148,7 +148,7 @@ describe('standardsCheckCommand', () => {
 		const { context, logged } = setupCheck({
 			check: { findings: [finding(), finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking, siteKey: 'boundary:src/a.ts' })] },
 			rules: [
-				listing({ rule: 'size-function', summary: 'a function longer than the size cap' }),
+				listing({ rule: 'function-size', summary: 'a function longer than the size cap' }),
 				listing({ rule: 'module-boundary', summary: 'a file deep-imported across a module boundary' }),
 			],
 		});
@@ -156,7 +156,7 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// an advisory read first would set the wrong expectation about the work
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ module-boundary · 1 blocking', 'ℹ size-function · 1 advisory']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ module-boundary · 1 blocking', 'ℹ function-size · 1 advisory']);
 
 		const ruleColumn = logged.filter((line) => line.startsWith('│')).map((line) => line.split('│')[1]?.trim());
 
@@ -166,7 +166,7 @@ describe('standardsCheckCommand', () => {
 			'rule',
 			'module-boundary',
 			'a file deep-imported across a module boundary',
-			'size-function',
+			'function-size',
 			'a function longer than the size cap',
 			'total',
 		]);

@@ -70,7 +70,7 @@ describe('PlanDetail grade tab', () => {
 							area: GapArea.OmittedDecision,
 							gap: 'the prefix is not settled',
 							decision: 'which prefix does the route use?',
-							options: ['/repo', '/local'],
+							options: ['/app', '/local'],
 							phase: 'plan.md',
 							lens: GapCheckLens.Decisions,
 							outcome: GapOutcome.NeedsAHuman,
@@ -110,7 +110,7 @@ describe('PlanDetail grade tab', () => {
 		expect(screen.getByText('has not reached the bar implement assumes')).toBeInTheDocument();
 		expect(screen.getByText('names a file that is not on disk')).toBeInTheDocument();
 		expect(screen.getByText('Decision: which prefix does the route use?')).toBeInTheDocument();
-		expect(screen.getByText('Options: /repo / /local')).toBeInTheDocument();
+		expect(screen.getByText('Options: /app / /local')).toBeInTheDocument();
 		expect(screen.getByText('Decision gaps (2)')).toBeInTheDocument();
 	});
 

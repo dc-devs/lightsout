@@ -19,11 +19,11 @@ test('selectStandardsFindings keeps every finding-severity item touching a chang
 			siteKey: 'duplicate-function-body:src/changed.ts|src/legacy.ts',
 			files: [{ path: 'src/changed.ts' }, { path: 'src/legacy.ts' }],
 		}),
-		finding({ rule: 'size-file', siteKey: 'size-file:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
+		finding({ rule: 'file-size', siteKey: 'file-size:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 		finding({
-			rule: 'size-function',
+			rule: 'function-size',
 			severity: 'advisory',
-			siteKey: 'size-function:src/changed.ts',
+			siteKey: 'function-size:src/changed.ts',
 			files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }],
 		}),
 		finding({ rule: 'filename-mismatch', severity: 'advisory', siteKey: 'filename-mismatch:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
@@ -43,27 +43,27 @@ test('selectStandardsFindings keeps every finding-severity item touching a chang
 	expect(workList.map((entry) => entry.siteKey)).toStrictEqual([
 		'multi-export:src/changed.ts',
 		'duplicate-function-body:src/changed.ts|src/legacy.ts',
-		'size-file:src/changed.ts',
+		'file-size:src/changed.ts',
 		'module-boundary:src/changed.ts|src/other.ts',
 		'placement:src/changed.ts|src/other/common/x.ts',
 	]);
 	// every advisory reaches the agent, not only the size ones — each carries its
 	// own guidance, and one it never sees is one it can never judge
-	expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/changed.ts', 'filename-mismatch:src/changed.ts']);
+	expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['function-size:src/changed.ts', 'filename-mismatch:src/changed.ts']);
 });
 
 test('selectStandardsFindings drops advisories in files the run never touched', () => {
 	const findings: StandardsFinding[] = [
 		finding({
-			rule: 'size-function',
+			rule: 'function-size',
 			severity: 'advisory',
-			siteKey: 'size-function:src/untouched.ts',
+			siteKey: 'function-size:src/untouched.ts',
 			files: [{ path: 'src/untouched.ts', startLine: 5, endLine: 99 }],
 		}),
 		finding({
-			rule: 'size-function',
+			rule: 'function-size',
 			severity: 'advisory',
-			siteKey: 'size-function:src/changed.ts',
+			siteKey: 'function-size:src/changed.ts',
 			files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }],
 		}),
 	];
@@ -71,21 +71,21 @@ test('selectStandardsFindings drops advisories in files the run never touched', 
 	const { advisories } = selectStandardsFindings({ findings, changedFiles: ['src/changed.ts'] });
 
 	// pre-existing debt outside the run stays out of the judgment list
-	expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/changed.ts']);
+	expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['function-size:src/changed.ts']);
 });
 
 test('an advisory never joins the work-list, however blockable its rule looks', () => {
 	const findings: StandardsFinding[] = [
-		finding({ rule: 'size-file', severity: 'advisory', siteKey: 'size-file:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
+		finding({ rule: 'file-size', severity: 'advisory', siteKey: 'file-size:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 	];
 
 	const selected = selectStandardsFindings({ findings, changedFiles: ['src/changed.ts'] });
 
-	// a repo that dropped size-file to advisory has stopped it blocking — that is
+	// a repo that dropped file-size to advisory has stopped it blocking — that is
 	// the whole mechanism, and no rule identity can override it
 	expect({ workList: selected.workList.map((entry) => entry.siteKey), advisories: selected.advisories.map((entry) => entry.siteKey) }).toStrictEqual({
 		workList: [],
-		advisories: ['size-file:src/changed.ts'],
+		advisories: ['file-size:src/changed.ts'],
 	});
 });
 
@@ -122,7 +122,7 @@ test('selectStandardsFindings matches against every changed file, not only the f
 test('selectStandardsFindings selects nothing when the run changed no files', () => {
 	const findings: StandardsFinding[] = [
 		finding({ siteKey: 'multi-export:src/a.ts', files: [{ path: 'src/a.ts' }] }),
-		finding({ rule: 'size-function', severity: 'advisory', siteKey: 'size-function:src/a.ts', files: [{ path: 'src/a.ts', startLine: 5, endLine: 99 }] }),
+		finding({ rule: 'function-size', severity: 'advisory', siteKey: 'function-size:src/a.ts', files: [{ path: 'src/a.ts', startLine: 5, endLine: 99 }] }),
 	];
 
 	const selected = selectStandardsFindings({ findings, changedFiles: [] });
@@ -132,7 +132,7 @@ test('selectStandardsFindings selects nothing when the run changed no files', ()
 });
 
 test('selectStandardsFindings: a folder site counts as changed when the run changed a file under it', () => {
-	const crowded = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
+	const crowded = finding({ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] });
 
 	// a changed-file list holds files, so equality alone would never match a
 	// folder and the rule could never gate a run
@@ -143,7 +143,7 @@ test('selectStandardsFindings: a folder site counts as changed when the run chan
 });
 
 test('selectStandardsFindings: a folder site is matched at any depth beneath it', () => {
-	const crowded = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
+	const crowded = finding({ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] });
 
 	// containment is not "an immediate child" — a run that touched a file nested
 	// several levels down still changed the folder the rule judged
@@ -153,7 +153,7 @@ test('selectStandardsFindings: a folder site is matched at any depth beneath it'
 });
 
 test('selectStandardsFindings: an advisory on a folder site is gated by the same containment', () => {
-	const crowded = finding({ rule: 'crowded-folder', severity: 'advisory', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
+	const crowded = finding({ rule: 'folder-size', severity: 'advisory', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] });
 
 	const selected = selectStandardsFindings({ findings: [crowded], changedFiles: ['src/appUI/Badge.tsx'] });
 
@@ -163,7 +163,7 @@ test('selectStandardsFindings: an advisory on a folder site is gated by the same
 });
 
 test('selectStandardsFindings: a folder site the run did not touch stays out', () => {
-	const findings = [finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] })];
+	const findings = [finding({ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] })];
 
 	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/features/runs/RunList.tsx'] });
 
@@ -171,7 +171,7 @@ test('selectStandardsFindings: a folder site the run did not touch stays out', (
 });
 
 test('selectStandardsFindings: a folder site matches by containment, so a name-prefix sibling never claims it', () => {
-	const findings = [finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/app', files: [{ path: 'src/app' }] })];
+	const findings = [finding({ rule: 'folder-size', siteKey: 'folder-size:src/app', files: [{ path: 'src/app' }] })];
 
 	// 'src/appUI/Badge.tsx' starts with 'src/app' as a string but sits in a
 	// different folder — only 'src/app/' would be containment
@@ -195,7 +195,7 @@ test('selectStandardsFindings: a finding whose only site is a changed test file 
 });
 
 test('selectStandardsFindings: a finding that names no file is selected by neither list', () => {
-	const siteless = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [] });
+	const siteless = finding({ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [] });
 
 	const selected = selectStandardsFindings({ findings: [siteless], changedFiles: ['src/appUI/Badge.tsx'] });
 

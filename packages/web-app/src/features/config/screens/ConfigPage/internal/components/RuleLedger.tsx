@@ -9,13 +9,18 @@ import { EmptyState } from '#src/appUI/EmptyState.tsx';
 import { FilterDropdown } from '#src/appUI/FilterDropdown.tsx';
 import { severityBadgeVariants } from '#src/common/constants/severityBadgeVariants.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
+import { toRuleSetSlug } from '#src/features/packs/internal/common/utils/toRuleSetSlug.ts';
 
 /** One row of the ledger — a loaded rule and the state this repo runs it at. */
 type RuleState = ConfigView['ruleStates'][number];
 
 /** The rule id, as the way into what the rule actually says. */
 const RuleLink = ({ state }: { state: RuleState }) => (
-	<Link to="/standards/$pack/$rule" params={{ pack: state.pack, rule: state.rule }} className="font-mono text-sm hover:underline hover:underline-offset-2">
+	<Link
+		to="/standards-packs/$ruleSet/$rule"
+		params={{ ruleSet: toRuleSetSlug({ channel: state.channel }), rule: state.rule }}
+		className="font-mono text-sm hover:underline hover:underline-offset-2"
+	>
 		{state.rule}
 	</Link>
 );

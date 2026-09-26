@@ -71,9 +71,9 @@ const manifestOf = ({ runId, ...overrides }: { runId: string } & Partial<RunMani
 
 /** One deterministic finding, as `StandardsFinding` declares it — only its presence in a list counts here. */
 const finding = {
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: 'blocking',
-	siteKey: 'size-file:src/cli/statusCommand.ts',
+	siteKey: 'file-size:src/cli/statusCommand.ts',
 	files: [{ path: 'src/cli/statusCommand.ts' }],
 	detail: 'the file is over its line cap',
 };

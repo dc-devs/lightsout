@@ -15,7 +15,7 @@ const defaultSortKey = 'updatedAt';
 
 /** The workspace's name, as the way into what it decided. */
 const PlanLink = ({ listing }: { listing: PlanWorkspaceListing }) => (
-	<Link to="/repo/plans/$name" params={{ name: listing.name }} className="font-medium hover:underline hover:underline-offset-2">
+	<Link to="/app/plans/$name" params={{ name: listing.name }} className="font-medium hover:underline hover:underline-offset-2">
 		{listing.name}
 	</Link>
 );

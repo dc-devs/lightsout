@@ -13,11 +13,10 @@ import { runScript } from './runScript.mjs';
 /**
  * Renders `assets/sprawl-dataset.json` to the two README GIFs.
  *
- * The image and the page draw one geometry: this script imports the same
- * `buildSprawlLayout`, `buildSprawlLaneStates` and `getSprawlMaxLines` the
- * component uses, builds the component's SVG as a string, and rasterises it.
- * There is no second copy of the drawing to keep in step, which is the only way
- * a README image stays true after the page changes.
+ * The geometry is `buildSprawlLayout`, `buildSprawlLaneStates` and
+ * `getSprawlMaxLines` in the web app's sprawl folder — typed, unit-tested
+ * source — and this script builds the SVG as a string from them and
+ * rasterises it.
  *
  * Colours are hex literals here, and this is the one place in this feature that
  * is legitimate: a Node script writing pixels cannot resolve a Tailwind token,
@@ -132,7 +131,7 @@ const encodeGif = ({ dataset, theme, width, kept, schedule }) => {
 			drawnIndex = index;
 		}
 
-		// 83 ms is twelve a second, the rate `useSprawlFrameLoop` plays the page at.
+		// 83 ms is twelve frames a second.
 		gif.writeFrame(indexed, width, height, position === 0 ? { palette, delay: 83, repeat: 0 } : { delay: 83 });
 	});
 

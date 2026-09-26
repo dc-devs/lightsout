@@ -1,43 +1,47 @@
-import { Link } from '@tanstack/react-router';
-import { SectionBadge } from '#src/appUI/badges/SectionBadge.tsx';
-import { Button } from '#src/appUI/buttons/Button.tsx';
+import { Sparkles } from 'lucide-react';
+import { FadeIn } from '#src/appUI/FadeIn.tsx';
 import { GridBackground } from '#src/appUI/GridBackground.tsx';
+import { GridPattern } from '#src/common/constants/GridPattern.ts';
 import { InstallLine } from '#src/features/home/components/InstallLine.tsx';
+import { SectionPill } from '#src/features/home/components/SectionPill.tsx';
 import { heroDescription } from '#src/features/home/internal/common/constants/heroDescription.ts';
-import { SprawlChart } from '#src/features/sprawl/components/SprawlChart.tsx';
 
 /**
- * The pain, and the picture.
+ * The promise, in three words, and the one thing to do about it.
  *
- * Left, the sentence a reader who has watched an agent work should recognize;
- * right, the animation of this repository's own history, which is the one thing
- * a screenshot cannot show. The gradient falls on a single word — the second of
- * the three places it is spent — because a page that neons everything says
- * nothing.
+ * It fills the first screen under the header, so the next section waits below
+ * the fold rather than competing with the headline. Styled to FeedbackDrop's
+ * hero, class for class: the faint grid fading toward
+ * the page, the blue pill badge, a navy headline with its last word in blue,
+ * the grey sub line saying plainly what it is, one pill-shaped action and
+ * the small print under it — each block rising in on its own delay.
  */
 export const HeroSection = () => (
-	<section className="relative overflow-hidden px-6 py-16 lg:px-10 lg:py-24">
-		<GridBackground />
-		<div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-2">
-			<div className="flex flex-col items-start gap-6">
-				<SectionBadge>lightsout · a gated factory for coding agents</SectionBadge>
-				<h1 className="font-semibold text-4xl leading-tight lg:text-6xl">
-					Stop the <span className="bg-[image:var(--brand-gradient)] bg-clip-text text-transparent">slop</span>.
+	<section className="relative flex min-h-[calc(100svh-4.5rem)] w-full flex-col items-center justify-center px-4 py-16 text-center">
+		<GridBackground
+			pattern={GridPattern.Squares}
+			maskImage="linear-gradient(to bottom, black 40%, transparent 100%)"
+			className="z-0 opacity-60 dark:opacity-30"
+		/>
+		<div className="relative z-10 flex flex-col items-center">
+			<FadeIn>
+				<SectionPill icon={Sparkles} label="lightsout · Quality control for AI coding agents" className="mb-10" />
+			</FadeIn>
+			<FadeIn delayMs={100}>
+				<h1 className="max-w-4xl font-extrabold text-6xl leading-[1.1] tracking-tight md:text-8xl">
+					<span className="text-drop-navy">Stop the </span>
+					<span className="text-primary">slop.</span>
 				</h1>
-				<p className="max-w-xl text-base text-muted-foreground-strong">{heroDescription}</p>
-				<p className="max-w-xl text-base text-muted-foreground-strong">
-					Lightsout makes repository quality part of the work — and proves it with your own tests, not the agent’s word.
-				</p>
-				<div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center">
-					<InstallLine className="w-full sm:w-auto" />
-					<Button variant="outline" asChild>
-						<Link to="/standards/$pack" params={{ pack: 'lightsout-defaults' }}>
-							See what the standards look like →
-						</Link>
-					</Button>
-				</div>
-			</div>
-			<SprawlChart className="min-w-0" />
+			</FadeIn>
+			<FadeIn delayMs={200}>
+				<p className="mt-8 max-w-2xl text-muted-foreground-strong text-lg leading-relaxed md:text-xl">{heroDescription}</p>
+			</FadeIn>
+			<FadeIn delayMs={300}>
+				<InstallLine className="mt-10" />
+			</FadeIn>
+			<FadeIn delayMs={400}>
+				<p className="mt-6 text-muted-foreground text-sm">Alpha · MIT · Works with Claude Code, Codex, and Pi</p>
+			</FadeIn>
 		</div>
 	</section>
 );

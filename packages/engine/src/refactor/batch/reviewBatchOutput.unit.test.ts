@@ -10,7 +10,7 @@ import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/Loade
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 const advisory = (overrides: Partial<StandardsFinding> & { siteKey: string }): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	files: [{ path: 'src/a.ts' }],
 	detail: '81 lines',
@@ -27,7 +27,7 @@ const batch: RefactorBatch = {
 	advisories: [],
 };
 
-const judgmentRules: LoadedStandardsRule[] = ['size-function', 'single-return'].map((id) => ({
+const judgmentRules: LoadedStandardsRule[] = ['function-size', 'single-return'].map((id) => ({
 	id,
 	set: 'code',
 	documentPath: `code/style-guide/patterns/${id}`,
@@ -68,9 +68,9 @@ const setupReview = async ({ reported }: { reported: { rule: string; files: { pa
 
 describe('reviewBatchOutput', () => {
 	test('a rule the pre-edit review already raised on the file is not reported again', async () => {
-		const { call } = await setupReview({ reported: [{ rule: 'size-function', files: [{ path: 'src/a.ts' }], detail: '81 lines' }] });
+		const { call } = await setupReview({ reported: [{ rule: 'function-size', files: [{ path: 'src/a.ts' }], detail: '81 lines' }] });
 
-		const introduced = await call({ baseline: [advisory({ siteKey: 'size-function:src/a.ts' })], changedFiles: ['src/a.ts'] });
+		const introduced = await call({ baseline: [advisory({ siteKey: 'function-size:src/a.ts' })], changedFiles: ['src/a.ts'] });
 
 		// the executor was shown this one before it started and recorded its answer;
 		// handing it back is churn, not verification
@@ -80,38 +80,38 @@ describe('reviewBatchOutput', () => {
 	test('a rule that appears only after the edits is the batch’s own doing', async () => {
 		const { call } = await setupReview({
 			reported: [
-				{ rule: 'size-function', files: [{ path: 'src/a.ts' }], detail: '81 lines' },
+				{ rule: 'function-size', files: [{ path: 'src/a.ts' }], detail: '81 lines' },
 				{ rule: 'single-return', files: [{ path: 'src/a.ts' }], detail: 'six exits' },
 			],
 		});
 
-		const introduced = await call({ baseline: [advisory({ siteKey: 'size-function:src/a.ts' })], changedFiles: ['src/a.ts'] });
+		const introduced = await call({ baseline: [advisory({ siteKey: 'function-size:src/a.ts' })], changedFiles: ['src/a.ts'] });
 
 		expect(introduced.map((entry) => entry.rule)).toStrictEqual(['single-return']);
 	});
 
 	test('the same rule on a file the batch created is new — the site key carries the path', async () => {
-		const { call } = await setupReview({ reported: [{ rule: 'size-function', files: [{ path: 'src/extracted.ts' }], detail: '92 lines' }] });
+		const { call } = await setupReview({ reported: [{ rule: 'function-size', files: [{ path: 'src/extracted.ts' }], detail: '92 lines' }] });
 
-		const introduced = await call({ baseline: [advisory({ siteKey: 'size-function:src/a.ts' })], changedFiles: ['src/a.ts', 'src/extracted.ts'] });
+		const introduced = await call({ baseline: [advisory({ siteKey: 'function-size:src/a.ts' })], changedFiles: ['src/a.ts', 'src/extracted.ts'] });
 
-		expect(introduced.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/extracted.ts']);
+		expect(introduced.map((entry) => entry.siteKey)).toStrictEqual(['function-size:src/extracted.ts']);
 	});
 
 	test('everything the reviewer saw reaches the repo ledger, not just what is new', async () => {
 		const { call, cwd } = await setupReview({
 			reported: [
-				{ rule: 'size-function', files: [{ path: 'src/a.ts' }], detail: '81 lines' },
+				{ rule: 'function-size', files: [{ path: 'src/a.ts' }], detail: '81 lines' },
 				{ rule: 'single-return', files: [{ path: 'src/a.ts' }], detail: 'six exits' },
 			],
 		});
 
-		await call({ baseline: [advisory({ siteKey: 'size-function:src/a.ts' })], changedFiles: ['src/a.ts'] });
+		await call({ baseline: [advisory({ siteKey: 'function-size:src/a.ts' })], changedFiles: ['src/a.ts'] });
 		const recorded = await readReviewFindings({ cwd });
 
 		// the ledger is the account of what a review found, not of what this run
 		// chose to act on — and it carries which run and which batch saw it
-		expect(recorded.map((entry) => entry.rule)).toStrictEqual(['size-function', 'single-return']);
+		expect(recorded.map((entry) => entry.rule)).toStrictEqual(['function-size', 'single-return']);
 		expect(recorded[0]?.runId).toBe('run-01');
 		expect(recorded[0]?.step).toBe('batch-01:multi-export:src');
 	});

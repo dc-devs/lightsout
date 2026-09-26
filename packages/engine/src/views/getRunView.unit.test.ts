@@ -322,7 +322,7 @@ test('a back-link is titled from the coordinator manifest alone, so a work-list 
 			plan: '.lightsout/runs/run-sequence/worklist.json',
 			steps: [{ id: 'phase1', status: RunStatus.Passed, attempts: 1, report: { runId: 'run-child' } }],
 		},
-		worklist: worklistNaming({ rules: ['multi-export', 'size-file'] }),
+		worklist: worklistNaming({ rules: ['multi-export', 'file-size'] }),
 	});
 	await seedRunDir({ cwd, manifest: { runId: 'run-child', parentRunId: 'run-sequence' } });
 

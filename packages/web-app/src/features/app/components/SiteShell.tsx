@@ -2,8 +2,8 @@ import { Outlet } from '@tanstack/react-router';
 import { SiteHeader } from '#src/features/app/components/SiteHeader.tsx';
 
 /**
- * The frame the public pages wear: a header that floats over the page, and the
- * page itself scrolling with the document.
+ * The frame the public pages wear: a header pinned to the top, and the page
+ * itself scrolling with the document beneath it.
  *
  * Nothing here reads this machine's repository. These pages are the same for a
  * reader who has never installed lightsout and for the author running it
@@ -17,7 +17,7 @@ import { SiteHeader } from '#src/features/app/components/SiteHeader.tsx';
 export const SiteShell = () => (
 	<div className="relative min-h-screen w-full">
 		<SiteHeader />
-		<main className="pt-20">
+		<main>
 			<Outlet />
 		</main>
 	</div>

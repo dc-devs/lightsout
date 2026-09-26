@@ -24,8 +24,8 @@ const runId = 'abcdef0123456789';
 
 /** One row of a refactor run's work-list, over a batch the agent resolved with nothing to say about it. */
 const buildBatch = ({ overrides = {} }: { overrides?: Partial<RunBurnDownBatch> } = {}): RunBurnDownBatch => ({
-	id: 'batch-01:size-file:src/views',
-	rule: 'size-file',
+	id: 'batch-01:file-size:src/views',
+	rule: 'file-size',
 	folder: 'src/views',
 	blocking: 3,
 	outcome: RunBurnDownBatchOutcome.Resolved,
@@ -82,11 +82,11 @@ describe('RunDetail burn-down', () => {
 	});
 
 	test('says what one batch was given and how it ended', () => {
-		setupBurnDown({ burnDown: { before: 3, after: 0, batches: [buildBatch({ overrides: { rule: 'size-function', folder: 'src/views', blocking: 3 } })] } });
+		setupBurnDown({ burnDown: { before: 3, after: 0, batches: [buildBatch({ overrides: { rule: 'function-size', folder: 'src/views', blocking: 3 } })] } });
 
-		const rule = screen.getByText('size-function');
+		const rule = screen.getByText('function-size');
 
-		expect(rule.parentElement).toHaveTextContent(/size-function.*src\/views.*3 sites.*resolved/);
+		expect(rule.parentElement).toHaveTextContent(/function-size.*src\/views.*3 sites.*resolved/);
 	});
 
 	test('shows the agent’s own account of a batch it declined', () => {

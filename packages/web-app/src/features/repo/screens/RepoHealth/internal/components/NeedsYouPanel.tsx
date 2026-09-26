@@ -17,7 +17,7 @@ const RunAction = ({ run }: { run: RunListing }) =>
 	run.resumable ? (
 		<CopyButton value={`lightsout resume --run ${run.shortId}`} label="Copy resume" />
 	) : (
-		<Link to="/repo/runs/$runId" params={{ runId: run.runId }} className="text-brand-to text-sm underline underline-offset-4">
+		<Link to="/app/runs/$runId" params={{ runId: run.runId }} className="text-brand-to text-sm underline underline-offset-4">
 			Read the escalation →
 		</Link>
 	);
@@ -48,7 +48,7 @@ export const NeedsYouPanel = ({ runs }: Props) => {
 					{waiting.map((run) => (
 						<li key={run.runId} className="flex flex-wrap items-center gap-3 border-border border-b py-2 first:pt-0 last:border-0 last:pb-0">
 							<StatusBadge status={run.status} config={statusBadgeConfig} live={run.live} />
-							<Link to="/repo/runs/$runId" params={{ runId: run.runId }} className="min-w-0 flex-1 truncate font-medium text-sm hover:underline">
+							<Link to="/app/runs/$runId" params={{ runId: run.runId }} className="min-w-0 flex-1 truncate font-medium text-sm hover:underline">
 								{run.title}
 							</Link>
 							<RunAction run={run} />

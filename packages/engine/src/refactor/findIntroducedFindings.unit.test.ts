@@ -52,9 +52,9 @@ describe('findIntroducedFindings', () => {
 
 	test('the same question asked of advisories finds the one a batch’s own edits introduced', () => {
 		const introduced = findIntroducedFindings({
-			frozen: [finding({ severity: StandardsSeverity.Advisory, rule: 'size-function', siteKey: 'size-function:src/a.ts' })],
+			frozen: [finding({ severity: StandardsSeverity.Advisory, rule: 'function-size', siteKey: 'function-size:src/a.ts' })],
 			live: [
-				finding({ severity: StandardsSeverity.Advisory, rule: 'size-function', siteKey: 'size-function:src/a.ts' }),
+				finding({ severity: StandardsSeverity.Advisory, rule: 'function-size', siteKey: 'function-size:src/a.ts' }),
 				finding({ severity: StandardsSeverity.Advisory, rule: 'single-return', siteKey: 'single-return:src/a.ts' }),
 			],
 			severity: StandardsSeverity.Advisory,

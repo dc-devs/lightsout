@@ -46,7 +46,7 @@ describe('applyStandardsBaseline', () => {
 
 		const applied = await applyStandardsBaseline({
 			cwd,
-			findings: [finding('size-function:src/a.ts', StandardsSeverity.Advisory)],
+			findings: [finding('function-size:src/a.ts', StandardsSeverity.Advisory)],
 			all: false,
 			writeBaseline: false,
 		});

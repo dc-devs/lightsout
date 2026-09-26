@@ -28,7 +28,7 @@ const RunCell = ({ record, runs }: { record: FrictionRecord; runs: RunListing[] 
 	return listing === undefined ? (
 		<MetadataTag title={record.runId}>{shortId}</MetadataTag>
 	) : (
-		<Link to="/repo/runs/$runId" params={{ runId: record.runId }} className="flex min-w-0 items-center gap-2 hover:underline hover:underline-offset-2">
+		<Link to="/app/runs/$runId" params={{ runId: record.runId }} className="flex min-w-0 items-center gap-2 hover:underline hover:underline-offset-2">
 			<MetadataTag>{listing.shortId}</MetadataTag>
 			<span className="min-w-0 truncate">{listing.title}</span>
 		</Link>

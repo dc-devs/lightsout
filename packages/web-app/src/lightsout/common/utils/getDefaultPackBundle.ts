@@ -8,11 +8,11 @@ let parsed: StandardsPackBundle | undefined;
  * The authored default pack, whole, as `scripts/buildDefaultPackView.mjs`
  * committed it to `assets/default-pack.json`.
  *
- * The app carries it because the pack a run loads by default is the copy
- * `plugin/standards/` ships, which the bundler strips the fixtures out of — and
- * a rule page exists to show the code a rule argues about. This view is what
- * `FixtureReader` serves outright and what `InProcessReader` substitutes
- * wherever the engine finds that stripped copy.
+ * The app carries it because the public Standards Packs pages document what
+ * every repo gets out of the box: the same pack, whole, wherever the site runs.
+ * It is the authored pack rather than the copy `plugin/standards/` ships, which
+ * the bundler strips the fixtures out of — and a rule page exists to show the
+ * code a rule argues about.
  */
 export const getDefaultPackBundle = (): StandardsPackBundle => {
 	if (parsed === undefined) {

@@ -9,8 +9,8 @@ import { seedSprawlRepo } from '#tests/helpers/sprawl/seedSprawlRepo.ts';
 // pack's own rule file — and a rule file that cannot answer has to stop the
 // build rather than let a plausible number ship.
 
-const sizeFileRule = 'code/style-guide/patterns/functions/30-size-file/rule.md';
-const sizeFunctionRule = 'code/style-guide/patterns/functions/25-size-function/rule.md';
+const fileSizeRule = 'code/style-guide/patterns/functions/30-file-size/rule.md';
+const functionSizeRule = 'code/style-guide/patterns/functions/25-function-size/rule.md';
 const repos: string[] = [];
 
 const setupCapsRepo = ({ rules }: { rules?: Record<string, string | undefined> } = {}) => {
@@ -61,7 +61,7 @@ describe('readSprawlCaps', () => {
 
 	test('stops reading at the first line that is not a setting, so prose below the front matter cannot be mistaken for a cap', () => {
 		const { cwd } = setupCapsRepo({
-			rules: { [sizeFileRule]: ['---', 'settings:', '  file: 100', '  tsxFile: 120', '---', '', '  tsxFile: 999', ''].join('\n') },
+			rules: { [fileSizeRule]: ['---', 'settings:', '  file: 100', '  tsxFile: 120', '---', '', '  tsxFile: 999', ''].join('\n') },
 		});
 
 		const result = readCaps({ cwd });
@@ -70,15 +70,15 @@ describe('readSprawlCaps', () => {
 	});
 
 	test('refuses when a rule file carries no settings block', () => {
-		const { cwd } = setupCapsRepo({ rules: { [sizeFunctionRule]: ['---', 'summary: "no numbers here"', '---', ''].join('\n') } });
+		const { cwd } = setupCapsRepo({ rules: { [functionSizeRule]: ['---', 'summary: "no numbers here"', '---', ''].join('\n') } });
 
 		const result = readCaps({ cwd });
 
-		expect(result.error).toMatch(/25-size-function\/rule\.md has no settings: block/);
+		expect(result.error).toMatch(/25-function-size\/rule\.md has no settings: block/);
 	});
 
 	test('refuses when a settings block is missing the key the cap is read from', () => {
-		const { cwd } = setupCapsRepo({ rules: { [sizeFileRule]: ['---', 'settings:', '  file: 100', '---', ''].join('\n') } });
+		const { cwd } = setupCapsRepo({ rules: { [fileSizeRule]: ['---', 'settings:', '  file: 100', '---', ''].join('\n') } });
 
 		const result = readCaps({ cwd });
 
@@ -86,7 +86,7 @@ describe('readSprawlCaps', () => {
 	});
 
 	test('refuses when a settings key is present but not a number', () => {
-		const { cwd } = setupCapsRepo({ rules: { [sizeFunctionRule]: ['---', 'settings:', '  function: soon', '---', ''].join('\n') } });
+		const { cwd } = setupCapsRepo({ rules: { [functionSizeRule]: ['---', 'settings:', '  function: soon', '---', ''].join('\n') } });
 
 		const result = readCaps({ cwd });
 
@@ -94,10 +94,10 @@ describe('readSprawlCaps', () => {
 	});
 
 	test('refuses when a rule file the caps come from is not there at all', () => {
-		const { cwd } = setupCapsRepo({ rules: { [sizeFunctionRule]: undefined } });
+		const { cwd } = setupCapsRepo({ rules: { [functionSizeRule]: undefined } });
 
 		const result = readCaps({ cwd });
 
-		expect(result.error).toMatch(/25-size-function/);
+		expect(result.error).toMatch(/25-function-size/);
 	});
 });

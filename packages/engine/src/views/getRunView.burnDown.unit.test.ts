@@ -92,13 +92,13 @@ describe('getRunView', () => {
 	test('a refactor run reports every frozen site against the sites its batches left standing', async () => {
 		const { cwd } = await setupRefactorRun({
 			batches: [
-				{ rule: 'size-file', blocking: 3, report: { outcome: 'resolved', remainingSiteKeys: [], rationale: [] } },
+				{ rule: 'file-size', blocking: 3, report: { outcome: 'resolved', remainingSiteKeys: [], rationale: [] } },
 				{
-					rule: 'crowded-folder',
+					rule: 'folder-size',
 					blocking: 2,
 					report: {
 						outcome: 'declined',
-						remainingSiteKeys: ['crowded-folder:0', 'crowded-folder:1'],
+						remainingSiteKeys: ['folder-size:0', 'folder-size:1'],
 						rationale: ['the folder is one public surface'],
 						advisoryOutcomes: [{ rule: 'multi-export', siteKey: 'multi-export:0', outcome: 'declined', reason: 'the second export is the type' }],
 					},
@@ -119,10 +119,10 @@ describe('getRunView', () => {
 			batchesDeclined: 1,
 			batches: [
 				// a report with no advisory list reports none, rather than nothing
-				{ id: 'batch-00:size-file:src', rule: 'size-file', folder: 'src', blocking: 3, outcome: 'resolved', rationale: [], advisoryOutcomes: [] },
+				{ id: 'batch-00:file-size:src', rule: 'file-size', folder: 'src', blocking: 3, outcome: 'resolved', rationale: [], advisoryOutcomes: [] },
 				{
-					id: 'batch-01:crowded-folder:src',
-					rule: 'crowded-folder',
+					id: 'batch-01:folder-size:src',
+					rule: 'folder-size',
 					folder: 'src',
 					blocking: 2,
 					outcome: 'declined',
@@ -138,7 +138,7 @@ describe('getRunView', () => {
 	});
 
 	test('a batch whose recorded report will not parse reads as never run, leaving its sites standing', async () => {
-		const { cwd } = await setupRefactorRun({ batches: [{ rule: 'size-function', blocking: 2, report: { outcome: 'exploded' } }] });
+		const { cwd } = await setupRefactorRun({ batches: [{ rule: 'function-size', blocking: 2, report: { outcome: 'exploded' } }] });
 
 		const view = await getRunView({ cwd, runId: 'run-refactor' });
 
@@ -150,7 +150,7 @@ describe('getRunView', () => {
 			batchesResolved: 0,
 			batchesDeclined: 0,
 			batches: [
-				{ id: 'batch-00:size-function:src', rule: 'size-function', folder: 'src', blocking: 2, outcome: 'not-run', rationale: [], advisoryOutcomes: [] },
+				{ id: 'batch-00:function-size:src', rule: 'function-size', folder: 'src', blocking: 2, outcome: 'not-run', rationale: [], advisoryOutcomes: [] },
 			],
 			overCap: { before: 2, after: 2 },
 		});
@@ -186,7 +186,7 @@ describe('getRunView', () => {
 	});
 
 	test('a refactor run whose plan does not name the work-list reports nothing, though the file is there', async () => {
-		const { cwd } = await setupRefactorRun({ batches: [{ rule: 'size-file', blocking: 1 }], plan: 'plans/demo/plan.md' });
+		const { cwd } = await setupRefactorRun({ batches: [{ rule: 'file-size', blocking: 1 }], plan: 'plans/demo/plan.md' });
 
 		const view = await getRunView({ cwd, runId: 'run-refactor' });
 

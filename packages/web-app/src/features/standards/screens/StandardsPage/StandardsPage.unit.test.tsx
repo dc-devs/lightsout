@@ -58,7 +58,7 @@ describe('StandardsPage header', () => {
 	test('says how many rules the repo loads and how they are enforced', () => {
 		setupStandardsPage({ overrides: { totals: { rules: 12, checked: 9, judgment: 3, blocking: 0, advisory: 0, orphans: 0 } } });
 
-		const enforcement = screen.getByText('12 rules, 9 by code and 3 by judgment');
+		const enforcement = screen.getByText('12 rules, 9 deterministic checks and 3 agent checks');
 
 		expect(enforcement).toBeInTheDocument();
 	});

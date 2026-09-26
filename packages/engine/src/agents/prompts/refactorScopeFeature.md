@@ -13,7 +13,7 @@ conventions around them.
 - Every file you write goes in `changedFiles` with its reason, new files
   included. The engine verifies all of it, and an unreported edit is the one
   thing that can make a green gate a lie.
-- A folder-level finding (`crowded-folder`) is REPORTED, never acted on. Its
+- A folder-level finding (`folder-size`) is REPORTED, never acted on. Its
   only real remedy is regrouping files this feature never touched, and a home
   you invent for your own file to duck the count is worse than the finding: the
   finding is visible, a bad placement is not. A standalone reorganization run is

@@ -10,9 +10,9 @@ const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 		detail: 'a 36-line span repeated across two files',
 	};
 	const advisory = {
-		rule: 'size-file',
+		rule: 'file-size',
 		severity: 'advisory',
-		siteKey: 'size-file:src/standardsCheck/runStandardsCheck.ts',
+		siteKey: 'file-size:src/standardsCheck/runStandardsCheck.ts',
 		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts' }],
 		detail: 'the file is 240 lines against a 200-line guideline',
 	};
@@ -114,7 +114,7 @@ describe('RefactorBatch', () => {
 
 	test('a malformed advisory rejects the batch just as a malformed finding does', () => {
 		const { batch } = setupBatch({
-			extra: { advisories: [{ rule: 'size-file', severity: 'advisory', siteKey: 'size-file:src/standardsCheck/runStandardsCheck.ts' }] },
+			extra: { advisories: [{ rule: 'file-size', severity: 'advisory', siteKey: 'file-size:src/standardsCheck/runStandardsCheck.ts' }] },
 		});
 
 		const result = RefactorBatch.safeParse(batch);

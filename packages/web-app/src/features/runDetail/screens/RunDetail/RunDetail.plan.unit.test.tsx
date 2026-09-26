@@ -96,10 +96,10 @@ describe('RunDetail plan drawer', () => {
 					all: true,
 					batches: [
 						{
-							id: 'batch-01:size-function:packages/engine',
-							rule: 'size-function',
+							id: 'batch-01:function-size:packages/engine',
+							rule: 'function-size',
 							folder: 'packages/engine',
-							blocking: [{ rule: 'size-function', severity: 'blocking', siteKey: 'src/a.ts:doThing', files: [{ path: 'src/a.ts' }], detail: '91 lines' }],
+							blocking: [{ rule: 'function-size', severity: 'blocking', siteKey: 'src/a.ts:doThing', files: [{ path: 'src/a.ts' }], detail: '91 lines' }],
 							advisories: [],
 						},
 					],
@@ -110,7 +110,7 @@ describe('RunDetail plan drawer', () => {
 		openPlan();
 		const drawer = await screen.findByRole('dialog');
 
-		await waitFor(() => expect(drawer).toHaveTextContent('batch-01:size-function:packages/engine'));
+		await waitFor(() => expect(drawer).toHaveTextContent('batch-01:function-size:packages/engine'));
 		expect(drawer).toHaveTextContent('91 lines');
 	});
 

@@ -26,7 +26,12 @@
 			"!assets",
 			// Harness configuration and skills, not this project's source. The
 			// files in here belong to the tools that read them.
-			"!.claude"
+			"!.claude",
+			// A verbatim copy of FeedbackDrop's stylesheet, kept identical so the
+			// two sites share one design. Its `theme(colors.x.y)` calls are
+			// Tailwind syntax Biome's CSS parser rejects, and FeedbackDrop leaves
+			// its CSS out of Biome the same way.
+			"!packages/web-app/src/styles/app.css"
 		]
 	},
 

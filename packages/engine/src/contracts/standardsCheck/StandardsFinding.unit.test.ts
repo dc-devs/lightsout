@@ -40,12 +40,12 @@ describe('StandardsFinding', () => {
 			'synonym-export-name',
 			'duplicate-code-block',
 			'duplicate-function-body',
-			'size-file',
-			'size-function',
+			'file-size',
+			'function-size',
 			'multi-export',
 			'filename-mismatch',
 			'ungrouped-domain-utils',
-			'crowded-folder',
+			'folder-size',
 			'dead-export',
 			'test-only-export',
 			'import-through-index',
@@ -286,7 +286,7 @@ describe('StandardsFinding', () => {
 	});
 
 	test('a measure a capped rule reported is persisted rather than dropped', () => {
-		const { finding } = setupFinding({ extra: { rule: 'size-file', severity: 'blocking', measure: 214 } });
+		const { finding } = setupFinding({ extra: { rule: 'file-size', severity: 'blocking', measure: 214 } });
 
 		const parsed = StandardsFinding.parse(finding);
 

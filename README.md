@@ -6,7 +6,7 @@ Lightsout takes a finished plan and runs it through a gated software factory. Yo
 
 **Humans make the decisions. Agents execute them. Your commands decide when the work is done.**
 
-**Status: pre-alpha.**
+**Status: alpha.**
 
 ## Why
 

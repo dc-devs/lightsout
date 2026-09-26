@@ -91,7 +91,7 @@ test('the standards check finds each planted defect and respects the exceptions'
 	expect(names.some((finding) => finding.siteKey === 'duplicate-export-name:src/a/normalizeRecord.ts|src/b/normalizeRecord.ts')).toBeTruthy();
 	// synonym pair collapses to one concept
 	expect(names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'"))).toBeTruthy();
-	const structure = [...byRule('multi-export'), ...byRule('filename-mismatch'), ...byRule('ungrouped-domain-utils'), ...byRule('crowded-folder')];
+	const structure = [...byRule('multi-export'), ...byRule('filename-mismatch'), ...byRule('ungrouped-domain-utils'), ...byRule('folder-size')];
 
 	// multi-export flagged
 	expect(structure.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeTruthy();
@@ -101,12 +101,12 @@ test('the standards check finds each planted defect and respects the exceptions'
 	expect(structure.some((finding) => finding.siteKey === 'ungrouped-domain-utils:src/a/utils/formatCurrency.ts|src/a/utils/formatDate.ts')).toBeTruthy();
 
 	// oversized file flagged
-	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
+	expect(byRule('file-size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
 	// a cap is a layout opinion: the pack ships it advisory, and a repo that wants
 	// it to block promotes it in standards-checks (this one has none)
-	expect(byRule('size-file').find((finding) => finding.siteKey === 'size-file:src/b/huge.ts')?.severity).toBe('advisory');
+	expect(byRule('file-size').find((finding) => finding.siteKey === 'file-size:src/b/huge.ts')?.severity).toBe('advisory');
 	// .tsx under its larger cap not flagged
-	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
+	expect(byRule('file-size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
 
 	const dead = byRule('dead-export');
 

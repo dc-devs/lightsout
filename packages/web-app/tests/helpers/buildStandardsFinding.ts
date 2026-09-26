@@ -13,7 +13,7 @@ interface Params {
 
 /** One open finding, shaped as a check emits it and the engine persists it, with only what a test cares about overridden. */
 export const buildStandardsFinding = ({
-	rule = 'size-file',
+	rule = 'file-size',
 	severity = StandardsSeverity.Blocking,
 	paths = ['packages/engine/src/plan/draftPlan.ts'],
 	detail = '268 lines, cap is 250',

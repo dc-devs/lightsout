@@ -84,10 +84,10 @@ describe('RunDetail timeline', () => {
 	});
 
 	test("points at the step's own card, so clicking a segment goes to its evidence", () => {
-		setupTimeline({ steps: [buildRunStep({ overrides: { id: 'batch-01:size-function' } })] });
+		setupTimeline({ steps: [buildRunStep({ overrides: { id: 'batch-01:function-size' } })] });
 
-		const segment = screen.getByRole('link', { name: 'batch-01:size-function' });
+		const segment = screen.getByRole('link', { name: 'batch-01:function-size' });
 
-		expect(segment).toHaveAttribute('href', '#step-batch-01:size-function');
+		expect(segment).toHaveAttribute('href', '#step-batch-01:function-size');
 	});
 });

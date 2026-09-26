@@ -138,14 +138,14 @@ describe('ConfigPage field rows', () => {
 });
 
 describe('ConfigPage packs card', () => {
-	test('points each loaded pack at its own page, which is where what it says lives', () => {
+	test('points each loaded pack at the Standards Packs page, which is where what it says lives', () => {
 		setupConfigPage({
 			overrides: { packs: [{ name: 'acme-house-rules', rootPath: '/repos/lightsout/packages/house', isDefault: false, channels: [] }] },
 		});
 
 		const link = screen.getByRole('link', { name: 'acme-house-rules' });
 
-		expect(link).toHaveAttribute('href', '/standards/acme-house-rules');
+		expect(link).toHaveAttribute('href', '/standards-packs');
 	});
 
 	test('shows where a pack was read from and which framework documents it carries', () => {
@@ -177,25 +177,25 @@ describe('ConfigPage packs card', () => {
 
 describe('ConfigPage rule ledger', () => {
 	const ruleStates: ConfigView['ruleStates'] = [
-		{ rule: 'size-file', pack: 'lightsout-defaults', severity: StandardsSeverity.Blocking, fromConfig: true, settings: { file: 250 } },
-		{ rule: 'loose-file', pack: 'lightsout-defaults', severity: StandardsSeverity.Advisory, fromConfig: false, settings: {} },
-		{ rule: 'naming-boolean', pack: 'acme-house-rules', severity: StandardsSeverity.Off, fromConfig: true, settings: {} },
+		{ rule: 'file-size', pack: 'lightsout-defaults', channel: 'base', severity: StandardsSeverity.Blocking, fromConfig: true, settings: { file: 250 } },
+		{ rule: 'loose-file', pack: 'lightsout-defaults', channel: 'base', severity: StandardsSeverity.Advisory, fromConfig: false, settings: {} },
+		{ rule: 'naming-boolean', pack: 'acme-house-rules', channel: 'base', severity: StandardsSeverity.Off, fromConfig: true, settings: {} },
 	];
 
 	test('lists every loaded rule, whichever pack declared it', () => {
 		setupConfigPage({ overrides: { ruleStates } });
 
-		const rules = screen.getAllByRole('link', { name: /^(size-file|loose-file|naming-boolean)$/ }).map((link) => link.textContent);
+		const rules = screen.getAllByRole('link', { name: /^(file-size|loose-file|naming-boolean)$/ }).map((link) => link.textContent);
 
-		expect(rules).toStrictEqual(['size-file', 'loose-file', 'naming-boolean']);
+		expect(rules).toStrictEqual(['file-size', 'loose-file', 'naming-boolean']);
 	});
 
-	test("points a rule at the pack that declares it, which is what the ledger's own pack field is for", () => {
+	test('points a rule at its page in the set it belongs to', () => {
 		setupConfigPage({ overrides: { ruleStates } });
 
 		const link = screen.getByRole('link', { name: 'naming-boolean' });
 
-		expect(link).toHaveAttribute('href', '/standards/acme-house-rules/naming-boolean');
+		expect(link).toHaveAttribute('href', '/standards-packs/typescript/naming-boolean');
 	});
 
 	test('says of each rule whether this repo set its state or the pack did', () => {
@@ -238,7 +238,7 @@ describe('ConfigPage rule ledger', () => {
 		chooseSeverity({ name: /advisory/ });
 
 		expect(screen.getByRole('link', { name: 'loose-file' })).toBeInTheDocument();
-		expect(screen.queryByRole('link', { name: 'size-file' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('link', { name: 'file-size' })).not.toBeInTheDocument();
 	});
 
 	test('offers each state with how many rules run at it, so a reader sees the shape before picking', () => {

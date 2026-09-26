@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { AdvisoryOutcome } from '#src/contracts/standardsCheck/AdvisoryOutcome.ts';
 
 const setupOutcome = (overrides: Record<string, unknown> = {}) => {
-	const outcome = { rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies', ...overrides };
+	const outcome = { rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies', ...overrides };
 
 	return { outcome };
 };
@@ -15,7 +15,7 @@ describe('AdvisoryOutcome', () => {
 	});
 
 	test('an applied entry needs no reason — there is nothing to explain about taking the advice', () => {
-		const outcome = { rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'applied' };
+		const outcome = { rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'applied' };
 
 		expect(AdvisoryOutcome.parse(outcome)).toStrictEqual(outcome);
 	});
@@ -46,7 +46,7 @@ describe('AdvisoryOutcome', () => {
 
 		// the agent is shown a whole finding and may echo more of it than it was
 		// asked for; the persisted entry is the four declared fields, nothing more
-		expect(parsed).toStrictEqual({ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' });
+		expect(parsed).toStrictEqual({ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' });
 	});
 
 	test('a reason that is not a sentence is refused rather than printed as one', () => {

@@ -2,7 +2,6 @@ import type { CommandCatalogEntry } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
 import { Badge } from '#src/appUI/badges/Badge.tsx';
 import { recordKindLabels } from '#src/features/commands/internal/common/constants/recordKindLabels.ts';
-import { CommandCount } from '#src/features/commands/screens/CommandsPage/internal/components/CommandCount.tsx';
 
 interface Props {
 	entry: CommandCatalogEntry;
@@ -24,6 +23,5 @@ export const CommandCard = ({ entry }: Props) => (
 			<Badge>{recordKindLabels[entry.records]}</Badge>
 		</div>
 		<p className="text-muted-foreground text-sm">{entry.summary}</p>
-		<CommandCount entry={entry} />
 	</article>
 );

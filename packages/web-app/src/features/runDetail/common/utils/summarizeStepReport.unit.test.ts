@@ -40,7 +40,7 @@ describe('summarizeStepReport', () => {
 				outcome: 'declined',
 				remainingSiteKeys: [],
 				rationale: [],
-				advisoryOutcomes: [{ rule: 'size-function', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
+				advisoryOutcomes: [{ rule: 'function-size', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
 			},
 		});
 
@@ -48,7 +48,7 @@ describe('summarizeStepReport', () => {
 
 		expect(summary).toEqual(
 			expect.objectContaining({
-				advisories: [{ rule: 'size-function', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
+				advisories: [{ rule: 'function-size', siteKey: 'src/a.ts:doThing', outcome: 'declined', reason: 'the split would hide the flow' }],
 			}),
 		);
 	});
@@ -118,9 +118,9 @@ describe('summarizeStepReport', () => {
 			report: {
 				roundsUsed: 2,
 				endReason: 'budget-exhausted',
-				remaining: [finding({ rule: 'size-file', siteKey: 'src/a.ts' })],
-				inherited: [finding({ rule: 'crowded-folder', siteKey: 'src/legacy' })],
-				uncertain: [finding({ rule: 'size-function', siteKey: 'src/b.ts:doThing' })],
+				remaining: [finding({ rule: 'file-size', siteKey: 'src/a.ts' })],
+				inherited: [finding({ rule: 'folder-size', siteKey: 'src/legacy' })],
+				uncertain: [finding({ rule: 'function-size', siteKey: 'src/b.ts:doThing' })],
 				failures: ['the second round timed out'],
 				initialReview: [finding({ rule: 'naming', siteKey: 'src/a.ts:thing' })],
 				finalReview: [
@@ -155,7 +155,7 @@ describe('summarizeStepReport', () => {
 		const { report } = setupReport({
 			report: {
 				roundsUsed: 1,
-				remaining: [finding({ rule: 'size-file', siteKey: 'src/a.ts' })],
+				remaining: [finding({ rule: 'file-size', siteKey: 'src/a.ts' })],
 				inherited: [],
 				uncertain: [],
 				failures: [],

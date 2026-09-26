@@ -24,7 +24,7 @@ import type { RunGroup } from '#src/features/runs/internal/common/types/RunGroup
 
 /** The run's title, as the way into its evidence. */
 const RunLink = ({ run }: { run: RunListing }) => (
-	<Link to="/repo/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
+	<Link to="/app/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
 		{run.title}
 	</Link>
 );

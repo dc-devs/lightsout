@@ -80,7 +80,7 @@ describe('RunDetail coordinator', () => {
 		const phase = screen.getByText('phase1-shell.md');
 
 		expect(phase.parentElement).toHaveTextContent('passed');
-		expect(screen.getByRole('link', { name: 'aaaa1111' })).toHaveAttribute('href', '/repo/runs/aaaa1111bbbb2222');
+		expect(screen.getByRole('link', { name: 'aaaa1111' })).toHaveAttribute('href', '/app/runs/aaaa1111bbbb2222');
 	});
 
 	test('falls back to the step id for a phase whose plan path went unrecorded', () => {

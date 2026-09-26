@@ -47,7 +47,7 @@ const advisoryOutcomesSection = [
 	"For every advisory listed above — machine-checked or agent-reviewed — add one entry to the `advisoryOutcomes` array of your report: the finding's `rule` and `siteKey` copied exactly as given, an `outcome`, and for a decline a short `reason`.",
 	'The three outcomes: "applied" when you made the change; "declined" when you judged the advice wrong here; "already-met" when the end-state it asks for was already true and you edited nothing. Do not report "applied" for a change you did not have to make, and do not report "declined" for advice you did not actually reject — each reads as the opposite of what happened.',
 	'This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.',
-	'```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }]\n```',
+	'```\n"advisoryOutcomes": [{ "rule": "function-size", "siteKey": "function-size:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }]\n```',
 ].join('\n\n');
 
 /** The scope section for one caller — the only part of the role prompt that differs between them. */

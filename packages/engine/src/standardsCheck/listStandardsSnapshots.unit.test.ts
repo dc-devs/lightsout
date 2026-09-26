@@ -58,9 +58,9 @@ test('the dated history stands even when the latest file will not read', async (
 test('the trend reduces every dated snapshot to counts, oldest first, and skips one it cannot read', async () => {
 	const cwd = await freshRepo();
 	const advisory = {
-		rule: 'size-function',
+		rule: 'function-size',
 		severity: StandardsSeverity.Advisory,
-		siteKey: 'size-function:src/b.ts',
+		siteKey: 'function-size:src/b.ts',
 		files: [{ path: 'src/b.ts' }],
 		detail: '81 lines',
 	};
@@ -87,8 +87,8 @@ test('the trend reduces every dated snapshot to counts, oldest first, and skips 
 		blocking: 1,
 		advisory: 1,
 		byRule: [
+			{ rule: 'function-size', count: 1 },
 			{ rule: 'multi-export', count: 1 },
-			{ rule: 'size-function', count: 1 },
 		],
 	});
 	// a clean check is a point too — a flat line at zero is the answer

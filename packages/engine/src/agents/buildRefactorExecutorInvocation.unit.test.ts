@@ -43,7 +43,7 @@ test('buildRefactorExecutorInvocation: the system prompt is byte-identical acros
 		changedFiles: ['src/widget.ts', 'src/other.ts'],
 		standards,
 		findings: [finding()],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory })],
 		errorContext: 'check failed',
 	});
 
@@ -68,14 +68,14 @@ test('buildRefactorExecutorInvocation: findings and advisories render as rule bu
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
 	expect(prompt.includes('- [multi-export] src/widget.ts — file exceeds the size cap')).toBeTruthy();
 	// an advisory carries its siteKey verbatim — the report demands it "copied
 	// exactly as given", so the prompt has to actually give it
-	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines (siteKey: `widget`)')).toBeTruthy();
+	expect(prompt.includes('- [function-size] src/widget.ts — function exceeds 50 lines (siteKey: `widget`)')).toBeTruthy();
 	// advisories keep their non-blocking framing
 	expect(prompt.includes('Advisory — judge each against')).toBeTruthy();
 });
@@ -86,7 +86,7 @@ test('buildRefactorExecutorInvocation: the blocking findings lead the standards 
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	// one heading for both lists — a second heading reads as a second work-list
@@ -102,7 +102,7 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 		changedFiles: ['src/widget.ts'],
 		advisories: [
 			finding({
-				rule: 'size-function',
+				rule: 'function-size',
 				severity: StandardsSeverity.Advisory,
 				detail: "function 'one' is 114 lines (cap ~80)",
 				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt.',
@@ -114,7 +114,7 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 	// orchestration the rule meant to spare
 	expect(
 		prompt.includes(
-			"- [size-function] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.",
+			"- [function-size] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.",
 		),
 	).toBeTruthy();
 });
@@ -168,11 +168,11 @@ test('buildRefactorExecutorInvocation: an advisories-only run renders without th
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [],
-		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'function-size', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
-	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
+	expect(prompt.includes('- [function-size] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
 	// no blocking framing without findings
 	expect(prompt.includes('Address each one first')).toBeFalsy();
 });
@@ -249,7 +249,7 @@ test('buildRefactorExecutorInvocation: both scopes let one fix reach the files i
 	// the limit that is left, stated only to the caller whose branch a reviewer
 	// reads as a feature: a folder cap is cleared by moving files the feature
 	// never touched, which is the reorganization that branch did not sign up for
-	expect(feature.systemPrompt.includes('A folder-level finding (`crowded-folder`) is REPORTED')).toBeTruthy();
+	expect(feature.systemPrompt.includes('A folder-level finding (`folder-size`) is REPORTED')).toBeTruthy();
 	expect(standalone.systemPrompt.includes('A folder-level finding')).toBeFalsy();
 
 	// and the licence to reorganize, stated only to the caller invoked to do it

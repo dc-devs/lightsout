@@ -7,14 +7,14 @@ describe('buildBatchReport', () => {
 			outcome: 'declined',
 			remainingSiteKeys: ['multi-export:src/a.ts'],
 			rationale: ['[plan] the barrel would break'],
-			advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption' }],
+			advisoryOutcomes: [{ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption' }],
 		});
 
 		expect(report).toStrictEqual({
 			outcome: 'declined',
 			remainingSiteKeys: ['multi-export:src/a.ts'],
 			rationale: ['[plan] the barrel would break'],
-			advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption' }],
+			advisoryOutcomes: [{ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption' }],
 		});
 	});
 

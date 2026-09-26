@@ -5,6 +5,15 @@ interface Params {
 	bundle: StandardsPackBundle;
 }
 
+/** Each channel's rule counts, in the pack's channel order, leaving out a channel no rule sits in. */
+const countRulesByChannel = ({ bundle }: Params) =>
+	bundle.channels.flatMap((channel) => {
+		const rules = bundle.rules.filter((rule) => rule.channel === channel);
+		const checked = rules.filter((rule) => rule.checked).length;
+
+		return rules.length === 0 ? [] : [{ channel, rules: rules.length, checked, judgment: rules.length - checked }];
+	});
+
 /**
  * A pack's identity and counts, without its documents or its rules — what the
  * packs page lists.
@@ -24,5 +33,6 @@ export const toStandardsPackListing = ({ bundle }: Params): StandardsPackListing
 	path: bundle.path,
 	built: bundle.built,
 	channels: bundle.channels,
+	channelTotals: countRulesByChannel({ bundle }),
 	totals: bundle.totals,
 });

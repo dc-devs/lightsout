@@ -15,7 +15,7 @@ const columns: Array<DataTableColumn<RunListing>> = [
 		key: 'title',
 		header: 'run',
 		render: (run) => (
-			<Link to="/repo/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
+			<Link to="/app/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
 				{run.title}
 			</Link>
 		),
@@ -49,7 +49,7 @@ export const RecentRuns = ({ runs }: Props) => {
 		<SettingsCard
 			title="Recent runs"
 			action={
-				<Link to="/repo/runs" className="text-brand-to text-sm underline underline-offset-4">
+				<Link to="/app/runs" className="text-brand-to text-sm underline underline-offset-4">
 					See all runs →
 				</Link>
 			}

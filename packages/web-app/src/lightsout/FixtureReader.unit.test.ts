@@ -1,12 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import {
-	ConfigNotFoundError,
-	PlanDocumentKind,
-	PlanWorkspaceNotFoundError,
-	RunNotFoundError,
-	StandardsPackNotFoundError,
-	StandardsPackRuleNotFoundError,
-} from '@lightsout/engine';
+import { ConfigNotFoundError, PlanDocumentKind, PlanWorkspaceNotFoundError, RunNotFoundError } from '@lightsout/engine';
 import { DemoRunSlug } from '#src/lightsout/common/constants/DemoRunSlug.ts';
 import { getDemoRunViews } from '#src/lightsout/common/utils/getDemoRunViews.ts';
 import { FixtureReader } from '#src/lightsout/FixtureReader.ts';
@@ -189,57 +182,6 @@ describe('FixtureReader', () => {
 		const { reader } = setupReader();
 
 		await expect(reader.getConfig()).rejects.toThrow(/lightsout\.config\.json/);
-	});
-
-	test('lists the bundled authored default pack, read from no disk at all', async () => {
-		const { reader } = setupReader();
-
-		const packs = await reader.listPacks();
-
-		expect(packs.map((pack) => ({ name: pack.name, isDefault: pack.isDefault, built: pack.built }))).toStrictEqual([
-			{ name: 'lightsout-defaults', isDefault: true, built: false },
-		]);
-	});
-
-	test('returns that pack as its page shows it: every document a group and every rule a row', async () => {
-		const { reader } = setupReader();
-
-		const view = await reader.getPack({ name: 'lightsout-defaults' });
-
-		expect({ documents: view.documents.length, rules: view.rules.length }).toStrictEqual({
-			documents: view.totals.documents,
-			rules: view.totals.rules,
-		});
-	});
-
-	test('rejects a pack name this build does not carry', async () => {
-		const { reader } = setupReader();
-
-		await expect(reader.getPack({ name: 'acme' })).rejects.toBeInstanceOf(StandardsPackNotFoundError);
-	});
-
-	test('returns one rule whole — its prose and the text of the files that prove it', async () => {
-		const { reader } = setupReader();
-
-		const rule = await reader.getPackRule({ name: 'lightsout-defaults', rule: 'type-assertion' });
-
-		expect({ id: rule.id, hasProse: rule.prose.length > 0, hasFixtures: rule.fixtures.length > 0 }).toStrictEqual({
-			id: 'type-assertion',
-			hasProse: true,
-			hasFixtures: true,
-		});
-	});
-
-	test('rejects a rule of a pack name this build does not carry', async () => {
-		const { reader } = setupReader();
-
-		await expect(reader.getPackRule({ name: 'acme', rule: 'type-assertion' })).rejects.toBeInstanceOf(StandardsPackNotFoundError);
-	});
-
-	test('rejects a rule id the bundled pack does not hold', async () => {
-		const { reader } = setupReader();
-
-		await expect(reader.getPackRule({ name: 'lightsout-defaults', rule: 'no-such-rule' })).rejects.toBeInstanceOf(StandardsPackRuleNotFoundError);
 	});
 
 	test('lists no plan workspaces, because a public site holds no repo for anyone to have planned in', async () => {

@@ -34,9 +34,9 @@ const setupBaseline = async () => {
 		path: '.',
 		findings: [
 			{
-				rule: 'size-file',
+				rule: 'file-size',
 				severity: StandardsSeverity.Blocking,
-				siteKey: 'size-file:src/a/big.ts',
+				siteKey: 'file-size:src/a/big.ts',
 				files: [{ path: 'src/a/big.ts' }],
 				detail: '412 lines, cap 400',
 				measure: 412,

@@ -1,8 +1,7 @@
 # rendering
 
-The measurements both renderers of a sprawl lane share: the page's
-`SprawlChart` and the README GIF's `scripts/renderSprawlSvg.mjs` compute one
-geometry rather than two, so the image cannot drift from the page.
+The measurements the README GIF's `scripts/renderSprawlSvg.mjs` draws a sprawl
+lane from, kept here as typed, tested source rather than inside the script.
 
 The scripts load these files with plain `node`, which strips types and does
 nothing else. So a file here may import only its siblings, the feature's own

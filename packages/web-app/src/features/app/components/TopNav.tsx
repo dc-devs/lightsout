@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '#src/appUI/buttons/Button.tsx';
 import { ThemeToggle } from '#src/appUI/buttons/ThemeToggle.tsx';
 import { Dialog } from '#src/appUI/Dialog.tsx';
+import { Wordmark } from '#src/features/app/components/Wordmark.tsx';
 
 /**
  * The sell zone's pages, in the order the bar reads them.
@@ -17,7 +18,7 @@ import { Dialog } from '#src/appUI/Dialog.tsx';
  */
 const SitePages = () => (
 	<>
-		<Link to="/standards" className="text-sm">
+		<Link to="/standards-packs" className="text-sm">
 			Standards packs
 		</Link>
 		<Link to="/commands" className="text-sm">
@@ -41,9 +42,7 @@ export const TopNav = () => {
 
 	return (
 		<header className="flex shrink-0 items-center gap-4 border-border border-b bg-background px-4 py-3">
-			<Link to="/" className="font-semibold text-base">
-				lightsout
-			</Link>
+			<Wordmark />
 			<nav aria-label="Site" className="hidden items-center gap-4 md:flex">
 				<SitePages />
 			</nav>

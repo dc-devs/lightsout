@@ -40,8 +40,8 @@ const NoneAtThisStage = ({ onClear }: { onClear: () => void }) => (
  */
 export const PlansPage = () => {
 	const { data: listings } = useSuspenseQuery(planWorkspacesQueryOptions());
-	const { stage } = useSearch({ from: '/repo/plans/' });
-	const navigate = useNavigate({ from: '/repo/plans/' });
+	const { stage } = useSearch({ from: '/app/plans/' });
+	const navigate = useNavigate({ from: '/app/plans/' });
 	const rows = stage === undefined ? listings : listings.filter((listing) => listing.stage === stage);
 	const counts = Object.values(PlanStage).map((value) => ({
 		value,

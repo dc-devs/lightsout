@@ -3,7 +3,7 @@ import { RawStandardsFinding } from '#src/RawStandardsFinding.ts';
 
 const setupRawFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
-		siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+		siteKey: 'file-size:src/standardsPacks/readStandardsPack.ts',
 		files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
 		detail: 'a 214-line file against a 200-line limit',
 		...extra,
@@ -25,14 +25,14 @@ describe('RawStandardsFinding', () => {
 		// guidance is optional: a check that supplies none leaves the key absent
 		// rather than carrying an empty string the brief would print as a blank line
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			siteKey: 'file-size:src/standardsPacks/readStandardsPack.ts',
 			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 		});
 	});
 
 	test('a rule id and a severity a check names itself are dropped rather than carried', () => {
-		const { finding } = setupRawFinding({ extra: { rule: 'size-file', severity: 'blocking' } });
+		const { finding } = setupRawFinding({ extra: { rule: 'file-size', severity: 'blocking' } });
 
 		const parsed = RawStandardsFinding.parse(finding);
 
@@ -41,7 +41,7 @@ describe('RawStandardsFinding', () => {
 		// severity from front matter under any config override, so a check that
 		// names either could name it wrong
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			siteKey: 'file-size:src/standardsPacks/readStandardsPack.ts',
 			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 		});
@@ -66,7 +66,7 @@ describe('RawStandardsFinding', () => {
 		// as a number — it lived only inside the detail prose before, which is
 		// written for a human and free to be reworded
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			siteKey: 'file-size:src/standardsPacks/readStandardsPack.ts',
 			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 			measure: 214,
@@ -92,7 +92,7 @@ describe('RawStandardsFinding', () => {
 		// the key stays absent rather than present holding undefined, so every
 		// unmeasured rule's finding is the same shape it was before the field existed
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPacks/readStandardsPack.ts',
+			siteKey: 'file-size:src/standardsPacks/readStandardsPack.ts',
 			files: [{ path: 'src/standardsPacks/readStandardsPack.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 		});

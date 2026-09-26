@@ -73,7 +73,7 @@ const setupConfigRoute = ({ view = buildConfigView(), rejection }: SetupParams =
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/repo/config'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/app/config'];
 
 	return { queryClient, route, view };
 };

@@ -53,7 +53,7 @@ describe('homeMeta', () => {
 	});
 
 	test('describes it in the hero’s own words, so a search result and the page agree', () => {
-		expect(contentOf({ key: 'description' })).toContain('Your coding agent solves the task in front of it and moves on.');
+		expect(contentOf({ key: 'description' })).toBe('Lightsout is a plugin that helps you and your agent write code that meets your standards.');
 	});
 
 	test('carries the two social tags that need no absolute URL, so a shared link always has a title', () => {

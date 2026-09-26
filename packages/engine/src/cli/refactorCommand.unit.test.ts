@@ -283,27 +283,27 @@ describe('refactorCommand', () => {
 	});
 
 	test('a rule that finished at zero and one that only appeared afterwards both get a row, counted from whichever side has it', async () => {
-		const { context, logged } = setupRefactor({ result: { before: { 'duplicate-code-block': 3 }, after: { 'size-function': 2 } } });
+		const { context, logged } = setupRefactor({ result: { before: { 'duplicate-code-block': 3 }, after: { 'function-size': 2 } } });
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// a rule missing from a side is nothing found there, not a row the burn-down drops
 		expect(logged.join('\n')).toMatch(/duplicate-code-block\s+3 → 0/);
-		expect(logged.join('\n')).toMatch(/size-function\s+0 → 2/);
+		expect(logged.join('\n')).toMatch(/function-size\s+0 → 2/);
 	});
 
 	test('the burn-down keeps its counts in one column, and an id that fills the column still gets a space before its count', async () => {
 		const { context, logged } = setupRefactor({
 			result: {
-				before: { 'size-file': 4, 'duplicate-code-block': 3, 'test-structure-arrange-act-assert-with-setup-factories': 2 },
-				after: { 'size-file': 1, 'duplicate-code-block': 0, 'test-structure-arrange-act-assert-with-setup-factories': 2 },
+				before: { 'file-size': 4, 'duplicate-code-block': 3, 'test-structure-arrange-act-assert-with-setup-factories': 2 },
+				after: { 'file-size': 1, 'duplicate-code-block': 0, 'test-structure-arrange-act-assert-with-setup-factories': 2 },
 			},
 		});
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// a short id is padded out so every count starts in the same column
-		expect(logged).toContain(`  ${'size-file'.padEnd(20)} 4 → 1`);
+		expect(logged).toContain(`  ${'file-size'.padEnd(20)} 4 → 1`);
 		// an id exactly as wide as the column takes no padding, and one wider
 		// overruns it — both still read as a rule and a count, not one token
 		expect(logged).toContain('  duplicate-code-block 3 → 0');
