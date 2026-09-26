@@ -1,8 +1,6 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Activity } from 'lucide-react';
-import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
-import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { frictionQueryOptions } from '#src/features/friction/queries/frictionQueryOptions.ts';
 import { HealthTiles } from '#src/features/repo/screens/RepoHealth/internal/components/HealthTiles.tsx';
 import { NeedsYouPanel } from '#src/features/repo/screens/RepoHealth/internal/components/NeedsYouPanel.tsx';
@@ -11,22 +9,6 @@ import { RepoStrip } from '#src/features/repo/screens/RepoHealth/internal/compon
 import { TopRulesPanel } from '#src/features/repo/screens/RepoHealth/internal/components/TopRulesPanel.tsx';
 import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
-
-/**
- * What a deployment with no repository under it says here.
- *
- * Health is about one repository, and drawn over the public build's three frozen
- * demo runs it would be fiction — so the pane the zone landed on before this
- * page existed is what it keeps saying.
- */
-const NoRepoFound = () => (
-	<div className="flex h-full flex-col items-start justify-center gap-2 p-10">
-		<h1 className="font-semibold text-lg">Your repo</h1>
-		<p className="text-muted-foreground text-sm">
-			No lightsout repo found above this directory — set <MetadataTag>LIGHTSOUT_REPO</MetadataTag> or run from inside one.
-		</p>
-	</div>
-);
 
 /**
  * Does anything need me right now, and what is this repo doing?
@@ -42,16 +24,9 @@ const NoRepoFound = () => (
  * its spend tile is the one number that must include the phase children.
  */
 export const RepoHealth = () => {
-	const {
-		data: { repoRoot },
-	} = useSuspenseQuery(repoRootQueryOptions());
 	const { data: runs } = useSuspenseQuery(runsQueryOptions());
 	const { data: standards } = useQuery(standardsQueryOptions());
 	const { data: friction } = useQuery(frictionQueryOptions());
-
-	if (repoRoot === undefined) {
-		return <NoRepoFound />;
-	}
 
 	const topLevel = [...runs.filter((run) => run.parentRunId === undefined)].sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
 

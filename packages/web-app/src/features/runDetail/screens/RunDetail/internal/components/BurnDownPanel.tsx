@@ -80,8 +80,9 @@ interface Props {
 /**
  * What the run burned down, as the engine measured it.
  *
- * Both halves are computed on the view rather than here, so this panel and the
- * frozen demo runs the site shows draw the same numbers. A refactor run counts
+ * Both halves are computed on the view rather than here, so this panel draws the
+ * engine's own numbers rather than a second reading of the manifest that could
+ * drift from them. A refactor run counts
  * sites still standing — unrun batches included, so a run that stopped early
  * reads as barely started rather than nearly done — and a coverage run reports
  * the files it measured, since the threshold it was chasing lives in the repo's

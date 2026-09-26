@@ -39,11 +39,11 @@ const RunPackages = ({ run }: { run: RunListing }) => (
 );
 
 /** The command that would pick a stopped run back up, for the reader to run themselves. */
-const ResumeCommand = ({ run, disabled }: { run: RunListing; disabled: boolean }) =>
-	run.resumable && !disabled ? <CopyButton value={`lightsout resume --run ${run.shortId}`} label="Copy resume" /> : null;
+const ResumeCommand = ({ run }: { run: RunListing }) =>
+	run.resumable ? <CopyButton value={`lightsout resume --run ${run.shortId}`} label="Copy resume" /> : null;
 
 /** The columns, in the order a reader scans them: how it ended, what it was, what it cost, when. */
-const buildColumns = ({ commandsDisabled }: { commandsDisabled: boolean }): Array<DataTableColumn<RunGroup>> => [
+const columns: Array<DataTableColumn<RunGroup>> = [
 	{
 		key: RunsSortKey.Status,
 		header: 'status',
@@ -85,7 +85,7 @@ const buildColumns = ({ commandsDisabled }: { commandsDisabled: boolean }): Arra
 		sortValue: ({ run }) => run.updatedAt,
 		render: ({ run }) => <span className="whitespace-nowrap text-muted-foreground">{formatRelativeTime({ at: run.updatedAt })}</span>,
 	},
-	{ key: 'resume', header: '', render: ({ run }) => <ResumeCommand run={run} disabled={commandsDisabled} /> },
+	{ key: 'resume', header: '', render: ({ run }) => <ResumeCommand run={run} /> },
 ];
 
 /** A repo with no run state at all: the three commands that put some there. */
@@ -123,8 +123,6 @@ interface Props {
 	onSort: (params: { key: string; direction: SortDirection }) => void;
 	/** Clears every filter. Omitted by a consumer whose filters are fixed, which drops the clear action from the zero-match state. */
 	onClearFilters?: () => void;
-	/** Suppresses the resumable column's copy control — set when no repo was found, since the command names a run only this machine has. */
-	commandsDisabled?: boolean;
 }
 
 /**
@@ -136,9 +134,8 @@ interface Props {
  * "no runs yet" and "no runs match" are different answers, and telling them
  * apart anywhere else would mean filtering a second time.
  */
-export const RunsTable = ({ runs, filters, onSort, onClearFilters, commandsDisabled = false }: Props) => {
+export const RunsTable = ({ runs, filters, onSort, onClearFilters }: Props) => {
 	const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-	const columns = buildColumns({ commandsDisabled });
 	const groups = foldPhaseChildren({ runs: filterRuns({ runs, filters }) });
 
 	return (

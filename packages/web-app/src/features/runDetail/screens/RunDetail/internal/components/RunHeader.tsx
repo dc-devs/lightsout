@@ -2,7 +2,6 @@ import { RunStatus } from '@lightsout/engine/contracts';
 import { formatCost, formatDuration } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
 import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
@@ -24,10 +23,6 @@ interface Props {
 	view: RunDetailView;
 	/** Opens a repo-relative plan path in the drawer. */
 	onOpenPlan: (path: string) => void;
-	/** Render the parent run as plain mono text instead of a link — the demo frame, whose parent is in no public listing. Defaults false. */
-	linksDisabled?: boolean;
-	/** Suppress the resume command — set when no repo was found, since it names a run only this machine has. Defaults false. */
-	commandsDisabled?: boolean;
 }
 
 /**
@@ -41,7 +36,7 @@ interface Props {
  * A run the manifest still calls `running` with no process behind it says so in
  * words — the manifest alone is not the whole truth once a process has died.
  */
-export const RunHeader = ({ view, onOpenPlan, linksDisabled = false, commandsDisabled = false }: Props) => {
+export const RunHeader = ({ view, onOpenPlan }: Props) => {
 	const { listing } = view;
 
 	return (
@@ -69,13 +64,9 @@ export const RunHeader = ({ view, onOpenPlan, linksDisabled = false, commandsDis
 			{view.parent === undefined ? null : (
 				<p className="text-muted-foreground text-xs">
 					phase <span className="font-mono">{view.parent.step}</span> of{' '}
-					{linksDisabled ? (
-						<MetadataTag>{view.parent.title}</MetadataTag>
-					) : (
-						<Link to="/app/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
-							{view.parent.title}
-						</Link>
-					)}
+					<Link to="/app/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
+						{view.parent.title}
+					</Link>
 				</p>
 			)}
 			<div className="flex flex-col items-start gap-1">
@@ -88,7 +79,7 @@ export const RunHeader = ({ view, onOpenPlan, linksDisabled = false, commandsDis
 				<Meta label="gates" value={formatDuration({ ms: view.gateMs })} />
 				<Meta label="cost" value={view.usage === undefined ? '—' : formatCost({ usd: view.usage.costUsd })} />
 			</div>
-			<RunWhatNow view={view} commandsDisabled={commandsDisabled} />
+			<RunWhatNow view={view} />
 		</header>
 	);
 };

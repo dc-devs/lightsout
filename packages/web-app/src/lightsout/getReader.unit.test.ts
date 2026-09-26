@@ -4,38 +4,13 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { RunStatus } from '@lightsout/engine/contracts';
+import { isNotFound } from '@tanstack/react-router';
 import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
 import { getReader } from '#src/lightsout/getReader.ts';
 
 const runId = 'abcdef0123456789';
-
-/** Every command the catalog names, in page order — spelled out here so a dropped command fails this suite rather than quietly agreeing with it. */
-const commandIds = [
-	'brainstorm',
-	'plan',
-	'auto-plan',
-	'implement',
-	'implement-direct',
-	'resume',
-	'ship',
-	'queue',
-	'work-order',
-	'ticket-state',
-	'self-check',
-	'refactor',
-	'test-coverage-to-threshold',
-	'standards-check',
-	'standards-validate',
-	'standards-health',
-	'status',
-	'report',
-	'doctor',
-	'friction',
-	'improve',
-	'voice',
-];
 
 /**
  * A repo with one readable run and one plan, pointed at through
@@ -71,29 +46,24 @@ const setupReader = async (): Promise<{ reader: LightsoutReader }> => {
 	return { reader: getReader() };
 };
 
-/**
- * A repo found first, then the same process made public.
- *
- * A separate arrangement rather than a parameter, because what it arranges is a
- * sequence: the switch is read again on the next call, so nothing captured in
- * module scope can keep answering from a disk the build no longer serves.
- */
-const setupPublicAfterRepo = async (): Promise<{ reader: LightsoutReader }> => {
-	await setupReader();
-
-	process.env.LIGHTSOUT_PUBLIC = '1';
-
-	return { reader: getReader() };
+/** No repo named and none above the working directory — a local server started in the wrong folder. */
+const setupNoRepo = () => {
+	jest.spyOn(process, 'cwd').mockReturnValue(tmpdir());
 };
 
-/** No repo above this directory at all — the public build, whichever checkout the server happens to be started from. */
-const setupPublicBuild = (): { reader: LightsoutReader } => {
-	process.env.LIGHTSOUT_PUBLIC = '1';
+/** What `getReader` threw, so a test can assert on a refusal that is not always an `Error`. */
+const catchRefusal = (): unknown => {
+	try {
+		getReader();
+	} catch (error) {
+		return error;
+	}
 
-	return { reader: getReader() };
+	throw new Error('getReader returned a reader where it should have refused');
 };
 
 afterEach(() => {
+	jest.restoreAllMocks();
 	delete process.env.LIGHTSOUT_REPO;
 	delete process.env.LIGHTSOUT_PUBLIC;
 });
@@ -142,46 +112,23 @@ describe('getReader', () => {
 
 		expect(standards.findings).toStrictEqual([]);
 	});
-
-	test('answers the whole command catalog for the repo it was pointed at, since the catalog is engine source rather than repo state', async () => {
-		const { reader } = await setupReader();
-
-		const commands = await reader.listCommands();
-
-		expect(commands.map((command) => command.id)).toStrictEqual(commandIds);
-	});
-
-	test('is built from the repo root as it reads at call time, so a process made public stops answering from the disk it had found', async () => {
-		const { reader } = await setupPublicAfterRepo();
-
-		const runs = await reader.listRuns();
-
-		expect({ count: runs.length, holdsTheRepoRun: runs.some((run) => run.runId === runId) }).toStrictEqual({ count: 3, holdsTheRepoRun: false });
-	});
 });
 
-describe('getReader with no repo found', () => {
-	test('serves the frozen demo runs, so the public build has a runs list at all', async () => {
-		const { reader } = setupPublicBuild();
+describe('getReader where no repo may be read', () => {
+	test("refuses on the public site with the router's not-found signal, even inside a checkout", async () => {
+		await setupReader();
+		process.env.LIGHTSOUT_PUBLIC = '1';
 
-		const runs = await reader.listRuns();
+		const refusal = catchRefusal();
 
-		expect(runs).toHaveLength(3);
+		expect(isNotFound(refusal)).toBe(true);
 	});
 
-	test('answers the standards view with its empty form rather than failing a deep link into the local zone', async () => {
-		const { reader } = setupPublicBuild();
+	test('names the fix when a local server was started outside any lightsout repo', () => {
+		setupNoRepo();
 
-		const standards = await reader.getStandards();
+		const refusal = catchRefusal();
 
-		expect(standards.notes).toStrictEqual(['No repository was found — this is the public build, which serves no standards check.']);
-	});
-
-	test('serves that same command catalog with no repo found, so the public build’s command pages read the same list the local one does', async () => {
-		const { reader } = setupPublicBuild();
-
-		const commands = await reader.listCommands();
-
-		expect(commands.map((command) => command.id)).toStrictEqual(commandIds);
+		expect(refusal).toStrictEqual(expect.objectContaining({ message: expect.stringMatching(/No lightsout\.config\.json was found in .* set LIGHTSOUT_REPO/) }));
 	});
 });

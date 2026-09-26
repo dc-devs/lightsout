@@ -27,10 +27,7 @@ const setupCost = ({ overrides = {} }: { overrides?: Partial<RunView> } = {}) =>
 	jest.useFakeTimers();
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }],
 	});
 	// Agent spend has a tab of its own now, and a tab strip selects on the press.
 	fireEvent.mouseDown(screen.getByRole('tab', { name: 'Agents' }));

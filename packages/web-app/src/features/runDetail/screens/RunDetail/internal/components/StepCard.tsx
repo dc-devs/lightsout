@@ -13,8 +13,6 @@ interface Props {
 	step: RunStepView;
 	/** Opens a repo-relative plan path in the drawer. */
 	onOpenPlan: (path: string) => void;
-	/** Render every router link as plain mono text — the demo frame, whose child runs are in no public listing. Defaults false. */
-	linksDisabled?: boolean;
 }
 
 /**
@@ -24,7 +22,7 @@ interface Props {
  * read by shape rather than by the step's name — the manifest stores it
  * opaquely, and the role that produced it is what decides what it holds.
  */
-export const StepCard = ({ step, onOpenPlan, linksDisabled = false }: Props) => {
+export const StepCard = ({ step, onOpenPlan }: Props) => {
 	const report = summarizeStepReport({ report: step.report });
 
 	return (
@@ -52,15 +50,11 @@ export const StepCard = ({ step, onOpenPlan, linksDisabled = false }: Props) => 
 				{step.error === undefined ? null : <FailureNotice>{step.error}</FailureNotice>}
 				{step.childRunId === undefined ? null : (
 					<p className="text-muted-foreground text-xs">
-						implemented by run <ChildRunLink runId={step.childRunId} linksDisabled={linksDisabled} />
+						implemented by run <ChildRunLink runId={step.childRunId} />
 					</p>
 				)}
 				{step.planPath === undefined ? null : <PlanPathButton path={step.planPath} onOpenPlan={onOpenPlan} />}
-				{report === undefined ? (
-					<p className="text-muted-foreground text-sm">No report recorded for this step.</p>
-				) : (
-					<StepReportSummary report={report} linksDisabled={linksDisabled} />
-				)}
+				{report === undefined ? <p className="text-muted-foreground text-sm">No report recorded for this step.</p> : <StepReportSummary report={report} />}
 			</div>
 		</article>
 	);

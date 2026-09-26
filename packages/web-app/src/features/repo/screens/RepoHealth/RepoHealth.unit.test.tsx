@@ -49,8 +49,7 @@ const millisecondsPerDay = 24 * 60 * 60 * 1000;
 const daysAgo = ({ days }: { days: number }) => new Date(Date.now() - days * millisecondsPerDay).toISOString();
 
 interface SetupParams {
-	/** `null` for a deployment that found no repository — an explicit `undefined` would be filled back in with the path. */
-	repoRoot?: string | null;
+	repoRoot?: string;
 	runs?: RunListing[];
 }
 
@@ -67,7 +66,7 @@ const setupRepoHealth = ({ repoRoot = '/repos/lightsout', runs = [buildRunListin
 	renderWithQueryClient({
 		ui: <RepoHealth />,
 		seed: [
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: repoRoot ?? undefined } },
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
 			{ queryKey: [QueryKey.Runs], data: runs },
 		],
 	});
@@ -79,22 +78,6 @@ const setupRepoHealth = ({ repoRoot = '/repos/lightsout', runs = [buildRunListin
 const readCard = ({ title }: { title: string }) => within(screen.getByRole('heading', { level: 3, name: title }).closest('section') as HTMLElement);
 
 describe('RepoHealth', () => {
-	test('says a deployment found no repository, rather than drawing health over somebody else’s runs', () => {
-		setupRepoHealth({ repoRoot: null });
-
-		const notice = screen.getByText(/No lightsout repo found above this directory/);
-
-		expect(notice).toBeInTheDocument();
-	});
-
-	test('mounts nothing else on that page, since every panel below is about a repo there is none of', () => {
-		setupRepoHealth({ repoRoot: null });
-
-		expect(screen.queryByRole('heading', { level: 1, name: 'Health' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('heading', { name: 'Needs you' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('heading', { name: 'Recent runs' })).not.toBeInTheDocument();
-	});
-
 	test('names the page and the repository it is about', () => {
 		setupRepoHealth({ repoRoot: '/repos/other-project' });
 

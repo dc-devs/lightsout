@@ -26,12 +26,7 @@ const setupGates = ({ overrides = {} }: { overrides?: Partial<RunView> } = {}) =
 	jest.useFakeTimers();
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
-			// The page subscribes to the repo lookup rather than suspending on it, so
-			// an unseeded key would answer "no repo" on the render every test reads.
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }],
 	});
 	// The gates have a tab of their own now, and a tab strip selects on the press
 	// rather than on the release.

@@ -11,7 +11,7 @@ interface DocPageEntry {
  * The markdown documents the site renders, by route param.
  *
  * The text is the repo's own `docs/` folder, bundled at build time rather than
- * read from disk — the public build holds no repo, and a doc that shipped with
+ * read from disk — the public site holds no repo, and a doc that shipped with
  * the app cannot describe a version of lightsout the app is not.
  *
  * Typed against a plain string key rather than its own two names: the route

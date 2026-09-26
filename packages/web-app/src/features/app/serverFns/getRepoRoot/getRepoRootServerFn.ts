@@ -1,15 +1,15 @@
 import { createServerFn } from '@tanstack/react-start';
-import { findRepoRoot } from '#src/common/utils/findRepoRoot.ts';
+import { requireLocalRepoRoot } from '#src/common/utils/requireLocalRepoRoot.ts';
 
 /**
- * Which repo this app has open, or `undefined` when none was found.
+ * Which repo `/app` has open.
  *
  * The one server function that is not a `LightsoutReader` method: the root is
- * app configuration rather than run data, so the reader stays at four methods
- * and a hosted implementation never has to answer for it.
+ * app configuration rather than run data, so the reader never has to answer
+ * for it. It still passes the same gate the reader does — the path is this
+ * machine's disk, which the public site never shows.
  *
- * `undefined` is the signal the shell reads to leave the "Your repo" zone out
- * entirely, which is what makes a build with no repo on disk a coherent site
- * rather than a set of empty pages.
+ * @throws {NotFoundError} On the public site.
+ * @throws {Error} Locally, when no repo was found.
  */
-export const getRepoRootServerFn = createServerFn({ method: 'GET' }).handler(async () => ({ repoRoot: findRepoRoot() }));
+export const getRepoRootServerFn = createServerFn({ method: 'GET' }).handler(async () => ({ repoRoot: requireLocalRepoRoot() }));

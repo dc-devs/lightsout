@@ -33,7 +33,6 @@ const setupCoordinator = ({ steps = [], tab }: { steps?: RunStepView[]; tab?: st
 				queryKey: [QueryKey.Run, runId],
 				data: buildRunView({ overrides: { listing: { ...buildRunListing(), pipeline: PipelineKind.Phases }, steps } }),
 			},
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
 		],
 	});
 

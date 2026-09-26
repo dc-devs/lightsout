@@ -1,11 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunView } from '@lightsout/engine';
-import { CleanupEndReason, PipelineKind, StandardsSeverity } from '@lightsout/engine/contracts';
+import { CleanupEndReason, StandardsSeverity } from '@lightsout/engine/contracts';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { toRunDetailView } from '#src/features/runDetail/common/utils/toRunDetailView.ts';
 import { RunDetailBody } from '#src/features/runDetail/screens/RunDetail/components/RunDetailBody.tsx';
-import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildRunStep } from '#tests/helpers/buildRunStep.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 
@@ -51,12 +50,12 @@ const buildCleanupReport = ({ overrides = {} }: { overrides?: Record<string, unk
 	...overrides,
 });
 
-const setupRunDetailBody = ({ overrides = {}, linksDisabled, tab }: { overrides?: Partial<RunView>; linksDisabled?: boolean; tab?: string } = {}) => {
+const setupRunDetailBody = ({ overrides = {}, tab }: { overrides?: Partial<RunView>; tab?: string } = {}) => {
 	jest.useFakeTimers();
 
 	const view = toRunDetailView({ view: buildRunView({ overrides }) });
 
-	render(<RunDetailBody view={view} onOpenPlan={() => {}} linksDisabled={linksDisabled} />);
+	render(<RunDetailBody view={view} onOpenPlan={() => {}} />);
 
 	if (tab !== undefined) {
 		// A tab strip selects on the press, not on the release.
@@ -111,32 +110,12 @@ describe('RunDetailBody', () => {
 		expect(mockScrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
 	});
 
-	test('renders a coordinator’s phase run as plain text when links are off', () => {
-		setupRunDetailBody({
-			overrides: {
-				listing: { ...buildRunListing(), pipeline: PipelineKind.Phases },
-				steps: [buildRunStep({ overrides: { id: 'phase-1', childRunId: 'aaaa1111bbbb2222', planPath: '.lightsout/plans/web-app/phase1-shell.md' } })],
-			},
-			linksDisabled: true,
-		});
-
-		expect(screen.queryByRole('link', { name: 'aaaa1111' })).not.toBeInTheDocument();
-		expect(screen.getByText('phase1-shell.md').parentElement).toHaveTextContent('aaaa1111');
-	});
-
-	test('links to the coordinator a phase run belongs to, which is what the live page does', () => {
+	test('links to the coordinator a phase run belongs to', () => {
 		setupRunDetailBody({ overrides: { parent } });
 
 		const link = screen.getByRole('link', { name: 'add search' });
 
 		expect(link).toHaveAttribute('href', '/app/runs/ffff0000ffff0000');
-	});
-
-	test('renders that same parent as plain text when links are off, since the demo frame’s targets are not routable', () => {
-		setupRunDetailBody({ overrides: { parent }, linksDisabled: true });
-
-		expect(screen.queryByRole('link', { name: 'add search' })).not.toBeInTheDocument();
-		expect(screen.getAllByText('add search').length).toBeGreaterThan(0);
 	});
 
 	test('links to the run a phase step spawned', () => {
@@ -147,34 +126,12 @@ describe('RunDetailBody', () => {
 		expect(link).toHaveAttribute('href', '/app/runs/aaaa1111bbbb2222');
 	});
 
-	test('renders that child run as plain text when links are off', () => {
-		setupRunDetailBody({
-			overrides: { steps: [buildRunStep({ overrides: { id: 'phase-1', childRunId: 'aaaa1111bbbb2222' } })] },
-			linksDisabled: true,
-			tab: 'Steps',
-		});
-
-		expect(screen.queryByRole('link', { name: 'aaaa1111' })).not.toBeInTheDocument();
-		expect(screen.getByText('aaaa1111')).toBeInTheDocument();
-	});
-
 	test('links to the run a phase report names', () => {
 		setupRunDetailBody({ overrides: { steps: [buildRunStep({ overrides: { id: 'phase-1', report: { runId: 'cccc3333dddd4444' } } })] }, tab: 'Steps' });
 
 		const link = screen.getByRole('link', { name: 'cccc3333' });
 
 		expect(link).toHaveAttribute('href', '/app/runs/cccc3333dddd4444');
-	});
-
-	test('renders that report’s run as plain text when links are off', () => {
-		setupRunDetailBody({
-			overrides: { steps: [buildRunStep({ overrides: { id: 'phase-1', report: { runId: 'cccc3333dddd4444' } } })] },
-			linksDisabled: true,
-			tab: 'Steps',
-		});
-
-		expect(screen.queryByRole('link', { name: 'cccc3333' })).not.toBeInTheDocument();
-		expect(screen.getByText('cccc3333')).toBeInTheDocument();
 	});
 
 	test.each([

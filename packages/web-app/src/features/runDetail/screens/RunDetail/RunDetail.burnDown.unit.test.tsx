@@ -41,10 +41,7 @@ const setupBurnDown = ({ pipeline = PipelineKind.Refactor, burnDown }: { pipelin
 	// page opens on.
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { listing: { ...buildRunListing(), pipeline }, burnDown } }) },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { listing: { ...buildRunListing(), pipeline }, burnDown } }) }],
 	});
 };
 

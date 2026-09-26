@@ -27,10 +27,7 @@ const setupTimeline = ({ steps = [], activeMs = 600_000 }: { steps?: RunStepView
 	// No tab is chosen: the timeline is what the overview tab opens on.
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { steps, activeMs } }) },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { steps, activeMs } }) }],
 	});
 };
 

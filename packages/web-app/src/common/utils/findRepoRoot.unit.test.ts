@@ -7,17 +7,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { findRepoRoot } from '#src/common/utils/findRepoRoot.ts';
 
-const setupRepo = ({
-	nested = false,
-	marker = true,
-	env,
-	publicBuild = false,
-}: {
-	nested?: boolean;
-	marker?: boolean;
-	env?: string;
-	publicBuild?: boolean;
-} = {}) => {
+const setupRepo = ({ nested = false, marker = true, env }: { nested?: boolean; marker?: boolean; env?: string } = {}) => {
 	// realpath-insensitive: macOS resolves /var to /private/var, and cwd is read
 	// back through the same call the subject uses, so both sides agree.
 	const root = mkdtempSync(join(tmpdir(), 'lightsout-find-repo-root-'));
@@ -37,18 +27,11 @@ const setupRepo = ({
 		process.env.LIGHTSOUT_REPO = env;
 	}
 
-	if (publicBuild) {
-		process.env.LIGHTSOUT_PUBLIC = '1';
-	} else {
-		delete process.env.LIGHTSOUT_PUBLIC;
-	}
-
 	return { root, working };
 };
 
 afterEach(() => {
 	delete process.env.LIGHTSOUT_REPO;
-	delete process.env.LIGHTSOUT_PUBLIC;
 });
 
 describe('findRepoRoot', () => {
@@ -94,22 +77,6 @@ describe('findRepoRoot', () => {
 
 	test('finds nothing when no ancestor holds the marker, rather than claiming the working directory is a repo', () => {
 		setupRepo({ nested: true, marker: false });
-
-		const repoRoot = findRepoRoot();
-
-		expect(repoRoot).toBeUndefined();
-	});
-
-	test('finds nothing on a public deployment, even one started inside a checkout', () => {
-		setupRepo({ publicBuild: true });
-
-		const repoRoot = findRepoRoot();
-
-		expect(repoRoot).toBeUndefined();
-	});
-
-	test('finds nothing on a public deployment even when LIGHTSOUT_REPO names one', () => {
-		setupRepo({ env: '/somewhere/else', publicBuild: true });
 
 		const repoRoot = findRepoRoot();
 

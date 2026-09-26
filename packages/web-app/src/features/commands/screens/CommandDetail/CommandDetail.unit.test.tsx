@@ -29,10 +29,7 @@ jest.mock('@tanstack/react-router', () => ({
 const setupCommandDetail = ({ entry = buildCommandCatalogEntry(), commandId = entry.id }: { entry?: CommandCatalogEntry; commandId?: string } = {}) => {
 	renderWithQueryClient({
 		ui: <CommandDetail commandId={commandId} />,
-		seed: [
-			{ queryKey: [QueryKey.Commands], data: [entry] },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: undefined } },
-		],
+		seed: [{ queryKey: [QueryKey.Commands], data: [entry] }],
 	});
 };
 

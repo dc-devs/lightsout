@@ -46,3 +46,7 @@ fixtures/*/.lightsout/
 .notes/
 
 .env
+
+# Netlify's local build output: the functions its Vite plugin writes beside the
+# web app on a Netlify build.
+.netlify/

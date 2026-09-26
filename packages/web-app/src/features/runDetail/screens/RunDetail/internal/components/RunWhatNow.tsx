@@ -26,8 +26,6 @@ const findOpenStep = ({ view }: { view: RunDetailView }) => {
 
 interface Props {
 	view: RunDetailView;
-	/** Suppresses the resume command — set when no repo was found, since it names a run only this machine has. */
-	commandsDisabled?: boolean;
 }
 
 /**
@@ -39,7 +37,7 @@ interface Props {
  * manifest's own `resumable` rather than a second list of states, so this and
  * the runs table can never disagree about which runs offer one.
  */
-export const RunWhatNow = ({ view, commandsDisabled = false }: Props) => {
+export const RunWhatNow = ({ view }: Props) => {
 	const { listing } = view;
 
 	if (listing.status === RunStatus.Passed || listing.status === RunStatus.Pending) {
@@ -59,7 +57,7 @@ export const RunWhatNow = ({ view, commandsDisabled = false }: Props) => {
 			</p>
 			{failure === undefined ? null : <p className="text-sm text-status-failed">{failure}</p>}
 			{sentence === undefined ? null : <p className="text-muted-foreground text-sm">{sentence}</p>}
-			{listing.resumable && !commandsDisabled ? (
+			{listing.resumable ? (
 				<div className="flex items-center gap-2">
 					<code className="rounded-md bg-background px-2 py-1 font-mono text-xs">{resumeCommand}</code>
 					<CopyButton value={resumeCommand} label="Copy resume command" />
