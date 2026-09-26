@@ -8,13 +8,18 @@ name: ci
 # one for days once while the gates ran nowhere but a laptop.
 on:
   # Fork branches live in another repository, so no push here announces them.
-  # Same-repo pull requests are already covered by their branch's push, and the
-  # jobs below opt out of that second run.
+  # A same-repo pull request runs again here even though its branch's push
+  # already ran. The rule protecting main reads the newest result of each
+  # required check on the head commit, and a job skipped by an `if` reports
+  # as passing — so a pull request run that skipped its jobs used to hide a
+  # failed push run behind it. Both runs now do the work.
   pull_request:
   push:
     branches: ['**']
 
 # A second push to the same branch makes the first run's answer worthless.
+# A pull request's run is grouped under its own ref, so it never cancels the
+# push run of the same commit.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -22,7 +27,6 @@ concurrency:
 jobs:
   verify:
     name: verify (node 22.18.0)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +62,6 @@ jobs:
 
   shipped:
     name: plugin is shippable
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
