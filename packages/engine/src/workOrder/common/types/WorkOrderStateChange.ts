@@ -1,4 +1,4 @@
-import type { WorkOrderState } from '#src/contracts/index.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 /**
  * What a record-changing ticket operation answers with when it succeeded.

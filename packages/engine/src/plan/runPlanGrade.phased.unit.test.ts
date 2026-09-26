@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { GradeReport } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';

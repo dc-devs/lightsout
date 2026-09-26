@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readLiveRunLock } from '#src/runState/lock/index.ts';
+import { readLiveRunLock } from '#src/runState/lock/readLiveRunLock.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Beyond any OS pid range, as `isRunLive`'s own tests spell a dead holder — process.kill(pid, 0) reports ESRCH. */

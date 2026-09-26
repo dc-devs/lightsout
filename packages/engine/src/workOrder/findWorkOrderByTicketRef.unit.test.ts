@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { findWorkOrderByTicketRef } from '#src/workOrder/index.ts';
+import { findWorkOrderByTicketRef } from '#src/workOrder/findWorkOrderByTicketRef.ts';
 
 /**
  * A state the contract accepts, written by hand so the look-up is the only

@@ -1,12 +1,12 @@
 import { usage } from '#src/cli/common/constants/usage.ts';
-import { dim } from '#src/cli/common/terminal/dim.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
-import { red } from '#src/cli/common/terminal/red.ts';
-import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { dim } from '#src/cli/internal/common/terminal/dim.ts';
+import { green } from '#src/cli/internal/common/terminal/green.ts';
+import { red } from '#src/cli/internal/common/terminal/red.ts';
+import { yellow } from '#src/cli/internal/common/terminal/yellow.ts';
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
-import { runDoctor } from '#src/doctor/index.ts';
+import { runDoctor } from '#src/doctor/runDoctor.ts';
 
 /**
  * The line a reader gets before a single cent of theirs is spent.

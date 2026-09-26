@@ -1,6 +1,6 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { WorktreeRecord } from '#src/contracts/index.ts';
-import { getWorktreeRecordPath } from '#src/worktree/records/common/utils/getWorktreeRecordPath.ts';
+import { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
+import { getWorktreeRecordPath } from '#src/worktree/records/internal/common/utils/getWorktreeRecordPath.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */

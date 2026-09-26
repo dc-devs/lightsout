@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
@@ -24,8 +26,7 @@ interface GuardParams {
 
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------

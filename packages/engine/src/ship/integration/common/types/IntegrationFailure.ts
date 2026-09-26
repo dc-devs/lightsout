@@ -1,4 +1,4 @@
-import type { ShipBlockReason } from '#src/contracts/index.ts';
+import type { ShipBlockReason } from '#src/contracts/ship/ShipBlockReason.ts';
 
 /** What the integration step hands back when it could not leave the branch ready to push. */
 export interface IntegrationFailure {

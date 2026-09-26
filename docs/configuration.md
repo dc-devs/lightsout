@@ -245,12 +245,12 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `timeouts` | no | Agent invocation ceilings, in minutes. A hit ceiling is a recorded step failure the run can resume from — never a crash. |
 | `timeouts.agent-minutes` | no | Ceiling for the working roles — executor, test writers, refactorer, fixes. Defaults to 60. Reaching it stops the harness together with every process it started — a terminate signal first, then a kill if that is ignored. |
 | `timeouts.supervisor-minutes` | no | Ceiling for the read-only supervisor, which reads and rules rather than editing. Defaults to 15. |
-| `timeouts.gate-minutes` | no | Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that hits it is reported as a gate that did not finish, which reads differently from one that ran and went red. Defaults to 15. |
+| `timeouts.gate-minutes` | no | Ceiling for one gate command — the repo's own check, test, coverage, build or end-to-end run. A gate that runs past it is stopped and re-run once; a gate that runs past it again stops the run as a timeout, which names the gate and the ceiling and is reported apart from a gate that failed. Such a gate is never handed to a fix agent and spends no fix attempt. Defaults to 15. |
 | `agent-commands` | no | Command prefixes working agents are granted (prefix match, arguments allowed) — for plan deliverables only a command can produce, such as a migration generator. Verification commands never belong here: the engine runs all gates itself. The one verification command an agent is handed is the engine’s own self-check, granted per spawn to the roles that write code rather than configured here. |
 | `generated` | no | Path prefixes of generated or derived files. Real files in the diff, but excluded from changed-file attribution — the source that generates them is the change. Also where a repo says its build output lands when the walk cannot guess it. A worker’s commit never carries them — the pre-ship step at merge time is the one place they are committed. |
 | `vendored` | no | Path prefixes of third-party code the repo vendors in rather than writes, such as a shadcn/ui component folder. Excluded from the source walk exactly as `generated` is, so the standards never judge it, no test is written for it and no refactor pass touches it — with one difference: a vendored file IS attributed when it changes, because no source in the repo produced it. Excluding it from a coverage threshold is your test runner’s job, not the engine’s. |
 | `coverage-summary-path` | no | Path to the JSON coverage summary the coverage tooling writes — the `json-summary` reporter’s `coverage-summary.json`, which `lightsout test-coverage-to-threshold` reads for per-file percentages. Defaults to `coverage/coverage-summary.json`, repo-relative in single-package repos and package-relative in monorepo mode. The file is the tool-agnostic contract, so a printed coverage table changing format never breaks a run. |
-| `executor-file-limit` | no | How many source files one plan or phase may create or modify before the feature executor refuses it as out of scope. Defaults to 50. One key rather than a number per reader, so the plan lint, the scope estimate and the executor’s own stop rule agree by construction. A plan that is mostly mechanical edits raises its own allowance with a `## File Budget` section rather than moving this key; the separate ceiling on files a plan creates is fixed and cannot be raised either way. |
+| `executor-file-limit` | no | How many source files one plan or phase may create or modify before the feature executor refuses it as out of scope. Defaults to 50. One key rather than a number per reader, so the plan lint, the scope estimate and the executor’s own stop rule agree by construction. A plan that is mostly mechanical edits raises its own allowance with a `## File Budget` section rather than moving this key, but a `## File Budget` cannot lift a plan or phase past the fixed touched-file ceiling of 70 source files unless that plan or phase is rename-only; the separate ceiling on files a plan creates is fixed and cannot be raised either way. |
 | `packages-dir` | no | Directory holding workspace packages, for monorepo scoped gates. Defaults to `packages`. |
 | `package-gates` | no | Monorepo scoped gate templates — the per-package commands `{package}` is substituted into. Each template runs once per affected package, so a gate runs only for the packages a change touched. |
 | `gate-overrides` | no | Opt-in per-checkpoint gate schedules, keyed by the four verification checkpoints — `clean-slate`, `verify-implement`, `verify-tests` and `verify-refactor`. A checkpoint listed with an array runs exactly those gates, in that order, with no tiering, and a red one stops the rest of the list; `"off"` runs no gates at all there, `gates.generate` included. A checkpoint the block does not list keeps the engine’s default: the cheap gates first — check, then the unit suite — and the expensive ones, each custom `test-*` suite and the build, only once every package group’s cheap gates are green. A name must be a gate this repo configures under `gates` or `package-gates`; `generate` and `format` may not be named. |
@@ -262,7 +262,7 @@ is overwritten the next time `pnpm build:config-reference` runs.
 | `worktree` | no | Opt-in shared workspace preparation. `worktree.setup` is the one command run inside a fresh worktree before any agent, such as `pnpm install` — the queue runs it in each ticket worktree it cuts, and an isolated implementation run runs it in the worktree it cuts for itself. An absent block means nothing runs. The block is strict, so a misspelled key fails parsing rather than silently leaving the command unset. |
 | `queue` | no | Opt-in queue settings: which ticket label names each planning status, what this tracker calls each status the engine writes, which statuses count as available work, how many tickets run at once, and the per-ticket worker and question timeouts. Tracker identity lives in `ticket-tracker`, so this block holds queue behaviour only. |
 | `auto-plan` | no | Opt-in auto-plan settings: whether the proposal comes before drafting, whether an approved proposal starts the build, and whether the proposal is skipped when nothing clears the escalation bar. Every key is off by default, so an absent block is the most supervised behaviour. |
-| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-work-order-mode` is the mode a work order's own record is created with — `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a work order that already has one. |
+| `plan` | no | Opt-in plan settings: whether plans are written as contracts with an acceptance-test ledger — a table naming the test that states each acceptance criterion — and graded by weight, spawning the reader fan-out only for the plan files that earn it, plus the counts above which a plan file is heavy. Those are off by default, so an absent block writes and grades plans exactly as before: the same template, the same required sections, every plan file read by every lens. `plan.worktree` is whether a planning session works in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, `--worktree` and `--no-worktree` override it for one command, and the implementation run continues in the tree planning established. `plan.default-work-order-mode` is the mode a work order's own record is created with — `single-plan`, where plan 001 alone supplies the work order's implementation, or `multiple-plan`, where the work order's plans implement in numeric order on one branch and it ships only on an explicit ship request. It defaults to `single-plan` and is read only when a record is created, so it never changes a work order that already has one. The queue creates the record of a ticket it builds from the ticket body — a `planning-not-needed` ticket, or a `planning-complete` ticket with no record yet — in `single-plan` mode whatever the key says. |
 | `implement` | no | Opt-in implementation settings. `implement.worktree` is whether an implementation run builds in its own isolated git worktree rather than the checkout it was launched from — it defaults to true, and `--worktree` and `--no-worktree` override it for one run. `implement.refactor.max-rounds` is how many cleanup executor rounds one run may spend at most — a whole number above zero, defaulting to 2, which is also what an absent block spends. The budget is a ceiling rather than a target: cleanup stops early when nothing qualifying is left, and only a deterministic blocking finding the run’s own edits introduced or measurably worsened can spend a round. Whatever cleanup leaves behind is recorded and never stops the run. |
 | `pricing` | no | Optional published rates, keyed by the model identifier a harness was invoked with, each entry giving `input`, `output`, `cache-read` and `cache-write` as US dollars per million tokens — the unit vendors publish, so a rate is copied rather than converted. It is optional and has no default. It is read only by `lightsout report`, where it buys one separate, clearly labelled estimated-cost column; nothing computed from it is ever stored, so the activity record stays a statement of what a harness itself reported. Each entry is strict, so a misspelled rate name fails parsing rather than silently leaving that token count unpriced while the column still prints a total. |
 | `docs` | no | Opt-in documentation surfaces: each entry a repo-relative path and a one-line `covers` saying what that document is responsible for. Declaring the block turns on the plan-time documentation check — the plan writer is briefed on the surfaces, every implementable plan file must carry a `## Documentation` statement, and `plan grade` runs one whole-plan checker that verifies it. A repository that declares no block sees none of it: no section, no prompt text, no checker spawn. |
@@ -345,6 +345,8 @@ The three severities are:
 - `advisory` — reported, and handed to the refactor agent as a judgment call. Never blocks.
 - `off` — not run at all. This is what you set when your own linter already enforces the rule.
 
+A pack may also ship a rule `off`: a convention some repositories want and most do not, which a repository opts into by naming it here at `blocking` or `advisory`. Until it does, the rule neither runs nor reaches an agent's instructions. A rule you turn `off` yourself still reaches them, because the standard still holds and your linter is what enforces it.
+
 Severity is the only lever a run gates on. There is no separate list of blockable rules, so the only way to stop a rule blocking is to write `advisory` or `off` for it here — an explicit line in a committed file. A mistyped rule id fails config parsing rather than silently disabling an override you believe is active.
 
 Run `lightsout standards-check --list` to print every rule with the standards document it enforces and the state it runs at in your repo — the live answer, rather than a list here that goes stale.
@@ -361,20 +363,19 @@ A repository that wants the strict profile promotes those rules itself — an ex
     "banned-class-shapes": "blocking",
     "banned-folder-name": "blocking",
     "bare-string-union": "blocking",
-    "barrel-is-only-consumer": "blocking",
     "barrel-star": "blocking",
-    "barrel-under-common": "blocking",
     "casing": "blocking",
     "class-inheritance": "blocking",
     "code-in-index-file": "blocking",
     "folder-size": "blocking",
     "file-directly-in-common": "blocking",
     "folder-casing": "blocking",
+    "folder-index-file": "blocking",
     "import-path-alias": "blocking",
-    "module-boundary": "blocking",
+    "import-through-index": "blocking",
+    "internal-import-from-outside": "blocking",
     "multi-export": "blocking",
     "oversized-setup-factory": "blocking",
-    "placement": "blocking",
     "single-file-domain-folder": "blocking",
     "single-use-scalar": "blocking",
     "file-size": "blocking",
@@ -409,8 +410,9 @@ Set `allow-no-ci` only for a repository that intentionally has no CI:
 
 A branch a work order claims — the work order whose record saves that branch —
 merges only when that record authorizes it: a `single-plan` ticket once plan 001
-is implemented, a `multiple-plan` ticket once an explicit ship request naming its
-included plans is satisfied. The record is asked twice — before anything is
+is implemented — or, when it holds no plan 001, once the queue's build from the
+ticket body is recorded as passed — and a `multiple-plan` ticket once an explicit
+ship request naming its included plans is satisfied. The record is asked twice — before anything is
 pushed, and again immediately before the merge, so a plan added while the checks
 were running still stops it — and a refusal is written as a blocked result with
 reason `ticket-not-authorized` and one sentence saying what the ticket is waiting
@@ -545,7 +547,7 @@ or ships it once its request is satisfied.
 
 | Field                                  | Required | What it controls                                                                                                                                            |
 | -------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plan.default-work-order-mode`         |       no | The mode a work order's own record is created with: `single-plan` or `multiple-plan`. Defaults to `single-plan`.                                         |
+| `plan.default-work-order-mode`         |       no | The mode a work order's own record is created with: `single-plan` or `multiple-plan`. Defaults to `single-plan`. The queue creates the record of a ticket it builds from the ticket body in `single-plan` mode whatever this says. |
 | `plan.contract`                        |       no | When true, plans are written as contracts carrying an acceptance-test ledger, the structural lint requires that ledger, and `plan grade` weighs each plan file and spawns readers only for the heavy ones. Defaults to `false`. |
 | `plan.weight-thresholds.created-files` |       no | A plan file creating more source files than this is heavy. Defaults to `3`.                                                                                  |
 | `plan.weight-thresholds.packages`      |       no | A plan file touching more packages than this is heavy. Defaults to `1`.                                                                                      |
@@ -554,13 +556,19 @@ or ships it once its request is satisfied.
 `plan.default-work-order-mode` only seeds the mode saved on a work order's own
 record, at the moment that record is created. In `single-plan` mode plan 001
 alone supplies the work order's implementation — that one plan may still have
-phases — and `ship.after-implement` applies exactly as it always has. In
+phases — and `ship.after-implement` applies exactly as it always has; a
+`single-plan` work order holding no plan 001 is implemented by the queue's
+build from the ticket body instead. In
 `multiple-plan` mode the work order's plans implement in numeric order on its
 one branch, and the work order ships only when an explicit ship request naming
 the included plans is satisfied. Changing the key never changes a work order
 that already has a record; `lightsout work-order mode` does that, one work
-order at a time. What each mode means for the work order, and what switching
-between them costs, is the `ticket-workflow` skill's `### Modes`.
+order at a time. The queue creates the record of a ticket it builds from the
+ticket body — a `planning-not-needed` ticket, or a `planning-complete` ticket
+with no record yet — in `single-plan` mode whatever the key says, so such a
+ticket ships once its build passed in every repository. What each mode means
+for the work order, and what switching between them costs, is the
+`ticket-workflow` skill's `### Modes`.
 
 A planning session works in a git worktree of its own by default, so work
 another agent does in the checkout you launched it from cannot move the code a
@@ -600,6 +608,13 @@ criterion in it names the inputs, the condition that makes the case distinct, th
 expected result and the failure case the test pins.
 A file whose behaviour no test can state — a document, a config file — is listed
 under `## Prose Files` with the reason, and stays described in words.
+
+A rename-only plan or phase — one with a `## Renames` section, one old text and
+new text per bullet — keeps the `## Acceptance Tests` heading but states no rows,
+and is asked for none: a rename adds no behaviour a new test could state. In a
+phased plan the overview repeats the declaration as a `- **Renames only:** yes`
+bullet in that phase's declaration block, and the lint requires it to agree with
+the phase file.
 
 A plan file is weighed from its own counts: it is heavy when it creates more
 source files than `created-files`, when it touches more packages than

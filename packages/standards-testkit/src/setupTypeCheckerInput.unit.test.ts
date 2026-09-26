@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { TypeCheckerInput } from '@lightsout/standards-contracts';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
 import ts from 'typescript';
-import { setupTypeCheckerInput } from '#src/index.ts';
+import { setupTypeCheckerInput } from '#src/setupTypeCheckerInput.ts';
 
 /** The arm under test, narrowed — every case here builds a type-checker input. */
 const setupTyped = ({ sources }: { sources: Array<[string, string]> }) => setupTypeCheckerInput({ sources }) as TypeCheckerInput;

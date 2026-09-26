@@ -3,9 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
-import { type RunManifest, RunStatus, type ShipResult } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { readWorktreeRecord, resolveWorktreePath } from '#src/worktree/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -20,21 +23,17 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // `exitAfterImplement.unit.test.ts` already pins what it does.
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: { cwd: string }) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
 const mockRunPipelineOrFailFast = jest.fn<(params: { cwd: string; planPath: string }) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: { cwd: string; planPath: string }) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
@@ -42,7 +41,7 @@ jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
 // lines would sit between the cleanup's own progress lines.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/render/printResult.ts', () => ({
+jest.mock('#src/cli/internal/common/render/printResult.ts', () => ({
 	printResult: (params: { result: PipelineResult; cwd: string }) => mockPrintResult(params),
 }));
 // -------------------------

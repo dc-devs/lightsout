@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { resolveAuthoredStandardsPack } from '#src/standardsPacks/index.ts';
+import { resolveAuthoredStandardsPack } from '#src/standardsPacks/resolveAuthoredStandardsPack.ts';
 
 /** Marks a folder as a pack root — only the file's presence decides, never its contents. */
 const writeManifestIn = ({ folder }: { folder: string }) => {

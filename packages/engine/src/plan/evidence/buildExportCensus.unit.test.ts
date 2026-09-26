@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
-import { buildExportCensus } from '#src/plan/evidence/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { buildExportCensus } from '#src/plan/evidence/buildExportCensus.ts';
 import { seedSourceRepo } from '#tests/helpers/seedSourceRepo.ts';
 
 // No mocks: the subject walks a repo off disk, so the arrangement is a temp

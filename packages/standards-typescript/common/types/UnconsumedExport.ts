@@ -6,7 +6,6 @@ export interface UnconsumedExport {
 	name: string;
 	/** What mentions it elsewhere. No source file does, or it would not be unconsumed. */
 	reachedBy: {
-		barrel: boolean;
 		test: boolean;
 	};
 }

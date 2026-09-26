@@ -2,8 +2,8 @@ import { describe, expect, test } from '@jest/globals';
 import { setupFileTextInput, setupOtherKindInput } from '@lightsout/standards-testkit';
 import { buildUnconsumedExportCheck } from './buildUnconsumedExportCheck.ts';
 
-/** A repo whose only export is published by a barrel and mentioned nowhere else. */
-const setupBarrelOnlyRepo = () =>
+/** A repo whose only export is mentioned by nothing but a folder barrel — which is no use of it. */
+const setupUnusedRepo = () =>
 	setupFileTextInput({
 		contents: [
 			['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
@@ -13,33 +13,33 @@ const setupBarrelOnlyRepo = () =>
 
 const buildCheck = ({ matches }: { matches: Parameters<typeof buildUnconsumedExportCheck>[0]['matches'] }) =>
 	buildUnconsumedExportCheck({
-		rule: 'barrel-is-only-consumer',
+		rule: 'dead-export',
 		matches,
-		detail: 'exported through a barrel but no module consumes it',
-		guidance: 'Deliberate public API, or dead?',
+		detail: 'referenced nowhere else',
+		guidance: 'Delete it?',
 	});
 
 describe('buildUnconsumedExportCheck', () => {
 	test('declares the file-text input its rules read, since the verdict counts mentions across the repo', () => {
-		expect(buildCheck({ matches: ({ barrel }) => barrel }).inputKind).toBe('file-text');
+		expect(buildCheck({ matches: ({ test: byTest }) => !byTest }).inputKind).toBe('file-text');
 	});
 
 	test('reports the exports whose verdict the rule claims, in the wording the rule gave', async () => {
-		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => barrel && !byTest }).run({ input: setupBarrelOnlyRepo(), settings: {} });
+		const findings = await buildCheck({ matches: ({ test: byTest }) => !byTest }).run({ input: setupUnusedRepo(), settings: {} });
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-is-only-consumer:src/ingestion/ingestRecords.ts',
+				siteKey: 'dead-export:src/ingestion/ingestRecords.ts',
 				files: [{ path: 'src/ingestion/ingestRecords.ts' }],
-				detail: "'ingestRecords' is exported through a barrel but no module consumes it",
-				guidance: 'Deliberate public API, or dead?',
+				detail: "'ingestRecords' is referenced nowhere else",
+				guidance: 'Delete it?',
 			},
 		]);
 	});
 
 	test('claims nothing when the rule’s verdict does not match, so the verdicts stay mutually exclusive', async () => {
-		// the same repo, read by the rule that wants test-and-not-barrel instead
-		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => byTest && !barrel }).run({ input: setupBarrelOnlyRepo(), settings: {} });
+		// the same repo, read by the rule that wants a test mention instead
+		const findings = await buildCheck({ matches: ({ test: byTest }) => byTest }).run({ input: setupUnusedRepo(), settings: {} });
 
 		expect(findings).toStrictEqual([]);
 	});
@@ -50,14 +50,14 @@ describe('buildUnconsumedExportCheck', () => {
 			standardsPacks: ['standards'],
 		});
 
-		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => !barrel && !byTest }).run({ input, settings: {} });
+		const findings = await buildCheck({ matches: ({ test: byTest }) => !byTest }).run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-is-only-consumer:standards/tests/unit-testing/10-rule/check.ts',
+				siteKey: 'dead-export:standards/tests/unit-testing/10-rule/check.ts',
 				files: [{ path: 'standards/tests/unit-testing/10-rule/check.ts' }],
-				detail: "'checkRule' is exported through a barrel but no module consumes it",
-				guidance: 'Deliberate public API, or dead?',
+				detail: "'checkRule' is referenced nowhere else",
+				guidance: 'Delete it?',
 			},
 		]);
 	});
@@ -67,7 +67,7 @@ describe('buildUnconsumedExportCheck', () => {
 			contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const checkRule = (): number => 1;']],
 		});
 
-		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => !barrel && !byTest }).run({ input, settings: {} });
+		const findings = await buildCheck({ matches: ({ test: byTest }) => !byTest }).run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([]);
 	});
@@ -88,10 +88,10 @@ describe('buildUnconsumedExportCheck', () => {
 			],
 		});
 
-		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => barrel && !byTest }).run({ input, settings: {} });
+		const findings = await buildCheck({ matches: ({ test: byTest }) => !byTest }).run({ input, settings: {} });
 
 		// with no carve-out derived, that route file reads as a barrel and the
-		// screen it renders as published to nobody
+		// screen it renders as used by nobody
 		expect(findings).toStrictEqual([]);
 	});
 });

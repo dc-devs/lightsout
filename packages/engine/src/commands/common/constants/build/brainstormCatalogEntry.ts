@@ -1,4 +1,6 @@
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `/brainstorm` — a skill with one subcommand behind it, `publish`; `auto-plan` is the remaining skill-only entry. */
 export const brainstormCatalogEntry: CommandCatalogEntry = {

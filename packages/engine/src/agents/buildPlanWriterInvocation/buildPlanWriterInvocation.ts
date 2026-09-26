@@ -1,14 +1,17 @@
-import { overviewSection } from '#src/agents/buildPlanWriterInvocation/common/utils/overviewSection.ts';
-import { ledgerSection } from '#src/agents/common/constants/ledgerSection.ts';
-import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
-import { documentationRule } from '#src/agents/common/utils/documentationRule.ts';
-import { documentationSection } from '#src/agents/common/utils/documentationSection.ts';
-import { phaseSection } from '#src/agents/common/utils/phaseSection.ts';
+import { overviewSection } from '#src/agents/buildPlanWriterInvocation/internal/common/utils/overviewSection.ts';
+import { ledgerSection } from '#src/agents/internal/common/constants/ledgerSection.ts';
+import { applyPromptTokens } from '#src/agents/internal/common/utils/applyPromptTokens.ts';
+import { documentationRule } from '#src/agents/internal/common/utils/documentationRule.ts';
+import { documentationSection } from '#src/agents/internal/common/utils/documentationSection.ts';
+import { phaseSection } from '#src/agents/internal/common/utils/phaseSection.ts';
 import planContractTemplate from '#src/agents/prompts/planContractTemplate.md';
 import planTemplate from '#src/agents/prompts/planTemplate.md';
 import planWriterPrompt from '#src/agents/prompts/planWriter.md';
-import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
-import type { PhaseDeclaration } from '#src/plan/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 
 interface Params {
 	facts: PlanFacts;
@@ -22,7 +25,7 @@ interface Params {
 	/** The previous phase's declaration row — what this phase's Prerequisites must state. Absent for phase 1. */
 	previousDeclaration?: PhaseDeclaration;
 	/** Numbers the template's size rules are stated with. */
-	limits: { executorFileLimit: number; createdFileCeiling: number };
+	limits: { executorFileLimit: number; createdFileCeiling: number; touchedFileCeiling: number };
 	/** Supplemental code standards, inlined verbatim. Absent = non-fatal. */
 	standards?: string;
 	/** Exact self-lint command the writer runs before reporting. Absent = prose self-review only. */
@@ -76,7 +79,7 @@ export const buildPlanWriterInvocation = ({
 	}
 
 	if (declaration && overviewText !== undefined) {
-		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration }));
+		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration, touchedFileCeiling: limits.touchedFileCeiling }));
 	}
 
 	if (docs && docs.length > 0) {
@@ -123,6 +126,7 @@ export const buildPlanWriterInvocation = ({
 		tokens: {
 			fileLimit: limits.executorFileLimit,
 			createdFileCeiling: limits.createdFileCeiling,
+			touchedFileCeiling: limits.touchedFileCeiling,
 			documentationRule: documentationRule({ docs }),
 		},
 	});

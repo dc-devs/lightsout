@@ -4,7 +4,7 @@ import { RunStatus } from '@lightsout/engine/contracts';
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RunDetail } from '#src/features/runDetail/index.ts';
+import { RunDetail } from '#src/features/runDetail/screens/RunDetail/RunDetail.tsx';
 import { buildRunStep } from '#tests/helpers/buildRunStep.ts';
 import { buildRunView } from '#tests/helpers/buildRunView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';

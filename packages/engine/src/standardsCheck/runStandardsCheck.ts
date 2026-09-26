@@ -1,13 +1,13 @@
 import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import { resolveStandardsChannels } from '#src/standards/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { resolveStandardsChannels } from '#src/standards/resolveStandardsChannels.ts';
 import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
 import { buildDominantPathNote } from '#src/standardsCheck/buildDominantPathNote.ts';
 import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
 import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
 import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
-import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	cwd: string;

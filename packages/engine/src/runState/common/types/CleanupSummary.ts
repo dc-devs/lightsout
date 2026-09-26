@@ -1,4 +1,4 @@
-import type { CleanupEndReason } from '#src/contracts/index.ts';
+import type { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
 
 /** What an implementation run's bounded cleanup pass spent and what it left behind — see {@link buildCleanupSummary}. */
 export interface CleanupSummary {

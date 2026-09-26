@@ -3,9 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { type LightsoutConfig, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
-import { updateLocalWorkOrderState, updateSyncedWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
+import { updateSyncedWorkOrderState } from '#src/workOrder/updateSyncedWorkOrderState.ts';
 import { canonicalTicketRecordText } from '#tests/helpers/canonicalTicketRecordText.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
@@ -35,10 +39,14 @@ const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<Tra
 const mockGetTicketAttachments = jest.fn<(params: { identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({ readTicketAsset: (params: { url: string }) => mockReadTicketAsset(params) }));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -52,8 +60,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 			? { error: `the tracker API key is missing: set the \`${block['api-key-env']}\` environment variable` }
 			: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey };
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 
 /** The work order's label, which is also the branch every record below names. */

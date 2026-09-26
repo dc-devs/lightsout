@@ -4,7 +4,8 @@ import type ts from 'typescript';
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFile.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
-import type { CoverageFile, CoverageTotal } from '#src/contracts/index.ts';
+import type { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
+import type { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
 
 interface Params {
 	cwd: string;

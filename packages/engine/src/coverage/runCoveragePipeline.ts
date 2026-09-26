@@ -2,15 +2,17 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
-import { CoverageRun } from '#src/coverage/CoverageRun.ts';
 import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
-import { runCoverageRounds } from '#src/coverage/runCoverageRounds.ts';
+import { CoverageRun } from '#src/coverage/internal/CoverageRun.ts';
+import { runCoverageRounds } from '#src/coverage/internal/runCoverageRounds.ts';
 import { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { withRunLock } from '#src/runState/index.ts';
-import { resolveStandards } from '#src/standards/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { withRunLock } from '#src/runState/lock/withRunLock.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {
 	cwd: string;

@@ -2,10 +2,15 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { createWorkOrder, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
+import { createWorkOrder } from '#src/workOrder/createWorkOrder.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { queueConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 
@@ -17,8 +22,10 @@ import { recordingDriver } from '#tests/helpers/recordingDriver.ts';
 // filed under.
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -227,4 +234,20 @@ test('createWorkOrder: a prefixed branch template stores a branch that differs f
 		expect.objectContaining({ name: 'lo-158-give-the-name-one', branch: 'feature/lo-158-give-the-name-one' }),
 	);
 	expect(readdirSync(workOrdersFolder)).toStrictEqual(['lo-158-give-the-name-one']);
+});
+
+test('createWorkOrder: a handed mode is the mode written to the new record, and without one the repository default is', async () => {
+	const { params, recordPathOf } = await setupCreate({
+		config: { gates, 'ticket-tracker': trackerBlock, plan: { 'default-work-order-mode': WorkOrderMode.MultiplePlan } },
+	});
+
+	const handed = await createWorkOrder({ ...params, ticketRef: 'LO-158', mode: WorkOrderMode.SinglePlan });
+	const defaulted = await createWorkOrder({ ...params, title: 'Give the name one author' });
+
+	// Read back from disk rather than from the returned record: the mode has to
+	// survive the whole way from the creator into the file every later command reads.
+	expect(handed).toEqual(expect.objectContaining({ name: 'lo-158-give-the-name-one' }));
+	expect(recordAt({ path: recordPathOf({ name: 'lo-158-give-the-name-one' }) }).mode).toBe('single-plan');
+	expect(defaulted).toEqual(expect.objectContaining({ name: 'give-the-name-one-author' }));
+	expect(recordAt({ path: recordPathOf({ name: 'give-the-name-one-author' }) }).mode).toBe('multiple-plan');
 });

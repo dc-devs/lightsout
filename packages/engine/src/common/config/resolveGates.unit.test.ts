@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { resolveGates } from '#src/common/config/resolveGates.ts';
-import type { ConfigGates } from '#src/contracts/index.ts';
+import type { ConfigGates } from '#src/contracts/ConfigGates.ts';
 
 describe('resolveGates', () => {
 	test('reads the kebab block into the engine spelling, custom suites in written order', () => {

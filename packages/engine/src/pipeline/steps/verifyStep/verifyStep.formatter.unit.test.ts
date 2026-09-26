@@ -1,9 +1,12 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { VerificationResult } from '#src/pipeline/internal/common/types/VerificationResult.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
 // Mocked Imports
@@ -34,14 +37,10 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?: string; rateLimited?: boolean }>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-	// The rest of the module is what the post-gate snapshot approval reaches
-	// for. It has its own test; here it must simply do nothing.
-	approveTestFiles: async () => [],
-	readApprovedTest: async () => undefined,
-	removeApprovedTests: async () => {},
-}));
+jest.mock('#src/pipeline/approvedTests/approveTestFiles.ts', () => ({ approveTestFiles: async () => [] }));
+jest.mock('#src/pipeline/approvedTests/readApprovedTest.ts', () => ({ readApprovedTest: async () => undefined }));
+jest.mock('#src/pipeline/approvedTests/removeApprovedTests.ts', () => ({ removeApprovedTests: async () => {} }));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 interface GateParams {
 	run: PipelineRun;
@@ -53,7 +52,7 @@ interface GateParams {
 
 const mockRunVerificationGates = jest.fn<(params: GateParams) => Promise<VerificationResult>>();
 
-jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
+jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => ({
 	runVerificationGates: (params: GateParams) => mockRunVerificationGates(params),
 }));
 // -------------------------
@@ -69,7 +68,7 @@ jest.mock('#src/common/utils/consultSupervisor.ts', () => ({
 
 const checkpoint = 'verify-implement';
 
-const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] };
+const greenGates: VerificationResult = { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined, failures: [], gates: [] };
 
 interface SetupParams {
 	/** What each formatter pass answers, in order; the last entry is repeated once the list is spent. */
@@ -142,7 +141,7 @@ describe('verifyStep', () => {
 		const formatError = 'prettier exited 2: packages/engine/src/gates/runGates.ts — unterminated string literal';
 		const { run, manifest, buildFix, stopped } = setupFormatterRun({ formatterAnswers: [formatError] });
 
-		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A tree the formatter could not settle is not a tree anything else may
 		// read: a review would judge diffs the formatter was about to rewrite, and
@@ -160,7 +159,7 @@ describe('verifyStep', () => {
 		const formatError = 'biome exited 1: packages/engine/src/gates/runGates.ts — expected `)` but found `;`';
 		const { run, buildFix, fixErrorContexts } = setupFormatterRun({ formatterAnswers: [formatError] });
 
-		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// A format red rides the repair budget the checkpoint already has, and each
 		// mechanical turn is handed the formatter's own complaint — an agent given
@@ -172,7 +171,7 @@ describe('verifyStep', () => {
 		const formatError = 'prettier exited 2: packages/engine/src/gates/runGates.ts — unterminated string literal';
 		const { run, buildFix } = setupFormatterRun({ formatterAnswers: [formatError, undefined] });
 
-		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+		const escalation = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 		// The format family is repairable like any other, so a red that clears on
 		// the re-entry carries on into the review and the gates rather than ending

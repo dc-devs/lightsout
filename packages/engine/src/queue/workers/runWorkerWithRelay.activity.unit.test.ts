@@ -3,14 +3,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type ActivityLevel, buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { ActivityLevelKind, type LightsoutConfig, type RunManifest, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -43,15 +49,11 @@ interface PipelineCall {
 
 const mockRunImplementPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/pipeline/index.ts', () => ({
-	runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params),
-}));
+jest.mock('#src/pipeline/runImplementPipeline.ts', () => ({ runImplementPipeline: (params: PipelineCall) => mockRunImplementPipeline(params) }));
 // -------------------------
 const mockRunPhasesPipeline = jest.fn<(params: PipelineCall) => Promise<PipelineResult>>();
 
-jest.mock('#src/phases/index.ts', () => ({
-	runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params),
-}));
+jest.mock('#src/phases/runPhasesPipeline.ts', () => ({ runPhasesPipeline: (params: PipelineCall) => mockRunPhasesPipeline(params) }));
 // -------------------------
 // Only the record pull is stubbed: the lifecycle helper around the build stays
 // real, so each case runs the build through the same wrapper the queue does.
@@ -67,10 +69,7 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
-}));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 
 const branch = 'lo-70-drain';

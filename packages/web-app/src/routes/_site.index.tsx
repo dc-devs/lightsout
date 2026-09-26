@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Home, homeMeta } from '#src/features/home/index.ts';
+import { homeMeta } from '#src/features/home/common/constants/homeMeta.ts';
+import { Home } from '#src/features/home/screens/Home/Home.tsx';
 
 export const Route = createFileRoute('/_site/')({
 	// No loader. Home suspends on nothing, and the one query it does read — the

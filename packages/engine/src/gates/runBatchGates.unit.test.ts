@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import { runBatchGates } from '#src/gates/index.ts';
+import { runBatchGates } from '#src/gates/runBatchGates.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -151,7 +151,7 @@ describe('runBatchGates', () => {
 	test('a red gate comes back as the failure text, not a swallowed error', async () => {
 		const { dir, config } = await setupConfiguredPackagesDir({ packagesDir: 'packages', packageCheck: 'node -e "process.exit(3)" {package}' });
 
-		const { error, failedFamilies, crashes, coordination } = await runBatchGates({
+		const { error, failedFamilies, crashes, timeouts, coordination } = await runBatchGates({
 			cwd: dir,
 			config,
 			coverage: false,
@@ -166,7 +166,12 @@ describe('runBatchGates', () => {
 		expect(error).toContain('[api]');
 		// and the channels beside it say this red IS evidence about the code: a
 		// family to hand a fix agent, no crash, and no machine it never got
-		expect({ failedFamilies, crashes, coordination }).toStrictEqual({ failedFamilies: ['check'], crashes: [], coordination: undefined });
+		expect({ failedFamilies, crashes, timeouts, coordination }).toStrictEqual({
+			failedFamilies: ['check'],
+			crashes: [],
+			timeouts: [],
+			coordination: undefined,
+		});
 	});
 
 	test('runBatchGates: answers the whole gate result rather than only its error', async () => {
@@ -176,6 +181,6 @@ describe('runBatchGates', () => {
 
 		// a batch consumer has to tell a red gate from a gate run that never
 		// started, and a bare error string cannot say which it is looking at
-		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	});
 });

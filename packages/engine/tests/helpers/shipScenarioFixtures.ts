@@ -1,6 +1,8 @@
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import type { CheckFailure, ChecksSummary, PullRequestSummary } from '#src/ship/forge/index.ts';
+import type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 
 const branch = 'lo-89-ship';
 
@@ -28,7 +30,7 @@ export const shipScenarioFixtures: {
 	/** The one file both sides edit, so merging the default branch in has to conflict. */
 	conflictPath: 'shared.ts',
 	author: '-c user.name=t -c user.email=t@t',
-	green: { error: undefined, failedFamilies: [], crashes: [], coordination: undefined },
+	green: { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined },
 	greenChecks: { finished: true, green: true, failing: [], pending: [], passing: ['unit'], readable: true },
 	/** A readable observation listing no checks at all at the wait ceiling — absent CI, not a timeout. */
 	missingChecks: { finished: false, green: true, failing: [], pending: [], passing: [], readable: true },

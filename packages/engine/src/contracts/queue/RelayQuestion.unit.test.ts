@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RelayQuestion } from '#src/contracts/index.ts';
+import { RelayQuestion } from '#src/contracts/queue/RelayQuestion.ts';
 
 const question = {
 	ticket: 'LO-70',

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GradeReadCoverage } from '#src/contracts/index.ts';
+import { GradeReadCoverage } from '#src/contracts/plan/memory/GradeReadCoverage.ts';
 
 const setupEntries = () => {
 	const unknownLens = {

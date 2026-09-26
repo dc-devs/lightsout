@@ -6,7 +6,7 @@ severity: advisory
 
 **Use the package's configured path alias for every import.**
 
-- When a package defines path aliases — in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths` — NEVER use relative paths (`./`, `../`) — not even for sibling files, `common/` subfolders, or barrel re-exports
+- When a package defines path aliases — in `package.json` → `imports` or in `tsconfig.json` → `compilerOptions.paths` — NEVER use relative paths (`./`, `../`) — not even for sibling files, `common/` subfolders, or a package entry's re-exports
 - Either declaration counts: a package that declares `imports` has configured aliases just as surely as one that declares `paths`
 - If a package defines **no** path aliases, use relative paths consistently — and consider adding aliases
 - This applies to every file: components, constants, interfaces, types, utils, hooks, etc.
@@ -27,7 +27,7 @@ A package that declares `paths` in `tsconfig.json`:
 ```typescript
 import { ClassName } from '@/path/to/ClassName';
 import { methodName } from '@/common/utils/methodName';
-import { features } from '@/features/home/components/HomeIssueDetails/common/constants';
+import { features } from '@/features/home/components/HomeIssueDetails/common/constants/features';
 import { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/components/MockIssuePanel';
 ```
 
@@ -36,5 +36,5 @@ import { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/comp
 ```typescript
 import { helper } from './helper';
 import { util } from '../common/utils/util';
-import { features } from './common/constants';
+import { features } from './common/constants/features';
 ```

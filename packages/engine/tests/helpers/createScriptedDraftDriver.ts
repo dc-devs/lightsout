@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import type { Driver } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 
 /** Which brief the invocation builder emitted — the only thing a real writer keys off too. */

@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type GradeInputs, GradeMemory } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
-import { gradeMemoryPath } from '#src/plan/index.ts';
+import type { GradeInputs } from '#src/contracts/plan/memory/GradeInputs.ts';
+import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { gradeMemoryPath } from '#src/plan/common/utils/gradeMemoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';

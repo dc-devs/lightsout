@@ -1,9 +1,10 @@
 import { basename } from 'node:path';
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
-import { bold } from '#src/cli/common/terminal/bold.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { PlanRunStatus, syncPlanDecisions } from '#src/plan/index.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 
 export const planSyncDecisionsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });

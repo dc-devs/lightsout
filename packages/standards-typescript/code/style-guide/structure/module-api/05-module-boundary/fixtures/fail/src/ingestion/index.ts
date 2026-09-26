@@ -1,1 +1,0 @@
-export { ingestRecords } from './ingestRecords';

@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
-import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -26,13 +27,13 @@ interface RunStandardsReviewParams {
 
 const mockRunStandardsReview = jest.fn<(params: RunStandardsReviewParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/runStandardsReview.ts', () => ({
 	runStandardsReview: (params: RunStandardsReviewParams) => mockRunStandardsReview(params),
 }));
 // -------------------------
 const mockResolveStandardsPacks = jest.fn<(params: { cwd: string; config?: LightsoutConfig }) => Promise<LoadedStandardsPack[]>>();
 
-jest.mock('#src/standardsPacks/index.ts', () => ({
+jest.mock('#src/standardsPacks/resolveStandardsPacks.ts', () => ({
 	resolveStandardsPacks: (params: { cwd: string; config?: LightsoutConfig }) => mockResolveStandardsPacks(params),
 }));
 // -------------------------

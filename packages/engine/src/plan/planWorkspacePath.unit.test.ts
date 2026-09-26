@@ -2,7 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { planWorkspaceDir, planWorkspacePath } from '#src/plan/index.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
 
 /**
  * A directory with no repository above it, so the absolute answer is rooted at

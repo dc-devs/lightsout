@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { CoverageWorklist } from '#src/contracts/coverage/index.ts';
-import { RefactorWorklist } from '#src/contracts/refactor/index.ts';
+import { CoverageWorklist } from '#src/contracts/coverage/CoverageWorklist.ts';
+import { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
 import { PlanDocumentKind } from '#src/contracts/views/PlanDocumentKind.ts';
 
 /** A plan as a reader shows it: markdown prose, a parsed frozen work-list, or a recorded absence. */

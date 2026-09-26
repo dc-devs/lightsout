@@ -1,12 +1,17 @@
-import { bold } from '#src/cli/common/terminal/bold.ts';
-import { dim } from '#src/cli/common/terminal/dim.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
-import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
-import { type LightsoutConfig, PlanningStep, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus, recordPlanCommandRun, recordPlanningStep, runPlanDedup } from '#src/plan/index.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { dim } from '#src/cli/internal/common/terminal/dim.ts';
+import { green } from '#src/cli/internal/common/terminal/green.ts';
+import { yellow } from '#src/cli/internal/common/terminal/yellow.ts';
+import { planRunOptions } from '#src/cli/plan/internal/common/utils/planRunOptions.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { recordPlanningStep } from '#src/plan/progress/recordPlanningStep.ts';
+import { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 
 interface Params {
 	cwd: string;

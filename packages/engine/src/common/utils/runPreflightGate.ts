@@ -1,5 +1,9 @@
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { runGates } from '#src/gates/index.ts';
+import { describeGateNoVerdict } from '#src/common/utils/describeGateNoVerdict.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { runGates } from '#src/gates/runGates.ts';
 
 /**
  * The slice of a run this gate touches, structural on purpose: a coverage run
@@ -30,11 +34,13 @@ interface Params<TResult> {
  * skipped when an earlier attempt already passed it. A red gate after a batch
  * can only mean "the batch's doing" if the baseline was green.
  *
- * A gate run that never got the machine ends the run escalated with its own
- * reason instead, and records no passed pre-flight step, so a later attempt runs
- * the baseline again rather than inheriting a proof nothing established.
+ * A baseline gate that returned no verdict — the gate run never got the
+ * machine, a gate crashed, or a gate ran past its ceiling — ends the run
+ * escalated with its own reason instead, and records no passed pre-flight step,
+ * so a later attempt runs the baseline again rather than inheriting a proof
+ * nothing established.
  *
- * @returns the run-ending result when the baseline is red or the machine was never available, undefined to proceed
+ * @returns the run-ending result when the baseline is red or returned no verdict, undefined to proceed
  */
 export const runPreflightGate = async <TResult>({ run, coverage, label, redBaselineError }: Params<TResult>): Promise<TResult | undefined> => {
 	const steps = run.current().steps;
@@ -52,7 +58,7 @@ export const runPreflightGate = async <TResult>({ run, coverage, label, redBasel
 	await run.setStep({ record });
 	run.progress(label);
 
-	const { error: gateError, coordination } = await runGates({
+	const gates = await runGates({
 		cwd: run.cwd,
 		config: run.config,
 		coverage,
@@ -61,16 +67,17 @@ export const runPreflightGate = async <TResult>({ run, coverage, label, redBasel
 		onProgress: (message) => run.progress(message),
 	});
 
+	const noVerdict = describeGateNoVerdict({ result: gates });
 	let result: TResult | undefined;
 
-	if (coordination !== undefined) {
-		// The gates never started, so the baseline was neither proved nor
-		// disproved: the run ends for a human naming the machine, never with the
+	if (noVerdict !== undefined) {
+		// No baseline gate returned a verdict, so the baseline was neither proved
+		// nor disproved: the run ends for a human naming why, never with the
 		// red-baseline sentence, which asserts something about the consumer's code
 		// that no command here established.
-		result = await run.stop({ record, status: RunStatus.Escalated, error: coordination });
-	} else if (gateError) {
-		result = await run.stop({ record, status: RunStatus.Failed, error: `${redBaselineError}\n${gateError}` });
+		result = await run.stop({ record, status: RunStatus.Escalated, error: noVerdict });
+	} else if (gates.error) {
+		result = await run.stop({ record, status: RunStatus.Failed, error: `${redBaselineError}\n${gates.error}` });
 	} else {
 		await run.setStep({ record: { ...record, status: RunStatus.Passed } });
 	}

@@ -1,6 +1,6 @@
 import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
-import { BranchState } from '#src/contracts/index.ts';
-import { getBranchStatePath } from '#src/queue/branchState/common/utils/getBranchStatePath.ts';
+import { BranchState } from '#src/contracts/queue/BranchState.ts';
+import { getBranchStatePath } from '#src/queue/branchState/internal/common/utils/getBranchStatePath.ts';
 
 interface Params {
 	/** Any checkout of the repository; the primary is resolved from it. */

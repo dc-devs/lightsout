@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

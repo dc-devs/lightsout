@@ -1,4 +1,4 @@
-import type { GradedGap } from '#src/contracts/index.ts';
+import type { GradedGap } from '#src/contracts/plan/grade/GradedGap.ts';
 import { isBlockingGap } from '#src/plan/common/utils/isBlockingGap.ts';
 
 interface Params {

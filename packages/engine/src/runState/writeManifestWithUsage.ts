@@ -1,4 +1,5 @@
-import type { RunManifest, RunUsage } from '#src/contracts/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {

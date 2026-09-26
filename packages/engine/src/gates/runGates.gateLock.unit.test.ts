@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
-import { runGates } from '#src/gates/index.ts';
+import { runGates } from '#src/gates/runGates.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -128,7 +128,7 @@ describe('runGates', () => {
 
 		const result = await runGates({ cwd: dir, config, schedule: { kind: GateScheduleKind.Off }, onProgress: (message) => progress.push(message) });
 
-		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 		// nothing was reserved, so nothing had to be waited for or released
 		expect(existsSync(gateLockPath({ dir }))).toBe(false);
 		expect(progress).toStrictEqual([]);

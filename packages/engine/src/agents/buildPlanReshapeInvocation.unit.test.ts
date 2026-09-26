@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildPlanReshapeInvocation } from '#src/agents/index.ts';
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import { buildPlanReshapeInvocation } from '#src/agents/buildPlanReshapeInvocation.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
 /** A full breakdown StructuralFinding with per-test overrides. */
 const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding => ({
@@ -13,21 +13,24 @@ const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding 
 	...overrides,
 });
 
-/** The overview path, ceiling and workspace reference paths a reshape invocation is built from. */
+/** The overview path, ceilings and workspace reference paths a reshape invocation is built from. */
 const setupReshape = ({
 	findings = [finding()],
 	planPaths = ['/tmp/.lightsout/work-orders/widget-flag/plans/overview.md'],
 	createdFileCeiling = 30,
+	touchedFileCeiling = 70,
 	brainstormDecisionsPath,
 }: {
 	findings?: StructuralFinding[];
 	planPaths?: string[];
 	createdFileCeiling?: number;
+	touchedFileCeiling?: number;
 	brainstormDecisionsPath?: string;
 } = {}) => ({
 	findings,
 	planPaths,
 	createdFileCeiling,
+	touchedFileCeiling,
 	decisionsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/decisions.json',
 	brainstormDecisionsPath,
 	factsPath: '/tmp/.lightsout/work-orders/widget-flag/plans/facts.json',
@@ -82,6 +85,23 @@ describe('buildPlanReshapeInvocation', () => {
 		const { prompt } = buildPlanReshapeInvocation(params);
 
 		expect(prompt.includes('No phase may declare more than 12 created source files.')).toBeTruthy();
+	});
+
+	test.each([
+		{ touchedFileCeiling: 70, stated: /\b70\b/, absent: /\b12\b/ },
+		{ touchedFileCeiling: 12, stated: /\b12\b/, absent: /\b70\b/ },
+	])('the touched-file ceiling is stated from its param, after the created one, with the rename-only exemption', ({ touchedFileCeiling, stated, absent }) => {
+		const params = { ...setupReshape({ createdFileCeiling: 30 }), touchedFileCeiling };
+
+		const { prompt } = buildPlanReshapeInvocation(params);
+
+		// the touched section follows the created one directly, whose text stays byte-identical
+		expect(prompt.includes('This is fixed and no declaration raises it.\n\n## Touched-file ceiling\n\n')).toBeTruthy();
+		const touchedSection = prompt.split('## Touched-file ceiling\n\n')[1]?.split('\n\n## ')[0] ?? '';
+		expect(touchedSection).toMatch(stated);
+		// the number comes from the param, never a literal restated beside it
+		expect(touchedSection).not.toMatch(absent);
+		expect(touchedSection).toMatch(/Renames only/);
 	});
 
 	test('each finding carries its check, location, issue and exact fix string', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigPricing, LightsoutConfig } from '#src/contracts/index.ts';
+import { ConfigPricing } from '#src/contracts/ConfigPricing.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 // Published rates for one model, written the way a user copies them from a
 // harness vendor's price page: US dollars per million tokens, one rate per

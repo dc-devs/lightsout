@@ -1,15 +1,17 @@
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
-import { bold } from '#src/cli/common/terminal/bold.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
-import { red } from '#src/cli/common/terminal/red.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
+import { bold } from '#src/cli/internal/common/terminal/bold.ts';
+import { green } from '#src/cli/internal/common/terminal/green.ts';
+import { red } from '#src/cli/internal/common/terminal/red.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { PipelineKind } from '#src/contracts/index.ts';
-import { runSelfCheck, SelfCheckReason, type SelfCheckResult } from '#src/gates/index.ts';
-import { readRunManifest } from '#src/runState/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
+import type { SelfCheckResult } from '#src/gates/common/types/SelfCheckResult.ts';
+import { runSelfCheck } from '#src/gates/runSelfCheck.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 
 /** What this step's self-check mirrors: the checkpoint it precedes, whether coverage can answer truthfully, and what it is scoped to. */
 interface StepSelfCheck {
@@ -78,15 +80,21 @@ const readManifest = async ({ cwd, runId }: { cwd: string; runId: string }) => {
 /** What the gates found, as evidence about the code: the command that went red and the output it left. */
 const printGateFailures = ({ result }: { result: SelfCheckResult }) => {
 	for (const gate of result.gates) {
-		if (gate.skipped !== true && gate.exitCode !== undefined && gate.exitCode !== 0) {
+		// A timed-out attempt never returned a verdict, so it is not evidence about the code.
+		if (gate.skipped !== true && gate.timedOut !== true && gate.exitCode !== undefined && gate.exitCode !== 0) {
 			console.log(`\n${bold(`[${gate.group}] ${gate.kind}`)} — exit ${gate.exitCode}\n${gate.command}\n${gate.outputTail ?? ''}`);
 		}
 	}
 
-	// A crash is the engine's own failure rather than evidence about the code, so
-	// it is printed as one and never handed over as something to repair.
+	// A crash or a timeout is the engine's own failure rather than evidence about
+	// the code, so it is printed as one and never handed over as something to
+	// repair.
 	for (const crash of result.crashes) {
 		console.log(`\nengine: ${crash}`);
+	}
+
+	for (const timeout of result.timeouts) {
+		console.log(`\nengine: ${timeout}`);
 	}
 };
 

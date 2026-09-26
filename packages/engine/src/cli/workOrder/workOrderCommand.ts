@@ -1,16 +1,16 @@
-import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { workOrderAddPlanCommand } from '#src/cli/workOrder/workOrderAddPlanCommand.ts';
-import { workOrderExcludePlanCommand } from '#src/cli/workOrder/workOrderExcludePlanCommand.ts';
-import { workOrderModeCommand } from '#src/cli/workOrder/workOrderModeCommand.ts';
-import { workOrderNewCommand } from '#src/cli/workOrder/workOrderNewCommand.ts';
-import { workOrderRequestShipCommand } from '#src/cli/workOrder/workOrderRequestShipCommand.ts';
-import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/workOrderRetitlePlanCommand.ts';
-import { workOrderShowCommand } from '#src/cli/workOrder/workOrderShowCommand.ts';
-import { workOrderSyncCommand } from '#src/cli/workOrder/workOrderSyncCommand.ts';
+import { getPositionals } from '#src/cli/internal/common/args/getPositionals.ts';
+import { workOrderAddPlanCommand } from '#src/cli/workOrder/internal/workOrderAddPlanCommand.ts';
+import { workOrderExcludePlanCommand } from '#src/cli/workOrder/internal/workOrderExcludePlanCommand.ts';
+import { workOrderModeCommand } from '#src/cli/workOrder/internal/workOrderModeCommand.ts';
+import { workOrderNewCommand } from '#src/cli/workOrder/internal/workOrderNewCommand.ts';
+import { workOrderRequestShipCommand } from '#src/cli/workOrder/internal/workOrderRequestShipCommand.ts';
+import { workOrderRetitlePlanCommand } from '#src/cli/workOrder/internal/workOrderRetitlePlanCommand.ts';
+import { workOrderShowCommand } from '#src/cli/workOrder/internal/workOrderShowCommand.ts';
+import { workOrderSyncCommand } from '#src/cli/workOrder/internal/workOrderSyncCommand.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 

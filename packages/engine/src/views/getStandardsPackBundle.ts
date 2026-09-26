@@ -1,5 +1,6 @@
-import { FixtureSide, type StandardsPackBundle } from '#src/contracts/index.ts';
-import { listStandardsPackBundles } from '#src/views/listStandardsPackBundles.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import type { StandardsPackBundle } from '#src/contracts/views/StandardsPackBundle.ts';
+import { listStandardsPackBundles } from '#src/views/internal/listStandardsPackBundles.ts';
 import { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
 
 /** Pass before fail, the order a rule's proof reads in — never the alphabet, which would put the counter-example first. */

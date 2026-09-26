@@ -6,11 +6,12 @@ import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { renderWorkOrderBranch } from '#src/queue/renderWorkOrderBranch.ts';
-import { checkPlanningStatusLabels } from '#src/queue/startup/checkPlanningStatusLabels.ts';
-import { matchesTicketPattern, type ShipSettings } from '#src/ship/index.ts';
-import { TrackerStatusRole } from '#src/ticketLifecycle/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { renderWorkOrderBranch } from '#src/queue/internal/renderWorkOrderBranch.ts';
+import { checkPlanningStatusLabels } from '#src/queue/startup/internal/checkPlanningStatusLabels.ts';
+import type { ShipSettings } from '#src/ship/common/types/ShipSettings.ts';
+import { matchesTicketPattern } from '#src/ship/matchesTicketPattern.ts';
+import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 
 interface Params {
 	cwd: string;

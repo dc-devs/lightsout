@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
-import { StandardsSeverity, type StandardsTrendPoint } from '#src/contracts/index.ts';
-import { getStandardsSnapshotsDir } from '#src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { StandardsTrendPoint } from '#src/contracts/views/StandardsTrendPoint.ts';
+import { getStandardsSnapshotsDir } from '#src/standardsCheck/internal/common/paths/getStandardsSnapshotsDir.ts';
 import { readStandardsSnapshot } from '#src/standardsCheck/readStandardsSnapshot.ts';
 
 interface Params {

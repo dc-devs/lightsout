@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getSpokenPickerText } from '#src/voice/index.ts';
+import { getSpokenPickerText } from '#src/voice/getSpokenPickerText.ts';
 
 describe('getSpokenPickerText', () => {
 	test('speaks the question, then every choice with the line that explains it', () => {

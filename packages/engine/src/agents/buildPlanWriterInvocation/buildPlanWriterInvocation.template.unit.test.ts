@@ -64,7 +64,7 @@ test('both templates hand the Decision Log to the engine instead of the writer',
 test("the contract template's size tokens and documentation rule are substituted like the narrative one's", () => {
 	const template = planTemplateOf(
 		writerInvocation({
-			limits: { executorFileLimit: 80, createdFileCeiling: 12 },
+			limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 70 },
 			docs: [{ path: 'README.md', covers: 'The product tour.' }],
 			contract: true,
 		}),
@@ -164,5 +164,27 @@ test("buildPlanWriterInvocation: the contract template's ledger sections ride th
 		overviewCarriesTheLedger: false,
 		overviewCarriesProseFiles: false,
 		phaseRequiresBoth: true,
+	});
+});
+
+test('the contract template states the touched-file ceiling from limits like the narrative one', () => {
+	// a ceiling no other number in either template shares, so every match is a substitution
+	const limits = { executorFileLimit: 50, createdFileCeiling: 30, touchedFileCeiling: 45 };
+	const statedCeilings = (template: string): number => template.match(/\b45\b/g)?.length ?? 0;
+
+	const narrativeTemplate = planTemplateOf(writerInvocation({ limits }));
+	const contractTemplate = planTemplateOf(writerInvocation({ limits, contract: true }));
+
+	expect({
+		// the touched-files rule, the File Budget note and the overview declarations note
+		narrativeStatesTheCeilingInEveryPassage: statedCeilings(narrativeTemplate) >= 3,
+		// the contract template states it exactly where the narrative one does
+		contractStatesItAsOften: statedCeilings(contractTemplate) === statedCeilings(narrativeTemplate),
+		// and no token survives into what the agent reads
+		contractCarriesAToken: contractTemplate.includes('{{'),
+	}).toEqual({
+		narrativeStatesTheCeilingInEveryPassage: true,
+		contractStatesItAsOften: true,
+		contractCarriesAToken: false,
 	});
 });

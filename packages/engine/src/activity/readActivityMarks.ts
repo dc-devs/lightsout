@@ -1,6 +1,6 @@
 import { activityRecordPath } from '#src/activity/activityRecordPath.ts';
 import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
-import { ActivityMark } from '#src/contracts/index.ts';
+import { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
 
 interface Params {
 	/** The directory holding the record. A directory with no record reads as no marks. */

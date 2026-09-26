@@ -2,8 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { cleanupRecordOf } from '#tests/helpers/cleanupRecordOf.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -128,16 +128,13 @@ test('refactor: a star re-export is cleanup work on its own — severity is the 
 	const { dir, driver, config, refactorPrompts } = await setupRefactorRun({
 		// The subject file is deliberately clean (one export, named for its
 		// file), so the only work-list finding in the tree is the `export *` in
-		// the planted barrel — a rule no allow-list of site-key prefixes let
+		// the package entry — a rule no allow-list of site-key prefixes let
 		// through before, and which the gate must now block on unaided.
 		source: 'export const subject = () => 1;\n',
 		extraSources: {
 			'src/widget/widget.ts': 'export const widget = () => 1;\n',
-			'src/widget/index.ts': "export * from './widget';\n",
+			'src/index.ts': "export * from './widget/widget';\n",
 		},
-		// the planted barrel is also, unavoidably, a barrel nothing consumes — a
-		// second verdict on the same file that would make "alone" untestable
-		config: { 'standards-checks': { 'barrel-is-only-consumer': 'off' } },
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
@@ -146,8 +143,8 @@ test('refactor: a star re-export is cleanup work on its own — severity is the 
 
 	expectDefined(cleanup);
 	// it earned the round alone — no other finding was blocking
-	expect(refactorPrompts[0] ?? '').toMatch(/Blocking —[\s\S]*- \[barrel-star\] src\/widget\/index\.ts/);
-	expect(cleanup.remaining.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/widget/index.ts']);
+	expect(refactorPrompts[0] ?? '').toMatch(/Blocking —[\s\S]*- \[barrel-star\] src\/index\.ts/);
+	expect(cleanup.remaining.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/index.ts']);
 	// and left standing it is recorded, never a stop
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
 	expect(result.ok).toBe(true);

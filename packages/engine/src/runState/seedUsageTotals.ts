@@ -1,4 +1,4 @@
-import type { RunUsage } from '#src/contracts/index.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
 
 interface Params {
 	/** The manifest's persisted usage, when resuming — totals survive process boundaries. */

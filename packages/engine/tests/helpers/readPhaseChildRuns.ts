@@ -1,5 +1,6 @@
-import { PhaseReport, type RunManifest } from '#src/contracts/index.ts';
-import { readRunManifest } from '#src/runState/index.ts';
+import { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 
 /** The per-phase run behind each coordinator step of a phased sequence, in phase order. */
 export const readPhaseChildRuns = ({ cwd, manifest }: { cwd: string; manifest: RunManifest }): Promise<RunManifest[]> =>

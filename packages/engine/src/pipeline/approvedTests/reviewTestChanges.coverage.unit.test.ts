@@ -1,10 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { AcceptanceTestRecord, LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { reviewTestChanges } from '#src/pipeline/approvedTests/index.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { reviewTestChanges } from '#src/pipeline/approvedTests/reviewTestChanges.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

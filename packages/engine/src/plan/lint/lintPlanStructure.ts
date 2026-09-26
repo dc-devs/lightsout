@@ -1,14 +1,18 @@
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { type DecisionsRecord, FindingSeverity, type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
-import { readRepoPathIndex } from '#src/plan/common/paths/readRepoPathIndex.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
-import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
-import { getPlanNamedPaths } from '#src/plan/common/utils/getPlanNamedPaths.ts';
-import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
-import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/index.ts';
+import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/buildPlanSyncDecisionsCommand.ts';
+import { PlanFileKind } from '#src/plan/internal/common/constants/PlanFileKind.ts';
+import { readRepoPathIndex } from '#src/plan/internal/common/paths/readRepoPathIndex.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
+import { getPhaseProvenance } from '#src/plan/internal/common/utils/getPhaseProvenance.ts';
+import { getPlanNamedPaths } from '#src/plan/internal/common/utils/getPlanNamedPaths.ts';
+import { getPlanTouchedPaths } from '#src/plan/internal/common/utils/getPlanTouchedPaths.ts';
 import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
 import { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
 import { checkGlobalConstraints } from '#src/plan/lint/checkGlobalConstraints.ts';
@@ -17,8 +21,9 @@ import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { checkPlanSizes } from '#src/plan/lint/checkPlanSizes.ts';
 import { checkProsePaths } from '#src/plan/lint/checkProsePaths.ts';
 import { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
-import { isPhasedDeliverable } from '#src/plan/lint/common/utils/isPhasedDeliverable.ts';
-import { readPhaseFiles } from '#src/plan/lint/common/utils/readPhaseFiles.ts';
+import { checkRenames } from '#src/plan/lint/internal/checkRenames.ts';
+import { isPhasedDeliverable } from '#src/plan/lint/internal/common/utils/isPhasedDeliverable.ts';
+import { readPhaseFiles } from '#src/plan/lint/internal/common/utils/readPhaseFiles.ts';
 import { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
 import { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
@@ -150,10 +155,11 @@ const checkPackages = ({ phase, packagesDir }: { phase: PhaseFile; packagesDir: 
  * repo-rooted is resolved against a repo index read once per run instead of
  * being `stat`ed. Every verification script is looked up in a package.json
  * (honoring `config.gates` full-command overrides), placeholders and required
- * sections are matched textually, and the two size numbers are checked: a
- * blocking ceiling on the files a plan CREATES, and an advisory note on every
- * source file it touches. The `naming-matches` check no-ops without a
- * machine-checkable convention (the facts' `namingConvention` is free-text
+ * sections are matched textually, and the size numbers are checked: a
+ * blocking ceiling on the files a plan CREATES, a blocking ceiling on every
+ * source file it touches (a rename-only plan is exempt), and an advisory note
+ * on its touched count against its budget. The `naming-matches` check no-ops
+ * without a machine-checkable convention (the facts' `namingConvention` is free-text
  * prose), and `packages-identifiable` only fires on a malformed `packagesDir/`
  * path — both are conservative by design, never guessing.
  *
@@ -199,7 +205,10 @@ export const lintPlanStructure = async ({ cwd, planPaths, decisions, config }: P
 			...(await checkProsePaths({ ...shared, planned, index: repoIndex })),
 			...(await checkVerificationScripts({ ...shared, packagesDir, configCommands, declaredScripts })),
 			...(phase.plan.variant === PlanFileKind.Implementable
-				? await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })
+				? [
+						...(await checkAcceptanceLedger({ plan: phase.plan, cwd, phase: phase.base, required: contract, gateKeys })),
+						...checkRenames({ plan: phase.plan, phase: phase.base }),
+					]
 				: []),
 			...checkDecisionLog({ plan: phase.plan, phase: phase.base, decisions, phased, syncCommand }),
 			...checkGlobalConstraints({ plan: phase.plan, phase: phase.base, decisions, syncCommand }),

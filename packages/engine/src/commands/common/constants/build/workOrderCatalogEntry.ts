@@ -1,4 +1,7 @@
-import { type CommandCatalogEntry, type CommandFlag, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import type { CommandFlag } from '#src/contracts/commands/CommandFlag.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /**
  * The `--name` flag, on each subcommand shape that acts on a record already

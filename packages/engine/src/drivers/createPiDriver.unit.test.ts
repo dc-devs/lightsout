@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from '@jest/globals';
-import type { HarnessProcessUsage } from '#src/contracts/index.ts';
-import { createOmpDriver, createPiDriver } from '#src/drivers/index.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import { createOmpDriver, createPiDriver } from '#src/drivers/createPiDriver.ts';
 import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
 // How the driver reads a stream: the answer it takes from it, the events it

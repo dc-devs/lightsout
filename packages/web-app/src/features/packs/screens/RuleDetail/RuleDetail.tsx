@@ -1,12 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Card, ContentHeader, Markdown } from '#src/appUI/index.ts';
-import { describeChannel } from '#src/features/packs/common/utils/describeChannel.ts';
-import { toRuleSetSlug } from '#src/features/packs/common/utils/toRuleSetSlug.ts';
+import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
+import { Markdown } from '#src/appUI/Markdown.tsx';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
+import { describeChannel } from '#src/features/packs/internal/common/utils/describeChannel.ts';
+import { toRuleSetSlug } from '#src/features/packs/internal/common/utils/toRuleSetSlug.ts';
 import { defaultPackRuleQueryOptions } from '#src/features/packs/queries/defaultPackRuleQueryOptions.ts';
-import { RuleHeader } from '#src/features/packs/screens/RuleDetail/components/RuleHeader.tsx';
-import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/components/RuleSettingsCard.tsx';
-import { TurnItDownCard } from '#src/features/packs/screens/RuleDetail/components/TurnItDownCard.tsx';
+import { RuleHeader } from '#src/features/packs/screens/RuleDetail/internal/components/RuleHeader.tsx';
+import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/internal/components/RuleSettingsCard.tsx';
+import { SeverityOverrideCard } from '#src/features/packs/screens/RuleDetail/internal/components/SeverityOverrideCard.tsx';
 
 interface Props {
 	ruleId: string;
@@ -47,7 +49,7 @@ export const RuleDetail = ({ ruleId }: Props) => {
 				<FixtureDiff fixtures={rule.fixtures} />
 			</Card>
 			<RuleSettingsCard rule={rule} />
-			<TurnItDownCard ruleId={rule.id} />
+			<SeverityOverrideCard ruleId={rule.id} defaultSeverity={rule.defaultSeverity} />
 		</div>
 	);
 };

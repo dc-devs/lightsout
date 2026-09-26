@@ -7,7 +7,7 @@ import { NotFound } from '#src/common/components/boundaries/NotFound.tsx';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { themeStorageKey } from '#src/common/constants/themeStorageKey.ts';
 import appCss from '#src/styles/app.css?url';
-import { ThemeProvider } from '#src/theme/index.ts';
+import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 
 /**
  * The one inline script in the app.

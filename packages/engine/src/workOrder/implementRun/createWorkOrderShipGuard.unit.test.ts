@@ -3,9 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import type { TrackerAttachment, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { createWorkOrderShipGuard, retitleWorkOrderPlan, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
+import { createWorkOrderShipGuard } from '#src/workOrder/implementRun/createWorkOrderShipGuard.ts';
+import { retitleWorkOrderPlan } from '#src/workOrder/retitleWorkOrderPlan.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -19,11 +28,14 @@ const mockGetTicketAttachments = jest.fn<(params: { settings: TrackerSettings; i
 const mockReadTicketAsset = jest.fn<(params: { settings: TrackerSettings; url: string }) => Promise<string | TrackerFailure>>();
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketTracker/index.ts')>('#src/ticketTracker/index.ts'),
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: TrackerSettings; identifier: string }) => mockGetTicketAttachments(params),
-	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
+	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
 }));
 // -------------------------
 
@@ -188,6 +200,41 @@ describe('createWorkOrderShipGuard', () => {
 		expect(refusals).toEqual([undefined, expect.stringContaining('001-search-basics')]);
 	});
 
+	test('authorizes a single-plan ticket holding no plan 001 only once its build from the ticket body is implemented', async () => {
+		// Two arrangements, because the row is about the difference between them:
+		// the same plan-less ticket answers differently on its build's progress alone.
+		const planless = recordOf({ mode: WorkOrderMode.SinglePlan, plans: [] });
+		const implemented = await setupGuard({
+			record: {
+				...planless,
+				ticketBodyBuild: {
+					runId: 'run-body-1',
+					progress: PlanProgress.Implemented,
+					startedAt: '2026-01-04T00:00:00.000Z',
+					finishedAt: '2026-01-04T01:00:00.000Z',
+				},
+			},
+		});
+		const failed = await setupGuard({
+			record: {
+				...planless,
+				ticketBodyBuild: {
+					runId: 'run-body-1',
+					progress: PlanProgress.Failed,
+					startedAt: '2026-01-04T00:00:00.000Z',
+					finishedAt: '2026-01-04T01:00:00.000Z',
+				},
+			},
+		});
+
+		const refusals = [
+			await implemented.guard.authorize({ cwd: implemented.cwd, branch: implemented.branch }),
+			await failed.guard.authorize({ cwd: failed.cwd, branch: failed.branch }),
+		];
+
+		expect(refusals).toEqual([undefined, expect.stringContaining('run-body-1')]);
+	});
+
 	test('authorizes a multiple-plan ticket only while its ship request covers exactly its implemented non-excluded plans', async () => {
 		const { guard, cwd, branch } = await setupGuard({ record: recordOf({ plans: authorizedPlans, shipRequest: ['001-search-basics', '002-fix-x'] }) });
 
@@ -258,6 +305,24 @@ describe('createWorkOrderShipGuard', () => {
 				history: [firstEvent, expect.objectContaining({ kind: 'shipped' })],
 			}),
 		);
+	});
+
+	test('records a ticket that shipped with no plans as shipped from the ticket body', async () => {
+		const { guard, cwd, branch, recordPath } = await setupGuard({ record: recordOf({ mode: WorkOrderMode.SinglePlan, plans: [] }) });
+
+		await guard.recordShipped({ cwd, branch, mergeCommit });
+
+		const stored = readRecordAt({ recordPath });
+		const shippedDetail = stored.history.at(-1)?.detail ?? '';
+
+		expect(stored).toEqual(
+			expect.objectContaining({
+				shipped: { at: expect.any(String), planIds: [], mergeCommit },
+				history: [firstEvent, expect.objectContaining({ kind: 'shipped', detail: expect.stringContaining(mergeCommit) })],
+			}),
+		);
+		expect(shippedDetail).toMatch(/ticket body/);
+		expect(shippedDetail.trimEnd()).not.toMatch(/with$/);
 	});
 
 	test('records nothing for a branch whose ticket has no record', async () => {

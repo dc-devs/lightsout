@@ -1,4 +1,4 @@
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import type { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
 
 /** What one self-check ended with: why it ended, what it scheduled, and — for a run that reached the gates — what they found. */
@@ -8,6 +8,8 @@ export interface SelfCheckResult {
 	gates: GateResult[];
 	error: string | undefined;
 	crashes: string[];
+	/** One line per gate that ran past its ceiling on every attempt. Filled only on a `SelfCheckReason.Ran` ending, and empty on every other ending. */
+	timeouts: string[];
 	/**
 	 * Why the machine was never available — who held it, in which worktree, and
 	 * for how long. Set only with `SelfCheckReason.Coordination`, and empty on

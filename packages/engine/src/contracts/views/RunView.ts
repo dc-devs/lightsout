@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { FrictionRecord } from '#src/contracts/friction/index.ts';
-import { RunUsage } from '#src/contracts/run/index.ts';
+import { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
+import { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { AgentInvocation } from '#src/contracts/views/AgentInvocation.ts';
 import { GateEvidence } from '#src/contracts/views/GateEvidence.ts';
 import { RunListing } from '#src/contracts/views/RunListing.ts';

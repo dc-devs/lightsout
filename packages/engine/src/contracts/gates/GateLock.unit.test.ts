@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GateLock } from '#src/contracts/index.ts';
+import { GateLock } from '#src/contracts/gates/GateLock.ts';
 
 /** The five fields a live holder writes to the shared `.lightsout/gate-lock.json`. */
 const setupGateLock = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

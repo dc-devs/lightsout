@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { matchesTicketPattern } from '#src/ship/index.ts';
+import { matchesTicketPattern } from '#src/ship/matchesTicketPattern.ts';
 
 /** This repo's own pattern: a ticket group with a nested one inside it, so a forwarded match would be visible. */
 const ticketPattern = /^(?<ticket>lo-(?<number>\d+))/;

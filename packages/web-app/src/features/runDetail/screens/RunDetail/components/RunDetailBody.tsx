@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Tabs } from '#src/appUI/index.ts';
-import type { RunDetailView } from '#src/features/runDetail/common/types/RunDetailView.ts';
-import { RunDetailTab } from '#src/features/runDetail/screens/RunDetail/common/constants/RunDetailTab.ts';
-import { ChangedFilesPanel } from '#src/features/runDetail/screens/RunDetail/components/ChangedFilesPanel.tsx';
-import { FrictionPanel } from '#src/features/runDetail/screens/RunDetail/components/FrictionPanel.tsx';
-import { RunHeader } from '#src/features/runDetail/screens/RunDetail/components/RunHeader.tsx';
-import { RunAgentsTab } from '#src/features/runDetail/screens/RunDetail/components/tabs/RunAgentsTab.tsx';
-import { RunGatesTab } from '#src/features/runDetail/screens/RunDetail/components/tabs/RunGatesTab.tsx';
-import { RunOverviewTab } from '#src/features/runDetail/screens/RunDetail/components/tabs/RunOverviewTab.tsx';
-import { RunStepsTab } from '#src/features/runDetail/screens/RunDetail/components/tabs/RunStepsTab.tsx';
+import { Tabs } from '#src/appUI/Tabs.tsx';
+import type { RunDetailView } from '#src/features/runDetail/internal/common/types/RunDetailView.ts';
+import { RunDetailTab } from '#src/features/runDetail/screens/RunDetail/internal/common/constants/RunDetailTab.ts';
+import { ChangedFilesPanel } from '#src/features/runDetail/screens/RunDetail/internal/components/ChangedFilesPanel.tsx';
+import { FrictionPanel } from '#src/features/runDetail/screens/RunDetail/internal/components/FrictionPanel.tsx';
+import { RunHeader } from '#src/features/runDetail/screens/RunDetail/internal/components/RunHeader.tsx';
+import { RunAgentsTab } from '#src/features/runDetail/screens/RunDetail/internal/components/tabs/RunAgentsTab.tsx';
+import { RunGatesTab } from '#src/features/runDetail/screens/RunDetail/internal/components/tabs/RunGatesTab.tsx';
+import { RunOverviewTab } from '#src/features/runDetail/screens/RunDetail/internal/components/tabs/RunOverviewTab.tsx';
+import { RunStepsTab } from '#src/features/runDetail/screens/RunDetail/internal/components/tabs/RunStepsTab.tsx';
 
 interface Props {
 	view: RunDetailView;

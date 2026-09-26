@@ -1,7 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord } from '#src/contracts/index.ts';
-import { decisionLogReference, renderDecisionLog } from '#src/plan/decisionLog/index.ts';
-import { checkDecisionLog } from '#src/plan/lint/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { checkDecisionLog } from '#src/plan/lint/checkDecisionLog.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
 /** The remedy every finding's `fix` has to name, exactly as `buildPlanSyncDecisionsCommand` hands it over. */

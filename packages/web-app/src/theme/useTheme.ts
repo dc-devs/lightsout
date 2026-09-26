@@ -1,6 +1,6 @@
 import { useContext } from 'react';
-import type { ThemeContextValue } from '#src/theme/common/types/ThemeContextValue.ts';
-import { ThemeContext } from '#src/theme/ThemeContext.ts';
+import type { ThemeContextValue } from '#src/theme/internal/common/types/ThemeContextValue.ts';
+import { ThemeContext } from '#src/theme/internal/ThemeContext.ts';
 
 /**
  * The theme in force, and the way to change it.

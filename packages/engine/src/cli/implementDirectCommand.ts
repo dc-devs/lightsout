@@ -1,26 +1,26 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
-import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
-import { openDirectWorkspace } from '#src/cli/common/implementRun/openDirectWorkspace.ts';
-import { readBodyBuildPlanName } from '#src/cli/common/implementRun/readBodyBuildPlanName.ts';
-import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
-import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
+import { getRequiredFlag } from '#src/cli/internal/common/args/getRequiredFlag.ts';
+import { finishImplementRun } from '#src/cli/internal/common/implementRun/finishImplementRun.ts';
+import { openDirectWorkspace } from '#src/cli/internal/common/implementRun/openDirectWorkspace.ts';
+import { readBodyBuildPlanName } from '#src/cli/internal/common/implementRun/readBodyBuildPlanName.ts';
+import { printConfigSource } from '#src/cli/internal/common/render/printConfigSource.ts';
+import type { RunWorkspace } from '#src/cli/internal/common/types/RunWorkspace.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { resolveCommandShipIntent } from '#src/cli/internal/common/utils/resolveCommandShipIntent.ts';
+import { resolveEffectiveConfigAndDriver } from '#src/cli/internal/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { readRunLabel } from '#src/common/utils/readRunLabel.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/requireImplementLifecycle.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 /**
  * The run itself, and whatever the ticket record owes about it.

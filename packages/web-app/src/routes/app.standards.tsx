@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { StandardsPage, standardsQueryOptions } from '#src/features/standards/index.ts';
+import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
+import { StandardsPage } from '#src/features/standards/screens/StandardsPage/StandardsPage.tsx';
 
 /**
  * What the query string may say.

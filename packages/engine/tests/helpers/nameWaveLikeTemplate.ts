@@ -1,5 +1,5 @@
 import { renderBranchTemplate } from '#src/common/utils/renderBranchTemplate.ts';
-import type { nameWaveWorkOrders } from '#src/queue/index.ts';
+import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
 
 /**
  * A stand-in for the drain's naming step that labels every ticket the way the

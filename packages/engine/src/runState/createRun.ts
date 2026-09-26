@@ -3,10 +3,13 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { readGitCurrentBranch } from '#src/common/git/readGitCurrentBranch.ts';
 import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
-import { type LightsoutConfig, type PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import { planNameFromPath } from '#src/plan/index.ts';
-import { runDirectoryIndex } from '#src/runState/common/constants/runDirectoryIndex.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { planNameFromPath } from '#src/plan/planNameFromPath.ts';
 import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
+import { runDirectoryIndex } from '#src/runState/internal/common/constants/runDirectoryIndex.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { SprawlDataset } from '#src/features/sprawl/common/contracts/SprawlDataset.ts';
-import type { SprawlLaneDelta } from '#src/features/sprawl/common/contracts/SprawlLaneDelta.ts';
 import { getSprawlMaxLines } from '#src/features/sprawl/common/rendering/getSprawlMaxLines.ts';
+import type { SprawlDataset } from '#src/features/sprawl/internal/common/contracts/SprawlDataset.ts';
+import type { SprawlLaneDelta } from '#src/features/sprawl/internal/common/contracts/SprawlLaneDelta.ts';
 
 const delta = ({ lines }: { lines: number }): SprawlLaneDelta => ({
 	files: [{ path: 'src/a.ts', lines }],

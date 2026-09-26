@@ -1,8 +1,9 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
+import { writeDoneStatus } from '#src/ticketLifecycle/internal/writeDoneStatus.ts';
 import { resolveLifecycleSettings } from '#src/ticketLifecycle/resolveLifecycleSettings.ts';
-import { writeDoneStatus } from '#src/ticketLifecycle/writeDoneStatus.ts';
-import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 interface Params {
 	config: LightsoutConfig;

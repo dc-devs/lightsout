@@ -2,8 +2,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { AppShell } from '#src/features/app/index.ts';
-import { ThemeProvider } from '#src/theme/index.ts';
+import { AppShell } from '#src/features/app/components/AppShell.tsx';
+import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
 // Mocked Imports

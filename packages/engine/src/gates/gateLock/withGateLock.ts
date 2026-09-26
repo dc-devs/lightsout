@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { describeGateCoordinationTimeout } from '#src/gates/common/utils/describeGateCoordinationTimeout.ts';
-import { describeGateLockFailure } from '#src/gates/common/utils/describeGateLockFailure.ts';
-import { acquireGateLock } from '#src/gates/gateLock/acquireGateLock.ts';
-import { gateLockTimings } from '#src/gates/gateLock/common/constants/gateLockTimings.ts';
 import type { GateLockOutcome } from '#src/gates/gateLock/common/types/GateLockOutcome.ts';
-import { describeGateLockHolder } from '#src/gates/gateLock/common/utils/describeGateLockHolder.ts';
-import { getGateLockPath } from '#src/gates/gateLock/common/utils/getGateLockPath.ts';
-import { writeGateLockGroups } from '#src/gates/gateLock/common/utils/writeGateLockGroups.ts';
-import { releaseGateLock } from '#src/gates/gateLock/releaseGateLock.ts';
+import { acquireGateLock } from '#src/gates/gateLock/internal/acquireGateLock.ts';
+import { gateLockTimings } from '#src/gates/gateLock/internal/common/constants/gateLockTimings.ts';
+import { describeGateLockHolder } from '#src/gates/gateLock/internal/common/utils/describeGateLockHolder.ts';
+import { getGateLockPath } from '#src/gates/gateLock/internal/common/utils/getGateLockPath.ts';
+import { writeGateLockGroups } from '#src/gates/gateLock/internal/common/utils/writeGateLockGroups.ts';
+import { releaseGateLock } from '#src/gates/gateLock/internal/releaseGateLock.ts';
+import { describeGateLockFailure } from '#src/gates/internal/common/utils/describeGateLockFailure.ts';
 
 interface Params<Result> {
 	/** The checkout this run's gates execute in — both the shared-state key and the worktree a waiter names. */

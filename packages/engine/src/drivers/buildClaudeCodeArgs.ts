@@ -1,4 +1,5 @@
-import { type Effort, Permissions } from '#src/contracts/index.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
 import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
 
 /** The neutral capability levels expressed in Claude Code's own permission-mode vocabulary. */

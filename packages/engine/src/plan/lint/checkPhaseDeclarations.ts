@@ -1,10 +1,12 @@
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { getExportName } from '#src/plan/common/naming/getExportName.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
-import type { PhaseSizeCounts } from '#src/plan/common/types/PhaseSizeCounts.ts';
-import { getCodeSpans } from '#src/plan/common/utils/getCodeSpans.ts';
-import { getDeclarationDefects } from '#src/plan/lint/common/utils/getDeclarationDefects.ts';
+import { getExportName } from '#src/plan/common/utils/getExportName.ts';
+import type { PhaseSizeCounts } from '#src/plan/internal/common/types/PhaseSizeCounts.ts';
+import { getCodeSpans } from '#src/plan/internal/common/utils/getCodeSpans.ts';
+import { getDeclarationDefects } from '#src/plan/lint/internal/common/utils/getDeclarationDefects.ts';
 
 interface Params {
 	/** Rows parsed from the overview. */
@@ -172,6 +174,25 @@ const nameDefects = ({ declaration, phase, overviewBase }: { declaration: PhaseD
 	return defects;
 };
 
+/** Whether the overview declares the phase rename-only, against whether its own file carries a `## Renames` section. */
+const renamesDefects = ({ declaration, phase, overviewBase }: { declaration: PhaseDeclaration; phase: PhaseFile; overviewBase: string }) => {
+	const declared = declaration.renamesOnly === true;
+	const own = phase.plan.renames.length > 0;
+
+	return declared === own
+		? []
+		: [
+				{
+					phase: overviewBase,
+					issue: declared
+						? `${declaration.file} is declared rename-only, but its own file carries no '## Renames' section`
+						: `${declaration.file} carries a '## Renames' section, but its declaration has no 'Renames only' bullet`,
+					location: `${overviewBase} → Phase Declarations`,
+					fix: 'the two copies must agree — write the Renames only bullet exactly when the phase file declares its renames, since the implementing agent is handed the phase file',
+				},
+			];
+};
+
 /**
  * DeclarationConsistent — anything a phase declares in the overview must appear
  * in that phase's own file, and the two must agree about the phase set and its
@@ -186,7 +207,11 @@ export const checkPhaseDeclarations = ({ declarations, phases, overviewBase, cou
 		const phase = phases.find((candidate) => candidate.base === declaration.file);
 
 		if (phase) {
-			defects.push(...numberDefects({ declaration, phase, overviewBase, counts }), ...nameDefects({ declaration, phase, overviewBase }));
+			defects.push(
+				...numberDefects({ declaration, phase, overviewBase, counts }),
+				...nameDefects({ declaration, phase, overviewBase }),
+				...renamesDefects({ declaration, phase, overviewBase }),
+			);
 		}
 	}
 

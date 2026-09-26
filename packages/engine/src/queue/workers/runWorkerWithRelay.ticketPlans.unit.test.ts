@@ -1,17 +1,26 @@
+import { execSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, PlanProgress, WorkOrderEventKind, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
+import { writeRepoFile } from '#tests/helpers/writeRepoFile.ts';
 
 /**
  * What the plan worker answers when the ticket's own ordered build stops before
@@ -38,14 +47,11 @@ interface PullTicketRecordParams {
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<{ record: WorkOrderState | undefined } | { error: string }>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/workOrder/index.ts')>('#src/workOrder/index.ts'),
-	pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params),
-}));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 // Whether the worktree holds uncommitted work is git's answer: a clean tree
-// keeps a case on the ordered build, and the one leftover case arms it with the
-// source path it parks over.
+// keeps a case on the ordered build, and each leftover case arms it with the
+// source path it parks over or commits. The commit itself stays real.
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 
 jest.mock('#src/common/git/readGitChangedFiles.ts', () => ({
@@ -106,7 +112,23 @@ const secondPlan = ({ progress, runId }: { progress: PlanProgress; runId?: strin
  * branch keeps the label `lo-7-search`, so a sentence composed from the wrong
  * field reads differently and the row catches it.
  */
-const setupWorker = ({ plans, workOrderBranch = branch, leftover = [] }: { plans: WorkOrderPlan[]; workOrderBranch?: string; leftover?: string[] }) => {
+const setupWorker = ({
+	plans,
+	workOrderBranch = branch,
+	leftover = [],
+	answer,
+}: {
+	plans: WorkOrderPlan[];
+	workOrderBranch?: string;
+	leftover?: string[];
+	/**
+	 * The final text the worker's driver answers every invocation with. Given, the
+	 * worktree is a real repo holding each `leftover` path as an uncommitted file,
+	 * so the leftover commit is actually made; without one it is a directory git
+	 * cannot read, and the driver answers nothing.
+	 */
+	answer?: string;
+}) => {
 	const record: WorkOrderState = {
 		schemaVersion: 1,
 		name: branch,
@@ -123,15 +145,32 @@ const setupWorker = ({ plans, workOrderBranch = branch, leftover = [] }: { plans
 	const ask = jest.fn<(params: { question: string; ticket: TicketSummary; coordinatorRunId: string; coordinatorRunDir: string }) => Promise<string>>();
 	const relay: QuestionRelay = { ask, createProgressSink: () => () => undefined, close: () => undefined };
 	const coordinatorRunDir = mkdtempSync(join(tmpdir(), 'lightsout-ordered-build-'));
+	const worktreePath = answer === undefined ? mkdtempSync(join(tmpdir(), 'lightsout-ticket-plans-')) : setupConsumerRepo();
+	const invocations: DriverInvocation[] = [];
+	const answering: Driver = {
+		name: 'claude-code',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return { text: answer ?? '', exitCode: 0 };
+		},
+	};
+
+	if (answer !== undefined) {
+		for (const path of leftover) {
+			writeRepoFile({ cwd: worktreePath, path, content: 'export const searchIndex = new Map<string, string>();\n' });
+		}
+	}
 
 	return {
 		ask,
+		invocations,
 		params: {
-			worktreePath: mkdtempSync(join(tmpdir(), 'lightsout-ticket-plans-')),
+			worktreePath,
 			workOrderName: branch,
 			ticket,
 			config,
-			driver,
+			driver: answer === undefined ? driver : answering,
 			driverName: 'claude-code',
 			settings: queueSettingsFixture(),
 			trackerSettings: trackerSettingsFixture(),
@@ -206,5 +245,40 @@ describe('runWorkerWithRelay', () => {
 		// already in the tree belong to nobody and nothing may be committed
 		expect(outcome.error).toEqual(expect.stringContaining('no implemented plan of work order lo-7-search accounts for'));
 		expect(outcome.error).not.toEqual(expect.stringContaining('feature/'));
+	});
+
+	test("runWorkerWithRelay: leftover work is committed under the ticket and the agent's summary, with its plan and run in the body", async () => {
+		const { params, invocations } = setupWorker({
+			plans: [firstImplemented, secondPlan({ progress: PlanProgress.Planning })],
+			leftover: ['src/searchIndex.ts'],
+			answer: JSON.stringify({ summary: 'index the plans for search' }),
+		});
+
+		const outcome = await runWorkerWithRelay(params);
+
+		// the leftover belongs to plan 001, the one implemented plan, so the body
+		// names that plan and the run recorded against it, and the loop then reaches
+		// plan 002 and leaves the ticket open on it
+		const headMessage = execSync('git log -1 --pretty=%B', { cwd: params.worktreePath }).toString().trimEnd();
+
+		expect({ error: outcome.error, open: outcome.open, headMessage, asked: invocations.length }).toEqual({
+			error: undefined,
+			open: expect.stringContaining('002-search-basics'),
+			headMessage: 'LO-7: index the plans for search\n\nlightsout plan 001-search-index\nlightsout run run-1',
+			asked: 1,
+		});
+	});
+
+	test('runWorkerWithRelay: leftover work git cannot stage parks the ticket naming the owning plan and the work order label', async () => {
+		const { params } = setupWorker({
+			plans: [firstImplemented, secondPlan({ progress: PlanProgress.Planning })],
+			leftover: ['src/searchIndex.ts'],
+		});
+
+		const outcome = await runWorkerWithRelay(params);
+
+		expect(outcome.error).toEqual(
+			expect.stringContaining('plan 001-search-index on work order lo-7-search was built, but its work could not be committed: git could not stage the work'),
+		);
 	});
 });

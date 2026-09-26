@@ -1,4 +1,5 @@
-import { CommandActor, type CommandStep } from '#src/contracts/index.ts';
+import { CommandActor } from '#src/contracts/commands/CommandActor.ts';
+import type { CommandStep } from '#src/contracts/commands/CommandStep.ts';
 
 /** The ten steps of `/implement`, in order — the cards of its infographic and the headings of its manual page. */
 export const implementSteps: CommandStep[] = [

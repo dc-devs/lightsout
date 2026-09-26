@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type QueueBoard, QueueLane } from '#src/contracts/index.ts';
-import { getQueueBoardPath, readQueueBoard } from '#src/queue/board/index.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { readQueueBoard } from '#src/queue/board/readQueueBoard.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 /** A board carrying every optional field beside a ticket with none, so a lossy read shows. */
@@ -17,7 +19,7 @@ const recordedBoard: QueueBoard = {
 			url: 'https://linear.app/lightsout/issue/LO-1',
 			lane: QueueLane.Blocked,
 			worker: 'auto-plan',
-			planName: 'lo-1-show-the-board',
+			workOrderName: 'lo-1-show-the-board',
 			branch: 'lo-1-show-the-board',
 			worktreePath: '/worktrees/lo-1-show-the-board',
 			enteredAt: '2026-09-10T09:20:00.000Z',

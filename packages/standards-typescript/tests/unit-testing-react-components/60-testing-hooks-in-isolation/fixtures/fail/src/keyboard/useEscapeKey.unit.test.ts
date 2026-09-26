@@ -1,5 +1,5 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { useEscapeKey } from './index';
+import { useEscapeKey } from './useEscapeKey';
 
 // Every hook primitive stubbed, including the three this hook never calls —
 // each one a shim that can drift from the framework for no coverage in return.

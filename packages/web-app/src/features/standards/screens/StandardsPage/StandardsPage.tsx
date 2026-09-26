@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Card } from '#src/appUI/index.ts';
+import { Card } from '#src/appUI/panels/Card.tsx';
 import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
-import { FindingList } from '#src/features/standards/screens/StandardsPage/components/FindingList.tsx';
-import { FolderBreakdown } from '#src/features/standards/screens/StandardsPage/components/FolderBreakdown.tsx';
-import { StandardsHeader } from '#src/features/standards/screens/StandardsPage/components/StandardsHeader.tsx';
-import { StandardsTrendChart } from '#src/features/standards/screens/StandardsPage/components/StandardsTrendChart.tsx';
+import { FindingList } from '#src/features/standards/screens/StandardsPage/internal/components/FindingList.tsx';
+import { FolderBreakdown } from '#src/features/standards/screens/StandardsPage/internal/components/FolderBreakdown.tsx';
+import { StandardsHeader } from '#src/features/standards/screens/StandardsPage/internal/components/StandardsHeader.tsx';
+import { StandardsTrendChart } from '#src/features/standards/screens/StandardsPage/internal/components/StandardsTrendChart.tsx';
 
 /**
  * What this repo is breaking, and where.

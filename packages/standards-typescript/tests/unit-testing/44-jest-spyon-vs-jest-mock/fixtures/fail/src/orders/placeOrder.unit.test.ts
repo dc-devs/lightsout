@@ -1,5 +1,5 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { placeOrder } from './index';
+import { placeOrder } from './placeOrder';
 
 // The repository is an object the test already holds — replacing its whole
 // module hides every other method the unit may touch.

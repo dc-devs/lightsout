@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { CoverageFile } from '#src/contracts/index.ts';
+import type { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
 import { buildCoverageBatch } from '#src/coverage/buildCoverageBatch.ts';
 
 const file = ({ path, statementsPct, scope = 'root' }: { path: string; statementsPct: number; scope?: string }): CoverageFile => ({

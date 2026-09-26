@@ -2,9 +2,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
-import type { TrackerAttachment, TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
-import { addWorkOrderPlan, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { TrackerAttachment } from '#src/ticketTracker/common/types/TrackerAttachment.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
+import { addWorkOrderPlan } from '#src/workOrder/addWorkOrderPlan.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 
 // Mocked Imports
@@ -20,10 +25,16 @@ type AttachmentWrite = { settings: TrackerSettings; ticketId: string; title: str
 
 const mockSetTicketAttachment = jest.fn<(params: AttachmentWrite) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: TrackerSettings; identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
 	readTicketAsset: (params: { settings: TrackerSettings; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure => {
 		const block = config['ticket-tracker'];
 
@@ -37,8 +48,8 @@ jest.mock('#src/ticketTracker/index.ts', () => ({
 			? { error: `the tracker API key is missing: set the \`${block['api-key-env']}\` environment variable` }
 			: { provider: 'linear', ticketPrefix: 'LO', team: 'LO', apiKey };
 	},
-	setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params),
 }));
+jest.mock('#src/ticketTracker/setTicketAttachment.ts', () => ({ setTicketAttachment: (params: AttachmentWrite) => mockSetTicketAttachment(params) }));
 // -------------------------
 
 /** The work order's label, which is also the branch every row below names. */

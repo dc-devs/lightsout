@@ -1,4 +1,4 @@
-import type { ActivityReport } from '#src/contracts/index.ts';
+import type { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
 
 /**
  * One plan's place in a report.

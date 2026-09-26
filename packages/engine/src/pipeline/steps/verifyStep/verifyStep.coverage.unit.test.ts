@@ -1,9 +1,12 @@
 import { expect, jest, test } from '@jest/globals';
 import type { AcceptanceRow } from '#src/common/types/AcceptanceRow.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import type { VerificationResult } from '#src/pipeline/common/types/VerificationResult.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
-import { verifyStep } from '#src/pipeline/steps/verifyStep/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { VerificationResult } from '#src/pipeline/internal/common/types/VerificationResult.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep/verifyStep.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 
 // Mocked Imports
@@ -20,14 +23,10 @@ interface ReviewParams {
 
 const mockReviewTestChanges = jest.fn<(params: ReviewParams) => Promise<{ error?: string; rateLimited?: boolean }>>();
 
-jest.mock('#src/pipeline/approvedTests/index.ts', () => ({
-	reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params),
-	// What the post-gate snapshot approval reaches for. It has its own test;
-	// here it must simply do nothing.
-	approveTestFiles: async () => [],
-	readApprovedTest: async () => undefined,
-	removeApprovedTests: async () => {},
-}));
+jest.mock('#src/pipeline/approvedTests/approveTestFiles.ts', () => ({ approveTestFiles: async () => [] }));
+jest.mock('#src/pipeline/approvedTests/readApprovedTest.ts', () => ({ readApprovedTest: async () => undefined }));
+jest.mock('#src/pipeline/approvedTests/removeApprovedTests.ts', () => ({ removeApprovedTests: async () => {} }));
+jest.mock('#src/pipeline/approvedTests/reviewTestChanges.ts', () => ({ reviewTestChanges: (params: ReviewParams) => mockReviewTestChanges(params) }));
 // -------------------------
 interface GateParams {
 	run: PipelineRun;
@@ -39,7 +38,7 @@ interface GateParams {
 
 const mockRunVerificationGates = jest.fn<(params: GateParams) => Promise<VerificationResult>>();
 
-jest.mock('#src/pipeline/common/utils/runVerificationGates.ts', () => ({
+jest.mock('#src/pipeline/internal/common/utils/runVerificationGates.ts', () => ({
 	runVerificationGates: (params: GateParams) => mockRunVerificationGates(params),
 }));
 // -------------------------
@@ -66,7 +65,15 @@ const checkpoint = 'verify-implement';
 const setupFormattingReentry = () => {
 	mockRunFormatter.mockResolvedValue(undefined);
 	mockReviewTestChanges.mockResolvedValue({ rateLimited: true });
-	mockRunVerificationGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined, failures: [], gates: [] });
+	mockRunVerificationGates.mockResolvedValue({
+		error: undefined,
+		failedFamilies: [],
+		crashes: [],
+		timeouts: [],
+		coordination: undefined,
+		failures: [],
+		gates: [],
+	});
 
 	const owedFormatting = { failedFamilies: [], repairAttempts: {}, failures: [], needsFormatting: true, guidedRepairAttempted: false };
 	const steps: StepRecord[] = [{ id: checkpoint, status: RunStatus.Running, attempts: 1, verification: owedFormatting }];
@@ -109,7 +116,7 @@ const setupFormattingReentry = () => {
 test('verifyStep: a rate-limited reviewer parks the run on the re-entry that owes a formatter pass', async () => {
 	const { run, manifest, buildFix, roleInvocations, stopped } = setupFormattingReentry();
 
-	const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], buildFix })();
+	const parked = await verifyStep({ run, planContent: '# Plan', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 	// The formatter settles the tree first, so the reviewer reads the bytes the
 	// gates would see. When that reviewer is throttled it said nothing about the
@@ -131,7 +138,7 @@ test('verifyStep: the reviewer is told which checkpoint it is judging, and is ha
 	// harness throttled, so the checkpoint runs its whole sequence
 	mockReviewTestChanges.mockResolvedValue({});
 
-	await verifyStep({ run, planContent: '# Plan', overviewContent: '# Overview', id: checkpoint, acceptanceTests: () => [], buildFix })();
+	await verifyStep({ run, planContent: '# Plan', overviewContent: '# Overview', id: checkpoint, acceptanceTests: () => [], renames: [], buildFix })();
 
 	// The reviewer rules on whether a change to a test is one the plan's own work
 	// makes necessary, so the plan is the whole standard it judges against — and

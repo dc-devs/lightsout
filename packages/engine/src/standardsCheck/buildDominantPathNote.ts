@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 /** Deepest directory (depth ≥ 2) holding >50% of findings — undefined when no directory that deep dominates, or the report is too small to diagnose. */
 const findDominantPath = ({ findings }: { findings: StandardsFinding[] }) => {

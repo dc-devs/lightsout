@@ -14,7 +14,6 @@ const setupCarveOut = ({
 	exemptFolderNames,
 	kebabCase: false,
 	routerRoots: [],
-	moduleFolders: [],
 });
 
 describe('isFrameworkNamedFolder', () => {

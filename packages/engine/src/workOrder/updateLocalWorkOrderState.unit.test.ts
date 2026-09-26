@@ -2,8 +2,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 
 /** The work order's label, which is also the branch every record below names. */
 const name = 'lo-140-multi';

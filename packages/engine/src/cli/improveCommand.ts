@@ -1,11 +1,11 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
-import { printConfigSource } from '#src/cli/common/render/printConfigSource.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
+import { printConfigSource } from '#src/cli/internal/common/render/printConfigSource.ts';
+import { resolveConfigAndDriver } from '#src/cli/internal/common/utils/resolveConfigAndDriver.ts';
 import { PromptImprovementStatus } from '#src/common/constants/PromptImprovementStatus.ts';
-import { WorkReportStatus } from '#src/contracts/index.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 import { runPromptImprovement } from '#src/runPromptImprovement.ts';
 
 export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {

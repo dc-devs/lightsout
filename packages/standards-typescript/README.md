@@ -6,7 +6,7 @@ agent, and the rules it checks a repository against. A document folder holds a
 required, `check.ts` and `fixtures/` are optional. `<NN>` decides the order the
 rules read in and nothing else; the `<id>` — everything after the first dash
 group, per
-`packages/engine/src/standardsPacks/common/parsing/parseRuleFolder.ts:59` — is
+`packages/engine/src/standardsPacks/internal/common/parsing/parseRuleFolder.ts:59` — is
 the rule's durable key. It is what a finding is written with, what a repository
 names in `standards-checks`, and what a frozen refactor work-list holds, so it
 outlives the folder it came from.

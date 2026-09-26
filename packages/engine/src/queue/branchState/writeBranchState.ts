@@ -1,8 +1,9 @@
 import { mkdir, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import type { BranchPhase, BranchState } from '#src/contracts/index.ts';
-import { getBranchStatePath } from '#src/queue/branchState/common/utils/getBranchStatePath.ts';
+import type { BranchPhase } from '#src/contracts/queue/BranchPhase.ts';
+import type { BranchState } from '#src/contracts/queue/BranchState.ts';
+import { getBranchStatePath } from '#src/queue/branchState/internal/common/utils/getBranchStatePath.ts';
 
 interface Params {
 	/** Any checkout of the repository; the record lands in the primary one, so it outlives the worktree. */

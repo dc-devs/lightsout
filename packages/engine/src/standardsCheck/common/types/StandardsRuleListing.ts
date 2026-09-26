@@ -1,4 +1,4 @@
-import type { StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 export interface StandardsRuleListing {
 	/** The rule id — a plain string, the same one a finding and the config carry. */

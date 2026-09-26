@@ -1,6 +1,7 @@
-import { type LightsoutConfig, WorkOrderEventKind } from '#src/contracts/index.ts';
-import type { ShipWorkOrderGuard } from '#src/ship/index.ts';
-import { appendWorkOrderEvent } from '#src/workOrder/common/record/appendWorkOrderEvent.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import type { ShipWorkOrderGuard } from '#src/ship/common/types/ShipWorkOrderGuard.ts';
+import { appendWorkOrderEvent } from '#src/workOrder/internal/common/record/appendWorkOrderEvent.ts';
 import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 import { readWorkOrderShipEligibility } from '#src/workOrder/readWorkOrderShipEligibility.ts';
 import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
@@ -83,11 +84,14 @@ export const createWorkOrderShipGuard = ({ config, env, onProgress }: Params): S
 				// The plans that shipped are the ones the ticket included: an excluded
 				// plan took no part in the implementation that was merged.
 				const planIds = current.plans.filter((plan) => plan.exclusion === undefined).map((plan) => plan.id);
+				// A ticket with no included plan was implemented by its build from the
+				// ticket body, which is what its history says rather than an empty list.
+				const shippedWith = planIds.length === 0 ? 'from the ticket body' : `with ${planIds.join(', ')}`;
 
 				return appendWorkOrderEvent({
 					record: { ...current, shipped: { at, planIds, mergeCommit } },
 					kind: WorkOrderEventKind.Shipped,
-					detail: `work order ${branch} shipped as ${mergeCommit} with ${planIds.join(', ')}`,
+					detail: `work order ${branch} shipped as ${mergeCommit} ${shippedWith}`,
 					at,
 				});
 			},

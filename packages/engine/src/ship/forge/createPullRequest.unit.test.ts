@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { createPullRequest } from '#src/ship/forge/index.ts';
+import { createPullRequest } from '#src/ship/forge/createPullRequest.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { stubForgeOnPath } from '#tests/helpers/stubForgeOnPath.ts';
 

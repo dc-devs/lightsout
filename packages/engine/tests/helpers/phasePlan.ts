@@ -1,5 +1,9 @@
 import { join } from 'node:path';
-import { decisionLogReference, type PhaseFile, parsePlan, renderDecisionLog, renderGlobalConstraints } from '#src/plan/index.ts';
+import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
+import { decisionLogReference } from '#src/plan/decisionLog/decisionLogReference.ts';
+import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 
 /** What one implementable phase file says it does — every field the cross-phase checks read. */
 export interface PhaseSpec {
@@ -20,6 +24,8 @@ export interface PhaseSpec {
 	commands?: string[];
 	/** The optional `## File Budget` this phase declares for itself. */
 	fileBudget?: number;
+	/** The optional `## Renames` section — one bullet per rename, old text then new. A phase with any is rename-only. */
+	renames?: { from: string; to: string }[];
 	/** Whether the file carries the Decision Log pointer. A phase of a phased deliverable does; a body standing in for a single `plan.md` carries the rendered table instead. */
 	reference?: boolean;
 }
@@ -37,6 +43,8 @@ export interface DeclarationSpec {
 	scripts?: string[];
 	/** The optional `- **File budget:**` bullet, omitted when the phase declares none. */
 	fileBudget?: number;
+	/** Writes the optional `- **Renames only:** yes` bullet when true. */
+	renamesOnly?: boolean;
 }
 
 /** One `## <heading>` section of `### \`path\`` subheadings, or nothing at all when the phase has no such work. */
@@ -50,6 +58,10 @@ const moveSection = ({ moves }: { moves: { from: string; to: string }[] }) =>
 /** The optional `## File Budget` section, absent when the phase takes the configured default. */
 const budgetSection = ({ fileBudget }: { fileBudget?: number }) => (fileBudget === undefined ? '' : `## File Budget\n\n${fileBudget}\n\n`);
 
+/** The optional `## Renames` section, absent when the phase renames nothing. */
+const renamesSection = ({ renames }: { renames: { from: string; to: string }[] }) =>
+	renames.length === 0 ? '' : `## Renames\n\n${renames.map(({ from, to }) => `- \`${from}\` → \`${to}\``).join('\n')}\n\n`;
+
 /** One bullet of a declaration block: its backticked values, or the template's `none` sentinel when it declares nothing. */
 const declarationBullet = ({ label, values }: { label: string; values: string[] }) =>
 	`- **${label}:** ${values.length === 0 ? 'none' : values.map((value) => `\`${value}\``).join(', ')}`;
@@ -57,12 +69,13 @@ const declarationBullet = ({ label, values }: { label: string; values: string[] 
 /** One `### Phase <n> — \`<file>\`` block of the overview's `## Phase Declarations`. */
 const declarationBlock = ({ row }: { row: DeclarationSpec }) => {
 	const budget = row.fileBudget === undefined ? '' : `\n- **File budget:** ${row.fileBudget}`;
+	const renamesOnly = row.renamesOnly === true ? '\n- **Renames only:** yes' : '';
 
 	return `### Phase ${row.number ?? 1} — \`${row.file}\`
 
 ${declarationBullet({ label: 'Creates', values: row.creates ?? [] })}
 ${declarationBullet({ label: 'Exports', values: row.exports ?? [] })}
-${declarationBullet({ label: 'Scripts', values: row.scripts ?? [] })}${budget}
+${declarationBullet({ label: 'Scripts', values: row.scripts ?? [] })}${budget}${renamesOnly}
 `;
 };
 
@@ -78,6 +91,7 @@ export const phaseBody = ({
 	handsForward = 'None',
 	commands = ['true'],
 	fileBudget,
+	renames = [],
 	reference = true,
 }: PhaseSpec = {}) => {
 	const paths = [
@@ -87,6 +101,7 @@ export const phaseBody = ({
 		pathSection({ heading: 'Files to Delete', paths: remove }),
 		moveSection({ moves: move }),
 		budgetSection({ fileBudget }),
+		renamesSection({ renames }),
 	].join('');
 
 	return `# Phase

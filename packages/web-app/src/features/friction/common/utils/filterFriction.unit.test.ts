@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import type { FrictionArea, FrictionRecord } from '@lightsout/engine';
-import { filterFriction } from '#src/features/friction/index.ts';
+import { filterFriction } from '#src/features/friction/common/utils/filterFriction.ts';
 import { buildFrictionRecord } from '#tests/helpers/buildFrictionRecord.ts';
 
 /** Three entries that differ in area, kind and wording, so one filter can only match one of them. */

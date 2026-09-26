@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { PhaseDeclaration } from '#src/plan/index.ts';
-import { ledgerBriefOf, planFacts, writerInvocation } from '#tests/helpers/planWriterInputs.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import { planFacts, writerInvocation } from '#tests/helpers/planWriterInputs.ts';
 
 /** One overview declaration row, as `parsePhaseDeclarations` returns it. */
 const declarationRow = (): PhaseDeclaration => ({
@@ -134,7 +134,7 @@ test('buildPlanWriterInvocation: phase 1 is told there is no previous phase rath
 
 test('buildPlanWriterInvocation: the size numbers are substituted into the template rather than hard-coded in it', () => {
 	const invocation = writerInvocation({
-		limits: { executorFileLimit: 80, createdFileCeiling: 12 },
+		limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 70 },
 	});
 
 	// the configured numbers reach the writer verbatim
@@ -213,7 +213,7 @@ test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in 
 
 test('buildPlanWriterInvocation: every occurrence of each size token is substituted, not just the first', () => {
 	const invocation = writerInvocation({
-		limits: { executorFileLimit: 80, createdFileCeiling: 12 },
+		limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 70 },
 	});
 
 	// the file-budget guidance states the same limit as the all-variants rule
@@ -274,64 +274,6 @@ test('buildPlanWriterInvocation: a repository declaring no surfaces sees no docu
 	]);
 });
 
-test('buildPlanWriterInvocation: a contract repository adds the template rule and the acceptance-test ledger brief', () => {
-	const invocation = writerInvocation({
-		contract: true,
-	});
-
-	// the template's all-variants rule now asks the implementable variants for the table
-	expect(invocation.systemPrompt.includes('- **Acceptance tests named, not narrated.**')).toBeTruthy();
-	expect(invocation.systemPrompt.includes('An Overview Plan carries neither section')).toBeTruthy();
-	// and the prompt carries the brief: the table shape, and the escape for a file no test can state
-	expect(invocation.prompt.includes('| Criterion | Test file | Test name | Gate |')).toBeTruthy();
-	expect(invocation.prompt.includes('listed under `## Prose Files` instead')).toBeTruthy();
-	// the ledger brief sits where the documentation brief sits — before the decisions record
-	expect(invocation.prompt.split('\n\n').filter((section) => section.startsWith('## '))).toStrictEqual([
-		'## Feature request',
-		'## Output files',
-		'## Acceptance-test ledger',
-		'## Decisions record',
-		'## Verified facts',
-	]);
-});
-
-test('buildPlanWriterInvocation: a repository that writes no contract plans sees no ledger text and no standing token', () => {
-	const invocation = writerInvocation();
-
-	// no rule in the template and no brief in the prompt — the invocation is what it
-	// was before the key existed
-	expect(invocation.systemPrompt.includes('- **Acceptance tests named, not narrated.**')).toBeFalsy();
-	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeFalsy();
-	// and the token is substituted away rather than left standing, which the plan
-	// lint's unresolved-token scan would otherwise catch in a written plan
-	expect(invocation.systemPrompt.includes('{{contractRule}}')).toBeFalsy();
-});
-
-test('buildPlanWriterInvocation: the ledger brief allows a row on a file the plan modifies and refuses one on a move source', () => {
-	const invocation = writerInvocation({
-		contract: true,
-	});
-
-	// the ledger brief alone, cut at the next section, so no match can come from
-	// a neighbouring section of the prompt
-	const ledger = ledgerBriefOf({ prompt: invocation.prompt });
-
-	// the brief is present at all — a missing heading would leave the slice empty
-	expect(invocation.prompt.includes('## Acceptance-test ledger')).toBeTruthy();
-	// the two change headings a row is now free to name
-	expect(ledger).toMatch(/Files to Modify(?! from)/);
-	expect(ledger).toMatch(/Files to Modify from Earlier Phases/);
-	// and the destination of a move, which is where the test lives once the plan runs
-	expect(ledger).toMatch(/destination/i);
-	// with the reason that edit is ordinary work: it is reviewed against the plan
-	// before the gates run, so the writer is not left guessing why it is allowed
-	expect(ledger).toMatch(/review/i);
-	// the one case still refused: the source side of a move, which the plan
-	// takes away, so the row would point at nothing
-	expect(ledger).toMatch(/Files to Move/);
-	expect(ledger).toMatch(/moves away|move'?s source|source side/i);
-});
-
 test('buildPlanWriterInvocation: the documentation, ledger and phase-authoring briefs still land after the shared slabs move to agents/common', () => {
 	const invocation = writerInvocation({
 		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
@@ -368,4 +310,87 @@ test('buildPlanWriterInvocation: the documentation, ledger and phase-authoring b
 		'## Decisions record',
 		'## Verified facts',
 	]);
+});
+
+test('buildPlanWriterInvocation: a rename-only phase declaration obliges the phase file to carry its Renames section, and any other forbids one', () => {
+	const phaseInvocation = (declaration: PhaseDeclaration) =>
+		writerInvocation({
+			outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
+			overviewText: '# Foo — Overview',
+			declaration,
+		});
+	// the writing rules alone, cut before the inlined overview, so no match can
+	// come from the declaration's JSON or the overview text
+	const writingRulesOf = ({ prompt }: { prompt: string }) =>
+		prompt.slice(prompt.indexOf('### Writing against the declaration'), prompt.indexOf('### The settled overview'));
+
+	const renameOnly = writingRulesOf(phaseInvocation({ ...declarationRow(), renamesOnly: true }));
+	const ordinary = writingRulesOf(phaseInvocation(declarationRow()));
+
+	// both briefs carry the writing rules at all — a missing heading would leave the slice empty
+	expect(renameOnly.startsWith('### Writing against the declaration')).toBeTruthy();
+	expect(ordinary.startsWith('### Writing against the declaration')).toBeTruthy();
+	// the rename-only phase must carry its Renames section, create nothing and state no ledger rows
+	expect(renameOnly).toMatch(/rename-only/i);
+	expect(renameOnly).toMatch(/`## Renames`/);
+	expect(renameOnly).not.toMatch(/no `## Renames`/);
+	expect(renameOnly).toMatch(/nothing under Files to Create/i);
+	expect(renameOnly).toMatch(/no Acceptance Tests rows/i);
+	// any other phase is told its file carries no Renames section
+	expect(ordinary).toMatch(/no `## Renames` section/);
+});
+
+test('buildPlanWriterInvocation: the touched-file ceiling is substituted into every place the template states it', () => {
+	const invocation = writerInvocation({
+		limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 45 },
+	});
+
+	// each passage alone, cut at its own end, so a number from a neighbouring
+	// passage can never satisfy the assertion about another
+	const { systemPrompt } = invocation;
+	const passageOf = ({ start, end }: { start: string; end: string }) => {
+		const from = systemPrompt.indexOf(start);
+
+		return from === -1 ? '' : systemPrompt.slice(from, systemPrompt.indexOf(end, from + start.length));
+	};
+	const touchedRule = passageOf({ start: '- **Touched files counted and declared.**', end: '\n- **' });
+	const fileBudgetNote = passageOf({ start: '<Optional — omit this section unless the plan touches more than', end: '\n\n## ' });
+	const declarationsNote = passageOf({ start: '<!-- **File budget:** is optional', end: '-->' });
+
+	// the all-variants rule states the configured touched ceiling
+	expect(touchedRule).toMatch(/\b45\b/);
+	// the plan's own File Budget note says the budget does not raise it
+	expect(fileBudgetNote).toMatch(/\b45\b/);
+	// and the overview's declarations note restates it for every phase row
+	expect(declarationsNote).toMatch(/\b45\b/);
+	// no token survives into what the agent reads — a plan can never inherit one
+	expect(systemPrompt.includes('{{')).toBeFalsy();
+});
+
+test('buildPlanWriterInvocation: a phase spawn is told the touched ceiling among its hard limits', () => {
+	const invocation = writerInvocation({
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		overviewText: '# Foo — Overview',
+		declaration: declarationRow(),
+		limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 45 },
+	});
+
+	// the writing rules alone, cut before the inlined overview, and within them the
+	// one bullet naming the hard limits — the rename-only bullet of an ordinary
+	// phase must not be what satisfies the exemption assertion
+	const writingRules = invocation.prompt.slice(
+		invocation.prompt.indexOf('### Writing against the declaration'),
+		invocation.prompt.indexOf('### The settled overview'),
+	);
+	const hardLimits = writingRules.split('\n- ').find((bullet) => /hard limit/i.test(bullet)) ?? '';
+
+	// the hard-limits bullet still names the created-file ceiling
+	expect(hardLimits).toMatch(/created-file ceiling/i);
+	// and now names the touched ceiling with its configured number
+	expect(hardLimits).toMatch(/touched-file ceiling/i);
+	expect(hardLimits).toMatch(/\b45\b/);
+	// with the one exemption a phase may claim
+	expect(hardLimits).toMatch(/rename-only/i);
+	// the declaration is still a floor, not a target to build down to
+	expect(invocation.prompt.includes('**floor, not a ceiling**')).toBeTruthy();
 });

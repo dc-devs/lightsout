@@ -1,4 +1,5 @@
-import { type Effort, Permissions } from '#src/contracts/index.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
 
 /** Which pi-family binary the argv targets — omp adds the approval-mode surface pi lacks. */
 export type PiVariant = 'pi' | 'omp';

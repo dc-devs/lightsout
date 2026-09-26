@@ -2,9 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
-import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
+import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -15,7 +16,7 @@ import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 // leaves it as the no-op default.
 const mockEnsureBrainstormFiles = jest.fn<(params: { cwd: string; name: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/ensureBrainstormFiles.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/ensureBrainstormFiles.ts', () => ({
 	ensureBrainstormFiles: (params: { cwd: string; name: string }) => mockEnsureBrainstormFiles(params),
 }));
 // -------------------------

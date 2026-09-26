@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 
 // Mocked Imports
 // -------------------------

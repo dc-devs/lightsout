@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { runFormatter } from '#src/common/processes/runFormatter.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

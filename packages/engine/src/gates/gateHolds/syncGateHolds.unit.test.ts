@@ -2,9 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { GateHold } from '#src/contracts/index.ts';
-import { syncGateHolds } from '#src/gates/gateHolds/index.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
+import { syncGateHolds } from '#src/gates/gateHolds/syncGateHolds.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 
 // Mocked Imports
 // -------------------------
@@ -27,10 +29,10 @@ interface LabelParams {
 const mockGetTicketsByIdentifiers = jest.fn<(params: ReadParams) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: ReadParams) => mockGetTicketsByIdentifiers(params),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 // -------------------------
 
 const settings: TrackerSettings = { provider: 'linear', team: 'LO', ticketPrefix: 'LO', apiKey: 'lin_key' };

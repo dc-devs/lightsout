@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
@@ -47,11 +48,9 @@ describe('StandardsFinding', () => {
 			'folder-size',
 			'dead-export',
 			'test-only-export',
-			'barrel-is-only-consumer',
-			'module-boundary',
-			'placement',
+			'import-through-index',
+			'internal-import-from-outside',
 			'barrel-star',
-			'barrel-dead-entry',
 			'test-mock-prefix',
 			'test-mock-return-in-hook',
 			'test-mock-untyped',
@@ -65,7 +64,7 @@ describe('StandardsFinding', () => {
 			'oversized-setup-factory',
 			'banned-folder-name',
 			'file-directly-in-common',
-			'barrel-under-common',
+			'folder-index-file',
 			'test-in-tests-folder',
 			'test-not-beside-subject',
 			'test-support-in-src',

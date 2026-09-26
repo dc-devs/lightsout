@@ -2,15 +2,18 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type RunManifest, RunStatus, type ShipResult, ShipStatus } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import type { ParkedWork } from '#src/queue/internal/common/types/ParkedWork.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { PullRequestSummary } from '#src/ship/index.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -48,32 +51,25 @@ const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/queue/internal/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: { workOrder: NamedWorkOrder }) => mockRunQueueTicket(params) }));
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	setTicketLabel: () => Promise.resolve(undefined),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: () => Promise.resolve(undefined) }));
 // -------------------------
 // The lifecycle barrel keeps every other member real: the queue's startup check
 // reads `TrackerStatusRole` through it.
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/reconcileShippedTicket.ts', () => ({
 	reconcileShippedTicket: (params: ReconcileShippedParams) => mockReconcileShippedTicket(params),
 }));
 // -------------------------
-jest.mock('#src/gates/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/gates/index.ts')>('#src/gates/index.ts'),
-	runGates: (params: { cwd: string }) => mockRunGates(params),
-}));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: { cwd: string }) => mockRunGates(params) }));
 // The two ends of the drain, stubbed on one barrel. Everything else stays real:
 // `PullRequestState` is a plain constant nothing gains from doubling.
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({ findPullRequest: (params: FindPullRequestParams) => mockFindPullRequest(params) }));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 // Naming a wave creates work orders, which reads the tracker and spawns a
 // harness — the work order module's own job, with its own tests. These cases
@@ -163,7 +159,7 @@ const setupShippedBranch = ({ doneWriteFailure }: { doneWriteFailure?: string } 
 	mockListEligibleTickets.mockResolvedValue([]);
 	mockScanParkedWorktrees.mockResolvedValue({ resumed: [], outcomes: [ready], leftBehind: [], merged: [] });
 	mockFindPullRequest.mockResolvedValue(undefined);
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 	mockRunShip.mockResolvedValue(shippedResult);
 	mockReconcileShippedTicket.mockResolvedValue(doneWriteFailure);
 

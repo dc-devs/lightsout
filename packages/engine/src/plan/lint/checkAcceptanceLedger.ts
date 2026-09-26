@@ -2,12 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { holdsTestTitle } from '#src/common/sourceFiles/holdsTestTitle.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
-import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { getPlanWrittenPaths } from '#src/plan/common/paths/getPlanWrittenPaths.ts';
-import { isPlanSourceFile } from '#src/plan/common/paths/isPlanSourceFile.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { checkLedgerCoverage } from '#src/plan/lint/checkLedgerCoverage.ts';
-import { checkMovedAwayLedgerFiles } from '#src/plan/lint/checkMovedAwayLedgerFiles.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import { getPlanWrittenPaths } from '#src/plan/internal/common/paths/getPlanWrittenPaths.ts';
+import { isPlanSourceFile } from '#src/plan/internal/common/paths/isPlanSourceFile.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { checkLedgerCoverage } from '#src/plan/lint/internal/checkLedgerCoverage.ts';
+import { checkMovedAwayLedgerFiles } from '#src/plan/lint/internal/checkMovedAwayLedgerFiles.ts';
 
 interface Params {
 	plan: ParsedPlan;
@@ -26,8 +28,16 @@ interface Params {
  * the files a ledger row has to reach. `getPlanWrittenPaths` rather than the
  * whole heading set: a deleted file and a move's source are named by a heading
  * but written by nobody, so no test can state their behaviour.
+ *
+ * A rename-only file — one carrying a `## Renames` section — has none: a rename
+ * adds no behaviour a new test could state, so it is asked for no row and no
+ * prose-files excuse.
  */
 const getCoverablePaths = ({ plan }: { plan: ParsedPlan }) => {
+	if (plan.renames.length > 0) {
+		return [];
+	}
+
 	const excused = new Set(plan.proseFiles.map((file) => file.path));
 
 	return [...new Set(getPlanWrittenPaths({ plan }))].filter((path) => isPlanSourceFile({ path }) && !excused.has(path));

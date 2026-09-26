@@ -1,17 +1,17 @@
 import { expect, test } from '@jest/globals';
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import { batchFindings } from '#src/refactor/batch/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { batchFindings } from '#src/refactor/batch/batchFindings.ts';
 
 /** Every rule the shipped standards package names, in the order batching is meant to hand them to an agent. */
 const mechanicalFirstOrder = [
 	'banned-folder-name',
 	'file-directly-in-common',
-	'barrel-under-common',
+	'folder-index-file',
 	'test-in-tests-folder',
 	'test-not-beside-subject',
 	'test-support-in-src',
-	'module-boundary',
-	'placement',
+	'import-through-index',
+	'internal-import-from-outside',
 	'multi-export',
 	'filename-mismatch',
 	'test-mock-prefix',
@@ -24,10 +24,8 @@ const mechanicalFirstOrder = [
 	'test-manual-mock-cleanup',
 	'test-strict-equal-matcher',
 	'barrel-star',
-	'barrel-dead-entry',
 	'dead-export',
 	'test-only-export',
-	'barrel-is-only-consumer',
 	'file-size',
 	'function-size',
 	'ungrouped-domain-utils',
@@ -54,8 +52,8 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 	const batches = batchFindings({
 		blocking: [
 			finding({ rule: 'duplicate-code-block', path: 'packages/api/src/a.ts', siteKey: 'duplicate-code-block:1' }),
-			finding({ rule: 'module-boundary', path: 'packages/api/src/b.ts', siteKey: 'boundary:b' }),
-			finding({ rule: 'module-boundary', path: 'packages/web/src/c.ts', siteKey: 'boundary:c' }),
+			finding({ rule: 'import-through-index', path: 'packages/api/src/b.ts', siteKey: 'boundary:b' }),
+			finding({ rule: 'import-through-index', path: 'packages/web/src/c.ts', siteKey: 'boundary:c' }),
 			finding({ rule: 'multi-export', path: 'src/d.ts', siteKey: 'multi-export:d' }),
 			finding({ rule: 'multi-export', path: 'loose.ts', siteKey: 'multi-export:loose' }),
 		],
@@ -66,16 +64,16 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 	// boundary before multi-export before duplicate-code-block; package dirs, top segments, and
 	// (root) as areas
 	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual([
-		'module-boundary packages/api',
-		'module-boundary packages/web',
+		'import-through-index packages/api',
+		'import-through-index packages/web',
 		'multi-export (root)',
 		'multi-export src',
 		'duplicate-code-block packages/api',
 	]);
 	// the ids an agent is handed: a running number in that same order
 	expect(batches.map((batch) => batch.id)).toStrictEqual([
-		'batch-01:module-boundary:packages/api',
-		'batch-02:module-boundary:packages/web',
+		'batch-01:import-through-index:packages/api',
+		'batch-02:import-through-index:packages/web',
 		'batch-03:multi-export:(root)',
 		'batch-04:multi-export:src',
 		'batch-05:duplicate-code-block:packages/api',
@@ -105,7 +103,7 @@ test('batchFindings: a rule outside the priority list sorts after every listed o
 			// standards package added without a priority entry looks like here.
 			finding({ rule: 'invented-rule', path: 'src/stale.ts', siteKey: 'invented:stale' }),
 			finding({ rule: 'duplicate-code-block', path: 'src/a.ts', siteKey: 'duplicate-code-block:a' }),
-			finding({ rule: 'module-boundary', path: 'src/b.ts', siteKey: 'boundary:b' }),
+			finding({ rule: 'import-through-index', path: 'src/b.ts', siteKey: 'boundary:b' }),
 		],
 		advisories: [],
 		packagesDir: 'packages',
@@ -113,7 +111,7 @@ test('batchFindings: a rule outside the priority list sorts after every listed o
 
 	// an unlisted rule degrades to "after the known ones" — never to an error,
 	// and never ahead of the mechanical work
-	expect(batches.map((batch) => batch.rule)).toStrictEqual(['module-boundary', 'duplicate-code-block', 'invented-rule']);
+	expect(batches.map((batch) => batch.rule)).toStrictEqual(['import-through-index', 'duplicate-code-block', 'invented-rule']);
 });
 
 test('batchFindings: rules outside the priority list tie-break alphabetically, and their ids reach the batch id', () => {

@@ -1,8 +1,8 @@
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { probeTimeoutMs } from '#src/doctor/internal/common/constants/probeTimeoutMs.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
 
 const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex', omp: 'omp', pi: 'pi' };
 

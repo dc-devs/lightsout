@@ -2,9 +2,10 @@ import { stat } from 'node:fs/promises';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { runOrDescribeFailure } from '#src/common/processes/runOrDescribeFailure.ts';
-import type { WorktreeOwner } from '#src/contracts/index.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
 import type { WorktreeFailure } from '#src/worktree/common/types/WorktreeFailure.ts';
-import { readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/records/index.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
 import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {

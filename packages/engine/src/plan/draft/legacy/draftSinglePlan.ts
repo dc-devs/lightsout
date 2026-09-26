@@ -1,15 +1,18 @@
-import { PlanVariant, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
-import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
-import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
-import { buildPlanSyncDecisionsCommand, syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
+import { buildPlanSyncDecisionsCommand } from '#src/plan/decisionLog/buildPlanSyncDecisionsCommand.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 import { buildPlanLintCommand } from '#src/plan/draft/common/utils/buildPlanLintCommand.ts';
-import { convergePlanStructure } from '#src/plan/draft/common/utils/convergePlanStructure.ts';
-import { createDraftStop } from '#src/plan/draft/common/utils/createDraftStop.ts';
-import { deleteAbandonedPlan } from '#src/plan/draft/common/utils/deleteAbandonedPlan.ts';
-import { authorPlanFiles } from '#src/plan/draft/legacy/common/utils/authorPlanFiles.ts';
+import { convergePlanStructure } from '#src/plan/draft/internal/common/utils/convergePlanStructure.ts';
+import { createDraftStop } from '#src/plan/draft/internal/common/utils/createDraftStop.ts';
+import { deleteAbandonedPlan } from '#src/plan/draft/internal/common/utils/deleteAbandonedPlan.ts';
 import { draftPhasedPlan } from '#src/plan/draft/legacy/draftPhasedPlan.ts';
+import { authorPlanFiles } from '#src/plan/draft/legacy/internal/common/utils/authorPlanFiles.ts';
+import { planDraftOutputs } from '#src/plan/internal/common/paths/planDraftOutputs.ts';
+import type { DraftContext } from '#src/plan/internal/common/types/DraftContext.ts';
+import type { RunPlanDraftResult } from '#src/plan/internal/common/types/RunPlanDraftResult.ts';
 
 interface Params {
 	context: DraftContext;
@@ -19,15 +22,15 @@ interface Params {
  * Draft a single plan, with one escape.
  *
  * A single plan cannot be split by the structural repairer — the engine hands it
- * exactly one output path — so a busted created-file ceiling is the one blocking
- * finding that loop can never resolve. Rather than dead-ending on a defect the
- * engine can work out itself, the draft re-runs once as phased from the same
- * facts and decisions. That is reachable in ordinary use: the scope estimate
+ * exactly one output path — so a busted created-file or touched-file ceiling is
+ * the blocking finding that loop can never resolve. Rather than dead-ending on
+ * a defect the engine can work out itself, the draft re-runs once as phased from
+ * the same facts and decisions. That is reachable in ordinary use: the scope estimate
  * counts only the paths the verified facts name, and those carry no
  * create-paths, so a plan estimated as comfortably single can still author forty
  * new files. The phased flow never escalates back, so the retry is taken at most
- * once, and only for this one check — every other structural defect is the
- * repair loop's job.
+ * once, and only for the two ceiling checks — every other structural defect is
+ * the repair loop's job.
  */
 export const draftSinglePlan = async ({ context }: Params): Promise<RunPlanDraftResult> => {
 	const { cwd, name, workspaceDir, decisions, progress } = context;
@@ -57,7 +60,9 @@ export const draftSinglePlan = async ({ context }: Params): Promise<RunPlanDraft
 	await syncPlanDecisions({ cwd, name, planPaths, decisions });
 
 	const converged = await convergePlanStructure({ context, planPaths, variant: PlanVariant.Single, reports: [report], advisories });
-	const overCeiling = converged.blocking.find((finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling);
+	const overCeiling = converged.blocking.find(
+		(finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling || finding.check === StructuralCheck.TouchedFilesWithinCeiling,
+	);
 
 	if (overCeiling) {
 		progress(`plan draft ${name}: ${overCeiling.issue} — deleting ${outputs[0].path} and re-drafting phased`);

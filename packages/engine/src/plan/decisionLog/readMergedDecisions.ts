@@ -1,4 +1,5 @@
-import type { BrainstormDecisions, DecisionsRecord } from '#src/contracts/index.ts';
+import type { BrainstormDecisions } from '#src/contracts/plan/decisions/BrainstormDecisions.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
 import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 import { readDecisions } from '#src/plan/readDecisions.ts';
 

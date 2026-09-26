@@ -2,8 +2,10 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig, WorkOrderState } from '#src/contracts/index.ts';
-import { updateLocalWorkOrderState, withdrawWorkOrderShipRequest } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
+import { withdrawWorkOrderShipRequest } from '#src/workOrder/withdrawWorkOrderShipRequest.ts';
 
 /** The work order's label, which is also the branch every record below names. */
 const name = 'lo-140-multi';

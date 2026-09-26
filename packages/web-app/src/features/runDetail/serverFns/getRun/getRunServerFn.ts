@@ -3,7 +3,7 @@ import { notFound } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 import { toRunDetailView } from '#src/features/runDetail/common/utils/toRunDetailView.ts';
-import { getReader } from '#src/lightsout/index.ts';
+import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * One run's whole evidence, by id.

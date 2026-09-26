@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildFeatureExecutorInvocation } from '#src/agents/index.ts';
+import { buildFeatureExecutorInvocation } from '#src/agents/buildFeatureExecutorInvocation.ts';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const overviewContent = '# Overview\n\nOVERVIEW-SENTINEL';
@@ -359,4 +359,38 @@ test("buildFeatureExecutorInvocation: names the self-check as the engine's own a
 	// and the two endings that check nothing are recorded, never re-run
 	expect(prose).toMatch(/ran nothing/i);
 	expect(prose).toMatch(/could not work out what to check/i);
+});
+
+const renameOnlySectionOf = (systemPrompt: string) => systemPrompt.split('\n\n---\n\n').find((section) => section.startsWith('# Rename-only phase')) ?? '';
+
+test('buildFeatureExecutorInvocation: a rename-only plan gets a section listing its renames in order, and any other plan gets none', () => {
+	const renames = [
+		{ from: 'widgetFlag', to: 'featureFlag', line: 12 },
+		{ from: 'src/widget.ts', to: 'src/feature.ts', line: 13 },
+	];
+	const renamed = buildFeatureExecutorInvocation({ planContent, renames });
+	const absent = buildFeatureExecutorInvocation({ planContent });
+	const empty = buildFeatureExecutorInvocation({ planContent, renames: [] });
+	const section = renameOnlySectionOf(renamed.systemPrompt);
+	const lines = section.split('\n');
+	// the prompt wraps its lines; the sentences are what matter
+	const prose = section.replace(/\s+/g, ' ');
+
+	// the section rides the cached system prompt, after the plan it narrows
+	expect(section).not.toBe('');
+	expect(renamed.systemPrompt.indexOf(`# Plan\n\n${planContent}`)).toBeLessThan(renamed.systemPrompt.indexOf('# Rename-only phase'));
+	// each rename is one bullet carrying both texts in backtick spans
+	expect(lines.some((line) => line.startsWith('- ') && line.includes('`widgetFlag`') && line.includes('`featureFlag`'))).toBeTruthy();
+	expect(lines.some((line) => line.startsWith('- ') && line.includes('`src/widget.ts`') && line.includes('`src/feature.ts`'))).toBeTruthy();
+	// the renames are listed in the order they are applied
+	expect(section.indexOf('`widgetFlag`')).toBeLessThan(section.indexOf('`src/widget.ts`'));
+	// the phase writes no tests
+	expect(prose).toMatch(/write no tests/i);
+	// any other change is refused before a gate runs
+	expect(prose).toMatch(/refuse/i);
+	expect(prose).toMatch(/before any gate/i);
+	// a plan that is not rename-only is told nothing about renames
+	expect(absent.systemPrompt).not.toContain('# Rename-only phase');
+	expect(empty.systemPrompt).not.toContain('# Rename-only phase');
+	expect(empty.systemPrompt).toBe(absent.systemPrompt);
 });

@@ -1,5 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { emptyDecisionsRecord } from '#tests/helpers/emptyDecisionsRecord.ts';

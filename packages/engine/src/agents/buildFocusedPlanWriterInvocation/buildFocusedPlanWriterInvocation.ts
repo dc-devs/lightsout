@@ -1,17 +1,21 @@
-import { evidenceSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/evidenceSection.ts';
-import { focusedOverviewSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/focusedOverviewSection.ts';
-import { priorArtSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/priorArtSection.ts';
-import { selfLintSection } from '#src/agents/buildFocusedPlanWriterInvocation/common/utils/selfLintSection.ts';
-import { ledgerSection } from '#src/agents/common/constants/ledgerSection.ts';
-import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
-import { documentationRule } from '#src/agents/common/utils/documentationRule.ts';
-import { documentationSection } from '#src/agents/common/utils/documentationSection.ts';
-import { phaseSection } from '#src/agents/common/utils/phaseSection.ts';
+import { evidenceSection } from '#src/agents/buildFocusedPlanWriterInvocation/internal/common/utils/evidenceSection.ts';
+import { focusedOverviewSection } from '#src/agents/buildFocusedPlanWriterInvocation/internal/common/utils/focusedOverviewSection.ts';
+import { priorArtSection } from '#src/agents/buildFocusedPlanWriterInvocation/internal/common/utils/priorArtSection.ts';
+import { selfLintSection } from '#src/agents/buildFocusedPlanWriterInvocation/internal/common/utils/selfLintSection.ts';
+import { ledgerSection } from '#src/agents/internal/common/constants/ledgerSection.ts';
+import { applyPromptTokens } from '#src/agents/internal/common/utils/applyPromptTokens.ts';
+import { documentationRule } from '#src/agents/internal/common/utils/documentationRule.ts';
+import { documentationSection } from '#src/agents/internal/common/utils/documentationSection.ts';
+import { phaseSection } from '#src/agents/internal/common/utils/phaseSection.ts';
 import focusedPlanContractTemplate from '#src/agents/prompts/focusedPlanContractTemplate.md';
 import focusedPlanTemplate from '#src/agents/prompts/focusedPlanTemplate.md';
 import focusedPlanWriterPrompt from '#src/agents/prompts/focusedPlanWriter.md';
-import { type ConfigDocs, type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
-import type { ExportCollision, PhaseDeclaration } from '#src/plan/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
 
 interface Params {
 	facts: PlanFacts;
@@ -25,7 +29,7 @@ interface Params {
 	/** The previous phase's declaration row. Absent for phase 1. */
 	previousDeclaration?: PhaseDeclaration;
 	/** Numbers the template's size rules are stated with. */
-	limits: { executorFileLimit: number; createdFileCeiling: number };
+	limits: { executorFileLimit: number; createdFileCeiling: number; touchedFileCeiling: number };
 	/** Supplemental code standards, inlined verbatim. */
 	standards?: string;
 	/** Exact self-lint command the writer runs before reporting. */
@@ -92,7 +96,7 @@ export const buildFocusedPlanWriterInvocation = ({
 	}
 
 	if (declaration && overviewText !== undefined) {
-		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration }));
+		sections.push(phaseSection({ path: outputs[0].path, overviewText, declaration, previousDeclaration, touchedFileCeiling: limits.touchedFileCeiling }));
 	}
 
 	if (evidenceBrief) {
@@ -133,6 +137,7 @@ export const buildFocusedPlanWriterInvocation = ({
 		tokens: {
 			fileLimit: limits.executorFileLimit,
 			createdFileCeiling: limits.createdFileCeiling,
+			touchedFileCeiling: limits.touchedFileCeiling,
 			documentationRule: documentationRule({ docs }),
 		},
 	});

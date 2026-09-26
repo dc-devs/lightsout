@@ -3,8 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { WorktreeOwner } from '#src/contracts/index.ts';
-import { deleteWorktreeRecord, readWorktreeRecord, writeWorktreeRecord } from '#src/worktree/records/index.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import { deleteWorktreeRecord } from '#src/worktree/records/deleteWorktreeRecord.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

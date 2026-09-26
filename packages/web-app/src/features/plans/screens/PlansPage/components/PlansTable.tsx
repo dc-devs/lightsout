@@ -1,13 +1,14 @@
 import type { PlanWorkspaceListing } from '@lightsout/engine';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
-import { DataTable, StatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
 import { TableAlignment } from '#src/common/constants/TableAlignment.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
-import { planGradeBadgeConfig } from '#src/features/plans/common/constants/planGradeBadgeConfig.ts';
-import { planStageBadgeConfig } from '#src/features/plans/common/constants/planStageBadgeConfig.ts';
+import { planGradeBadgeConfig } from '#src/features/plans/internal/common/constants/planGradeBadgeConfig.ts';
+import { planStageBadgeConfig } from '#src/features/plans/internal/common/constants/planStageBadgeConfig.ts';
 
 /** The column a plans list opens on: what happened most recently is what a reader is looking for. */
 const defaultSortKey = 'updatedAt';

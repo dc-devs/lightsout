@@ -1,12 +1,19 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PipelineKind, RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
-import { createRun, resolveRunDir } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
+import { getRunProgress } from '#src/views/getRunProgress.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -19,11 +26,11 @@ const mockInvokeAgentWithContract =
 	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
 		mockInvokeAgentWithContract(params),
 }));
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runGates.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
 }));
 // -------------------------
@@ -49,7 +56,7 @@ const setupDirectRun = ({ agentCommands }: { agentCommands?: string[] } = {}) =>
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false }, 'agent-commands': agentCommands };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 	const run = ({
 		answeredQuestion,
@@ -90,7 +97,7 @@ const setupContinuedDirectRun = async () => {
 	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 	const existing = await createRun({
 		cwd,
@@ -151,6 +158,30 @@ describe('runDirectWork', () => {
 		expect((await run()).manifest.willShip).toBeUndefined();
 	});
 
+	test('lists every step it will take from its first moment, with the steps it has not reached shown pending', async () => {
+		const { cwd, run } = setupDirectRun();
+		const runId = '20260924-step-order';
+		const rowsAtStart: { id: string; status: RunStatus | undefined }[] = [];
+
+		mockRunGates.mockImplementationOnce(async () => {
+			const progress = await getRunProgress({ cwd, manifest: await readRunManifest({ cwd, runId }), lock: undefined });
+
+			rowsAtStart.push(...progress.rows.map(({ id, status }) => ({ id, status })));
+
+			return { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined };
+		});
+
+		const result = await run({ runId });
+
+		// read while the pre-flight gate runs — the first step, before any agent
+		expect(rowsAtStart).toStrictEqual([
+			{ id: 'pre-flight', status: RunStatus.Running },
+			{ id: 'implement', status: undefined },
+			{ id: 'verify', status: undefined },
+		]);
+		expect(result.manifest.stepOrder).toStrictEqual(['pre-flight', 'implement', 'verify']);
+	});
+
 	test('writes a ticket body that already ends in a newline without adding a second one', async () => {
 		const { cwd, run } = setupDirectRun();
 
@@ -168,7 +199,7 @@ describe('runDirectWork', () => {
 	test('stops before spending an agent when the repo is not green to begin with — a red gate then is not the agent’s doing', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -239,9 +270,9 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValueOnce({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -254,8 +285,8 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 
@@ -269,8 +300,8 @@ describe('runDirectWork', () => {
 		const coordination = 'another run holds this machine: run 20260908-a in /tmp/trees/lo-71, held for 31m — waited 30m';
 
 		mockRunGates
-			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined })
-			.mockResolvedValue({ error: coordination, failedFamilies: [], crashes: [], coordination });
+			.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined })
+			.mockResolvedValue({ error: coordination, failedFamilies: [], crashes: [], timeouts: [], coordination });
 
 		const result = await run();
 
@@ -289,10 +320,11 @@ describe('runDirectWork', () => {
 		const { run } = setupDirectRun();
 		const coordination = 'another run holds this machine: run 20260908-a in /tmp/trees/lo-71, held for 31m — waited 30m';
 
-		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined }).mockResolvedValue({
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
 			error: 'signal=SIGSEGV',
 			failedFamilies: [],
 			crashes: ['gate [root] testCoverage never returned a verdict'],
+			timeouts: [],
 			coordination,
 		});
 
@@ -305,10 +337,11 @@ describe('runDirectWork', () => {
 	test('stops without spending a fix attempt when a gate crashed rather than failed, so no worker is sent at a suite that is not broken', async () => {
 		const { run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined }).mockResolvedValue({
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
 			error: 'signal=SIGSEGV',
 			failedFamilies: [],
 			crashes: ['gate [root] testCoverage never returned a verdict'],
+			timeouts: [],
 			coordination: undefined,
 		});
 
@@ -320,6 +353,30 @@ describe('runDirectWork', () => {
 		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
 	});
 
+	test('runDirectWork: a gate that ran past its ceiling ends the run without spending a fix attempt', async () => {
+		const { run } = setupDirectRun();
+		const timeout = 'test timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+
+		mockRunGates.mockResolvedValueOnce({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined }).mockResolvedValue({
+			error: 'test: exit -1 (timeout at the 15-minute ceiling)',
+			failedFamilies: [],
+			crashes: [],
+			timeouts: [timeout],
+			coordination: undefined,
+		});
+
+		const result = await run();
+
+		expect(result.manifest.status).toBe(RunStatus.Escalated);
+		expect(result.error).toContain(timeout);
+		expect(mockInvokeAgentWithContract).toHaveBeenCalledTimes(1);
+		// one verify attempt on the record: the run stopped at the first gate run
+		// rather than counting a fix round it never spent
+		expect(result.manifest.steps.filter((step) => step.id === 'verify')).toEqual([
+			expect.objectContaining({ id: 'verify', status: RunStatus.Escalated, attempts: 1 }),
+		]);
+	});
+
 	test('relays what the verify gates report back to the caller, so the terminal shows the gate that is running', async () => {
 		const { run } = setupDirectRun();
 		const progress: string[] = [];
@@ -327,7 +384,7 @@ describe('runDirectWork', () => {
 		mockRunGates.mockImplementation(({ step, onProgress }) => {
 			onProgress?.(`${step} is running`);
 
-			return Promise.resolve({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+			return Promise.resolve({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 		});
 
 		await run({ onProgress: (message) => progress.push(message) });
@@ -386,7 +443,7 @@ describe('runDirectWork', () => {
 	test('a first direct run still mints its run and still refuses a red baseline', async () => {
 		const { cwd, run } = setupDirectRun();
 
-		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], coordination: undefined });
+		mockRunGates.mockResolvedValue({ error: 'tsc: 3 errors', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined });
 
 		const result = await run();
 

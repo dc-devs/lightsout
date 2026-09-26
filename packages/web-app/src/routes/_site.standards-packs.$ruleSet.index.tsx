@@ -1,7 +1,9 @@
 import { createFileRoute, notFound, useNavigate } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
 import { CheckKind } from '#src/common/constants/CheckKind.ts';
-import { defaultPackQueryOptions, RuleSetPage, toRuleSetChannel } from '#src/features/packs/index.ts';
+import { toRuleSetChannel } from '#src/features/packs/internal/common/utils/toRuleSetChannel.ts';
+import { defaultPackQueryOptions } from '#src/features/packs/queries/defaultPackQueryOptions.ts';
+import { RuleSetPage } from '#src/features/packs/screens/RuleSetPage/RuleSetPage.tsx';
 
 /** What the query string may say. Every key optional, because an absent key is how the URL spells "do not narrow on this". */
 interface RuleSetSearch {

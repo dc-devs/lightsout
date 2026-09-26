@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
-import type { GateResult } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { satisfiesGateKey } from '#src/gates/testResults/internal/satisfiesGateKey.ts';
 import { readTestResults } from '#src/gates/testResults/readTestResults.ts';
-import { satisfiesGateKey } from '#src/gates/testResults/satisfiesGateKey.ts';
 
 /** How a repository switches the reporter on, spelled out so the message alone is enough to fix the setup. */
 const setupAdvice = [

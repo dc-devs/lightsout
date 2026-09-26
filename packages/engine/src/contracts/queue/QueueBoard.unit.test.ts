@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { QueueBoard } from '#src/contracts/index.ts';
+import { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
 
 const setupBoards = () => {
 	const board = {

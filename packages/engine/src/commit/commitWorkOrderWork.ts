@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CommitFailure } from '#src/commit/common/types/CommitFailure.ts';
+import type { CommitFailure } from '#src/commit/internal/common/types/CommitFailure.ts';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
@@ -10,8 +10,8 @@ import { isGeneratedPath } from '#src/common/sourceFiles/isGeneratedPath.ts';
 interface Params {
 	/** The worktree holding the work. */
 	cwd: string;
-	/** The commit subject and body, already written. */
-	message: string;
+	/** Writes the commit's message from what is staged. Called once, after the generated paths are discarded and the source changes staged, and only when there is something to commit. */
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
 	/** Run directory the message file is written into — inside `.lightsout`, which is gitignored. */
 	runDir: string;
 	/**
@@ -106,10 +106,21 @@ const discardGeneratedChanges = async ({ cwd, paths }: { cwd: string; paths: str
  * commits the branch actually carries, so a resumed ticket whose work was
  * committed by an earlier run still ships.
  *
- * The message goes through a file rather than `-m`, so no ticket title needs
- * shell quoting.
+ * The message is asked for after staging, so the agent writing it reads what
+ * will actually be committed — an untracked file only appears in the staged
+ * change once it is added — and only when a commit will be made, so a resumed
+ * run whose work is already committed spends no agent call. It goes through a
+ * file rather than `-m`, so no ticket title needs shell quoting.
+ *
+ * @returns the message committed under, so the caller can record the subject that actually landed
  */
-export const commitWorkOrderWork = async ({ cwd, message, runDir, generated = [], onProgress }: Params): Promise<{ committed: boolean } | CommitFailure> => {
+export const commitWorkOrderWork = async ({
+	cwd,
+	composeMessage,
+	runDir,
+	generated = [],
+	onProgress,
+}: Params): Promise<{ committed: false } | { committed: true; message: string } | CommitFailure> => {
 	const changed = await readGitChangedFiles({ cwd });
 
 	if (changed === undefined) {
@@ -138,11 +149,6 @@ export const commitWorkOrderWork = async ({ cwd, message, runDir, generated = []
 		return { committed: false };
 	}
 
-	const messagePath = join(runDir, 'commit-message.txt');
-
-	await mkdir(runDir, { recursive: true });
-	await writeFile(messagePath, message.endsWith('\n') ? message : `${message}\n`, 'utf8');
-
 	// The pathspec is what keeps the staging and the change detection reading one
 	// directory. `readGitChangedFiles` reports paths under `cwd`, while a bare
 	// `git add -A` stages the whole repository — so in a consumer nested inside a
@@ -154,11 +160,17 @@ export const commitWorkOrderWork = async ({ cwd, message, runDir, generated = []
 		return { error: `git could not stage the work in ${cwd}: ${stageFailure}` };
 	}
 
+	const message = await composeMessage({ cwd });
+	const messagePath = join(runDir, 'commit-message.txt');
+
+	await mkdir(runDir, { recursive: true });
+	await writeFile(messagePath, message.endsWith('\n') ? message : `${message}\n`, 'utf8');
+
 	const commitFailure = await runOrDescribeFailure({ command: `git commit -F ${messagePath}`, cwd });
 
 	if (commitFailure !== undefined) {
 		return { error: `git could not commit the work in ${cwd}: ${commitFailure}` };
 	}
 
-	return { committed: true };
+	return { committed: true, message };
 };

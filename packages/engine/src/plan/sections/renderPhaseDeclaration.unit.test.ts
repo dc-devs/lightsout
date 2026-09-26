@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
-import { renderPhaseDeclaration } from '#src/plan/sections/index.ts';
+import { renderPhaseDeclaration } from '#src/plan/sections/renderPhaseDeclaration.ts';
 
 /** One phase record, complete by default so a test states only the field it varies. */
 const setupDeclaration = (overrides: Partial<PhaseDeclaration> = {}) => {
@@ -28,6 +28,14 @@ const setupBudgetContrast = () => {
 	const { declaration: unbudgeted } = setupDeclaration({ number: 2, file: 'phase2-wiring.md', scope: 'the wiring' });
 
 	return { budgeted, unbudgeted };
+};
+
+/** A rename-only phase beside one that is not — the contrast the Renames only bullet turns on. */
+const setupRenamesOnlyContrast = () => {
+	const { declaration: renameOnly } = setupDeclaration({ renamesOnly: true });
+	const { declaration: plain } = setupDeclaration({ number: 2, file: 'phase2-wiring.md', scope: 'the wiring' });
+
+	return { renameOnly, plain };
 };
 
 /**
@@ -102,5 +110,21 @@ describe('renderPhaseDeclaration', () => {
 		expect(parseBack({ block: unbudgetedBlock, rows: '| 2 | `phase2-wiring.md` | the wiring | 1 | 2 |' })[0]).toEqual(
 			expect.objectContaining({ fileBudget: undefined }),
 		);
+	});
+
+	test('renders the Renames only bullet only for a rename-only phase, and it parses back', () => {
+		const { renameOnly, plain } = setupRenamesOnlyContrast();
+
+		const renameOnlyBlock = renderPhaseDeclaration({ declaration: renameOnly });
+		const plainBlock = renderPhaseDeclaration({ declaration: plain });
+		const [renameOnlyParsed] = parseBack({ block: renameOnlyBlock, rows: '| 1 | `phase1-core.md` | the core | 1 | 2 |' });
+		const [plainParsed] = parseBack({ block: plainBlock, rows: '| 2 | `phase2-wiring.md` | the wiring | 1 | 2 |' });
+
+		expect(renameOnlyBlock).toMatch(/^-\s+\*\*Renames only:\*\*\s+yes\s*$/m);
+		expect(plainBlock).not.toMatch(/Renames only/i);
+		expect({ renamesOnly: renameOnlyParsed?.renamesOnly, plainCarriesRenamesOnly: Object.hasOwn(plainParsed ?? {}, 'renamesOnly') }).toStrictEqual({
+			renamesOnly: true,
+			plainCarriesRenamesOnly: false,
+		});
 	});
 });

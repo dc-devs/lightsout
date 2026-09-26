@@ -1,15 +1,15 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ScrollText } from 'lucide-react';
-import { PageHeader } from '#src/appUI/index.ts';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
-import { repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
 import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
-import { RunsFilterBar } from '#src/features/runs/screens/RunsPage/components/RunsFilterBar.tsx';
 import { RunsTable } from '#src/features/runs/screens/RunsPage/components/RunsTable.tsx';
+import { RunsFilterBar } from '#src/features/runs/screens/RunsPage/internal/components/RunsFilterBar.tsx';
 
 /** A sort key on its way into the URL, read back against the closed vocabulary the route validates it with. */
 const readSortKey = ({ key }: { key?: string }) => Object.values(RunsSortKey).find((candidate) => candidate === key);

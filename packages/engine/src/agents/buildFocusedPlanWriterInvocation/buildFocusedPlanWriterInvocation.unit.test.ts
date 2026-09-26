@@ -1,7 +1,9 @@
 import { expect, test } from '@jest/globals';
-import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/index.ts';
-import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
-import type { ExportCollision, PhaseDeclaration } from '#src/plan/index.ts';
+import { buildFocusedPlanWriterInvocation } from '#src/agents/buildFocusedPlanWriterInvocation/buildFocusedPlanWriterInvocation.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
+import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
 
 type FocusedParams = Parameters<typeof buildFocusedPlanWriterInvocation>[0];
 
@@ -66,7 +68,7 @@ const setupFocusedDraft = (overrides: Partial<FocusedParams> = {}): FocusedParam
 	facts: planFacts(),
 	decisions: planDecisions(),
 	outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/plan.md', variant: 'single' }],
-	limits: { executorFileLimit: 50, createdFileCeiling: 30 },
+	limits: { executorFileLimit: 50, createdFileCeiling: 30, touchedFileCeiling: 70 },
 	...overrides,
 });
 
@@ -162,14 +164,14 @@ test('buildFocusedPlanWriterInvocation: an empty census reports that nothing col
 });
 
 test('buildFocusedPlanWriterInvocation: the system prompt is the focused role prompt plus the focused template with every occurrence of every size token substituted', () => {
-	const first = buildFocusedPlanWriterInvocation(setupFocusedDraft({ limits: { executorFileLimit: 80, createdFileCeiling: 12 } }));
+	const first = buildFocusedPlanWriterInvocation(setupFocusedDraft({ limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 70 } }));
 
 	const second = buildFocusedPlanWriterInvocation(
 		setupFocusedDraft({
 			facts: { ...planFacts(), request: 'a different request' },
 			decisions: { planName: 'other-plan', decisions: [] },
 			outputs: [{ path: '/elsewhere/overview.md', variant: 'overview' }],
-			limits: { executorFileLimit: 80, createdFileCeiling: 12 },
+			limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 70 },
 			standards: '## Tabs only',
 			lintCommand: 'node /elsewhere/cli.mjs plan lint --name other-plan',
 		}),
@@ -313,4 +315,49 @@ test('buildFocusedPlanWriterInvocation: declared documentation surfaces add the 
 	// and the matching template rule is substituted in rather than left standing
 	expect(invocation.systemPrompt.includes('- **Documentation stated.**')).toBeTruthy();
 	expect(invocation.systemPrompt.includes('{{documentationRule}}')).toBeFalsy();
+});
+
+/** The template's touched-files rule bullet, from its bold label up to the next rule bullet. */
+const touchedFilesRule = ({ systemPrompt }: { systemPrompt: string }): string => {
+	const start = systemPrompt.indexOf('- **Touched files counted and declared.**');
+
+	return systemPrompt.slice(start, systemPrompt.indexOf('\n- **', start + 1));
+};
+
+/** The phase brief's own bullet lines, stopping before the inlined overview so its text cannot match. */
+const phaseAuthoringBullets = ({ prompt }: { prompt: string }): string[] =>
+	prompt
+		.slice(prompt.indexOf('## Phase authoring'), prompt.indexOf('### The settled overview'))
+		.split('\n')
+		.filter((line) => line.startsWith('- '));
+
+test('buildFocusedPlanWriterInvocation: the touched-file ceiling is substituted from limits', () => {
+	const params = setupFocusedDraft({ limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 45 } });
+
+	const invocation = buildFocusedPlanWriterInvocation(params);
+
+	// the configured number reaches the rule that refuses a plan touching more files
+	expect(touchedFilesRule({ systemPrompt: invocation.systemPrompt })).toMatch(/\b45\b/);
+	// and no token is left standing for a written plan to copy
+	expect(invocation.systemPrompt.includes('{{')).toBeFalsy();
+	expect(invocation.systemPrompt.includes('touchedFileCeiling')).toBeFalsy();
+});
+
+test('buildFocusedPlanWriterInvocation: a phase spawn is told the touched ceiling among its hard limits', () => {
+	const params = setupFocusedDraft({
+		outputs: [{ path: '/repo/.lightsout/work-orders/foo/plans/phase2-wiring.md', variant: 'phase' }],
+		overviewText: '# Foo — Overview\n\nOVERVIEW-SENTINEL',
+		declaration: declarationRow(),
+		limits: { executorFileLimit: 80, createdFileCeiling: 12, touchedFileCeiling: 45 },
+	});
+
+	const invocation = buildFocusedPlanWriterInvocation(params);
+
+	// the one brief bullet stating the number is the hard-limits one, and it names
+	// the touched ceiling and the rename-only exemption beside that number
+	const ceilingBullets = phaseAuthoringBullets({ prompt: invocation.prompt }).filter((line) => /\b45\b/.test(line));
+	expect(ceilingBullets.length).toBe(1);
+	expect(ceilingBullets[0]).toMatch(/hard limit/i);
+	expect(ceilingBullets[0]).toMatch(/touched-file ceiling/i);
+	expect(ceilingBullets[0]).toMatch(/rename-only/i);
 });

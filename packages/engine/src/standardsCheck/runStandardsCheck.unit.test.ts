@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkS
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 
 const bigBody = `
 	let total = 0;

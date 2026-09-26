@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { RunState } from '#src/common/services/RunState.ts';
-import { type AgentUsage, type LightsoutConfig, type RunManifest, RunStatus, type RunUsage } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

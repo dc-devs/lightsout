@@ -2,8 +2,8 @@ import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -23,9 +23,9 @@ interface SetupParams {
 }
 
 /**
- * A consumer repo whose implement step lands a module with a barrel-hidden
- * orphan: `src/feature/index.ts` exports feature.ts only, and orphan.ts is
- * exported by nothing and imported by nothing — nothing public reaches it.
+ * A consumer repo whose implement step lands a module with an internal orphan:
+ * `src/feature/internal/orphan.ts` is private to `src/feature/`, and nothing
+ * imports it — nothing public reaches it.
  */
 const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams = {}) => {
 	// unreachable code is this fixture's subject, so the rules that object to it
@@ -72,18 +72,16 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 					return onRefactor?.({ pass: refactorPass }) ?? { text: report(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'src/feature'), { recursive: true });
-				writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
+				mkdirSync(join(dir, 'src/feature/internal'), { recursive: true });
 				writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
-				// deliberately not wired into the entry: nothing public reaches it, which is the point
-				writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = (): number => 2;\n');
+				// deliberately imported by nothing: nothing public reaches it, which is the point
+				writeFileSync(join(dir, 'src/feature/internal/orphan.ts'), 'export const orphan = (): number => 2;\n');
 
 				return {
 					text: report({
 						changedFiles: [
-							{ path: 'src/feature/index.ts', summary: 'barrel' },
 							{ path: 'src/feature/feature.ts', summary: 'public' },
-							{ path: 'src/feature/orphan.ts', summary: 'hidden' },
+							{ path: 'src/feature/internal/orphan.ts', summary: 'internal' },
 						],
 					}),
 					exitCode: 0,
@@ -105,28 +103,28 @@ test('write-tests: a changed file nothing public reaches earns no writer, is rec
 	// the public file earns exactly one writer; the orphan earns none
 	expect(writerPrompts.length).toBe(1);
 	expect(writerPrompts[0]?.includes('src/feature/feature.ts')).toBeTruthy();
-	expect(writerPrompts[0]?.includes('src/feature/orphan.ts')).toBeFalsy();
+	expect(writerPrompts[0]?.includes('src/feature/internal/orphan.ts')).toBeFalsy();
 	// the skip is narrated, naming the file
 	expect(
-		progress.some((line) => line.includes('1 changed file(s) skipped — nothing public reaches them') && line.includes('src/feature/orphan.ts')),
+		progress.some((line) => line.includes('1 changed file(s) skipped — nothing public reaches them') && line.includes('src/feature/internal/orphan.ts')),
 	).toBeTruthy();
 	// both resolutions are persisted — verify fix re-invocations and resume read them back
 	expect(result.manifest.testSubjects).toStrictEqual(['src/feature/feature.ts']);
-	expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/orphan.ts']);
+	expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/internal/orphan.ts']);
 	// still orphaned at the end of the run → the named warning, and the run still passes
 	expect(
-		progress.some((line) => line.startsWith('warning unreachable-changed-files: 1 changed file(s)') && line.includes('src/feature/orphan.ts')),
+		progress.some((line) => line.startsWith('warning unreachable-changed-files: 1 changed file(s)') && line.includes('src/feature/internal/orphan.ts')),
 	).toBeTruthy();
 });
 
-test('a refactor pass that wires the orphan into the barrel clears the record at the end-of-run re-check — no warning survives', async () => {
+test('a refactor pass that imports the orphan from a public file clears the record at the end-of-run re-check — no warning survives', async () => {
 	const { dir, driver, config } = await setupOrphanRun({
 		onRefactor: ({ pass }) => {
-			// the wiring pass: the barrel now exports the orphan, reconnecting it
+			// the wiring pass: the public file now imports the orphan, reconnecting it
 			if (pass === 1) {
-				writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\nexport { orphan } from './orphan';\n");
+				writeFileSync(join(dir, 'src/feature/feature.ts'), "import { orphan } from './internal/orphan';\n\nexport const feature = (): number => orphan();\n");
 
-				return { text: report({ changedFiles: [{ path: 'src/feature/index.ts', summary: 'wired the orphan' }] }), exitCode: 0 };
+				return { text: report({ changedFiles: [{ path: 'src/feature/feature.ts', summary: 'wired the orphan' }] }), exitCode: 0 };
 			}
 
 			return undefined;
@@ -138,7 +136,7 @@ test('a refactor pass that wires the orphan into the barrel clears the record at
 
 	expect(result.ok).toBe(true);
 	// write-tests recorded the orphan while it was still unreachable...
-	expect(progress.some((line) => line.includes('nothing public reaches them') && line.includes('src/feature/orphan.ts'))).toBeTruthy();
+	expect(progress.some((line) => line.includes('nothing public reaches them') && line.includes('src/feature/internal/orphan.ts'))).toBeTruthy();
 	// ...but the re-check sees the new wiring and clears the record
 	expect(result.manifest.unreachableChangedFiles).toStrictEqual([]);
 	expect(progress.some((line) => line.startsWith('warning unreachable-changed-files'))).toBeFalsy();
@@ -149,9 +147,9 @@ test('a refactor pass that deletes the orphan clears the record too — a file g
 		onRefactor: ({ pass }) => {
 			// the other resolution of dead code: delete it rather than wire it
 			if (pass === 1) {
-				unlinkSync(join(dir, 'src/feature/orphan.ts'));
+				unlinkSync(join(dir, 'src/feature/internal/orphan.ts'));
 
-				return { text: report({ changedFiles: [{ path: 'src/feature/orphan.ts', summary: 'deleted the unreachable file' }] }), exitCode: 0 };
+				return { text: report({ changedFiles: [{ path: 'src/feature/internal/orphan.ts', summary: 'deleted the unreachable file' }] }), exitCode: 0 };
 			}
 
 			return undefined;
@@ -163,7 +161,7 @@ test('a refactor pass that deletes the orphan clears the record too — a file g
 
 	expect(result.ok).toBe(true);
 	// write-tests recorded the orphan while it was still on disk...
-	expect(progress.some((line) => line.includes('nothing public reaches them') && line.includes('src/feature/orphan.ts'))).toBeTruthy();
+	expect(progress.some((line) => line.includes('nothing public reaches them') && line.includes('src/feature/internal/orphan.ts'))).toBeTruthy();
 	// ...and the re-check drops a file no longer in the tree instead of re-resolving it
 	expect(result.manifest.unreachableChangedFiles).toStrictEqual([]);
 	expect(progress.some((line) => line.startsWith('warning unreachable-changed-files'))).toBeFalsy();
@@ -198,16 +196,16 @@ test('verify-tests failure: the fix re-invocation is rebuilt from the manifest �
 	// the changed public file is still on the must-execute list...
 	expect(fixPrompt.includes('# Changed internals that must execute under those tests')).toBeTruthy();
 	// ...and the unreachable file is filtered out of the whole assignment
-	expect(fixPrompt.includes('src/feature/orphan.ts')).toBeFalsy();
+	expect(fixPrompt.includes('src/feature/internal/orphan.ts')).toBeFalsy();
 	// one cheap retry healed the gate
 	expect(result.manifest.steps.find((step) => step.id === 'verify-tests')?.attempts).toBe(2);
 });
 
 /**
- * A consumer repo whose implement step lands a chain of hidden files:
- * `src/chain/index.ts` exports entry.ts alone, `hidden.ts` is imported only by
- * `deeper.ts`, and `deeper.ts` is imported by nothing — so the walk up from
- * hidden.ts runs out of importers before it ever reaches a public file.
+ * A consumer repo whose implement step lands a chain of internal files:
+ * `internal/hidden.ts` is imported only by `internal/deeper.ts`, and that is
+ * imported by nothing — so the walk up from hidden.ts runs out of importers
+ * before it ever reaches a public file.
  */
 const setupHiddenChainRun = async () => {
 	// same reason as setupOrphanRun: the chain is unreachable on purpose
@@ -238,19 +236,17 @@ const setupHiddenChainRun = async () => {
 					return { text: report(), exitCode: 0 };
 				}
 
-				mkdirSync(join(dir, 'src/chain'), { recursive: true });
-				writeFileSync(join(dir, 'src/chain/index.ts'), "export { entry } from './entry';\n");
+				mkdirSync(join(dir, 'src/chain/internal'), { recursive: true });
 				writeFileSync(join(dir, 'src/chain/entry.ts'), 'export const entry = (): number => 1;\n');
-				writeFileSync(join(dir, 'src/chain/deeper.ts'), "import { hidden } from './hidden';\n\nexport const deeper = (): number => hidden();\n");
-				writeFileSync(join(dir, 'src/chain/hidden.ts'), 'export const hidden = (): number => 2;\n');
+				writeFileSync(join(dir, 'src/chain/internal/deeper.ts'), "import { hidden } from './hidden';\n\nexport const deeper = (): number => hidden();\n");
+				writeFileSync(join(dir, 'src/chain/internal/hidden.ts'), 'export const hidden = (): number => 2;\n');
 
 				return {
 					text: report({
 						changedFiles: [
-							{ path: 'src/chain/index.ts', summary: 'barrel' },
 							{ path: 'src/chain/entry.ts', summary: 'public' },
-							{ path: 'src/chain/deeper.ts', summary: 'hidden middle' },
-							{ path: 'src/chain/hidden.ts', summary: 'hidden leaf' },
+							{ path: 'src/chain/internal/deeper.ts', summary: 'internal middle' },
+							{ path: 'src/chain/internal/hidden.ts', summary: 'internal leaf' },
 						],
 					}),
 					exitCode: 0,
@@ -269,11 +265,11 @@ test('a chain of hidden files is unreachable end to end — an importer that is 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress: (message) => progress.push(message) });
 
 	expect(result.ok).toBe(true);
-	// only the barrel-exported file is a subject
+	// only the public file is a subject
 	expect(result.manifest.testSubjects).toStrictEqual(['src/chain/entry.ts']);
 	// the leaf has an importer, but that importer is hidden too and has none of
 	// its own — a walk that runs out of edges is not a walk that found a surface
-	expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/chain/deeper.ts', 'src/chain/hidden.ts']);
+	expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/chain/internal/deeper.ts', 'src/chain/internal/hidden.ts']);
 	// one writer, for the one reachable file
 	expect(writerPrompts.length).toBe(1);
 	expect(writerPrompts[0]?.includes('src/chain/entry.ts')).toBeTruthy();
@@ -281,7 +277,9 @@ test('a chain of hidden files is unreachable end to end — an importer that is 
 	expect(
 		progress.some(
 			(line) =>
-				line.startsWith('warning unreachable-changed-files: 2 changed file(s)') && line.includes('src/chain/deeper.ts') && line.includes('src/chain/hidden.ts'),
+				line.startsWith('warning unreachable-changed-files: 2 changed file(s)') &&
+				line.includes('src/chain/internal/deeper.ts') &&
+				line.includes('src/chain/internal/hidden.ts'),
 		),
 	).toBeTruthy();
 });

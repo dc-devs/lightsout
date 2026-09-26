@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
-import type { RunLock, RunManifest } from '#src/contracts/index.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
 import { readRunLock } from '#src/runState/lock/readRunLock.ts';
 
 interface Params {

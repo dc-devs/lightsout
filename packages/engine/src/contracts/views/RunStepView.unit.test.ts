@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RunStepView } from '#src/contracts/index.ts';
+import { RunStepView } from '#src/contracts/views/RunStepView.ts';
 
 const setupStepView = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const step: Record<string, unknown> = {

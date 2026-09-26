@@ -1,17 +1,17 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { CheckKind } from '#src/common/constants/CheckKind.ts';
 import { toCheckKind } from '#src/common/utils/toCheckKind.ts';
-import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
-import { filterPackRules } from '#src/features/packs/common/utils/filterPackRules.ts';
-import { groupRulesByDocument } from '#src/features/packs/common/utils/groupRulesByDocument.ts';
-import { readDocumentTitle } from '#src/features/packs/common/utils/readDocumentTitle.ts';
-import { toRuleSetChannel } from '#src/features/packs/common/utils/toRuleSetChannel.ts';
+import type { PackRuleFilters } from '#src/features/packs/internal/common/types/PackRuleFilters.ts';
+import { filterPackRules } from '#src/features/packs/internal/common/utils/filterPackRules.ts';
+import { groupRulesByDocument } from '#src/features/packs/internal/common/utils/groupRulesByDocument.ts';
+import { readDocumentTitle } from '#src/features/packs/internal/common/utils/readDocumentTitle.ts';
+import { toRuleSetChannel } from '#src/features/packs/internal/common/utils/toRuleSetChannel.ts';
 import { defaultPackQueryOptions } from '#src/features/packs/queries/defaultPackQueryOptions.ts';
-import { CodeSpans } from '#src/features/packs/screens/RuleSetPage/components/CodeSpans.tsx';
-import { RuleFilters } from '#src/features/packs/screens/RuleSetPage/components/RuleFilters.tsx';
-import { RuleGroupNav } from '#src/features/packs/screens/RuleSetPage/components/RuleGroupNav.tsx';
-import { RuleRow } from '#src/features/packs/screens/RuleSetPage/components/RuleRow.tsx';
-import { RuleSetHeader } from '#src/features/packs/screens/RuleSetPage/components/RuleSetHeader.tsx';
+import { CodeSpans } from '#src/features/packs/screens/RuleSetPage/internal/components/CodeSpans.tsx';
+import { RuleFilters } from '#src/features/packs/screens/RuleSetPage/internal/components/RuleFilters.tsx';
+import { RuleGroupNav } from '#src/features/packs/screens/RuleSetPage/internal/components/RuleGroupNav.tsx';
+import { RuleRow } from '#src/features/packs/screens/RuleSetPage/internal/components/RuleRow.tsx';
+import { RuleSetHeader } from '#src/features/packs/screens/RuleSetPage/internal/components/RuleSetHeader.tsx';
 
 interface Props {
 	/** The address word — `typescript`, `react` or `tanstack`. */

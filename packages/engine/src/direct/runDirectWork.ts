@@ -2,17 +2,21 @@ import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts'
 import { RunState } from '#src/common/services/RunState.ts';
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { describeGateCoordinationStop } from '#src/common/utils/describeGateCoordinationStop.ts';
+import { describeGateNoVerdictStop } from '#src/common/utils/describeGateNoVerdictStop.ts';
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { createDirectRun } from '#src/direct/common/utils/createDirectRun.ts';
-import { finishDirectRun } from '#src/direct/common/utils/finishDirectRun.ts';
-import { stopDirectRun } from '#src/direct/common/utils/stopDirectRun.ts';
-import { invokeDirectWorker } from '#src/direct/invokeDirectWorker.ts';
-import { verifyDirectWork } from '#src/direct/verifyDirectWork.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { withRunLock } from '#src/runState/index.ts';
-import { resolveStandards } from '#src/standards/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { createDirectRun } from '#src/direct/internal/common/utils/createDirectRun.ts';
+import { finishDirectRun } from '#src/direct/internal/common/utils/finishDirectRun.ts';
+import { stopDirectRun } from '#src/direct/internal/common/utils/stopDirectRun.ts';
+import { invokeDirectWorker } from '#src/direct/internal/invokeDirectWorker.ts';
+import { verifyDirectWork } from '#src/direct/internal/verifyDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { withRunLock } from '#src/runState/lock/withRunLock.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 
 interface Params {
 	/** The checkout to build in — a queue worktree, or the user's own tree when run standalone. */
@@ -55,26 +59,31 @@ const stopDirectOnCoordination = ({ run, record, coordination }: { run: RunState
 };
 
 /**
- * End a direct run on a gate that crashed instead of failing.
+ * End a direct run on a gate that crashed, or ran past its own time ceiling,
+ * instead of failing.
  *
- * A crashed gate reached no verdict, so there is nothing to repair and nothing
- * the next attempt would do differently — it stops without spending an attempt,
- * rather than handing the worker a suite that is not broken.
+ * Neither reached a verdict, so there is nothing to repair and nothing the next
+ * attempt would do differently — it stops without spending an attempt, rather
+ * than handing the worker a red no gate command established.
  */
-const stopDirectOnCrash = ({ run, record, crashes, gateError }: { run: RunState; record: StepRecord; crashes: string[]; gateError: string | undefined }) => {
-	run.progress('a gate crashed rather than failed — no fix attempted');
+const stopDirectOnNoVerdict = ({
+	run,
+	record,
+	crashes,
+	timeouts,
+	gateError,
+}: {
+	run: RunState;
+	record: StepRecord;
+	crashes: string[];
+	timeouts: string[];
+	gateError: string | undefined;
+}) => {
+	const { ending, reason } = describeGateNoVerdictStop({ stepId: 'verify', crashes, timeouts });
 
-	return stopDirectRun({
-		run,
-		record,
-		status: RunStatus.Escalated,
-		error: [
-			'verify: a gate crashed instead of failing — the known jest worker SIGSEGV, not a verdict about the code.',
-			'No fix was attempted and no fix attempt was spent; re-running the run is the answer.',
-			crashes.join('\n'),
-			gateError ?? '',
-		].join('\n\n'),
-	});
+	run.progress(`a gate ${ending} rather than failed — no fix attempted`);
+
+	return stopDirectRun({ run, record, status: RunStatus.Escalated, error: [reason, gateError ?? ''].join('\n\n') });
 };
 
 /**
@@ -111,18 +120,18 @@ const buildAndVerify = async ({
 			return stopped;
 		}
 
-		const { record, gateError, crashes, coordination } = await verifyDirectWork({ run });
+		const { record, gateError, crashes, timeouts, coordination } = await verifyDirectWork({ run });
 
 		if (coordination !== undefined) {
 			return stopDirectOnCoordination({ run, record, coordination });
 		}
 
-		if (crashes.length > 0) {
-			return stopDirectOnCrash({ run, record, crashes, gateError });
+		if (crashes.length > 0 || timeouts.length > 0) {
+			return stopDirectOnNoVerdict({ run, record, crashes, timeouts, gateError });
 		}
 
 		if (gateError === undefined) {
-			return finishDirectRun({ run, ticketRef, ticketBody, resumed });
+			return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed });
 		}
 
 		errorContext = gateError;
@@ -172,10 +181,14 @@ const executeDirectWork = async ({
 	const run = new RunState({ cwd, config, manifest, onProgress });
 	const stop = ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => stopDirectRun({ run, record, status, error });
 
-	await run.update({ patch: { status: RunStatus.Running } });
+	// Declared before the first step starts, so a reader sees every step the run
+	// will take — the ones it has not reached shown pending — from its first
+	// moment. A resumed run declares the same sequence: its pre-flight is
+	// already recorded, so the skip leaves no pending row behind.
+	await run.update({ patch: { status: RunStatus.Running, stepOrder: ['pre-flight', 'implement', 'verify'] } });
 
 	if (run.current().steps.some((step) => step.id === 'verify' && step.status === RunStatus.Passed)) {
-		return finishDirectRun({ run, ticketRef, ticketBody, resumed: true });
+		return finishDirectRun({ run, driver, ticketRef, ticketBody, resumed: true });
 	}
 
 	const redBaseline =

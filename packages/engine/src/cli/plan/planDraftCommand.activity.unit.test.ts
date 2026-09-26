@@ -1,9 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildActivityTree, readActivityMarks } from '#src/activity/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
-import { planDraftCommand } from '#src/cli/plan/index.ts';
-import type { ActivityNode } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';

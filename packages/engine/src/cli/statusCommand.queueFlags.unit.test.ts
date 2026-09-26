@@ -1,8 +1,13 @@
 import { writeFile } from 'node:fs/promises';
 import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import { PipelineKind, type QueueBoard, type QueueBoardTicket, QueueLane, type RunListing, RunStatus } from '#src/contracts/index.ts';
-import { getQueueBoardPath } from '#src/queue/index.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
@@ -38,13 +43,13 @@ const mockResolveQueueRun = jest.fn<(params: QueueRunParams) => Promise<RunListi
 const mockResolveWatchTarget = jest.fn<(params: { cwd: string; rootRunId?: string }) => Promise<WatchTarget>>();
 const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/queueBoard/resolveQueueRun.ts', () => ({
+jest.mock('#src/cli/internal/common/queueBoard/resolveQueueRun.ts', () => ({
 	resolveQueueRun: (params: QueueRunParams) => mockResolveQueueRun(params),
 }));
-jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/resolveWatchTarget.ts', () => ({
 	resolveWatchTarget: (params: { cwd: string; rootRunId?: string }) => mockResolveWatchTarget(params),
 }));
-jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/watchRunProgress.ts', () => ({
 	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------

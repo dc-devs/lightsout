@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StandardsFinding } from '#src/contracts/standardsCheck/index.ts';
+import { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 import { StandardsRuleView } from '#src/contracts/views/StandardsRuleView.ts';
 import { StandardsTrendPoint } from '#src/contracts/views/StandardsTrendPoint.ts';
 

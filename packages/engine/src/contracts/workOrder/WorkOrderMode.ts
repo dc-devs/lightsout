@@ -9,7 +9,9 @@
  * satisfied.
  *
  * A ticket's mode is seeded from `plan.default-work-order-mode` when its record is
- * created and is that ticket's own saved choice from then on.
+ * created — except that the queue creates the record of a ticket it builds from
+ * the ticket body in single-plan mode — and is that ticket's own saved choice
+ * from then on.
  */
 export const WorkOrderMode = {
 	SinglePlan: 'single-plan',

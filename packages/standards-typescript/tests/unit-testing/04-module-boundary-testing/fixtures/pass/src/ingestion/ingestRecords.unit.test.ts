@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { ingestRecords } from './index';
+import { ingestRecords } from './ingestRecords';
 
 describe('ingestRecords', () => {
 	test('normalizes every record it is given', () => {

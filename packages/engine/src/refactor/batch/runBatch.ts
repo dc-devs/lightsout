@@ -1,12 +1,16 @@
-import { type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { collectBatchAdvisories } from '#src/refactor/batch/collectBatchAdvisories.ts';
-import { createBatchTools } from '#src/refactor/batch/createBatchTools.ts';
+import { createBatchTools } from '#src/refactor/batch/internal/createBatchTools.ts';
+import { runBatchPass } from '#src/refactor/batch/internal/runBatchPass.ts';
 import { readStandingWork } from '#src/refactor/batch/readStandingWork.ts';
-import { runBatchPass } from '#src/refactor/batch/runBatchPass.ts';
-import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
-import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import { BatchStopKind } from '#src/refactor/internal/common/constants/BatchStopKind.ts';
+import type { BatchStop } from '#src/refactor/internal/common/types/BatchStop.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	cwd: string;

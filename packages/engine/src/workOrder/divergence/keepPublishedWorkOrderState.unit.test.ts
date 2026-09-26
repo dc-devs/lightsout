@@ -4,9 +4,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFi
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { serializeAttachmentManifest } from '#src/common/attachmentManifest/serializeAttachmentManifest.ts';
-import { type LightsoutConfig, PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
-import { keepPublishedWorkOrderState } from '#src/workOrder/divergence/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { keepPublishedWorkOrderState } from '#src/workOrder/divergence/keepPublishedWorkOrderState.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -23,9 +27,13 @@ type Attachment = { id: string; title: string; url: string };
 const mockGetTicketAttachments = jest.fn<(params: { settings: unknown; identifier: string }) => Promise<Attachment[] | TrackerFailure>>();
 const mockReadTicketAsset = jest.fn<(params: { settings: unknown; url: string }) => Promise<string | TrackerFailure>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketAttachments.ts', () => ({
 	getTicketAttachments: (params: { settings: unknown; identifier: string }) => mockGetTicketAttachments(params),
+}));
+jest.mock('#src/ticketTracker/readTicketAsset.ts', () => ({
 	readTicketAsset: (params: { settings: unknown; url: string }) => mockReadTicketAsset(params),
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: ({ config, env }: { config: LightsoutConfig; env: NodeJS.ProcessEnv }): TrackerSettings | TrackerFailure =>
 		config['ticket-tracker'] === undefined
 			? { error: 'this command needs a `ticket-tracker` block in lightsout.config.json naming a provider and its credentials' }

@@ -1,6 +1,6 @@
 import { StandardsSet } from '@lightsout/standards-contracts';
 import { z } from 'zod';
-import { StandardsSeverity } from '#src/contracts/standardsCheck/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 /**
  * One rule as a pack's page lists it — everything except the text that makes a
@@ -20,7 +20,8 @@ export const StandardsPackRuleListing = z.object({
 	/** 'base' unless the owning document declares a channel. */
 	channel: z.string(),
 	checked: z.boolean(),
-	defaultSeverity: z.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]),
+	/** `off` for a rule a repo opts into. */
+	defaultSeverity: z.enum(StandardsSeverity),
 	defaultSettings: z.record(z.string(), z.number()),
 	/** How many files each fixture side holds; both zero for a built pack. */
 	fixtureCounts: z.object({ pass: z.number(), fail: z.number() }),

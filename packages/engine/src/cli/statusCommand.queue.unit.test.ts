@@ -2,19 +2,18 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import {
-	PipelineKind,
-	type PlanningProgress,
-	PlanningStep,
-	type QueueBoard,
-	type QueueBoardTicket,
-	QueueLane,
-	type RunListing,
-	RunStatus,
-	type ShippingProgress,
-	ShippingStepId,
-} from '#src/contracts/index.ts';
-import { getQueueBoardPath } from '#src/queue/index.ts';
+import type { PlanningProgress } from '#src/contracts/plan/progress/PlanningProgress.ts';
+import { PlanningStep } from '#src/contracts/plan/progress/PlanningStep.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import type { RunListing } from '#src/contracts/views/RunListing.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -41,13 +40,13 @@ const mockResolveQueueRun = jest.fn<(params: QueueRunParams) => Promise<RunListi
 const mockResolveWatchTarget = jest.fn<(params: { cwd: string; rootRunId?: string }) => Promise<WatchTarget>>();
 const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/queueBoard/resolveQueueRun.ts', () => ({
+jest.mock('#src/cli/internal/common/queueBoard/resolveQueueRun.ts', () => ({
 	resolveQueueRun: (params: QueueRunParams) => mockResolveQueueRun(params),
 }));
-jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/resolveWatchTarget.ts', () => ({
 	resolveWatchTarget: (params: { cwd: string; rootRunId?: string }) => mockResolveWatchTarget(params),
 }));
-jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/watchRunProgress.ts', () => ({
 	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------
@@ -194,30 +193,53 @@ const setupWorktree = async () => {
 /** The id of the one engine run a Building ticket's worktree holds; its first eight characters tag the run block's title. */
 const worktreeRunId = 'b1c2d3e4-0000-4000-8000-000000000000';
 
+/** The id of a second ticket's run, filed in the same checkout under that ticket's own work order. */
+const otherTicketRunId = 'e5f6a7b8-0000-4000-8000-000000000000';
+
 /**
- * A live board whose one active ticket is Building in a worktree holding one failed run created after the build
- * began, with no lock, so no live process holds it. `expected` is `status --run` for that run in that worktree.
+ * A live board whose one active ticket is Building, its work order folder holding one failed run created after the
+ * build began, with no lock, so no live process holds it. `withOtherTicketsRun` also files a newer failed run under a
+ * second ticket's work order in the same checkout. `expected` is `status --run` for the ticket's own run in that worktree.
  */
-const setupBuildingTicket = async () => {
+const setupBuildingTicket = async ({ withOtherTicketsRun = false }: { withOtherTicketsRun?: boolean } = {}) => {
 	const worktree = await setupWorktree();
+	const workOrderName = 'ex-102-api-changes';
+	const failedRun = {
+		status: RunStatus.Failed,
+		steps: [{ id: 'implement', status: RunStatus.Failed, attempts: 1, durationMs: 180_000 }],
+		stepOrder: ['implement', 'format'],
+	};
 
 	await seedRunDir({
 		cwd: worktree,
 		manifest: {
+			...failedRun,
 			runId: worktreeRunId,
+			planName: `${workOrderName}/001-api-changes`,
 			createdAt: '2026-09-10T09:01:00.000Z',
 			updatedAt: '2026-09-10T09:04:00.000Z',
-			status: RunStatus.Failed,
-			steps: [{ id: 'implement', status: RunStatus.Failed, attempts: 1, durationMs: 180_000 }],
-			stepOrder: ['implement', 'format'],
 		},
 	});
+
+	if (withOtherTicketsRun) {
+		await seedRunDir({
+			cwd: worktree,
+			manifest: {
+				...failedRun,
+				runId: otherTicketRunId,
+				planName: 'ex-104-billing-changes/001-billing-changes',
+				createdAt: '2026-09-10T09:05:00.000Z',
+				updatedAt: '2026-09-10T09:08:00.000Z',
+			},
+		});
+	}
 
 	const expected = await standaloneLines({ cwd: worktree, args: { run: worktreeRunId } });
 	const ticket: QueueBoardTicket = {
 		identifier: 'EX-102',
 		title: 'API changes',
 		lane: QueueLane.Building,
+		workOrderName,
 		worktreePath: worktree,
 		enteredAt: buildStartedAt,
 		buildStartedAt,
@@ -233,19 +255,20 @@ const setupBuildingTicket = async () => {
  */
 const setupAutoPlanTicket = async () => {
 	const worktree = await setupWorktree();
-	const planName = 'ex-103-search-changes';
-	const planDir = planWorkspaceFolder({ cwd: worktree, name: planName });
+	const workOrderName = 'ex-103-search-changes';
+	const planDir = planWorkspaceFolder({ cwd: worktree, name: workOrderName });
 
 	await mkdir(planDir, { recursive: true });
-	await writeFile(join(planDir, 'planning-progress.json'), `${JSON.stringify(planningRecordOf({ name: planName }), null, '\t')}\n`, 'utf8');
+	await writeFile(join(planDir, 'planning-progress.json'), `${JSON.stringify(planningRecordOf({ name: workOrderName }), null, '\t')}\n`, 'utf8');
 
-	const expected = await standaloneLines({ cwd: worktree, args: { planning: planName } });
+	const expected = await standaloneLines({ cwd: worktree, args: { planning: workOrderName } });
 	const ticket: QueueBoardTicket = {
 		identifier: 'EX-103',
 		title: 'Search changes',
 		lane: QueueLane.Building,
-		planName,
-		branch: planName,
+		worker: QueueWorker.AutoPlan,
+		workOrderName,
+		branch: workOrderName,
 		worktreePath: worktree,
 		enteredAt: buildStartedAt,
 		buildStartedAt,
@@ -320,6 +343,17 @@ describe('statusCommand --queue', () => {
 
 		expect(fencedLines({ logged })).toStrictEqual(expected);
 		// the block is the worktree run's, not an empty answer both sides happen to share
+		expect(expected[0]?.endsWith('b1c2d3e4')).toBe(true);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test("a Building ticket's fenced lines show its own run when another ticket's newer run shares the checkout", async () => {
+		const { context, expected, logged, exitCodes } = await setupBuildingTicket({ withOtherTicketsRun: true });
+
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(fencedLines({ logged })).toStrictEqual(expected);
+		// the block is the ticket's own run, not the second ticket's newer one
 		expect(expected[0]?.endsWith('b1c2d3e4')).toBe(true);
 		expect(exitCodes).toStrictEqual([0]);
 	});

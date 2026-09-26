@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsRuleView } from '#src/contracts/index.ts';
+import { StandardsRuleView } from '#src/contracts/views/StandardsRuleView.ts';
 
 const setupRuleView = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const ruleView: Record<string, unknown> = {

@@ -1,6 +1,6 @@
-import type { StandardsPackListing } from '#src/contracts/index.ts';
+import type { StandardsPackListing } from '#src/contracts/views/StandardsPackListing.ts';
 import { toStandardsPackListing } from '#src/views/common/utils/toStandardsPackListing.ts';
-import { listStandardsPackBundles } from '#src/views/listStandardsPackBundles.ts';
+import { listStandardsPackBundles } from '#src/views/internal/listStandardsPackBundles.ts';
 
 interface Params {
 	cwd: string;

@@ -3,8 +3,13 @@ import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
-import { PlanProgress, RunStatus, type ShipResult, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShipResult } from '#src/contracts/ship/ShipResult.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -19,15 +24,15 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // the intent on it, and then fails at a plan file that is not there, before any
 // harness is spawned. The ticket record, the order rules and the progress
 // writing all run for real throughout.
-const { runPipelineOrFailFast: actualRunPipeline } = jest.requireActual<typeof import('#src/cli/common/utils/runPipelineOrFailFast.ts')>(
-	'#src/cli/common/utils/runPipelineOrFailFast.ts',
+const { runPipelineOrFailFast: actualRunPipeline } = jest.requireActual<typeof import('#src/cli/internal/common/utils/runPipelineOrFailFast.ts')>(
+	'#src/cli/internal/common/utils/runPipelineOrFailFast.ts',
 );
 
 type PipelineParams = Parameters<typeof actualRunPipeline>[0];
 
 const mockRunPipelineOrFailFast = jest.fn<(params: PipelineParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: PipelineParams) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
@@ -35,17 +40,13 @@ jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
 // reached at all is the claim of the single-phase row.
 const mockRunShip = jest.fn<(params: { cwd: string }) => Promise<ShipResult>>();
 
-jest.mock('#src/ship/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ship/index.ts')>('#src/ship/index.ts'),
-	runShip: (params: { cwd: string }) => mockRunShip(params),
-}));
+jest.mock('#src/ship/runShip.ts', () => ({ runShip: (params: { cwd: string }) => mockRunShip(params) }));
 // -------------------------
 // Whether the tracker was written to before the run is what a refused plan has
 // to answer for, so the pre-source lifecycle write is a spy rather than a call.
 const mockRequireImplementLifecycle = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: { cwd: string }) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
@@ -54,16 +55,13 @@ jest.mock('#src/ticketLifecycle/index.ts', () => ({
 const mockCreateWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | { error: string }>>();
 const mockFetchDefaultBranch = jest.fn<(params: { cwd: string }) => Promise<string | { error: string }>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/worktree/index.ts')>('#src/worktree/index.ts'),
-	createWorktree: (params: { cwd: string; branch: string }) => mockCreateWorktree(params),
-	fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params),
-}));
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: { cwd: string; branch: string }) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/fetchDefaultBranch.ts', () => ({ fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params) }));
 // -------------------------
 // The report card reads a run directory a scripted pipeline never filled in.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/render/printResult.ts', () => ({
+jest.mock('#src/cli/internal/common/render/printResult.ts', () => ({
 	printResult: (params: { result: PipelineResult; cwd: string }) => mockPrintResult(params),
 }));
 // -------------------------

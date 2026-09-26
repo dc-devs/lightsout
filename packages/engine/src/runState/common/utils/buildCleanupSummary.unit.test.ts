@@ -1,5 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { CleanupEndReason, type PhaseReport, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { CleanupEndReason } from '#src/contracts/run/CleanupEndReason.ts';
+import type { PhaseReport } from '#src/contracts/run/PhaseReport.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { buildCleanupSummary } from '#src/runState/common/utils/buildCleanupSummary.ts';
 import { countableFindings } from '#tests/helpers/countableFindings.ts';
 

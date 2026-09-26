@@ -1,7 +1,7 @@
-import { collapseCasing } from '#src/plan/common/naming/collapseCasing.ts';
-import { getNameKey } from '#src/plan/common/naming/getNameKey.ts';
 import type { ExportCensus } from '#src/plan/evidence/common/types/ExportCensus.ts';
 import type { ExportCollision } from '#src/plan/evidence/common/types/ExportCollision.ts';
+import { collapseCasing } from '#src/plan/internal/common/naming/collapseCasing.ts';
+import { getNameKey } from '#src/plan/internal/common/naming/getNameKey.ts';
 
 interface Params {
 	census: ExportCensus;

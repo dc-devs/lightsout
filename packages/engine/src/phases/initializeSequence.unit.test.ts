@@ -3,9 +3,12 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { initializeSequence } from '#src/phases/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { initializeSequence } from '#src/phases/initializeSequence.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { plantSequence } from '#tests/helpers/plantSequence.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';

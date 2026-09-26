@@ -1,29 +1,29 @@
 import { resolve } from 'node:path';
-import { pausedExitCode } from '#src/cli/common/constants/pausedExitCode.ts';
-import { QueueBoardState } from '#src/cli/common/constants/QueueBoardState.ts';
-import { unusableTicketPatternMessage } from '#src/cli/common/constants/unusableTicketPatternMessage.ts';
-import { renderQueueBoard } from '#src/cli/common/queueBoard/renderQueueBoard.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { resolveEffectiveConfigAndDriver } from '#src/cli/common/utils/resolveEffectiveConfigAndDriver.ts';
+import { pausedExitCode } from '#src/cli/internal/common/constants/pausedExitCode.ts';
+import { QueueBoardState } from '#src/cli/internal/common/constants/QueueBoardState.ts';
+import { unusableTicketPatternMessage } from '#src/cli/internal/common/constants/unusableTicketPatternMessage.ts';
+import { renderQueueBoard } from '#src/cli/internal/common/queueBoard/renderQueueBoard.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { resolveEffectiveConfigAndDriver } from '#src/cli/internal/common/utils/resolveEffectiveConfigAndDriver.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import {
-	emptyRelayMailbox,
-	FileQuestionRelay,
-	isParkedOutcome,
-	type QuestionRelay,
-	type QueueDrainReport,
-	type QueueSettings,
-	resolveQueueSettings,
-	runQueue,
-	TerminalQuestionRelay,
-	toQueueBoardTickets,
-} from '#src/queue/index.ts';
-import { isPidAlive, readRunLock } from '#src/runState/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
-import { resolveTrackerSettings, type TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { toQueueBoardTickets } from '#src/queue/board/toQueueBoardTickets.ts';
+import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
+import { isParkedOutcome } from '#src/queue/common/utils/isParkedOutcome.ts';
+import { emptyRelayMailbox } from '#src/queue/relay/emptyRelayMailbox.ts';
+import { FileQuestionRelay } from '#src/queue/relay/FileQuestionRelay.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
+import { runQueue } from '#src/queue/runQueue.ts';
+import { resolveQueueSettings } from '#src/queue/startup/resolveQueueSettings.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
+import { readRunLock } from '#src/runState/lock/readRunLock.ts';
+import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 /**
  * Everything the drain needs from the config, or the one sentence naming the

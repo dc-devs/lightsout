@@ -10,6 +10,6 @@ interface Params {
  * not two names in conflict, so every rule that compares names has to read them
  * as the same name.
  *
- * @mirrors packages/engine/src/plan/common/naming/collapseCasing.ts
+ * @mirrors packages/engine/src/plan/internal/common/naming/collapseCasing.ts
  */
 export const collapseCasing = ({ name }: Params): string => name.toLowerCase().replace(/[^a-z0-9]/g, '');

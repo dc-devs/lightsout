@@ -1,9 +1,9 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
-import { printRefactorResult } from '#src/cli/common/render/printRefactorResult.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
-import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
-import { runRefactorPipeline } from '#src/refactor/index.ts';
+import { printRefactorResult } from '#src/cli/internal/common/render/printRefactorResult.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { runBatchedCommand } from '#src/cli/internal/common/utils/runBatchedCommand.ts';
+import { runRefactorPipeline } from '#src/refactor/runRefactorPipeline.ts';
 
 export const refactorCommand = ({ flags, cwd }: CommandContext): Promise<void> =>
 	runBatchedCommand({

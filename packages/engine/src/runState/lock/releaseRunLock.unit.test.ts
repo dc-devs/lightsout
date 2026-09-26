@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { releaseRunLock } from '#src/runState/lock/index.ts';
+import { releaseRunLock } from '#src/runState/lock/releaseRunLock.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // A directory made read-only mid-test must be writable again or the temp tree

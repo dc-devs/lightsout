@@ -1,4 +1,6 @@
-import { PlanProgress, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 
 interface Params {
 	record: WorkOrderState;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GateHold } from '#src/contracts/index.ts';
+import { GateHold } from '#src/contracts/gates/GateHold.ts';
 
 /** The five fields one held ticket's file in `.lightsout/gate-holds/` carries. */
 const setupGateHold = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

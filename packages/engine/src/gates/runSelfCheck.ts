@@ -5,17 +5,17 @@ import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts'
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { buildSelfCheckStep } from '#src/common/selfCheck/buildSelfCheckStep.ts';
 import { packageOf } from '#src/common/workspace/packageOf.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import { SelfCheckReason } from '#src/gates/common/constants/SelfCheckReason.ts';
-import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
 import type { SelfCheckResult } from '#src/gates/common/types/SelfCheckResult.ts';
-import { buildGateEntries } from '#src/gates/common/utils/buildGateEntries.ts';
 import { collectGateObservations } from '#src/gates/common/utils/collectGateObservations.ts';
 import { resolveGateSchedule } from '#src/gates/common/utils/resolveGateSchedule.ts';
-import { rootGateCommands } from '#src/gates/common/utils/rootGateCommands.ts';
-import { selfCheckGateNames } from '#src/gates/common/utils/selfCheckGateNames.ts';
+import type { GateCommands } from '#src/gates/internal/common/types/GateCommands.ts';
+import { buildGateEntries } from '#src/gates/internal/common/utils/buildGateEntries.ts';
+import { rootGateCommands } from '#src/gates/internal/common/utils/rootGateCommands.ts';
+import { selfCheckGateNames } from '#src/gates/internal/common/utils/selfCheckGateNames.ts';
 import { runGates } from '#src/gates/runGates.ts';
 
 /**
@@ -152,7 +152,15 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 	// The shape every ending that runs no gate shares — held once rather than
 	// written out per branch, which is where one branch eventually forgets a
 	// field.
-	let result: SelfCheckResult = { reason: SelfCheckReason.NothingScheduled, gateNames, gates: [], error: undefined, crashes: [], coordination: undefined };
+	let result: SelfCheckResult = {
+		reason: SelfCheckReason.NothingScheduled,
+		gateNames,
+		gates: [],
+		error: undefined,
+		crashes: [],
+		timeouts: [],
+		coordination: undefined,
+	};
 
 	// The empty name list is answered before any gate call at all, because an
 	// exact schedule with an empty list still runs the configured codegen command
@@ -194,11 +202,11 @@ export const runSelfCheck = async ({ cwd, config, coverage, checkpoint, wholeRep
 				// verdict: no gate command executed, so the answer is about the
 				// machine rather than the change, and `ranNothing` — which asks
 				// whether every observation is a skip — has nothing to say about it.
-				result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: undefined, crashes: [], coordination: run.coordination };
+				result = { reason: SelfCheckReason.Coordination, gateNames, gates, error: undefined, crashes: [], timeouts: [], coordination: run.coordination };
 			} else {
 				result = ranNothing
 					? { ...result, gates }
-					: { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, coordination: undefined };
+					: { reason: SelfCheckReason.Ran, gateNames, gates, error: run.error, crashes: run.crashes, timeouts: run.timeouts, coordination: undefined };
 			}
 		}
 	}

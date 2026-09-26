@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { ShippingProgress } from '#src/contracts/index.ts';
-import { RunStatus, ShippingStepId } from '#src/contracts/index.ts';
-import { readShippingProgress } from '#src/ship/progress/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
+import { ShippingStepId } from '#src/contracts/ship/ShippingStepId.ts';
+import { readShippingProgress } from '#src/ship/progress/readShippingProgress.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

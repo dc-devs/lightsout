@@ -2,10 +2,12 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type FileListInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
-import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
-import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { type FileListInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind } from '@lightsout/standards-contracts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/internal/common/types/ResolvedRuleState.ts';
+import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 

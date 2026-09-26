@@ -1,15 +1,20 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanReshapeInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanReshapeInvocation } from '#src/agents/buildPlanReshapeInvocation.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
-import { ActivityLevelKind, type Effort, type Permissions, PlanFixReport, type StructuralFinding } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { getAgentOutcomeStatus } from '#src/invoke/index.ts';
-import type { PlanRepairResult } from '#src/plan/common/types/PlanRepairResult.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import { convergeFindings } from '#src/plan/draft/common/utils/convergeFindings.ts';
-import { checkPhaseBreakdown } from '#src/plan/lint/index.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import { PlanFixReport } from '#src/contracts/plan/draft/PlanFixReport.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getAgentOutcomeStatus } from '#src/invoke/getAgentOutcomeStatus.ts';
+import { convergeFindings } from '#src/plan/draft/internal/common/utils/convergeFindings.ts';
+import type { PlanRepairResult } from '#src/plan/internal/common/types/PlanRepairResult.ts';
+import { createPlanAgentRunner } from '#src/plan/internal/common/utils/createPlanAgentRunner.ts';
+import { checkPhaseBreakdown } from '#src/plan/lint/checkPhaseBreakdown.ts';
 
 interface Params {
 	cwd: string;
@@ -68,6 +73,7 @@ const runReshapeAttempt = async ({ params, findings, attempt }: { params: Params
 			findings,
 			planPaths: [overviewPath],
 			createdFileCeiling,
+			touchedFileCeiling,
 			decisionsPath: join(workspaceDir, 'decisions.json'),
 			brainstormDecisionsPath,
 			factsPath: join(workspaceDir, 'facts.json'),

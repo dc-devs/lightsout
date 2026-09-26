@@ -1,6 +1,6 @@
-import type { SprawlLane } from '#src/features/sprawl/common/constants/SprawlLane.ts';
-import type { SprawlDataset } from '#src/features/sprawl/common/contracts/SprawlDataset.ts';
-import type { SprawlLaneState } from '#src/features/sprawl/common/types/SprawlLaneState.ts';
+import type { SprawlLane } from '#src/features/sprawl/internal/common/constants/SprawlLane.ts';
+import type { SprawlDataset } from '#src/features/sprawl/internal/common/contracts/SprawlDataset.ts';
+import type { SprawlLaneState } from '#src/features/sprawl/internal/common/types/SprawlLaneState.ts';
 
 interface Params {
 	dataset: SprawlDataset;

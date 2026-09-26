@@ -1,11 +1,11 @@
-import { selfCheckSection } from '#src/agents/common/utils/selfCheckSection.ts';
+import { selfCheckSection } from '#src/agents/internal/common/utils/selfCheckSection.ts';
 import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
 import refactorScopeFeaturePrompt from '#src/agents/prompts/refactorScopeFeature.md';
 import refactorScopeStandalonePrompt from '#src/agents/prompts/refactorScopeStandalone.md';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
-import type { StandardsFinding } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 interface Params {
 	/**

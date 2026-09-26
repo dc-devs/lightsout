@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { PlanWorkspaceListing } from '@lightsout/engine';
-import { planWorkspacesQueryOptions } from '#src/features/plans/index.ts';
+import { planWorkspacesQueryOptions } from '#src/features/plans/queries/planWorkspacesQueryOptions.ts';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 
 // Mocked Imports
@@ -10,9 +10,7 @@ import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceList
 // runs and only the filesystem is stood in for.
 const mockListPlanWorkspaces = jest.fn<() => Promise<PlanWorkspaceListing[]>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listPlanWorkspaces: () => mockListPlanWorkspaces() }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listPlanWorkspaces: () => mockListPlanWorkspaces() }) }));
 // -------------------------
 
 const setupPlanWorkspacesQueryOptions = ({ plans = [buildPlanWorkspaceListing({ name: 'add-search' })] }: { plans?: PlanWorkspaceListing[] } = {}) => {

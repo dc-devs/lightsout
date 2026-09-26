@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { planCommand } from '#src/cli/plan/planCommand.ts';
-import type { LightsoutConfig, WorktreeOwner, WorktreeRecord } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { WorktreeRecord } from '#src/contracts/worktree/WorktreeRecord.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -36,11 +38,17 @@ const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string })
 const mockReadWorktreeRecord = jest.fn<(params: { cwd: string; branch: string }) => Promise<WorktreeRecord | undefined>>();
 const mockResolveWorktreePath = jest.fn<(params: { cwd: string; branch: string }) => Promise<string>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	createWorktree: (params: CreateParams) => mockCreateWorktree(params),
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateParams) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/prepareWorkOrderBranch.ts', () => ({
 	prepareWorkOrderBranch: (params: { cwd: string; branch: string }) => mockPrepareTicketBranch(params),
+}));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+}));
+jest.mock('#src/worktree/records/readWorktreeRecord.ts', () => ({
 	readWorktreeRecord: (params: { cwd: string; branch: string }) => mockReadWorktreeRecord(params),
+}));
+jest.mock('#src/worktree/resolveWorktreePath.ts', () => ({
 	resolveWorktreePath: (params: { cwd: string; branch: string }) => mockResolveWorktreePath(params),
 }));
 // -------------------------

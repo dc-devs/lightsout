@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { StructuralCheck } from '#src/contracts/index.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 

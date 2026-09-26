@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Permissions } from '#src/contracts/index.ts';
-import { createOmpDriver, createPiDriver } from '#src/drivers/index.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { createOmpDriver, createPiDriver } from '#src/drivers/createPiDriver.ts';
 import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
 // What the engine asked for and what the process was actually handed: the

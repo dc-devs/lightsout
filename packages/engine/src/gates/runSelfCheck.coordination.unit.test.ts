@@ -1,8 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
-import { runSelfCheck } from '#src/gates/index.ts';
+import { runSelfCheck } from '#src/gates/runSelfCheck.ts';
 
 // Mocked Imports
 // -------------------------
@@ -67,7 +68,7 @@ describe('runSelfCheck', () => {
 		const { cwd, config } = setupCoordination({
 			// exactly the shape Phase 1 answers with: a red carrying no failed family
 			// and no crash, whose cause is the machine rather than the code
-			result: { error: heldByAnotherRun, failedFamilies: [], crashes: [], coordination: heldByAnotherRun },
+			result: { error: heldByAnotherRun, failedFamilies: [], crashes: [], timeouts: [], coordination: heldByAnotherRun },
 		});
 
 		const result = await runSelfCheck({
@@ -91,13 +92,14 @@ describe('runSelfCheck', () => {
 				gates: [],
 				error: undefined,
 				crashes: [],
+				timeouts: [],
 			}),
 		);
 	});
 
 	test('runSelfCheck: asks the gates not to wait for the machine', async () => {
 		const { cwd, config } = setupCoordination({
-			result: { error: undefined, failedFamilies: [], crashes: [], coordination: undefined },
+			result: { error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined },
 		});
 
 		await runSelfCheck({
@@ -120,7 +122,7 @@ describe('runSelfCheck', () => {
 		const { cwd, config } = setupCoordination({
 			// a gate that executed and went red on the code: a failed family, and no
 			// coordination reason for the guard above to catch
-			result: { error: 'check failed (exit 1)', failedFamilies: ['check'], crashes: [], coordination: undefined },
+			result: { error: 'check failed (exit 1)', failedFamilies: ['check'], crashes: [], timeouts: [], coordination: undefined },
 			observations: [{ kind: 'check', group: 'root', command: 'true', exitCode: 1, outputTail: 'src/added.ts:1 unused import' }],
 		});
 
@@ -140,6 +142,38 @@ describe('runSelfCheck', () => {
 			expect.objectContaining({
 				reason: 'ran',
 				error: 'check failed (exit 1)',
+				coordination: undefined,
+			}),
+		);
+	});
+
+	test('runSelfCheck: a timed-out gate ends on the ran reason and carries its timeout line', async () => {
+		const timeoutLine = 'check timed out: every attempt ran past the 15-minute gate ceiling (timeouts.gate-minutes), so this gate never returned a verdict.';
+		const { cwd, config } = setupCoordination({
+			// a gate that executed and ran past its ceiling on every attempt: no failed
+			// family and no crash, only the timeout channel beside the error
+			result: { error: timeoutLine, failedFamilies: [], crashes: [], timeouts: [timeoutLine], coordination: undefined },
+			observations: [{ kind: 'check', group: 'root', command: 'true', exitCode: -1, outputTail: 'timed out', timedOut: true }],
+		});
+
+		const result = await runSelfCheck({
+			cwd,
+			config,
+			coverage: false,
+			wholeRepository: true,
+			runId: 'run-1',
+			step: 'implement',
+			onProgress: () => undefined,
+		});
+
+		// the timeout line travels from the gate run into the self-check's own
+		// channel, kept apart from crashes, so the agent is not told to repair it
+		expect(result).toEqual(
+			expect.objectContaining({
+				reason: 'ran',
+				error: timeoutLine,
+				crashes: [],
+				timeouts: [timeoutLine],
 				coordination: undefined,
 			}),
 		);

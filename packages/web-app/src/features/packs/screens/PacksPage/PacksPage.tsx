@@ -1,9 +1,9 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { defaultPackQueryOptions } from '#src/features/packs/queries/defaultPackQueryOptions.ts';
-import { CheckKindKey } from '#src/features/packs/screens/PacksPage/components/CheckKindKey.tsx';
-import { HowPacksLoad } from '#src/features/packs/screens/PacksPage/components/HowPacksLoad.tsx';
-import { RuleSetCard } from '#src/features/packs/screens/PacksPage/components/RuleSetCard.tsx';
-import { YourPackCard } from '#src/features/packs/screens/PacksPage/components/YourPackCard.tsx';
+import { CheckKindKey } from '#src/features/packs/screens/PacksPage/internal/components/CheckKindKey.tsx';
+import { HowPacksLoad } from '#src/features/packs/screens/PacksPage/internal/components/HowPacksLoad.tsx';
+import { RuleSetCard } from '#src/features/packs/screens/PacksPage/internal/components/RuleSetCard.tsx';
+import { YourPackCard } from '#src/features/packs/screens/PacksPage/internal/components/YourPackCard.tsx';
 
 /**
  * The Standards Pack lightsout ships, as cards: one per set of rules it holds —

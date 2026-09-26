@@ -1,7 +1,10 @@
 import { stat } from 'node:fs/promises';
-import { type ActivityLevel, activityRecordPath, createActivityRecorder } from '#src/activity/index.ts';
+import { activityRecordPath } from '#src/activity/activityRecordPath.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { createActivityRecorder } from '#src/activity/createActivityRecorder.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { ActivityLevelKind, RunStatus } from '#src/contracts/index.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params<Result> {

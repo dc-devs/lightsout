@@ -1,7 +1,10 @@
 import { Link } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Dialog, GithubMark, ThemeToggle } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { ThemeToggle } from '#src/appUI/buttons/ThemeToggle.tsx';
+import { Dialog } from '#src/appUI/Dialog.tsx';
+import { GithubMark } from '#src/appUI/icons/GithubMark.tsx';
 import { Wordmark } from '#src/features/app/components/Wordmark.tsx';
 
 const siteLinkClasses = 'font-medium text-muted-foreground-strong transition-colors hover:text-foreground';

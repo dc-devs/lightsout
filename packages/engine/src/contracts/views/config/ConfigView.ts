@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StandardsSeverity } from '#src/contracts/standardsCheck/index.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 import { ConfigFieldView } from '#src/contracts/views/config/ConfigFieldView.ts';
 
 /** What this repo told lightsout, and what lightsout filled in. */

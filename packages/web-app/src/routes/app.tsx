@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AppShell, repoRootQueryOptions } from '#src/features/app/index.ts';
+import { AppShell } from '#src/features/app/components/AppShell.tsx';
+import { repoRootQueryOptions } from '#src/features/app/queries/repoRootQueryOptions.ts';
 
 /**
  * Everything that reads this machine's repository, under one frame: the app's

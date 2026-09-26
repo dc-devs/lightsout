@@ -1,9 +1,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, type DecisionsRecord, FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { repairMechanicalFindings } from '#src/plan/draft/index.ts';
-import { lintPlanStructure } from '#src/plan/lint/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
+import { repairMechanicalFindings } from '#src/plan/draft/repairMechanicalFindings.ts';
+import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 import { overviewBody, phaseBody } from '#tests/helpers/phasePlan.ts';
@@ -238,6 +243,60 @@ describe('repairMechanicalFindings', () => {
 		expect({ declared: declarations.map(({ file, fileBudget }) => ({ file, fileBudget })), ownBudget: phase.fileBudget }).toStrictEqual({
 			declared: [{ file: 'phase1-core.md', fileBudget: 4 }],
 			ownBudget: 4,
+		});
+	});
+
+	test('copies whether each phase file declares renames onto its overview declaration block', async () => {
+		const deliverable = setupPhasedDeliverable({
+			decisions: noDecisions(),
+			// both declaration blocks are wrong the opposite way round: the phase that
+			// renames carries no Renames only bullet, and the phase that does not carries
+			// a stale one — every count already agrees, so nothing else is in dispute
+			overview: overviewBody({
+				rows: [
+					{ number: 1, file: 'phase1-rename.md', created: 0, touched: 1 },
+					{ number: 2, file: 'phase2-wire.md', created: 0, touched: 1, renamesOnly: true },
+				],
+			}),
+			phases: {
+				'phase1-rename.md': phaseBody({ modify: ['src/two.ts'], renames: [{ from: 'oldName', to: 'newName' }] }),
+				'phase2-wire.md': phaseBody({ modify: ['src/three.ts'] }),
+			},
+			existing: ['src/two.ts', 'src/three.ts'],
+		});
+		const renamesDisagreements = ({ findings }: { findings: StructuralFinding[] }) =>
+			findings.filter((finding) => finding.check === StructuralCheck.DeclarationConsistent && /renames/i.test(finding.issue)).length;
+		const before = renamesDisagreements({ findings: await deliverable.lint() });
+
+		await repairMechanicalFindings({
+			cwd: deliverable.cwd,
+			name: deliverable.name,
+			planPaths: deliverable.planPaths,
+			decisions: deliverable.decisions,
+			overviewPath: deliverable.overviewPath,
+		});
+
+		const after = renamesDisagreements({ findings: await deliverable.lint() });
+		const declarations = parsePhaseDeclarations({ plan: parsePlan({ content: deliverable.read({ base: 'overview.md' }), base: 'overview.md' }) });
+
+		// the phase file is the authoritative copy, as it is for the file budget: the
+		// renaming phase gains the bullet, and the other loses its stale one outright
+		// rather than being rewritten to say anything but yes
+		expect({
+			before,
+			after,
+			declared: declarations.map((declaration) => ({
+				file: declaration.file,
+				carriesRenamesOnly: Object.hasOwn(declaration, 'renamesOnly'),
+				renamesOnly: declaration.renamesOnly,
+			})),
+		}).toStrictEqual({
+			before: 2,
+			after: 0,
+			declared: [
+				{ file: 'phase1-rename.md', carriesRenamesOnly: true, renamesOnly: true },
+				{ file: 'phase2-wire.md', carriesRenamesOnly: false, renamesOnly: undefined },
+			],
 		});
 	});
 

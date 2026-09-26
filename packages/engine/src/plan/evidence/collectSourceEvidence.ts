@@ -5,9 +5,13 @@ import { readJsonFile } from '#src/common/utils/readJsonFile.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import { type LightsoutConfig, type PlanFacts, type SourceEvidenceEntry, SourceEvidenceIndex, SourceEvidenceKind } from '#src/contracts/index.ts';
-import { wholeFileEvidenceLimit } from '#src/plan/evidence/common/constants/wholeFileEvidenceLimit.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { SourceEvidenceEntry } from '#src/contracts/plan/evidence/SourceEvidenceEntry.ts';
+import { SourceEvidenceIndex } from '#src/contracts/plan/evidence/SourceEvidenceIndex.ts';
+import { SourceEvidenceKind } from '#src/contracts/plan/evidence/SourceEvidenceKind.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
 import { extractSourceEvidence } from '#src/plan/evidence/extractSourceEvidence.ts';
+import { wholeFileEvidenceLimit } from '#src/plan/evidence/internal/common/constants/wholeFileEvidenceLimit.ts';
 import { sourceEvidencePath } from '#src/plan/evidence/sourceEvidencePath.ts';
 
 interface Params {

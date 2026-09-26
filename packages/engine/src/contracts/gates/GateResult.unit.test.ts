@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GateResult } from '#src/contracts/index.ts';
+import { GateResult } from '#src/contracts/gates/GateResult.ts';
 
 const setupGateResult = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const result: Record<string, unknown> = {
@@ -103,6 +103,20 @@ describe('GateResult', () => {
 		// presence is the signal a reader tests; a false value would make an executed
 		// gate indistinguishable from a skipped one
 		expect(GateResult.safeParse(result).success).toBe(false);
+	});
+
+	test('GateResult: timedOut is the literal true, kept through parsing', () => {
+		const { result } = setupGateResult({ extra: { exitCode: -1, timedOut: true } });
+
+		const parsed = GateResult.parse(result);
+
+		// the flag is what tells a gate stopped by its ceiling from a spawn failure —
+		// both record exit -1 — so parsing must keep it
+		expect(parsed).toStrictEqual({ kind: 'check', group: 'root', command: 'pnpm check', exitCode: -1, timedOut: true });
+
+		// presence is the signal a reader tests; a false value would make a gate that
+		// returned an exit code indistinguishable from one that ran past its ceiling
+		expect(GateResult.safeParse(setupGateResult({ extra: { timedOut: false } }).result).success).toBe(false);
 	});
 
 	test('exitCode keeps both a passing zero and the -1 spawn-failure sentinel', () => {

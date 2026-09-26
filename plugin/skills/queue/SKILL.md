@@ -154,15 +154,23 @@ stdin instead.
       being implemented, or failed. When no plan is attached it builds from **the
       ticket body** instead, because `planning-complete` promises finished
       shaping, not a plan folder — a route left open for plan 001 of a
-      single-plan work order. Two cases reach it: a
+      single-plan work order, and for a single-plan work order holding no plan
+      at all. That second build is recorded on the work order record, and the
+      ticket ships once it passed. Two cases reach the route: a
       brainstorm that finished all shaping without writing a plan, and the
       brainstorm's ready-to-implement outcome, which writes `planning-complete`
       and Ready to implement itself. In both
       cases the worker reads the ticket body — not the brainstorm files the
       ticket carries, which are the durable record a person reads and the input
-      planning fetches.
+      planning fetches. When the queue creates this ticket's work order record,
+      it creates it in single-plan mode whatever
+      `plan.default-work-order-mode` says.
     - `planning-not-needed` in Ready to implement → the direct worker builds
-      straight from the ticket body.
+      straight from the ticket body. On a single-plan work order record that
+      holds no plan, the build is recorded on the record, and the ticket ships
+      once that build passed. When the queue creates this ticket's work order
+      record, it creates it in single-plan mode whatever
+      `plan.default-work-order-mode` says.
 
   The last two are different workers on purpose: a `planning-complete` ticket
   has a graded plan attached, and building it from the ticket body instead
@@ -209,13 +217,15 @@ stdin instead.
   nothing new.
 - **The ten-minute posts:** at launch and then every ten minutes, this
   session posts the output of `lightsout status --queue`. First comes a board
-  with seven columns — Build Queue, Building, Ship Queue, Shipping Now,
-  Shipped, Parked and Blocked — where each ticket sits in the one column it is
-  in now, so tickets move across the columns from one post to the next. Below
-  the board is a detail block for each active ticket: one that is building,
-  shipping, or waiting for an answer. A detail block is exactly what
-  `lightsout status` prints for that ticket's run, planning or ship in its
-  worktree. This is separate from the implement skill's two-minute watch,
+  with seven columns — Parked, Blocked, Build Queue, Building, Ship Queue,
+  Shipping Now and Shipped — where each ticket's ID sits in the one column it
+  is in now, so tickets move across the columns from one post to the next.
+  Under the table is a list with one line per ticket: its title, and its reason
+  when it has one. Below that is a detail block for each active ticket: one
+  that is building, shipping, or waiting for an answer. A detail block is
+  exactly what `lightsout status` prints for that ticket's run, planning or
+  ship in its worktree. A run's block lists every step the run will take, with
+  the steps it has not reached shown as pending. This is separate from the implement skill's two-minute watch,
   which follows a single run.
 - **Exit codes:** 0 — everything eligible shipped. 2 — work remains that a
   re-run picks up (parked or left-behind tickets); a ticket left open is not

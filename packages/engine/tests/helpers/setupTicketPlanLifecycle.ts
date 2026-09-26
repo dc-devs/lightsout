@@ -2,18 +2,16 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { jest } from '@jest/globals';
-import {
-	type PlanProgress,
-	type RunManifest,
-	RunStatus,
-	WorkOrderEventKind,
-	WorkOrderMode,
-	type WorkOrderPlan,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { planWorkspacePath } from '#src/plan/index.ts';
-import { updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { planWorkspacePath } from '#src/plan/planWorkspacePath.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 /** What a test file's `jest.mock` of the git module hands this fixture to answer HEAD with. */

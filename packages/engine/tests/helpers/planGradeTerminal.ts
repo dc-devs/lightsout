@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GapArea } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { GapArea } from '#src/contracts/plan/grade/GapArea.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';

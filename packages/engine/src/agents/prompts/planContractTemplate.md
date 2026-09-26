@@ -50,9 +50,14 @@ will not reach A:
   how many source files it touches in total (created, modified, modified from an
   earlier phase, deleted, and both sides of every move). Above {{fileLimit}} the plan is
   still legal, but it must carry a `## File Budget` covering its real count,
-  because {{fileLimit}} is where the implementing agent stops. A phase that creates three
-  files and renames an import across two hundred is legitimate work; a phase that
-  authors that many from scratch is not.
+  because {{fileLimit}} is where the implementing agent stops. A plan or phase that
+  touches more than {{touchedFileCeiling}} source files is refused and must be split:
+  neither the config nor a `## File Budget` raises that ceiling. The one exemption
+  is a rename-only plan or phase — its `## Renames` section, plus the
+  `**Renames only:** yes` bullet on the overview. A phase that creates three files
+  and renames an import across two hundred is legitimate work only as a rename-only
+  phase, with the rename gathered into a phase of its own; a phase that authors
+  that many from scratch is not.
 - **What counts as a source file.** Every path the plan names except test files,
   `index` barrels, and `.d.ts` declaration files. A hand-authored type-only
   module — a `.ts` file exporting one interface — DOES count: it still has to be
@@ -84,6 +89,16 @@ will not reach A:
   criterion names the inputs, the condition that makes the case distinct, the
   expected result, and the failure case the test pins. A criterion naming only a
   subject is intent, not a criterion.
+- **Rename-only phases.** A plan or phase whose whole work is renaming symbols
+  or paths may be declared rename-only with a `## Renames` section, one `-`
+  bullet per rename naming the old and the new text, each in backticks. Gather
+  renames into their own phase where you can, covering every file the rename
+  spans. A rename-only file creates nothing, and it is built without test
+  writing: the engine checks in code that every changed file differs from the
+  phase's start only by the declared renames. Each rename is a literal,
+  case-sensitive substitution of every occurrence, applied in the order listed,
+  to file paths and file contents alike — and no rename's new text may contain
+  any rename's old text, own or another's.
 {{documentationRule}}
 
 ---
@@ -173,6 +188,16 @@ subheading names exactly two paths in backticks, old then new.>
 source files. A single integer on its own line: the total source files this plan
 touches. It must cover the real count, and it does NOT raise the created-file
 ceiling, which is fixed at {{createdFileCeiling}}.>
+<Nor does it raise the touched-file ceiling, which is fixed at
+{{touchedFileCeiling}} for every plan that is not rename-only.>
+
+## Renames
+
+<Optional — omit the heading entirely unless this plan is rename-only. One
+bullet per rename, the old text then the new, each in backticks, in the order
+they are applied. A rename-only plan lists nothing under Files to Create.>
+
+- `<oldName>` → `<newName>`
 
 ## Patterns to Mirror
 
@@ -206,7 +231,9 @@ justifies its newness:
 already exist; the test name is the exact string the test writer will use; the
 gate is a key from the repository's gates, and a blank cell means `test`. Each
 criterion names the inputs, the condition that makes the case distinct, the
-expected result, and the failure case it pins. -->
+expected result, and the failure case it pins. A rename-only file keeps this
+heading and states no rows, since a rename adds no behaviour a new test could
+state. -->
 
 | Criterion | Test file | Test name | Gate |
 |-----------|-----------|-----------|------|
@@ -297,11 +324,15 @@ edited. Write `none` for a bullet with nothing to declare.
 - **Exports:** none
 - **Scripts:** none
 - **File budget:** <n>
+- **Renames only:** yes
 
 <!-- **File budget:** is optional: include it only when that phase file carries a
 `## File Budget`, and repeat the same integer. It must cover that phase's Touches
 count, and it never raises the created-file ceiling, which is fixed at
-{{createdFileCeiling}}. -->
+{{createdFileCeiling}}. It never raises the touched-file ceiling of
+{{touchedFileCeiling}} either; only a phase declared `**Renames only:** yes` is
+exempt from that one. **Renames only:** is optional too: write it, reading
+`yes`, only for a phase whose file carries a `## Renames` section. -->
 
 ## Cross-Phase Dependencies
 

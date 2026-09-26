@@ -1,12 +1,12 @@
 import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import type { RawStandardsFinding } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { RawStandardsFinding } from '#src/contracts/index.ts';
-import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
-import { checkFixtureTree } from '#src/standardsCheck/common/utils/checkFixtureTree.ts';
-import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
+import { typescriptInputKinds } from '#src/standardsCheck/internal/common/constants/typescriptInputKinds.ts';
+import { checkFixtureTree } from '#src/standardsCheck/internal/common/utils/checkFixtureTree.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
 	pack: LoadedStandardsPack;

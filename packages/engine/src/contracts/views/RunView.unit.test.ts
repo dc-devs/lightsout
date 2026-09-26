@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RunView } from '#src/contracts/index.ts';
+import { RunView } from '#src/contracts/views/RunView.ts';
 
 const listing = {
 	runId: '0f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0',

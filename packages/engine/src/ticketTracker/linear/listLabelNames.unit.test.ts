@@ -10,7 +10,7 @@ type LinearCall = (client: unknown) => Promise<unknown>;
 
 const mockRunLinear = jest.fn<(params: { apiKey: string; call: LinearCall }) => Promise<unknown>>();
 
-jest.mock('#src/ticketTracker/linear/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
+jest.mock('#src/ticketTracker/linear/internal/runLinear.ts', () => ({ runLinear: (params: { apiKey: string; call: LinearCall }) => mockRunLinear(params) }));
 // -------------------------
 
 const listConfigured = () => listLabelNames({ settings: trackerSettingsFixture() });

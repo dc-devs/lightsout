@@ -1,8 +1,9 @@
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { GateHold, LightsoutConfig } from '#src/contracts/index.ts';
-import { writeGateBlockedLabel } from '#src/gates/gateHolds/common/utils/writeGateBlockedLabel.ts';
-import { writeGateHold } from '#src/gates/gateHolds/common/utils/writeGateHold.ts';
-import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import type { GateHold } from '#src/contracts/gates/GateHold.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { writeGateBlockedLabel } from '#src/gates/gateHolds/internal/common/utils/writeGateBlockedLabel.ts';
+import { writeGateHold } from '#src/gates/gateHolds/internal/common/utils/writeGateHold.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 interface Params {
 	/** The checkout the stopped run works in, from which the shared holds folder is resolved. */

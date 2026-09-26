@@ -1,6 +1,6 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { detectStandardsChannels } from '#src/standards/internal/detectStandardsChannels.ts';
 
 interface Params {
 	cwd: string;

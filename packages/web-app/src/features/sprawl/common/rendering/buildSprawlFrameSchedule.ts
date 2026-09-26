@@ -1,4 +1,4 @@
-import type { SprawlFrame } from '#src/features/sprawl/common/contracts/SprawlFrame.ts';
+import type { SprawlFrame } from '#src/features/sprawl/internal/common/contracts/SprawlFrame.ts';
 
 interface Params {
 	frames: SprawlFrame[];

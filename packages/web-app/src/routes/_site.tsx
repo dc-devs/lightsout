@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { SiteShell } from '#src/features/app/index.ts';
+import { SiteShell } from '#src/features/app/components/SiteShell.tsx';
 
 /**
  * The public site: the landing page, the standards packs, the commands and the

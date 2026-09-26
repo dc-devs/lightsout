@@ -1,4 +1,5 @@
-import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 /**
  * Mechanical-first rule order: rules an agent can fix in place come
@@ -18,12 +19,12 @@ const rulePriority: string[] = [
 	// is, so they lead.
 	'banned-folder-name',
 	'file-directly-in-common',
-	'barrel-under-common',
+	'folder-index-file',
 	'test-in-tests-folder',
 	'test-not-beside-subject',
 	'test-support-in-src',
-	'module-boundary',
-	'placement',
+	'import-through-index',
+	'internal-import-from-outside',
 	'multi-export',
 	'filename-mismatch',
 	'test-mock-prefix',
@@ -36,10 +37,8 @@ const rulePriority: string[] = [
 	'test-manual-mock-cleanup',
 	'test-strict-equal-matcher',
 	'barrel-star',
-	'barrel-dead-entry',
 	'dead-export',
 	'test-only-export',
-	'barrel-is-only-consumer',
 	'file-size',
 	'function-size',
 	'ungrouped-domain-utils',

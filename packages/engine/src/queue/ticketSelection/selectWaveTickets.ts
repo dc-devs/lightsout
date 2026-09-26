@@ -1,10 +1,12 @@
-import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import { describeGateHold } from '#src/gates/gateHolds/common/utils/describeGateHold.ts';
+import { isTicketGateHeld } from '#src/gates/gateHolds/common/utils/isTicketGateHeld.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
-import { dedupeTickets } from '#src/queue/ticketSelection/dedupeTickets.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WaveSelection } from '#src/queue/internal/common/types/WaveSelection.ts';
+import { dedupeTickets } from '#src/queue/ticketSelection/internal/dedupeTickets.ts';
 
 interface Params {
 	/** Resumed and eligible tickets together, already in the order they would be worked. */

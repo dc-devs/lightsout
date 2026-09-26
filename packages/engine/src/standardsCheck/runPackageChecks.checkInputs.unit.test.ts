@@ -8,13 +8,14 @@ import {
 	type StandardsCheckFunction,
 	type StandardsCheckInput,
 	StandardsInputKind,
-	StandardsSeverity,
 	type SyntaxTreeInput,
 	type TypeCheckerInput,
-} from '#src/contracts/index.ts';
-import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
-import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+} from '@lightsout/standards-contracts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/internal/common/types/ResolvedRuleState.ts';
+import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
 /** One loaded package holding a single rule of the asked-for kind, plus the recorder of what it was handed. */

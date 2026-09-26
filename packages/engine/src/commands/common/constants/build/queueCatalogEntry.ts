@@ -1,4 +1,6 @@
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `lightsout queue` — the one command a human starts and then only answers questions for, on this terminal or through the mailbox. */
 export const queueCatalogEntry: CommandCatalogEntry = {

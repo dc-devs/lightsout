@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { repairPhaseBreakdown } from '#src/plan/draft/repairPhaseBreakdown.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { overviewBody } from '#tests/helpers/phasePlan.ts';
@@ -295,5 +296,30 @@ describe('repairPhaseBreakdown', () => {
 		expect(prompts[0]).toContain(`- Verified facts: ${join(overview.workspaceDir, 'facts.json')}`);
 		expect(prompts[0]).toContain(join(overview.workspaceDir, 'brainstorm-decisions.json'));
 		expect(prompts[0]).toContain(`[${StructuralCheck.CreatedFilesWithinCeiling}]`);
+	});
+
+	test('the reshaper is told the touched ceiling the breakdown check applies', async () => {
+		const overview = setupOverview({ overview: overviewBody({ rows: [{ number: 1, file: 'phase1-step.md', created: 1, touched: 71 }] }) });
+		const prompts: string[] = [];
+		const driver = reshapeDriver({
+			bodies: [
+				overviewBody({
+					rows: [
+						{ number: 1, file: 'phase1-step.md', created: 1, touched: 36 },
+						{ number: 2, file: 'phase2-step.md', created: 0, touched: 35 },
+					],
+				}),
+			],
+			onCall: (prompt) => prompts.push(prompt),
+		});
+
+		const result = await run({ ...overview, driver });
+
+		expectStatus(result, 'complete');
+		// the reshaper splits against the same touched number the check applies,
+		// and is told which finding it is being spent on
+		const touchedSection = /## Touched-file ceiling\n\n([\s\S]*?)(?:\n\n## |$)/.exec(prompts[0] ?? '')?.[1] ?? '';
+		expect(touchedSection).toMatch(/\b70\b/);
+		expect(prompts[0]).toContain('[touched-files-within-ceiling]');
 	});
 });

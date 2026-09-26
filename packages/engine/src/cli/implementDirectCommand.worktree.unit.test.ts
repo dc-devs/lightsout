@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { RunWorkspace } from '#src/cli/common/types/RunWorkspace.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { RunWorkspace } from '#src/cli/internal/common/types/RunWorkspace.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -30,7 +32,13 @@ type ResolveRunWorkspaceParams = {
 	onProgress?: (message: string) => void;
 };
 type DirectWorkParams = { cwd: string; ticketBody: string; ticketRef: string; willShip?: boolean };
-type CommitParams = { cwd: string; message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
+type CommitParams = {
+	cwd: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
+	runDir: string;
+	generated: string[] | undefined;
+	onProgress: (message: string) => void;
+};
 type ExitAfterImplementParams = {
 	config: LightsoutConfig;
 	cwd: string;
@@ -42,24 +50,21 @@ type ExitAfterImplementParams = {
 
 const mockResolveRunWorkspace = jest.fn<(params: ResolveRunWorkspaceParams) => Promise<RunWorkspace | { error: string }>>();
 
-jest.mock('#src/cli/common/implementRun/resolveRunWorkspace.ts', () => ({
+jest.mock('#src/cli/internal/common/implementRun/resolveRunWorkspace.ts', () => ({
 	resolveRunWorkspace: (params: ResolveRunWorkspaceParams) => mockResolveRunWorkspace(params),
 }));
 // -------------------------
 const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
+jest.mock('#src/direct/runDirectWork.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: ExitAfterImplementParams) => mockExitAfterImplement(params),
 }));
 // -------------------------
@@ -148,7 +153,7 @@ const setupImplementDirectWorktree = ({
 		seedRunFolder({ cwd: checkout, runId: manifestOf(RunStatus.Passed).runId, pipeline: 'direct' });
 	}
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockCommitTicketWork.mockResolvedValue({ committed: true, message: 'LO-70: stub subject\n\nlightsout run stub\n' });
 	mockExitAfterImplement.mockResolvedValue(undefined);
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, workspace, ...captured };

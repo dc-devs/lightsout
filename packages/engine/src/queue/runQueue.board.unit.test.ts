@@ -1,17 +1,17 @@
 import { readdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import type { QueueBoard } from '#src/contracts/index.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import { readQueueBoard } from '#src/queue/board/readQueueBoard.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import { readQueueBoard } from '#src/queue/index.ts';
+import type { ParkedWork } from '#src/queue/internal/common/types/ParkedWork.ts';
 import type { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import { resolveRunDir } from '#src/runState/index.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { nameWaveLikeTemplate } from '#tests/helpers/nameWaveLikeTemplate.ts';
 import { queueOutcomeFixture as outcomeOf } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture as ticketOf } from '#tests/helpers/queueTicketFixture.ts';
@@ -41,15 +41,15 @@ type LabelParams = { settings: TrackerSettings; ticketId: string; label: string 
 const mockSetTicketLabel = jest.fn<(params: LabelParams) => Promise<QueueFailure | undefined>>();
 
 jest.mock('#src/queue/ticketSelection/listEligibleTickets.ts', () => ({ listEligibleTickets: () => mockListEligibleTickets() }));
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => Promise.resolve(undefined) }));
+jest.mock('#src/ticketTracker/listLabelNames.ts', () => ({
 	listLabelNames: () =>
 		Promise.resolve(['planning-needs-brainstorm', 'planning-needs-plan', 'planning-ready-auto-plan', 'planning-complete', 'planning-not-needed']),
-	appendTicketNote: () => Promise.resolve(undefined),
-	setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params),
 }));
+jest.mock('#src/ticketTracker/setTicketLabel.ts', () => ({ setTicketLabel: (params: LabelParams) => mockSetTicketLabel(params) }));
 jest.mock('#src/queue/worktrees/scanParkedWorktrees.ts', () => ({ scanParkedWorktrees: () => mockScanParkedWorktrees() }));
-jest.mock('#src/queue/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: WorkerParams) => mockRunQueueTicket(params) }));
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/internal/runQueueWorkOrder.ts', () => ({ runQueueWorkOrder: (params: WorkerParams) => mockRunQueueTicket(params) }));
+jest.mock('#src/queue/internal/shipOneBranch.ts', () => ({ shipOneBranch: (params: { outcome: WorkOrderRunOutcome }) => mockShipOneBranch(params) }));
 // -------------------------
 // Naming a wave creates work orders, which reads the tracker and spawns a
 // harness — the work order module's own job, with its own tests. These cases
@@ -172,8 +172,8 @@ describe('runQueue', () => {
 			coordinatorRunId: runId,
 			updatedAt: expect.any(String),
 			tickets: [
-				expect.objectContaining({ identifier: 'LO-70', lane: 'shipped' }),
 				expect.objectContaining({ identifier: 'LO-71', lane: 'parked', reason: 'tsc: 3 errors' }),
+				expect.objectContaining({ identifier: 'LO-70', lane: 'shipped' }),
 			],
 		});
 	});

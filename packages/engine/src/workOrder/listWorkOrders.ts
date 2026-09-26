@@ -1,9 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workOrdersDir } from '#src/common/workspace/workOrdersDir.ts';
-import { workOrderFileNames } from '#src/workOrder/common/constants/workOrderFileNames.ts';
 import type { WorkOrderListing } from '#src/workOrder/common/types/WorkOrderListing.ts';
-import { readWorkOrderStateFile } from '#src/workOrder/common/utils/readWorkOrderStateFile.ts';
+import { workOrderFileNames } from '#src/workOrder/internal/common/constants/workOrderFileNames.ts';
+import { readWorkOrderStateFile } from '#src/workOrder/internal/common/utils/readWorkOrderStateFile.ts';
 
 interface Params {
 	/** Any checkout of the repository: the records this machine holds are found from it. */

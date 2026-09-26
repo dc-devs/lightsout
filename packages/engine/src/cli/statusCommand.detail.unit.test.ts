@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import { type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
@@ -19,10 +21,10 @@ type WatchTarget = { runId: string; rootRunId: string } | { ambiguous: string[] 
 const mockResolveWatchTarget = jest.fn<(params: { cwd: string; rootRunId?: string }) => Promise<WatchTarget>>();
 const mockWatchRunProgress = jest.fn<(params: { cwd: string; runId?: string; rootRunId?: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/resolveWatchTarget.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/resolveWatchTarget.ts', () => ({
 	resolveWatchTarget: (params: { cwd: string; rootRunId?: string }) => mockResolveWatchTarget(params),
 }));
-jest.mock('#src/cli/common/utils/watchRunProgress.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/watchRunProgress.ts', () => ({
 	watchRunProgress: (params: { cwd: string; runId?: string; rootRunId?: string }) => mockWatchRunProgress(params),
 }));
 // -------------------------

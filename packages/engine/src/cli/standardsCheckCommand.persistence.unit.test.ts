@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { standardsCheckCommand } from '#src/cli/standardsCheckCommand.ts';
-import { type StandardsFinding, StandardsSeverity, StandardsSnapshot } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { StandardsSnapshot } from '#src/contracts/standardsCheck/StandardsSnapshot.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
@@ -32,11 +34,9 @@ interface ReviewStandardsParams {
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('#src/standardsCheck/index.ts', () => ({
+jest.mock('#src/standardsCheck/listStandardsRules.ts', () => ({ listStandardsRules: () => Promise.resolve([]) }));
+jest.mock('#src/standardsCheck/runStandardsCheck.ts', () => ({
 	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
-	listStandardsRules: () => Promise.resolve([]),
-	// The writer stays real — what the command leaves on disk is the whole subject here.
-	writeStandardsSnapshot: jest.requireActual<typeof import('#src/standardsCheck/index.ts')>('#src/standardsCheck/index.ts').writeStandardsSnapshot,
 }));
 jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------

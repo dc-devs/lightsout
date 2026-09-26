@@ -2,9 +2,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Permissions } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
@@ -32,6 +32,12 @@ const setupPolicyRun = async ({ config }: { config?: Record<string, unknown> } =
 
 				if (role === 'standards-review') {
 					return { text: reviewReport(), exitCode: 0 };
+				}
+
+				// The commit-message agent runs read-only by design, so it is not one
+				// of the working roles whose permission level these cases pin.
+				if (role === 'commit-message') {
+					return { text: JSON.stringify({ summary: 'add the feature' }), exitCode: 0 };
 				}
 
 				invocations.push({ role, permissions });

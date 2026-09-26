@@ -4,9 +4,15 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
-import { PipelineKind, PlanProgress, RunStatus, WorkOrderEventKind, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { readWorkOrderState, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -21,7 +27,7 @@ import { manifestOf } from '#tests/helpers/setupResume.ts';
 // id behaves.
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; runId?: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
 // -------------------------

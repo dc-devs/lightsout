@@ -2,19 +2,17 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { jest } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import {
-	type LightsoutConfig,
-	PipelineKind,
-	type PlanProgress,
-	type RunManifest,
-	RunStatus,
-	WorkOrderEventKind,
-	WorkOrderMode,
-	type WorkOrderPlan,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
@@ -31,7 +29,7 @@ interface DirectCall {
 	config: LightsoutConfig;
 }
 
-type CommitResult = { committed: boolean } | QueueFailure;
+type CommitResult = { committed: false } | { committed: true; message: string } | QueueFailure;
 
 /**
  * The stubs a `buildWorkOrderPlans` test file declares in its own `jest.mock`
@@ -44,7 +42,9 @@ export interface TicketPlanBuildMocks {
 	runImplementPipeline: jest.Mock<(params: { planPath: string }) => Promise<PipelineResult>>;
 	runPhasesPipeline: jest.Mock<(params: { overviewPath: string }) => Promise<PipelineResult>>;
 	runDirectWork: jest.Mock<(params: DirectCall) => Promise<PipelineResult>>;
-	commitWorkOrderWork: jest.Mock<(params: { cwd: string; message: string; runDir: string }) => Promise<CommitResult>>;
+	commitWorkOrderWork: jest.Mock<
+		(params: { cwd: string; composeMessage: ({ cwd }: { cwd: string }) => Promise<string>; runDir: string }) => Promise<CommitResult>
+	>;
 	readGitChangedFiles: jest.Mock<(params: { cwd: string }) => Promise<string[] | undefined>>;
 	restoreWorkOrderPlan: jest.Mock<(params: { cwd: string; address: string }) => Promise<{ restored: string[] } | { error: string }>>;
 }
@@ -157,7 +157,7 @@ export const setupTicketPlanBuild = ({
 	missingFolders = [],
 	restoreWrites = true,
 	build = 'passes',
-	commitResult = { committed: true },
+	commitResult,
 }: {
 	mocks: TicketPlanBuildMocks;
 	plans: WorkOrderPlan[];
@@ -217,12 +217,17 @@ export const setupTicketPlanBuild = ({
 			},
 		});
 	});
-	mocks.commitWorkOrderWork.mockImplementation(({ message }) => {
-		// The subject alone: the body carries the run id, which is asserted where
-		// the message is built rather than in this loop's ordering cases.
+	mocks.commitWorkOrderWork.mockImplementation(async ({ cwd: worktree, composeMessage }) => {
+		// Asked for as the real primitive asks once the change is staged. The
+		// fixture's harness answers nothing the commit-message contract accepts,
+		// so the message is the template subject — and the subject alone is
+		// pushed: the body carries the run id, which is asserted where the message
+		// is built rather than in this loop's ordering cases.
+		const message = await composeMessage({ cwd: worktree });
+
 		calls.push(`commit ${message.split('\n')[0]}`);
 
-		return Promise.resolve(commitResult);
+		return commitResult ?? { committed: true, message };
 	});
 	// The worktree is clean again once the leftovers have been settled, exactly
 	// as a real read of it would report.

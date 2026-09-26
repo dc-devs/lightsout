@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkAcceptanceLedger } from '#src/plan/lint/checkAcceptanceLedger.ts';
 import { parsePlan } from '#src/plan/parsePlan.ts';
 
@@ -50,6 +51,25 @@ const check = async ({
 
 /** Each finding as the terse pair the cases assert on. */
 const reported = async (params: Parameters<typeof check>[0]) => (await check(params)).map(({ check: rule, location }) => ({ check: rule, location }));
+
+/** A plan modifying one source file under an Acceptance Tests heading with no rows and no Prose Files, with a `## Renames` section or without one. */
+const renamePlanWith = ({ renames }: { renames: boolean }) =>
+	parsePlan({
+		content: `# Plan
+
+## Files to Modify
+
+### \`src/parse.ts\`
+
+Rename the parser.
+${renames ? '\n## Renames\n\n- `parseRow` → `readRow`\n' : ''}
+## Acceptance Tests
+
+| Criterion | Test file | Test name | Gate |
+|---|---|---|---|
+`,
+		base: 'plan.md',
+	});
 
 describe('checkAcceptanceLedger', () => {
 	test('a well-formed ledger covering the plan is silent', async () => {
@@ -180,5 +200,20 @@ describe('checkAcceptanceLedger', () => {
 		const plan = planWith({ ledger: goodRow });
 
 		expect(await reported({ plan, files: { 'src/parse.unit.test.ts': "test('an older case', () => {});\n" } })).toStrictEqual([]);
+	});
+
+	test('a rename-only plan is asked for no acceptance-test rows', async () => {
+		const renameOnly = renamePlanWith({ renames: true });
+		const withoutRenames = renamePlanWith({ renames: false });
+
+		const findings = {
+			renameOnly: await reported({ plan: renameOnly }),
+			withoutRenames: await reported({ plan: withoutRenames }),
+		};
+
+		expect(findings).toStrictEqual({
+			renameOnly: [],
+			withoutRenames: [{ check: StructuralCheck.LedgerCovers, location: 'plan.md → Acceptance Tests' }],
+		});
 	});
 });

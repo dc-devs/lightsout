@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
 import { renderDecisionLog } from '#src/plan/decisionLog/renderDecisionLog.ts';
 
 /**

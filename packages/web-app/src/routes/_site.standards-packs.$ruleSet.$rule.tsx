@@ -1,6 +1,9 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { AddressNotFound } from '#src/common/components/boundaries/AddressNotFound.tsx';
-import { defaultPackQueryOptions, defaultPackRuleQueryOptions, RuleDetail, toRuleSetChannel } from '#src/features/packs/index.ts';
+import { toRuleSetChannel } from '#src/features/packs/internal/common/utils/toRuleSetChannel.ts';
+import { defaultPackQueryOptions } from '#src/features/packs/queries/defaultPackQueryOptions.ts';
+import { defaultPackRuleQueryOptions } from '#src/features/packs/queries/defaultPackRuleQueryOptions.ts';
+import { RuleDetail } from '#src/features/packs/screens/RuleDetail/RuleDetail.tsx';
 
 /**
  * Either half of the address was wrong — a set the pack does not hold, or a

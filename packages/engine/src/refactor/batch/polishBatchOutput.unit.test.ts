@@ -1,9 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
-import { BatchOutcome, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
-import type { BatchTools } from '#src/refactor/batch/common/types/BatchTools.ts';
-import { polishBatchOutput } from '#src/refactor/batch/index.ts';
-import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { SettleKind } from '#src/refactor/batch/internal/common/constants/SettleKind.ts';
+import type { BatchTools } from '#src/refactor/batch/internal/common/types/BatchTools.ts';
+import { polishBatchOutput } from '#src/refactor/batch/polishBatchOutput.ts';
+import { BatchStopKind } from '#src/refactor/internal/common/constants/BatchStopKind.ts';
 
 const finding = (overrides: Partial<StandardsFinding> & { siteKey: string }): StandardsFinding => ({
 	rule: 'single-return',

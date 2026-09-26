@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { WorkOrderPlan, WorkOrderState } from '#src/contracts/index.ts';
-import { readWorkOrderRunTerms } from '#src/workOrder/index.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { readWorkOrderRunTerms } from '#src/workOrder/implementRun/readWorkOrderRunTerms.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 
 const name = 'lo-140-multi';

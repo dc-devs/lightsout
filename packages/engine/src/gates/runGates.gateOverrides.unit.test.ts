@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { GateResult } from '#src/contracts/index.ts';
-import { GateScheduleKind, runGates } from '#src/gates/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
+import { runGates } from '#src/gates/runGates.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -104,7 +105,7 @@ describe('runGates', () => {
 
 		const result = await runGates({ cwd: dir, config, schedule: { kind: GateScheduleKind.Off }, onGateResult: (gate) => gates.push(gate) });
 
-		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
+		expect(result).toStrictEqual({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
 		// "off" is the one spelling that means "run nothing" on purpose, and the
 		// codegen command a gate set would normally run first is nothing either
 		expect(gates).toStrictEqual([]);

@@ -175,6 +175,39 @@ describe('parsePlan', () => {
 		expect({ ledger: plan.ledger, proseFiles: plan.proseFiles }).toStrictEqual({ ledger: [], proseFiles: [] });
 	});
 
+	test('reads each Renames bullet into an ordered rename with the line it sits at', () => {
+		const content = '# Plan\n\n## File Budget\n\n3\n\n## Renames\n\n- `oldName` → `newName`\n- `src/old/` → `src/new/`\n';
+		const renamed = parse({ content });
+		const plain = parse({ content: '# Plan\n\n## Files to Modify\n\n### `src/a.ts`\n' });
+
+		// declared order is the order the renames are applied in, so it is kept
+		expect({
+			renames: renamed.renames,
+			malformedRenameLines: renamed.malformedRenameLines,
+			plainRenames: plain.renames,
+			plainMalformedRenameLines: plain.malformedRenameLines,
+		}).toStrictEqual({
+			renames: [
+				{ from: 'oldName', to: 'newName', line: 9 },
+				{ from: 'src/old/', to: 'src/new/', line: 10 },
+			],
+			malformedRenameLines: [],
+			plainRenames: [],
+			plainMalformedRenameLines: [],
+		});
+	});
+
+	test('a Renames bullet that does not name exactly two spans is recorded as malformed rather than read', () => {
+		const content = '# Plan\n\n## Renames\n\nThese renames move the helper.\n- `alpha` → `beta`\n- `only`\n- `a` → `b` `c`\n';
+		const plan = parse({ content });
+
+		// the prose line on 5 is neither a rename nor a malformed one
+		expect({ renames: plan.renames, malformedRenameLines: plan.malformedRenameLines }).toStrictEqual({
+			renames: [{ from: 'alpha', to: 'beta', line: 6 }],
+			malformedRenameLines: [7, 8],
+		});
+	});
+
 	test('records the Decision Log range from its heading line to the line before the next section', () => {
 		const content = '# Plan\n\n## Decision Log\n\n| # | Source |\n|---|--------|\n| 1 | Brainstorm |\n\n## Global Constraints\n\n- none\n';
 		const plan = parse({ content });

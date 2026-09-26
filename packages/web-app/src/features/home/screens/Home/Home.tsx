@@ -1,10 +1,10 @@
-import { CleansAsItCodesSection } from '#src/features/home/screens/Home/components/CleansAsItCodesSection/index.ts';
-import { ClosingSection } from '#src/features/home/screens/Home/components/ClosingSection.tsx';
-import { HeroSection } from '#src/features/home/screens/Home/components/HeroSection.tsx';
-import { HowItWorksSection } from '#src/features/home/screens/Home/components/HowItWorksSection/index.ts';
-import { ProofSection } from '#src/features/home/screens/Home/components/ProofSection/index.ts';
-import { StandardsPacksSection } from '#src/features/home/screens/Home/components/StandardsPacksSection/index.ts';
-import { TicketTrailSection } from '#src/features/home/screens/Home/components/TicketTrailSection/index.ts';
+import { CleansAsItCodesSection } from '#src/features/home/screens/Home/internal/components/CleansAsItCodesSection/CleansAsItCodesSection.tsx';
+import { ClosingSection } from '#src/features/home/screens/Home/internal/components/ClosingSection.tsx';
+import { HeroSection } from '#src/features/home/screens/Home/internal/components/HeroSection.tsx';
+import { HowItWorksSection } from '#src/features/home/screens/Home/internal/components/HowItWorksSection/HowItWorksSection.tsx';
+import { ProofSection } from '#src/features/home/screens/Home/internal/components/ProofSection/ProofSection.tsx';
+import { StandardsPacksSection } from '#src/features/home/screens/Home/internal/components/StandardsPacksSection/StandardsPacksSection.tsx';
+import { TicketTrailSection } from '#src/features/home/screens/Home/internal/components/TicketTrailSection/TicketTrailSection.tsx';
 
 /**
  * The seven sections, in the order a reader meets them. Named rather than keyed

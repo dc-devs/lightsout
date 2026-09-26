@@ -1,4 +1,4 @@
-import type { RunUsage } from '#src/contracts/index.ts';
+import type { RunUsage } from '#src/contracts/run/RunUsage.ts';
 import type { CleanupSummary } from '#src/runState/common/types/CleanupSummary.ts';
 import type { StepSummary } from '#src/runState/common/types/StepSummary.ts';
 

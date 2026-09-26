@@ -2,7 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import { PipelineKind, RunStatus } from '@lightsout/engine/contracts';
 import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { SortDirection } from '#src/common/constants/SortDirection.ts';
-import { filterRuns, type RunFilters, RunsSortKey } from '#src/features/runs/index.ts';
+import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
+import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
+import { filterRuns } from '#src/features/runs/common/utils/filterRuns.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 
 const runs = [

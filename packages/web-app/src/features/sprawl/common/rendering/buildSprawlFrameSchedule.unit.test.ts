@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { SprawlFrame } from '#src/features/sprawl/common/contracts/SprawlFrame.ts';
 import { buildSprawlFrameSchedule } from '#src/features/sprawl/common/rendering/buildSprawlFrameSchedule.ts';
+import type { SprawlFrame } from '#src/features/sprawl/internal/common/contracts/SprawlFrame.ts';
 
 const emptyDelta = { files: [], folders: [], removedFiles: [], removedFolders: [], overCap: 0 };
 

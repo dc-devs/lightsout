@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
-import { findUnfinishedSequence } from '#src/phases/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
 import { plantSequence } from '#tests/helpers/plantSequence.ts';
 
 const overviewPath = join('plans', 'demo', 'overview.md');

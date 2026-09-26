@@ -3,13 +3,19 @@ import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { MessageSquareWarning } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, CopyButton, DataTable, EmptyState, MetadataTag, PageHeader } from '#src/appUI/index.ts';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 import { countFrictionByArea } from '#src/features/friction/common/utils/countFrictionByArea.ts';
 import { filterFriction } from '#src/features/friction/common/utils/filterFriction.ts';
 import { frictionQueryOptions } from '#src/features/friction/queries/frictionQueryOptions.ts';
-import { runsQueryOptions } from '#src/features/runs/index.ts';
+import { runsQueryOptions } from '#src/features/runs/queries/runsQueryOptions.ts';
 
 /** The one command that feeds this log back into the pipeline that produced it. */
 const improveCommand = 'lightsout improve --engine <path>';

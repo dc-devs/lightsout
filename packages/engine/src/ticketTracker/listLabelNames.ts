@@ -1,7 +1,7 @@
 import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
 import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
-import { listLabelNames as listJiraLabelNames } from '#src/ticketTracker/jira/index.ts';
-import { listLabelNames as listLinearLabelNames } from '#src/ticketTracker/linear/index.ts';
+import { listLabelNames as listJiraLabelNames } from '#src/ticketTracker/jira/listLabelNames.ts';
+import { listLabelNames as listLinearLabelNames } from '#src/ticketTracker/linear/listLabelNames.ts';
 
 interface Params {
 	settings: TrackerSettings;

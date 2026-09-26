@@ -4,7 +4,7 @@ import { StandardsSeverity } from '@lightsout/engine/contracts';
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { RuleDetail } from '#src/features/packs/index.ts';
+import { RuleDetail } from '#src/features/packs/screens/RuleDetail/RuleDetail.tsx';
 import { buildStandardsPackRuleView } from '#tests/helpers/buildStandardsPackRuleView.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
@@ -124,6 +124,14 @@ describe('RuleDetail', () => {
 
 		expect(screen.getByRole('button', { name: /copy advisory/i })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /copy off/i })).toBeInTheDocument();
+	});
+
+	test('offers the two ways to turn on a rule the pack ships off, since a repo opts into it', () => {
+		setupRuleDetail({ rule: buildStandardsPackRuleView({ overrides: { defaultSeverity: StandardsSeverity.Off } }) });
+
+		expect(screen.getByRole('heading', { name: 'Turn it on' })).toBeInTheDocument();
+		expect(screen.getByText('"standards-checks": { "type-assertion": "blocking" }')).toBeInTheDocument();
+		expect(screen.getByText('"standards-checks": { "type-assertion": "advisory" }')).toBeInTheDocument();
 	});
 
 	test('shows nothing of any repo, since it is a public page', () => {

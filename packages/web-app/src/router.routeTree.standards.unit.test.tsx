@@ -5,7 +5,7 @@ import { createRouter, isNotFound } from '@tanstack/react-router';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { ComponentType, ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
-import { getDefaultPackBundle } from '#src/lightsout/index.ts';
+import { getDefaultPackBundle } from '#src/lightsout/common/utils/getDefaultPackBundle.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 

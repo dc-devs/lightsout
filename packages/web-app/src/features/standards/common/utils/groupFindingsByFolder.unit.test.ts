@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { groupFindingsByFolder } from '#src/features/standards/index.ts';
+import { groupFindingsByFolder } from '#src/features/standards/common/utils/groupFindingsByFolder.ts';
 import { buildStandardsFinding } from '#tests/helpers/buildStandardsFinding.ts';
 
 describe('groupFindingsByFolder', () => {

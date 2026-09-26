@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 
 interface Params {

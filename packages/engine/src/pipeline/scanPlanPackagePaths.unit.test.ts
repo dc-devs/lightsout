@@ -6,8 +6,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
-import { readPlanPackages, scanPlanPackagePaths } from '#src/pipeline/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { readPlanPackages } from '#src/pipeline/readPlanPackages.ts';
+import { scanPlanPackagePaths } from '#src/pipeline/scanPlanPackagePaths.ts';
 
 test('readPlanPackages parses the block-list form', () => {
 	const plan = '---\npackages:\n  - backend-api\n  - "shared"\n---\n# Plan\n';

@@ -11,7 +11,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // Home reads one query it never warms — the default pack's three numbers.
 // Seeded, it resolves; unseeded, the server function behind it is stubbed with
 // a promise that never settles, the moment before the pack arrives.
-jest.mock('#src/features/packs/serverFns/getDefaultPackServerFn.ts', () => ({ getDefaultPackServerFn: () => new Promise(() => {}) }));
+jest.mock('#src/features/packs/internal/serverFns/getDefaultPackServerFn.ts', () => ({ getDefaultPackServerFn: () => new Promise(() => {}) }));
 // -------------------------
 // The links, which need a live router around them to resolve a path.
 jest.mock('@tanstack/react-router', () => ({

@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { renderInvoice } from './index';
+import { renderInvoice } from './renderInvoice';
 
 const setupInvoice = ({
 	customer = 'Ada',

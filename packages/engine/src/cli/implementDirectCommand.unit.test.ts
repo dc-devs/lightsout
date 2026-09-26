@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementDirectCommand } from '#src/cli/implementDirectCommand.ts';
-import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
@@ -17,18 +18,20 @@ import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 // it refuses, the reference it derives, and the code it exits on. The staging
 // primitive is stubbed too, so a commit made anywhere at this edge would be
 // seen rather than silently succeed.
-type CommitParams = { message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
+type CommitParams = {
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
+	runDir: string;
+	generated: string[] | undefined;
+	onProgress: (message: string) => void;
+};
 
 const mockRunDirectWork = jest.fn<(params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => Promise<PipelineResult>>();
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { ticketBody: string; ticketRef: string; willShip?: boolean }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 
 const manifestOf = (status: RunStatus): RunManifest => ({
@@ -105,7 +108,7 @@ const setupImplementDirect = ({
 	// is planted here — the command resolves the run's directory by id.
 	seedRunFolder({ cwd, runId: manifestOf(RunStatus.Passed).runId });
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf(RunStatus.Passed) });
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockCommitTicketWork.mockResolvedValue({ committed: true, message: 'LO-70: stub subject\n\nlightsout run stub\n' });
 
 	return { context: { flags: parseFlags({ args: isolated ? args : [...args, '--no-worktree'] }), rest: [], cwd }, cwd, ...captured };
 };

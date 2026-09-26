@@ -11,15 +11,18 @@ interface Params {
 	env?: Record<string, string>;
 	/** Called once with the spawned shell's pid, which is also its process-group id because the spawn is detached. */
 	onSpawn?: ({ pid }: { pid: number }) => void;
+	/** Called once when `timeoutMs` fires, before the promise rejects. */
+	onTimeout?: () => void;
 }
 
 /**
  * The verification gate primitive. Runs a consumer-configured command and
  * returns its exit code — the one signal in the pipeline no model can
  * sweet-talk. Rejects only on spawn failure or timeout; a non-zero exit is a
- * result, not an exception (the engine owns what failure means).
+ * result, not an exception (the engine owns what failure means). Both kinds of
+ * rejection still reject — `onTimeout` is how a caller tells them apart.
  */
-export const runCommand = ({ command, cwd, timeoutMs, env, onSpawn }: Params): Promise<CommandResult> => {
+export const runCommand = ({ command, cwd, timeoutMs, env, onSpawn, onTimeout }: Params): Promise<CommandResult> => {
 	// `env` is passed explicitly rather than left to ambient inheritance. In
 	// production this is identical — the child inherited exactly these values
 	// anyway — but it makes the environment a visible input, which is what lets
@@ -45,5 +48,6 @@ export const runCommand = ({ command, cwd, timeoutMs, env, onSpawn }: Params): P
 	return collectChildOutput({
 		child,
 		timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : undefined,
+		onTimeout,
 	});
 };

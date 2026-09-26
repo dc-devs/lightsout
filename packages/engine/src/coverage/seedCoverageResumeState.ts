@@ -1,6 +1,9 @@
-import { BatchOutcome, CoverageBatchReport, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
-import { updateFileStrikes } from '#src/coverage/common/utils/updateFileStrikes.ts';
+import { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { CoverageSetAside } from '#src/coverage/internal/common/types/CoverageSetAside.ts';
+import { updateFileStrikes } from '#src/coverage/internal/common/utils/updateFileStrikes.ts';
 
 interface Params {
 	manifest: RunManifest;

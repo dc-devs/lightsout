@@ -10,7 +10,6 @@ const setupCarveOuts = ({ directories }: { directories: string[] }): FrameworkCa
 		exemptFolderNames: ['components'],
 		kebabCase: false,
 		routerRoots: [],
-		moduleFolders: [],
 	}));
 
 /** The real `packages/web-app` shape: a package whose framework resolves entry files, under a repo root whose own dependencies name none. */
@@ -21,7 +20,6 @@ const setupEntryFileCarveOuts = (): FrameworkCarveOut[] => [
 		exemptFolderNames: [],
 		kebabCase: false,
 		routerRoots: ['routes'],
-		moduleFolders: [],
 	},
 	{
 		directory: '.',
@@ -29,7 +27,6 @@ const setupEntryFileCarveOuts = (): FrameworkCarveOut[] => [
 		exemptFolderNames: [],
 		kebabCase: false,
 		routerRoots: [],
-		moduleFolders: [],
 	},
 ];
 
@@ -45,7 +42,6 @@ describe('getPathCarveOut', () => {
 			exemptFolderNames: ['components'],
 			kebabCase: false,
 			routerRoots: [],
-			moduleFolders: [],
 		});
 	});
 
@@ -78,6 +74,6 @@ describe('getPathCarveOut', () => {
 
 		const carveOut = getPathCarveOut({ carveOuts, path: 'src/billing/invoices' });
 
-		expect(carveOut).toStrictEqual({ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] });
+		expect(carveOut).toStrictEqual({ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [] });
 	});
 });

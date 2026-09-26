@@ -1,8 +1,11 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import { nameWaveWorkOrders } from '#src/queue/nameWaveWorkOrders.ts';
-import type { WorkOrderListing } from '#src/workOrder/index.ts';
+import type { WorkOrderListing } from '#src/workOrder/common/types/WorkOrderListing.ts';
 import { createUncalledDriver } from '#tests/helpers/createUncalledDriver.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 
@@ -19,6 +22,7 @@ interface CreateWorkOrderParams {
 	config: LightsoutConfig;
 	env: NodeJS.ProcessEnv;
 	driver?: Driver;
+	mode?: WorkOrderMode;
 	onProgress?: (message: string) => void;
 }
 
@@ -27,9 +31,9 @@ type CreateWorkOrderResult = { name: string; branch: string; record: WorkOrderSt
 const mockFindWorkOrderByTicketRef = jest.fn<(params: { cwd: string; ticketRef: string }) => Promise<WorkOrderListing | undefined>>();
 const mockCreateWorkOrder = jest.fn<(params: CreateWorkOrderParams) => Promise<CreateWorkOrderResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({
+jest.mock('#src/workOrder/createWorkOrder.ts', () => ({ createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params) }));
+jest.mock('#src/workOrder/findWorkOrderByTicketRef.ts', () => ({
 	findWorkOrderByTicketRef: (params: { cwd: string; ticketRef: string }) => mockFindWorkOrderByTicketRef(params),
-	createWorkOrder: (params: CreateWorkOrderParams) => mockCreateWorkOrder(params),
 }));
 // -------------------------
 
@@ -90,6 +94,32 @@ const setupNaming = ({
 	return { name, tickets, driver, progress };
 };
 
+/**
+ * A wave whose tickets each name the worker the queue selected for them; a
+ * ticket listed in `existing` already has a record, and every other ticket is
+ * created under a label drawn from its own reference.
+ */
+const setupWorkerNaming = ({ workers, existing = {} }: { workers: Record<number, QueueWorker>; existing?: Record<string, { name: string }> }) => {
+	const driver = createUncalledDriver({ reason: 'the summariser is spawned by createWorkOrder, which this file mocks' });
+
+	mockFindWorkOrderByTicketRef.mockImplementation(({ ticketRef }) => {
+		const held = existing[ticketRef];
+
+		return Promise.resolve(held === undefined ? undefined : { name: held.name, record: recordOf({ ...held, ticketRef }) });
+	});
+	mockCreateWorkOrder.mockImplementation(({ ticketRef = '' }) => {
+		const name = `${ticketRef.toLowerCase()}-new-work`;
+
+		return Promise.resolve({ name, branch: name, record: recordOf({ name, ticketRef }) });
+	});
+
+	const tickets = Object.entries(workers).map(([number, worker]) => queueTicketFixture({ number: Number(number), worker }));
+
+	const name = () => nameWaveWorkOrders({ cwd: '/repo', config, env: {}, driver, tickets });
+
+	return { name };
+};
+
 describe('nameWaveWorkOrders', () => {
 	test('reuses an existing work order and creates one only for a ticket that has none', async () => {
 		const { name, tickets, driver } = setupNaming({
@@ -134,5 +164,21 @@ describe('nameWaveWorkOrders', () => {
 		const wave = await name();
 
 		expect(wave.named).toEqual([{ ticket: tickets[0], name: 'lo-72-beta', branch: 'feature/lo-72-beta' }]);
+	});
+
+	test('creates the record of a ticket built from its body in single-plan mode and leaves an auto-plan ticket on the repository default', async () => {
+		const { name } = setupWorkerNaming({
+			workers: { 70: 'direct', 71: 'plan', 72: 'auto-plan', 73: 'direct' },
+			existing: { 'LO-73': { name: 'lo-73-already-named' } },
+		});
+
+		await name();
+
+		const creations = mockCreateWorkOrder.mock.calls.map(([params]) => ({ ticketRef: params.ticketRef, mode: params.mode }));
+		expect(creations).toEqual([
+			{ ticketRef: 'LO-70', mode: 'single-plan' },
+			{ ticketRef: 'LO-71', mode: 'single-plan' },
+			{ ticketRef: 'LO-72', mode: undefined },
+		]);
 	});
 });

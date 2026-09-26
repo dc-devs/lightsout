@@ -3,7 +3,7 @@ import type { PlanWorkspaceListing } from '@lightsout/engine';
 import { PlanGrade, PlanStage } from '@lightsout/engine/contracts';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { PlansTable } from '#src/features/plans/index.ts';
+import { PlansTable } from '#src/features/plans/screens/PlansPage/components/PlansTable.tsx';
 import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceListing.ts';
 
 // Mocked Imports
@@ -11,9 +11,7 @@ import { buildPlanWorkspaceListing } from '#tests/helpers/buildPlanWorkspaceList
 // The feature barrel reaches the engine's filesystem reader at the far end of
 // the plans server function. Nothing here calls it — the table is handed its
 // rows — so stubbing the reader just keeps the module graph off disk.
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ listPlanWorkspaces: () => Promise.resolve([]) }),
-}));
+jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listPlanWorkspaces: () => Promise.resolve([]) }) }));
 // -------------------------
 // Only the link, which needs a live router around it to resolve a path.
 jest.mock('@tanstack/react-router', () => {

@@ -1,10 +1,17 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import type { AgentOutcome } from '#src/invoke/index.ts';
-import { createRun, writeRunManifest } from '#src/runState/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import type { WorkReport } from '#src/contracts/work/WorkReport.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { createRun } from '#src/runState/createRun.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
@@ -21,7 +28,8 @@ interface CommittingRun {
 
 interface CommitRunWorkParams {
 	run: CommittingRun;
-	subject?: string;
+	driver: Driver;
+	address?: { reference: string; fallbackSubject: string; context: string; unit?: string };
 	resumed: boolean;
 }
 
@@ -34,22 +42,20 @@ interface CommitRunWorkParams {
 const mockInvokeAgentWithContract =
 	jest.fn<(params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) => Promise<AgentOutcome<WorkReport>>>();
 
-jest.mock('#src/invoke/index.ts', () => ({
+jest.mock('#src/invoke/invokeAgentWithContract.ts', () => ({
 	invokeAgentWithContract: (params: { invocation: { prompt: string; systemPrompt: string }; allowedCommands?: string[] }) =>
 		mockInvokeAgentWithContract(params),
 }));
 // -------------------------
 const mockRunGates = jest.fn<(params: { step?: string; onProgress?: (message: string) => void }) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({
+jest.mock('#src/gates/runGates.ts', () => ({
 	runGates: (params: { step?: string; onProgress?: (message: string) => void }) => mockRunGates(params),
 }));
 // -------------------------
 const mockCommitRunWork = jest.fn<(params: CommitRunWorkParams) => Promise<string | undefined>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params),
-}));
+jest.mock('#src/commit/commitRunWork.ts', () => ({ commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params) }));
 // -------------------------
 
 const driver: Driver = { name: 'claude-code', invoke: () => Promise.resolve({ text: '', exitCode: 0 }) };
@@ -84,9 +90,9 @@ const armDirectRun = ({ uncommitted }: { uncommitted?: string }) => {
 	const seen: { subject?: string; resumed?: boolean; statusAtCommit?: RunStatus } = {};
 
 	mockInvokeAgentWithContract.mockResolvedValue({ ok: true, report: reportOf() });
-	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], coordination: undefined });
-	mockCommitRunWork.mockImplementation(({ run, subject, resumed }) => {
-		seen.subject = subject;
+	mockRunGates.mockResolvedValue({ error: undefined, failedFamilies: [], crashes: [], timeouts: [], coordination: undefined });
+	mockCommitRunWork.mockImplementation(({ run, address, resumed }) => {
+		seen.subject = address?.fallbackSubject;
 		seen.resumed = resumed;
 		seen.statusAtCommit = run.current().status;
 
@@ -231,5 +237,18 @@ describe('runDirectWork', () => {
 			resumed: seen.resumed,
 			subject: seen.subject,
 		}).toStrictEqual({ ok: true, status: RunStatus.Passed, gates: [], workers: 0, commits: 1, resumed: true, subject: 'LO-70 Drain the backlog' });
+	});
+
+	test.each([
+		{ entry: 'a first run', setup: () => Promise.resolve(setupDirectCommit()) },
+		{ entry: 'a run re-entered with verify passed', setup: () => setupResumedDirectCommit({ status: RunStatus.Passed }) },
+	])("hands the commit step the run's driver on a first run and on a re-entered one", async ({ setup }) => {
+		const { run } = await setup();
+
+		await run();
+
+		// the commit-message agent runs on the harness the run already holds, so the
+		// commit step must be handed that very driver on either way into it
+		expect(mockCommitRunWork.mock.calls.map((call) => call[0])).toEqual([expect.objectContaining({ driver })]);
 	});
 });

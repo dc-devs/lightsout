@@ -1,11 +1,12 @@
-import { generatedPlanRegions } from '#src/plan/common/constants/generatedPlanRegions.ts';
-import { PlanFileKind } from '#src/plan/common/constants/PlanFileKind.ts';
-import { parseAcceptanceLedger } from '#src/plan/common/parsing/parseAcceptanceLedger.ts';
-import { parseProseFiles } from '#src/plan/common/parsing/parseProseFiles.ts';
-import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
-import { pathPairFromLine } from '#src/plan/common/paths/pathPairFromLine.ts';
-import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
-import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
+import { generatedPlanRegions } from '#src/plan/internal/common/constants/generatedPlanRegions.ts';
+import { PlanFileKind } from '#src/plan/internal/common/constants/PlanFileKind.ts';
+import { parseAcceptanceLedger } from '#src/plan/internal/common/parsing/parseAcceptanceLedger.ts';
+import { parseProseFiles } from '#src/plan/internal/common/parsing/parseProseFiles.ts';
+import { parseRenames } from '#src/plan/internal/common/parsing/parseRenames.ts';
+import { pathFromLine } from '#src/plan/internal/common/paths/pathFromLine.ts';
+import { pathPairFromLine } from '#src/plan/internal/common/paths/pathPairFromLine.ts';
+import type { ParsedPlan } from '#src/plan/internal/common/types/ParsedPlan.ts';
+import { planCreatePaths } from '#src/plan/internal/planCreatePaths.ts';
 
 /**
  * Split a plan into its `##` sections (a `###` subheading stays inside its
@@ -179,8 +180,10 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const generatedRegionRanges = generatedRangesFrom({ parsed });
 	const ledgerSection = parsed.get('Acceptance Tests');
 	const proseSection = parsed.get('Prose Files');
+	const renamesSection = parsed.get('Renames');
 	const ledger = parseAcceptanceLedger({ sectionLines: ledgerSection?.lines, firstLine: ledgerSection?.firstLine ?? 1 });
 	const prose = parseProseFiles({ sectionLines: proseSection?.lines, firstLine: proseSection?.firstLine ?? 1 });
+	const renamed = parseRenames({ sectionLines: renamesSection?.lines, firstLine: renamesSection?.firstLine ?? 1 });
 	const title =
 		lines
 			.find((line) => /^#\s+/.test(line))
@@ -208,6 +211,8 @@ export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 		decisionLogRange: generatedRegionRanges.get(generatedPlanRegions.decisionLog),
 		sectionRanges: new Map([...parsed].map(([heading, section]) => [heading, rangeOf({ section })])),
 		fileBudget: fileBudgetFrom({ sectionLines: sections.get('File Budget') }),
+		renames: renamed.renames,
+		malformedRenameLines: renamed.malformedLines,
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
 		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),
 		ledger: ledger.rows,

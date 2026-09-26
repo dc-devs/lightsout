@@ -1,6 +1,7 @@
 import { appendJsonlRecords } from '#src/common/utils/appendJsonlRecords.ts';
-import { type FrictionEntry, FrictionRecord } from '#src/contracts/index.ts';
-import { getFrictionPath } from '#src/runState/common/paths/getFrictionPath.ts';
+import type { FrictionEntry } from '#src/contracts/friction/FrictionEntry.ts';
+import { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
+import { getFrictionPath } from '#src/runState/internal/common/paths/getFrictionPath.ts';
 
 interface Params {
 	/** The checkout the run works in — a linked worktree during an isolated run; the primary is resolved from it. */

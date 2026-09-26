@@ -2,7 +2,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { statusCommand } from '#src/cli/statusCommand.ts';
-import { PipelineKind, type QueueBoard, type QueueBoardTicket, QueueLane, RunStatus } from '#src/contracts/index.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueBoardTicket } from '#src/contracts/queue/QueueBoardTicket.ts';
+import { QueueLane } from '#src/contracts/queue/QueueLane.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -25,7 +29,7 @@ const worktreeRunId = 'c4c4c4c4-0000-4000-8000-000000000000';
 /** When the board was last written: local 10:12, the time a stopped board's heading shows. */
 const boardUpdatedAt = new Date(2026, 8, 10, 10, 12).toISOString();
 
-const headerRow = '| Build Queue | Building | Ship Queue | Shipping Now | Shipped | Parked | Blocked |';
+const headerRow = '| Parked | Blocked | Build Queue | Building | Ship Queue | Shipping Now | Shipped |';
 const separatorRow = '| --- | --- | --- | --- | --- | --- | --- |';
 const liveHeading = expect.stringMatching(/^Queue update · \d{2}:\d{2} · next update \d{2}:\d{2}$/);
 
@@ -101,17 +105,19 @@ const setupQueueCheckout = async ({
 };
 
 /**
- * A live queue whose one active ticket is Building in a worktree holding one failed run and no lock. The ticket
+ * A live queue whose one active ticket is Building, its work order folder holding one failed run and no lock. The ticket
  * records no build start, so the run is bound from when it entered the lane. `expected` is `status --run` for that
  * run in that worktree, minus its leading blank line.
  */
 const setupLiveBuildingQueue = async () => {
 	const worktree = await freshCwd();
+	const workOrderName = 'ex-102-api-changes';
 
 	await seedRunDir({
 		cwd: worktree,
 		manifest: {
 			runId: worktreeRunId,
+			planName: `${workOrderName}/001-api-changes`,
 			createdAt: '2026-09-10T09:01:00.000Z',
 			updatedAt: '2026-09-10T09:04:00.000Z',
 			status: RunStatus.Failed,
@@ -132,6 +138,7 @@ const setupLiveBuildingQueue = async () => {
 		identifier: 'EX-102',
 		title: 'API changes',
 		lane: QueueLane.Building,
+		workOrderName,
 		worktreePath: worktree,
 		enteredAt: '2026-09-10T09:00:00.000Z',
 	};
@@ -169,7 +176,10 @@ describe('statusCommand', () => {
 			'',
 			headerRow,
 			separatorRow,
-			'| EX-101 · Notifications | EX-102 · API changes | — | — | — | — | — |',
+			'| — | — | EX-101 | EX-102 | — | — | — |',
+			'',
+			'- EX-101 · Notifications',
+			'- EX-102 · API changes',
 			'',
 			'**EX-102 · API changes**',
 			'',
@@ -205,7 +215,10 @@ describe('statusCommand', () => {
 			'',
 			headerRow,
 			separatorRow,
-			'| EX-101 · Notifications | EX-102 · API changes | — | — | — | — | — |',
+			'| — | — | EX-101 | EX-102 | — | — | — |',
+			'',
+			'- EX-101 · Notifications',
+			'- EX-102 · API changes',
 		]);
 		expect(errors).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([0]);

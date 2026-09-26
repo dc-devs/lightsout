@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { FrictionEntry } from '#src/contracts/index.ts';
-import { appendFriction } from '#src/runState/index.ts';
+import type { FrictionEntry } from '#src/contracts/friction/FrictionEntry.ts';
+import { appendFriction } from '#src/runState/appendFriction.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

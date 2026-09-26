@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { ShippingProgress } from '#src/contracts/index.ts';
+import { ShippingProgress } from '#src/contracts/ship/ShippingProgress.ts';
 import { mockShip } from '#tests/helpers/mockShip.ts';
 import { setupShipScenario as setupShip } from '#tests/helpers/setupShipScenario.ts';
 import { shipScenarioFixtures } from '#tests/helpers/shipScenarioFixtures.ts';
@@ -12,16 +12,28 @@ import { shipScenarioFixtures } from '#tests/helpers/shipScenarioFixtures.ts';
 // progress record is filed inside the real checkout the ship stands on. What is
 // stubbed is everything that would leave the machine or take half an hour: the
 // repository's own gates, the forge, and the check wait.
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
-jest.mock('#src/ship/waitForChecks.ts', () => ({ waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params) }));
-jest.mock('#src/ship/forge/index.ts', () => ({
-	PullRequestState: { Open: 'open', Merged: 'merged' },
-	readForgeAuth: (params: Parameters<typeof mockShip.readForgeAuth>[0]) => mockShip.readForgeAuth(params),
-	findPullRequest: (params: Parameters<typeof mockShip.findPullRequest>[0]) => mockShip.findPullRequest(params),
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
+jest.mock('#src/ship/internal/waitForChecks.ts', () => ({
+	waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params),
+}));
+jest.mock('#src/ship/forge/common/constants/PullRequestState.ts', () => ({ PullRequestState: { Open: 'open', Merged: 'merged' } }));
+jest.mock('#src/ship/forge/createPullRequest.ts', () => ({
 	createPullRequest: (params: Parameters<typeof mockShip.createPullRequest>[0]) => mockShip.createPullRequest(params),
+}));
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
+	findPullRequest: (params: Parameters<typeof mockShip.findPullRequest>[0]) => mockShip.findPullRequest(params),
+}));
+jest.mock('#src/ship/forge/mergePullRequest.ts', () => ({
 	mergePullRequest: (params: Parameters<typeof mockShip.mergePullRequest>[0]) => mockShip.mergePullRequest(params),
-	readPullRequestChecks: (params: Parameters<typeof mockShip.readPullRequestChecks>[0]) => mockShip.readPullRequestChecks(params),
+}));
+jest.mock('#src/ship/forge/readCheckFailureLogs.ts', () => ({
 	readCheckFailureLogs: (params: Parameters<typeof mockShip.readCheckFailureLogs>[0]) => mockShip.readCheckFailureLogs(params),
+}));
+jest.mock('#src/ship/forge/readForgeAuth.ts', () => ({
+	readForgeAuth: (params: Parameters<typeof mockShip.readForgeAuth>[0]) => mockShip.readForgeAuth(params),
+}));
+jest.mock('#src/ship/forge/readPullRequestChecks.ts', () => ({
+	readPullRequestChecks: (params: Parameters<typeof mockShip.readPullRequestChecks>[0]) => mockShip.readPullRequestChecks(params),
 }));
 jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 	readGitHeadCommit: (params: Parameters<typeof mockShip.readGitHeadCommit>[0]) => mockShip.readGitHeadCommit(params),

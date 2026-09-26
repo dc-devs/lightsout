@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StandardsFinding } from '#src/contracts/standardsCheck/index.ts';
+import { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
 
 /**
  * One refactor-run batch: one kind of finding in one area of the repo — a

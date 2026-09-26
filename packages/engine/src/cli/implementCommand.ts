@@ -1,24 +1,25 @@
-import { finishImplementRun } from '#src/cli/common/implementRun/finishImplementRun.ts';
-import { openImplementWorkspace } from '#src/cli/common/implementRun/openImplementWorkspace.ts';
-import { reportWorkOrderPlanOutcome } from '#src/cli/common/implementRun/reportWorkOrderPlanOutcome.ts';
-import { resolveImplementInputs } from '#src/cli/common/implementRun/resolveImplementInputs.ts';
-import { printRunStart } from '#src/cli/common/render/printRunStart.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
-import type { PlanTarget } from '#src/cli/common/types/PlanTarget.ts';
-import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import { resolveCommandShipIntent } from '#src/cli/common/utils/resolveCommandShipIntent.ts';
-import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
-import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
+import { finishImplementRun } from '#src/cli/internal/common/implementRun/finishImplementRun.ts';
+import { openImplementWorkspace } from '#src/cli/internal/common/implementRun/openImplementWorkspace.ts';
+import { reportWorkOrderPlanOutcome } from '#src/cli/internal/common/implementRun/reportWorkOrderPlanOutcome.ts';
+import { resolveImplementInputs } from '#src/cli/internal/common/implementRun/resolveImplementInputs.ts';
+import { printRunStart } from '#src/cli/internal/common/render/printRunStart.ts';
+import type { PlanTarget } from '#src/cli/internal/common/types/PlanTarget.ts';
+import { createProgressPrinter } from '#src/cli/internal/common/utils/createProgressPrinter.ts';
+import { resolveCommandHarness } from '#src/cli/internal/common/utils/resolveCommandHarness.ts';
+import { resolveCommandShipIntent } from '#src/cli/internal/common/utils/resolveCommandShipIntent.ts';
+import { runPhasesOrFailFast } from '#src/cli/internal/common/utils/runPhasesOrFailFast.ts';
+import { runPipelineOrFailFast } from '#src/cli/internal/common/utils/runPipelineOrFailFast.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { resolveConfigPath } from '#src/common/config/resolveConfigPath.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { type Driver, getDriver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { recordPlanCommandRun } from '#src/plan/index.ts';
-import { requireImplementLifecycle } from '#src/ticketLifecycle/index.ts';
-import { runWorkOrderPlanLifecycle } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { getDriver } from '#src/drivers/getDriver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { recordPlanCommandRun } from '#src/plan/progress/recordPlanCommandRun.ts';
+import { requireImplementLifecycle } from '#src/ticketLifecycle/requireImplementLifecycle.ts';
+import { runWorkOrderPlanLifecycle } from '#src/workOrder/implementRun/runWorkOrderPlanLifecycle.ts';
 
 /**
  * The pipeline the resolved plan target asks for — every phase of a folder

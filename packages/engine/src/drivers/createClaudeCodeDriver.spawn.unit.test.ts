@@ -3,8 +3,9 @@ import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Effort, Permissions } from '#src/contracts/index.ts';
-import { createClaudeCodeDriver } from '#src/drivers/index.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { createClaudeCodeDriver } from '#src/drivers/createClaudeCodeDriver.ts';
 import { fakeHarnessOnPath } from '#tests/helpers/fakeHarnessOnPath.ts';
 
 // What the engine asked for and what the process was actually handed: flags,

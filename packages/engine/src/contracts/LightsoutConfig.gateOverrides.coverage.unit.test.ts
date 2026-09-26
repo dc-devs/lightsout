@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 // The cross-block name check — a gate from either block is legal, a gate from
 // neither is not — is pinned in `LightsoutConfig.gateOverrides.unit.test.ts`

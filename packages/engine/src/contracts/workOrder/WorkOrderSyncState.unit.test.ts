@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderSyncState } from '#src/contracts/index.ts';
+import { WorkOrderSyncState } from '#src/contracts/workOrder/WorkOrderSyncState.ts';
 
 const recordDigest = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
 const firstMarker = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8';

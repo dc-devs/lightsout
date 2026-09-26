@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
-import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
+import type { PackageDir } from '#src/doctor/internal/common/types/PackageDir.ts';
 
 /** Package directories holding the given manifests, keyed by package label. */
 const setupPackages = ({ manifests }: { manifests: Record<string, string> }) => {

@@ -1,4 +1,4 @@
-import type { StandardsPackRuleView } from '#src/contracts/index.ts';
+import type { StandardsPackRuleView } from '#src/contracts/views/StandardsPackRuleView.ts';
 import { toStandardsPackRuleView } from '#src/views/common/utils/toStandardsPackRuleView.ts';
 import { getStandardsPackBundle } from '#src/views/getStandardsPackBundle.ts';
 

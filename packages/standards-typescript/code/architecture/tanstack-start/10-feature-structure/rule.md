@@ -6,8 +6,9 @@ severity: advisory
 
 ## Feature Structure
 
-A feature under `src/features/` is a module: its `index.ts` is its public API
-([module boundary](../../../style-guide/structure/module-api/05-module-boundary/rule.md)),
+A feature under `src/features/` is a module — callers import each file it
+offers directly, and it carries no `index.ts`
+([folder-index-file rule](../../../style-guide/structure/module-api/25-folder-index-file/rule.md)) —
 and everything inside it grows by the
 [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md) — a
 single file until companions or a shared subject earn a folder. There is no

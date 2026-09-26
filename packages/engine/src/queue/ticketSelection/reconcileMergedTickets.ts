@@ -1,10 +1,10 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
-import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
-import { settleReconciledWorktree } from '#src/queue/common/utils/settleReconciledWorktree.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import { resolveWorktreePath } from '#src/worktree/index.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
+import { establishBranchMerge } from '#src/queue/internal/common/utils/establishBranchMerge.ts';
+import { settleReconciledWorktree } from '#src/queue/internal/common/utils/settleReconciledWorktree.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 
 interface Params {
 	/** The main repository checkout. */

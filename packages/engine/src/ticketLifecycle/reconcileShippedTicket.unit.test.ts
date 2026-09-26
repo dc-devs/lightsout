@@ -1,7 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { reconcileShippedTicket } from '#src/ticketLifecycle/index.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { reconcileShippedTicket } from '#src/ticketLifecycle/reconcileShippedTicket.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 
 // Mocked Imports
 // -------------------------
@@ -18,9 +20,8 @@ interface LifecycleParams {
 const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings; identifiers: string[] }) => Promise<TrackerTicket[] | TrackerFailure>>();
 const mockUpdateTicketLifecycle = jest.fn<(params: LifecycleParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	resolveTrackerSettings: jest.requireActual<typeof import('#src/ticketTracker/index.ts')>('#src/ticketTracker/index.ts').resolveTrackerSettings,
 }));
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({
 	updateTicketLifecycle: (params: LifecycleParams) => mockUpdateTicketLifecycle(params),

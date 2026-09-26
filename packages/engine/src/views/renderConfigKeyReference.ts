@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { LightsoutConfig } from '#src/contracts/index.ts';
-import { configKeyDescriptions } from '#src/views/common/constants/configKeyDescriptions.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { configKeyDescriptions } from '#src/views/internal/common/constants/configKeyDescriptions.ts';
 
 /**
  * The schema's fields reachable by a key spelled as a string.

@@ -1,7 +1,7 @@
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
 import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
-import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	cwd: string;

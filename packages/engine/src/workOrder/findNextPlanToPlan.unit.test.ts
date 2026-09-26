@@ -1,6 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanProgress, WorkOrderMode, type WorkOrderPlan, type WorkOrderState } from '#src/contracts/index.ts';
-import { findNextPlanToPlan } from '#src/workOrder/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import { findNextPlanToPlan } from '#src/workOrder/findNextPlanToPlan.ts';
 
 /**
  * One plan of a work order's state, carrying only what the planning-order rule

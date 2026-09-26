@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { selectUnloadableFiles } from '#src/coverage/selectUnloadableFiles/selectUnloadableFiles.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 

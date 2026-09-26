@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import { durablePlanFileNames } from '#src/plan/common/constants/durablePlanFileNames.ts';
+import { durablePlanFileNames } from '#src/plan/internal/common/constants/durablePlanFileNames.ts';
 
 /** Attachment titles are untrusted; only bare durable plan file names may enter a transport generation. */
 export const isDurablePlanAttachmentName = ({ name }: { name: string }): boolean =>

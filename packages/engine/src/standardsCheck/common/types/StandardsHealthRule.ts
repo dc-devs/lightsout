@@ -1,4 +1,4 @@
-import type { StandardsSet } from '#src/contracts/index.ts';
+import type { StandardsSet } from '@lightsout/standards-contracts';
 
 /**
  * One rule's health: whether code checks it, and how the agents that met its

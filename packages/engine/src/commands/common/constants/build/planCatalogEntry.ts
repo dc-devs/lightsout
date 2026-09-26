@@ -1,5 +1,7 @@
 import { planSteps } from '#src/commands/common/constants/build/planSteps.ts';
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `/plan` — eight subcommands under one command word, so it carries eight invocations rather than one. */
 export const planCatalogEntry: CommandCatalogEntry = {

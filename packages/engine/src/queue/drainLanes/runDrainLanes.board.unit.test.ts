@@ -1,14 +1,16 @@
 import { mkdirSync } from 'node:fs';
 import { describe, expect, jest, test } from '@jest/globals';
-import { getQueueBoardPath, QueueBoardRecorder, readQueueBoard } from '#src/queue/board/index.ts';
-import type { LeftBehindTicket } from '#src/queue/common/types/LeftBehindTicket.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
+import { readQueueBoard } from '#src/queue/board/readQueueBoard.ts';
 import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { WaveSelection } from '#src/queue/common/types/WaveSelection.ts';
 import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
-import { createMainCheckoutSerializer } from '#src/queue/common/utils/createMainCheckoutSerializer.ts';
-import { runDrainLanes } from '#src/queue/drainLanes/index.ts';
+import { runDrainLanes } from '#src/queue/drainLanes/runDrainLanes.ts';
+import type { LeftBehindTicket } from '#src/queue/internal/common/types/LeftBehindTicket.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WaveSelection } from '#src/queue/internal/common/types/WaveSelection.ts';
+import { createMainCheckoutSerializer } from '#src/queue/internal/common/utils/createMainCheckoutSerializer.ts';
 import { drainLaneOutcomeFixture as outcomeOf } from '#tests/helpers/drainLaneOutcomeFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupDrainLanes } from '#tests/helpers/setupDrainLanes.ts';
@@ -24,7 +26,7 @@ type NameWaveParams = { tickets: RunnableTicket[] };
 // -------------------------
 const mockShipOneBranch = jest.fn<(params: ShipParams) => Promise<WorkOrderRunOutcome>>();
 
-jest.mock('#src/queue/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipParams) => mockShipOneBranch(params) }));
+jest.mock('#src/queue/internal/shipOneBranch.ts', () => ({ shipOneBranch: (params: ShipParams) => mockShipOneBranch(params) }));
 // -------------------------
 const mockListNextWave = jest.fn<(params: ScanParams) => Promise<WaveSelection | QueueFailure>>();
 
@@ -140,8 +142,8 @@ describe('runDrainLanes', () => {
 		await drained;
 
 		expect(afterTheFailure).toEqual([
-			{ identifier: 'LO-2', lane: 'building', buildStartedAt: isoTime },
 			{ identifier: 'LO-1', lane: 'parked', reason: 'the gates went red' },
+			{ identifier: 'LO-2', lane: 'building', buildStartedAt: isoTime },
 		]);
 	});
 
@@ -155,8 +157,8 @@ describe('runDrainLanes', () => {
 		await drained;
 
 		expect(firstWrite).toEqual([
-			{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
 			{ identifier: 'LO-2', lane: 'blocked', reason: 'blocked by LO-9' },
+			{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
 		]);
 	});
 
@@ -185,10 +187,10 @@ describe('runDrainLanes', () => {
 
 		expect({ firstWrite, leftBehind: report.leftBehind }).toEqual({
 			firstWrite: [
-				{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
-				{ identifier: 'LO-8', lane: 'shipped' },
 				{ identifier: 'LO-7', lane: 'blocked', reason: 'its worktree holds a branch nobody has merged' },
 				{ identifier: 'LO-9', lane: 'blocked', reason: 'blocked by LO-5' },
+				{ identifier: 'LO-1', lane: 'building', buildStartedAt: isoTime },
+				{ identifier: 'LO-8', lane: 'shipped' },
 			],
 			leftBehind: [parkedEntry, mergedEntry, heldEntry],
 		});

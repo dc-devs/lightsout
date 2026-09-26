@@ -33,8 +33,8 @@
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"check": "biome check --error-on-warnings . && tsc --noEmit",
-		"test:unit": "jest -c jest.config.cjs",
-		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
+		"test:unit": "node --no-sparkplug ../../tooling/jest/runJest.cjs -c jest.config.cjs",
+		"test:unit:coverage": "node --no-sparkplug ../../tooling/jest/runJest.cjs -c jest.config.cjs --coverage"
 	},
 	"nx": {
 		"name": "standards-contracts"

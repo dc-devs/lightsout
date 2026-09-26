@@ -1,9 +1,14 @@
-import { type RunLock, type RunManifest, RunStatus, ShipStatus } from '#src/contracts/index.ts';
-import { buildCleanupSummary, isRunLive, readLastProgressMessage } from '#src/runState/index.ts';
-import { readShipResult } from '#src/ship/index.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { ShipStatus } from '#src/contracts/ship/ShipStatus.ts';
+import { buildCleanupSummary } from '#src/runState/common/utils/buildCleanupSummary.ts';
+import { isRunLive } from '#src/runState/isRunLive.ts';
+import { readLastProgressMessage } from '#src/runState/progress/readLastProgressMessage.ts';
+import { readShipResult } from '#src/ship/readShipResult.ts';
 import type { RunProgress } from '#src/views/common/types/RunProgress.ts';
 import type { RunProgressRow } from '#src/views/common/types/RunProgressRow.ts';
-import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
+import { getRunTitle } from '#src/views/internal/common/utils/getRunTitle.ts';
 
 /** Statuses from which this run can still reach ship — a run that ended any other way never will. */
 const shippableStatuses: RunStatus[] = [RunStatus.Running, RunStatus.Pending, RunStatus.PausedRateLimit, RunStatus.PausedBudget, RunStatus.Passed];

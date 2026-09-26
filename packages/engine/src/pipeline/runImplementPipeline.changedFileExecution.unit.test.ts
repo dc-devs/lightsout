@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
@@ -157,9 +157,8 @@ describe('runImplementPipeline', () => {
 	test('a changed file recorded as unreachable is exempt — its missing coverage never fails the gate', async () => {
 		const { dir, driver, config } = await setupExecutionRun({
 			sources: {
-				'src/feature/index.ts': "export { feature } from './feature';\n",
 				'src/feature/feature.ts': 'export const feature = (): number => 1;\n',
-				'src/feature/orphan.ts': 'export const orphan = (): number => 2;\n',
+				'src/feature/internal/orphan.ts': 'export const orphan = (): number => 2;\n',
 			},
 			// the orphan is absent from the summary entirely — a violation if the check saw it
 			statements: { 'src/feature/feature.ts': { covered: 3, total: 3 } },
@@ -168,7 +167,7 @@ describe('runImplementPipeline', () => {
 		const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
 		expect(result.ok).toBe(true);
-		expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/orphan.ts']);
+		expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/feature/internal/orphan.ts']);
 	});
 
 	test('a run whose changed files the repo never collects coverage from reaches a passing verdict', async () => {

@@ -2,9 +2,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { runImplementPipeline } from '#src/pipeline/index.ts';
-import { readRunManifest } from '#src/runState/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { runImplementPipeline } from '#src/pipeline/runImplementPipeline.ts';
+import { readRunManifest } from '#src/runState/readRunManifest.ts';
 import { cleanupRecordOf } from '#tests/helpers/cleanupRecordOf.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
@@ -155,7 +155,7 @@ describe('runImplementPipeline', () => {
 			onRefactor: ({ dir: cwd }) => {
 				// The repaired file exports nothing at all, so no finding — not even an
 				// advisory about a name or an unused export — survives the round.
-				writeFileSync(join(cwd, 'src/subject.js'), "import { one } from './index.js';\n\nconsole.log(one);\n");
+				writeFileSync(join(cwd, 'src/subject.js'), "console.log('cleaned');\n");
 
 				return report({ changedFiles: [{ path: 'src/subject.js', summary: 'split exports' }] });
 			},

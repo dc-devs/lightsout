@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { RunStatus } from '#src/contracts/index.ts';
-import { RunNotFoundError } from '#src/runState/index.ts';
-import { getRunView } from '#src/views/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
+import { getRunView } from '#src/views/getRunView.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';

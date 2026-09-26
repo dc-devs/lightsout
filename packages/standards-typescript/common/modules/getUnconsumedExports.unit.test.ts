@@ -27,7 +27,6 @@ const startCarveOuts: FrameworkCarveOut[] = [
 		entryFiles: ['router.tsx', 'server.ts', 'client.tsx'],
 		exemptFolderNames: [],
 		kebabCase: false,
-		moduleFolders: [],
 		routerRoots: ['routes'],
 	},
 ];
@@ -36,10 +35,10 @@ describe('getUnconsumedExports', () => {
 	test('reports an export nothing else mentions, with nothing having reached it', () => {
 		const found = getUnconsumedExports(setupRepo({ contents: [['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;']] }));
 
-		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: false, test: false } }]);
+		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { test: false } }]);
 	});
 
-	test('says a barrel reached an export the barrel publishes', () => {
+	test('does not count a folder barrel listing an export as a use, since nothing imports through one', () => {
 		const found = getUnconsumedExports(
 			setupRepo({
 				contents: [
@@ -49,7 +48,23 @@ describe('getUnconsumedExports', () => {
 			}),
 		);
 
-		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: true, test: false } }]);
+		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { test: false } }]);
+	});
+
+	test('counts a package entry listing an export as a use, since other packages read the entry', () => {
+		const found = getUnconsumedExports(
+			setupRepo({
+				contents: [
+					['packages/engine/src/queue/runQueue.ts', 'export const runQueue = (): number => 1;'],
+					['packages/engine/src/contracts/RunStatus.ts', 'export const RunStatus = 1;'],
+					['packages/engine/src/index.ts', "export { runQueue } from './queue/runQueue';"],
+					['packages/engine/src/contracts/index.ts', "export { RunStatus } from './RunStatus';"],
+					['packages/engine/package.json', JSON.stringify({ exports: { './contracts': './src/contracts/index.ts' } })],
+				],
+			}),
+		);
+
+		expect(found).toStrictEqual([]);
 	});
 
 	test('says a test reached an export only its own tests mention', () => {
@@ -62,7 +77,7 @@ describe('getUnconsumedExports', () => {
 			}),
 		);
 
-		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: false, test: true } }]);
+		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { test: true } }]);
 	});
 
 	test('reports nothing when a production file references the export', () => {
@@ -124,7 +139,7 @@ describe('getUnconsumedExports', () => {
 		);
 
 		// vendorExport is unconsumed too, but out of scope and so not this run's business
-		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: false, test: false } }]);
+		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { test: false } }]);
 	});
 
 	test('inside a declared pack, a rule under tests/ declares an export like any other source file', () => {
@@ -135,7 +150,7 @@ describe('getUnconsumedExports', () => {
 			}),
 		);
 
-		expect(found).toStrictEqual([{ file: 'standards/tests/unit-testing/10-rule/check.ts', name: 'checkRule', reachedBy: { barrel: false, test: false } }]);
+		expect(found).toStrictEqual([{ file: 'standards/tests/unit-testing/10-rule/check.ts', name: 'checkRule', reachedBy: { test: false } }]);
 	});
 
 	test('the same path with no pack declared above it is a test, whose helpers are its own', () => {
@@ -175,7 +190,7 @@ describe('getUnconsumedExports', () => {
 		expect(found).toStrictEqual([]);
 	});
 
-	test('a route file consuming a barrel-published screen is a production consumer, so the screen is not barrel-only', () => {
+	test('a route file consuming a screen is a production consumer, though a folder barrel lists the screen too', () => {
 		const found = getUnconsumedExports(
 			setupRepo({
 				contents: [
@@ -187,8 +202,8 @@ describe('getUnconsumedExports', () => {
 			}),
 		);
 
-		// read as a barrel, that route file would leave the screen reached by a
-		// barrel alone — the framework rendering it is the consumer
+		// read as a barrel, that route file would leave the screen unconsumed —
+		// the framework rendering it is the consumer
 		expect(found).toStrictEqual([]);
 	});
 
@@ -211,6 +226,6 @@ describe('getUnconsumedExports', () => {
 
 		// counting it as a framework consumer would switch off the test-only
 		// verdict for every route tree
-		expect(found).toStrictEqual([{ file: 'src/features/runs/getRunDetails.ts', name: 'getRunDetails', reachedBy: { barrel: false, test: true } }]);
+		expect(found).toStrictEqual([{ file: 'src/features/runs/getRunDetails.ts', name: 'getRunDetails', reachedBy: { test: true } }]);
 	});
 });

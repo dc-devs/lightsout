@@ -3,18 +3,22 @@ import { join } from 'node:path';
 import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
 import { runCommand } from '#src/common/processes/runCommand.ts';
 import { findWorkOrderForBranch } from '#src/common/workspace/findWorkOrderForBranch.ts';
-import { WorktreeOwner } from '#src/contracts/index.ts';
-import { describeGateHold, type GateHolds, isTicketGateHeld } from '#src/gates/index.ts';
-import type { ParkedWork } from '#src/queue/common/types/ParkedWork.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { GateHolds } from '#src/gates/gateHolds/common/types/GateHolds.ts';
+import { describeGateHold } from '#src/gates/gateHolds/common/utils/describeGateHold.ts';
+import { isTicketGateHeld } from '#src/gates/gateHolds/common/utils/isTicketGateHeld.ts';
 import type { QueueFailure } from '#src/queue/common/types/QueueFailure.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { establishBranchMerge } from '#src/queue/common/utils/establishBranchMerge.ts';
-import { toPlanningSummaries } from '#src/queue/common/utils/toPlanningSummaries.ts';
-import type { ParkedTree } from '#src/queue/worktrees/common/types/ParkedTree.ts';
-import { settleUnmergedTree } from '#src/queue/worktrees/common/utils/settleUnmergedTree.ts';
-import { getTicketsByIdentifiers, type TrackerSettings } from '#src/ticketTracker/index.ts';
-import { readWorktreeRecord, resolveWorktreesRoot } from '#src/worktree/index.ts';
+import type { ParkedWork } from '#src/queue/internal/common/types/ParkedWork.ts';
+import { establishBranchMerge } from '#src/queue/internal/common/utils/establishBranchMerge.ts';
+import { toPlanningSummaries } from '#src/queue/internal/common/utils/toPlanningSummaries.ts';
+import type { ParkedTree } from '#src/queue/worktrees/internal/common/types/ParkedTree.ts';
+import { settleUnmergedTree } from '#src/queue/worktrees/internal/common/utils/settleUnmergedTree.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { resolveWorktreesRoot } from '#src/worktree/resolveWorktreesRoot.ts';
 
 interface Params {
 	/** The main repository checkout. */

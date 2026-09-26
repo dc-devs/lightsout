@@ -1,4 +1,7 @@
-import { getSpokenPickerText, getSpokenQuestion, isVoiceOn, speakText } from '#src/voice/index.ts';
+import { getSpokenPickerText } from '#src/voice/getSpokenPickerText.ts';
+import { getSpokenQuestion } from '#src/voice/getSpokenQuestion.ts';
+import { isVoiceOn } from '#src/voice/isVoiceOn.ts';
+import { speakText } from '#src/voice/speakText.ts';
 
 interface Params {
 	cwd: string;

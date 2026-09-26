@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RunListing } from '#src/contracts/index.ts';
+import { RunListing } from '#src/contracts/views/RunListing.ts';
 
 const setupListing = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const row: Record<string, unknown> = {

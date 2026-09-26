@@ -1,4 +1,4 @@
-import type { AgentUsage } from '#src/contracts/index.ts';
+import type { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 
 /**
  * What one agent invocation produced: a report that satisfied its contract, or

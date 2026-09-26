@@ -1,4 +1,6 @@
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `lightsout ship` — no skill ships for it; the tracker skill that reads its result file is separate work. */
 export const shipCatalogEntry: CommandCatalogEntry = {

@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { commitWorkOrderWork } from '#src/commit/index.ts';
+import { commitWorkOrderWork } from '#src/commit/commitWorkOrderWork.ts';
 import { committedPaths } from '#tests/helpers/committedPaths.ts';
 import { generatedPaths } from '#tests/helpers/generatedPaths.ts';
 import { headSubject } from '#tests/helpers/headSubject.ts';
@@ -30,9 +30,9 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 Drain the backlog', runDir });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-70 Drain the backlog', runDir });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-70 Drain the backlog' });
 		expect(headSubject({ cwd })).toBe('LO-70 Drain the backlog');
 	});
 
@@ -40,7 +40,7 @@ describe('commitWorkOrderWork', () => {
 		const { cwd, runDir } = setupTicketBranch();
 
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
-		await commitWorkOrderWork({ cwd, message: "LO-70 Don't `break` $(this)", runDir });
+		await commitWorkOrderWork({ cwd, composeMessage: async () => "LO-70 Don't `break` $(this)", runDir });
 
 		expect(readFileSync(join(runDir, 'commit-message.txt'), 'utf8')).toBe("LO-70 Don't `break` $(this)\n");
 		expect(headSubject({ cwd })).toBe("LO-70 Don't `break` $(this)");
@@ -49,13 +49,13 @@ describe('commitWorkOrderWork', () => {
 	test('reports a tree the worker never touched rather than making an empty commit', async () => {
 		const { cwd, runDir } = setupTicketBranch();
 
-		expect(await commitWorkOrderWork({ cwd, message: 'LO-70 nothing', runDir })).toStrictEqual({ committed: false });
+		expect(await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-70 nothing', runDir })).toStrictEqual({ committed: false });
 	});
 
 	test('refuses a tree git cannot read, because a commit cannot be promised over one', async () => {
 		const committed = await commitWorkOrderWork({
 			cwd: '/lightsout/no/such/directory',
-			message: 'LO-70 nowhere',
+			composeMessage: async () => 'LO-70 nowhere',
 			runDir: '/lightsout/no/such/directory/.lightsout',
 		});
 
@@ -70,7 +70,7 @@ describe('commitWorkOrderWork', () => {
 		// while the tree still reads as changed.
 		writeFileSync(join(cwd, '.git', 'index.lock'), '');
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 blocked', runDir });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-70 blocked', runDir });
 
 		expect(committed).toEqual({ error: expect.stringContaining(`git could not stage the work in ${cwd}`) });
 	});
@@ -81,7 +81,7 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		refuseCommits({ cwd });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-70 refused', runDir });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-70 refused', runDir });
 
 		// the two refusals must never read as one: staged-but-uncommitted is a
 		// different thing for a human to fix than nothing staged at all
@@ -96,9 +96,9 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 source only', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 source only', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 source only' });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 	});
 
@@ -108,9 +108,9 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/cli.mjs', content: '// rebuilt on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 no stale output', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 no stale output', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 no stale output' });
 		expect(readFileSync(join(cwd, 'plugin', 'dist', 'cli.mjs'), 'utf8')).toBe('// built on main\n');
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 	});
@@ -120,7 +120,7 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 build only', runDir, generated: generatedPaths });
 
 		expect(committed).toStrictEqual({ committed: false });
 		expect(headSubject({ cwd })).toBe('ignore');
@@ -131,7 +131,7 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		await commitWorkOrderWork({ cwd, message: 'LO-79 build only', runDir, generated: generatedPaths });
+		await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 build only', runDir, generated: generatedPaths });
 
 		expect(execSync('git status --porcelain', { cwd }).toString()).toBe('');
 	});
@@ -141,9 +141,9 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 no generated configured', runDir });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 no generated configured', runDir });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 no generated configured' });
 		expect(committedPaths({ cwd })).toStrictEqual(['plugin/dist/chunk.mjs']);
 	});
 
@@ -156,9 +156,9 @@ describe('commitWorkOrderWork', () => {
 			content: 'export const Button = () => null;\n',
 		});
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 vendored edit', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 vendored edit', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 vendored edit' });
 		expect(committedPaths({ cwd })).toStrictEqual(['packages/web-app/src/common/components/ui/button.tsx']);
 	});
 
@@ -169,9 +169,9 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
 		writeRepoFile({ cwd, path: 'packages/web-app/src/routeTree.gen.ts', content: 'export const routeTree = 1;\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 both shapes', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 both shapes', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 both shapes' });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 	});
 
@@ -181,9 +181,9 @@ describe('commitWorkOrderWork', () => {
 		writeRepoFile({ cwd, path: 'src.ts', content: 'export const value = 1;\n' });
 		writeRepoFile({ cwd, path: 'plugin/dist/[slug].mjs', content: '// built on the branch\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 glob name', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 glob name', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 glob name' });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 		expect(existsSync(join(cwd, 'plugin', 'dist', '[slug].mjs'))).toBe(false);
 	});
@@ -198,7 +198,7 @@ describe('commitWorkOrderWork', () => {
 
 		await commitWorkOrderWork({
 			cwd,
-			message: 'LO-79 says what it discarded',
+			composeMessage: async () => 'LO-79 says what it discarded',
 			runDir,
 			generated: generatedPaths,
 			onProgress: (message) => lines.push(message),
@@ -215,7 +215,7 @@ describe('commitWorkOrderWork', () => {
 		// fail while the tree still reads as changed.
 		writeFileSync(join(cwd, '.git', 'index.lock'), '');
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 discard blocked', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 discard blocked', runDir, generated: generatedPaths });
 
 		expect(committed).toEqual({ error: expect.stringContaining(`git could not discard the generated changes in ${cwd}`) });
 	});
@@ -225,9 +225,9 @@ describe('commitWorkOrderWork', () => {
 
 		writeRepoFile({ cwd, path: 'plugin/distortion.ts', content: 'export const distort = () => null;\n' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 segment boundary', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 segment boundary', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 segment boundary' });
 		expect(committedPaths({ cwd })).toStrictEqual(['plugin/distortion.ts']);
 	});
 
@@ -240,9 +240,9 @@ describe('commitWorkOrderWork', () => {
 		// output before its `git commit` was refused
 		execSync('git add -A', { cwd, stdio: 'ignore' });
 
-		const committed = await commitWorkOrderWork({ cwd, message: 'LO-79 resumed run', runDir, generated: generatedPaths });
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => 'LO-79 resumed run', runDir, generated: generatedPaths });
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-79 resumed run' });
 		expect(committedPaths({ cwd })).toStrictEqual(['src.ts']);
 		expect(readFileSync(join(cwd, 'plugin', 'dist', 'cli.mjs'), 'utf8')).toBe('// built on main\n');
 	});
@@ -258,11 +258,70 @@ describe('commitWorkOrderWork', () => {
 
 		const committed = await commitWorkOrderWork({
 			cwd: consumer,
-			message: 'LO-152 consumer only',
+			composeMessage: async () => 'LO-152 consumer only',
 			runDir: join(consumer, '.lightsout', 'runs', 'run-1'),
 		});
 
-		expect(committed).toStrictEqual({ committed: true });
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-152 consumer only' });
 		expect(committedPaths({ cwd: repo })).toStrictEqual(['apps/api/src.ts']);
+	});
+
+	test('asks for the message only after staging, so the composer sees a new file in the staged change', async () => {
+		const { cwd, runDir } = setupTicketBranch();
+		const staged: string[][] = [];
+		const composeMessage = async ({ cwd: composeCwd }: { cwd: string }) => {
+			staged.push(execSync('git diff --cached --name-only', { cwd: composeCwd }).toString().split('\n').filter(Boolean));
+
+			return 'LO-167: add the widget\n\nlightsout run run-1\n';
+		};
+
+		writeRepoFile({ cwd, path: 'widget.ts', content: 'export const widget = 1;\n' });
+
+		await commitWorkOrderWork({ cwd, composeMessage, runDir });
+
+		expect(staged).toStrictEqual([['widget.ts']]);
+		expect(headSubject({ cwd })).toBe('LO-167: add the widget');
+	});
+
+	test('answers the message it committed under', async () => {
+		const { cwd, runDir } = setupTicketBranch();
+		const message = 'LO-167: add the widget\n\nThe widget stands alone.\n\nlightsout run run-1\n';
+
+		writeRepoFile({ cwd, path: 'widget.ts', content: 'export const widget = 1;\n' });
+
+		const committed = await commitWorkOrderWork({ cwd, composeMessage: async () => message, runDir });
+
+		expect(committed).toStrictEqual({ committed: true, message: 'LO-167: add the widget\n\nThe widget stands alone.\n\nlightsout run run-1\n' });
+	});
+
+	test('never asks for a message when there is no source change to commit or the change cannot be staged', async () => {
+		const clean = setupTicketBranch();
+		const generatedOnly = setupTicketBranch();
+		const unstageable = setupTicketBranch();
+		const asked: string[] = [];
+		const composeMessage = async ({ cwd }: { cwd: string }) => {
+			asked.push(cwd);
+
+			return 'LO-167: never used';
+		};
+
+		writeRepoFile({ cwd: generatedOnly.cwd, path: 'plugin/dist/chunk.mjs', content: '// built on the branch\n' });
+		writeRepoFile({ cwd: unstageable.cwd, path: 'src.ts', content: 'export const value = 1;\n' });
+		// An index git will not let go of makes staging fail while the tree still
+		// reads as changed.
+		writeFileSync(join(unstageable.cwd, '.git', 'index.lock'), '');
+
+		const results = [
+			await commitWorkOrderWork({ ...clean, composeMessage }),
+			await commitWorkOrderWork({ ...generatedOnly, composeMessage, generated: generatedPaths }),
+			await commitWorkOrderWork({ ...unstageable, composeMessage }),
+		];
+
+		expect(results).toEqual([
+			{ committed: false },
+			{ committed: false },
+			{ error: expect.stringContaining(`git could not stage the work in ${unstageable.cwd}`) },
+		]);
+		expect(asked).toStrictEqual([]);
 	});
 });

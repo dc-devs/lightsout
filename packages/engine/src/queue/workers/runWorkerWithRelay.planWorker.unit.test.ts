@@ -5,15 +5,18 @@ import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus, type WorkOrderState } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { TerminalQuestionRelay } from '#src/queue/relay/index.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
+import { TerminalQuestionRelay } from '#src/queue/relay/TerminalQuestionRelay.ts';
 import { runWorkerWithRelay } from '#src/queue/workers/runWorkerWithRelay.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { queueSettingsFixture } from '#tests/helpers/queueSettingsFixture.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -36,13 +39,13 @@ const mockRunPlanFolderPipeline = jest.fn<(params: { cwd: string; name: string }
 const mockRunDirectWork = jest.fn<(params: { answeredQuestion?: { question: string; answer: string } }) => Promise<PipelineResult>>();
 const mockAppendTicketNote = jest.fn<() => Promise<undefined>>();
 
-jest.mock('#src/queue/workers/runPlanFolderPipeline.ts', () => ({
+jest.mock('#src/queue/workers/internal/runPlanFolderPipeline.ts', () => ({
 	runPlanFolderPipeline: (params: { cwd: string; name: string }) => mockRunPlanFolderPipeline(params),
 }));
-jest.mock('#src/direct/index.ts', () => ({
+jest.mock('#src/direct/runDirectWork.ts', () => ({
 	runDirectWork: (params: { answeredQuestion?: { question: string; answer: string } }) => mockRunDirectWork(params),
 }));
-jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
+jest.mock('#src/ticketTracker/appendTicketNote.ts', () => ({ appendTicketNote: () => mockAppendTicketNote() }));
 // -------------------------
 // The plan worker asks the disk whether the folder is there, then asks the ticket
 // for the plan when it is not. Only the tracker half is stubbed: whether a
@@ -51,8 +54,7 @@ jest.mock('#src/ticketTracker/index.ts', () => ({ appendTicketNote: () => mockAp
 const mockRestorePlanWorkspace =
 	jest.fn<(params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => Promise<{ restored: string[]; error?: string }>>();
 
-jest.mock('#src/plan/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/plan/index.ts')>('#src/plan/index.ts'),
+jest.mock('#src/plan/restore/restorePlanWorkspace.ts', () => ({
 	restorePlanWorkspace: (params: { cwd: string; name: string; identifier: string; settings: TrackerSettings }) => mockRestorePlanWorkspace(params),
 }));
 // -------------------------
@@ -72,7 +74,17 @@ type PullTicketRecordResult = { record: WorkOrderState | undefined } | { error: 
 
 const mockPullTicketRecord = jest.fn<(params: PullTicketRecordParams) => Promise<PullTicketRecordResult>>();
 
-jest.mock('#src/workOrder/index.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
+// The no-record fallback reaches the direct worker, which builds through the
+// body-build lifecycle; with no record it writes nothing, so this stand-in only
+// hands the run an id and answers its result.
+interface BodyBuildLifecycleParams {
+	run: (params: { runId: string }) => Promise<PipelineResult>;
+}
+
+jest.mock('#src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts', () => ({
+	runWorkOrderBodyBuildLifecycle: async ({ run }: BodyBuildLifecycleParams) => ({ result: await run({ runId: 'run-body-1' }) }),
+}));
+jest.mock('#src/workOrder/pullWorkOrderState.ts', () => ({ pullWorkOrderState: (params: PullTicketRecordParams) => mockPullTicketRecord(params) }));
 // -------------------------
 interface BuildTicketPlansParams {
 	cwd: string;
@@ -86,7 +98,7 @@ interface BuildTicketPlansParams {
 
 const mockBuildTicketPlans = jest.fn<(params: BuildTicketPlansParams) => Promise<WorkerOutcome>>();
 
-jest.mock('#src/queue/workers/buildWorkOrderPlans.ts', () => ({
+jest.mock('#src/queue/workers/internal/buildWorkOrderPlans.ts', () => ({
 	buildWorkOrderPlans: (params: BuildTicketPlansParams) => mockBuildTicketPlans(params),
 }));
 // -------------------------

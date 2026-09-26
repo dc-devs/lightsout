@@ -1,10 +1,10 @@
-import { sprawlBarCount } from '#src/features/sprawl/common/constants/sprawlBarCount.ts';
-import { sprawlFolderRowCount } from '#src/features/sprawl/common/constants/sprawlFolderRowCount.ts';
-import type { SprawlDataset } from '#src/features/sprawl/common/contracts/SprawlDataset.ts';
-import type { SprawlBar } from '#src/features/sprawl/common/types/SprawlBar.ts';
-import type { SprawlFolderRow } from '#src/features/sprawl/common/types/SprawlFolderRow.ts';
-import type { SprawlLaneState } from '#src/features/sprawl/common/types/SprawlLaneState.ts';
-import type { SprawlLayout } from '#src/features/sprawl/common/types/SprawlLayout.ts';
+import { sprawlBarCount } from '#src/features/sprawl/internal/common/constants/sprawlBarCount.ts';
+import { sprawlFolderRowCount } from '#src/features/sprawl/internal/common/constants/sprawlFolderRowCount.ts';
+import type { SprawlDataset } from '#src/features/sprawl/internal/common/contracts/SprawlDataset.ts';
+import type { SprawlBar } from '#src/features/sprawl/internal/common/types/SprawlBar.ts';
+import type { SprawlFolderRow } from '#src/features/sprawl/internal/common/types/SprawlFolderRow.ts';
+import type { SprawlLaneState } from '#src/features/sprawl/internal/common/types/SprawlLaneState.ts';
+import type { SprawlLayout } from '#src/features/sprawl/internal/common/types/SprawlLayout.ts';
 
 interface Params {
 	state: SprawlLaneState;

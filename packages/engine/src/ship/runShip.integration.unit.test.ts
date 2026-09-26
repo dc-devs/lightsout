@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import { resolveShipSettings } from '#src/ship/index.ts';
+import { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import { resolveShipSettings } from '#src/ship/resolveShipSettings.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 import { mockShip } from '#tests/helpers/mockShip.ts';
 import { setupShipScenario as setupShip } from '#tests/helpers/setupShipScenario.ts';
@@ -20,16 +20,28 @@ import { shipScenarioGit } from '#tests/helpers/shipScenarioGit.ts';
 // bring closer. The harness is NOT stubbed away: a scripted driver answers the
 // real contract invoker, so what a recovery attempt was handed is read off the
 // invocation it received.
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
-jest.mock('#src/ship/waitForChecks.ts', () => ({ waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params) }));
-jest.mock('#src/ship/forge/index.ts', () => ({
-	PullRequestState: { Open: 'open', Merged: 'merged' },
-	readForgeAuth: (params: Parameters<typeof mockShip.readForgeAuth>[0]) => mockShip.readForgeAuth(params),
-	findPullRequest: (params: Parameters<typeof mockShip.findPullRequest>[0]) => mockShip.findPullRequest(params),
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: Parameters<typeof mockShip.runGates>[0]) => mockShip.runGates(params) }));
+jest.mock('#src/ship/internal/waitForChecks.ts', () => ({
+	waitForChecks: (params: Parameters<typeof mockShip.waitForChecks>[0]) => mockShip.waitForChecks(params),
+}));
+jest.mock('#src/ship/forge/common/constants/PullRequestState.ts', () => ({ PullRequestState: { Open: 'open', Merged: 'merged' } }));
+jest.mock('#src/ship/forge/createPullRequest.ts', () => ({
 	createPullRequest: (params: Parameters<typeof mockShip.createPullRequest>[0]) => mockShip.createPullRequest(params),
+}));
+jest.mock('#src/ship/forge/findPullRequest.ts', () => ({
+	findPullRequest: (params: Parameters<typeof mockShip.findPullRequest>[0]) => mockShip.findPullRequest(params),
+}));
+jest.mock('#src/ship/forge/mergePullRequest.ts', () => ({
 	mergePullRequest: (params: Parameters<typeof mockShip.mergePullRequest>[0]) => mockShip.mergePullRequest(params),
-	readPullRequestChecks: (params: Parameters<typeof mockShip.readPullRequestChecks>[0]) => mockShip.readPullRequestChecks(params),
+}));
+jest.mock('#src/ship/forge/readCheckFailureLogs.ts', () => ({
 	readCheckFailureLogs: (params: Parameters<typeof mockShip.readCheckFailureLogs>[0]) => mockShip.readCheckFailureLogs(params),
+}));
+jest.mock('#src/ship/forge/readForgeAuth.ts', () => ({
+	readForgeAuth: (params: Parameters<typeof mockShip.readForgeAuth>[0]) => mockShip.readForgeAuth(params),
+}));
+jest.mock('#src/ship/forge/readPullRequestChecks.ts', () => ({
+	readPullRequestChecks: (params: Parameters<typeof mockShip.readPullRequestChecks>[0]) => mockShip.readPullRequestChecks(params),
 }));
 jest.mock('#src/common/git/readGitHeadCommit.ts', () => ({
 	readGitHeadCommit: (params: Parameters<typeof mockShip.readGitHeadCommit>[0]) => mockShip.readGitHeadCommit(params),
@@ -104,7 +116,7 @@ describe('runShip', () => {
 
 	test('verifies an already-up-to-date branch before pushing and creates no unnecessary merge commit', async () => {
 		const { baseline, cwd, invocations, ship } = setupShip({
-			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }, green],
+			gateRuns: [{ error: 'test: 1 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }, green],
 			onAttempt: ({ cwd: repo }) => writeFileSync(join(repo, 'feature.md'), '# feature, repaired\n'),
 		});
 
@@ -151,7 +163,7 @@ describe('runShip', () => {
 	test('blocks and restores when the integrated tree cannot be made green', async () => {
 		const { baseline, cwd, ship } = setupShip({
 			defaultBranch: { path: 'main-one.txt', content: 'the default branch moved on\n' },
-			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }],
+			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }],
 		});
 
 		const result = await ship();
@@ -193,7 +205,7 @@ describe('runShip', () => {
 	test('reports restoration failure alongside the original integration failure without pushing', async () => {
 		const { cwd, ship } = setupShip({
 			defaultBranch: { path: 'main-one.txt', content: 'the default branch moved on\n' },
-			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], coordination: undefined }],
+			gateRuns: [{ error: 'test: 3 failing', failedFamilies: ['test'], crashes: [], timeouts: [], coordination: undefined }],
 			onAttempt: ({ cwd: repo }) => lockStrayDirectory({ cwd: repo }),
 		});
 

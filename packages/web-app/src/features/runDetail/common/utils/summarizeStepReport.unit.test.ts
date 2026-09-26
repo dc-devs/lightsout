@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { summarizeStepReport } from '#src/features/runDetail/index.ts';
+import { summarizeStepReport } from '#src/features/runDetail/common/utils/summarizeStepReport.ts';
 
 const setupReport = ({ report }: { report?: unknown } = {}) => ({ report });
 

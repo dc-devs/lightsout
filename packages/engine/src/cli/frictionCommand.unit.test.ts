@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { frictionCommand } from '#src/cli/frictionCommand.ts';
-import { FrictionArea, type FrictionRecord } from '#src/contracts/index.ts';
+import { FrictionArea } from '#src/contracts/friction/FrictionArea.ts';
+import type { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // friction renders whatever the run state left on disk, so the arrangement is a

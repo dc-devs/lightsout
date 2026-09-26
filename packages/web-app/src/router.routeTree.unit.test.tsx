@@ -8,7 +8,7 @@ import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { routeTree } from '#src/routeTree.gen.ts';
 import appCssHref from '#src/styles/app.css?url';
-import { ThemeProvider } from '#src/theme/index.ts';
+import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 import { buildConfigView } from '#tests/helpers/buildConfigView.ts';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
 import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
@@ -22,11 +22,7 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 const mockListRuns = jest.fn<() => Promise<RunListing[]>>();
 const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	// Everything else is the real thing: the frozen demo runs the proof section
-	// reads are committed JSON rather than disk this test has to fake, and
-	// stubbing them would make this suite prove a stub renders.
-	...jest.requireActual<typeof import('#src/lightsout/index.ts')>('#src/lightsout/index.ts'),
+jest.mock('#src/lightsout/getReader.ts', () => ({
 	getReader: () => ({
 		listRuns: () => mockListRuns(),
 		getStandards: () => mockGetStandards(),

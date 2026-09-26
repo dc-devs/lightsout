@@ -1,11 +1,4 @@
-/**
- * Why a ship attempt stopped.
- *
- * A typed stop, reached only once ship's own bounded recovery is spent: the
- * sequence integrates, repairs and re-attempts within one invocation, and the
- * reason it finally records is the whole answer. Re-running `lightsout ship`
- * is still the resume path.
- */
+/** Why a ship attempt stopped, once its own recovery is spent. Re-running `lightsout ship` resumes. */
 export const ShipBlockReason = {
 	/** Uncommitted or untracked changes in the working tree. */
 	DirtyTree: 'dirty-tree',
@@ -35,28 +28,15 @@ export const ShipBlockReason = {
 	IntegrationConflict: 'integration-conflict',
 	/** The integrated branch did not pass the repository's own gates within the repair allowance. */
 	IntegrationGatesFailed: 'integration-gates-failed',
-	/**
-	 * The integrated branch was never judged at all, because the shared gate
-	 * reservation could not be had: another gate run held the machine for longer
-	 * than the wait allows.
-	 *
-	 * Separate from `IntegrationGatesFailed` because no gate command ran, so
-	 * there is no verdict about the code and no repair to spend — and because a
-	 * ticket-backed ship takes a durable hold on exactly this reason and on no
-	 * other.
-	 */
+	/** Another gate run held the machine past the wait, so no gate ran. A ticket-backed ship holds on this reason. */
 	IntegrationGatesUnavailable: 'integration-gates-unavailable',
+	/** A gate on the integrated branch crashed on every attempt; no repair was spent. */
+	IntegrationGatesCrashed: 'integration-gates-crashed',
+	/** A gate on the integrated branch ran past its ceiling on every attempt; no repair was spent. */
+	IntegrationGatesTimedOut: 'integration-gates-timed-out',
 	/** No CI checks appeared for the pushed commit before the wait ceiling, and the repository has not explicitly opted out. */
 	ChecksMissing: 'checks-missing',
-	/**
-	 * The branch's ticket record does not authorize shipping: a multiple-plan
-	 * ticket with no satisfied ship request, a single-plan ticket whose plan 001's
-	 * implementation has not finished, or a published record that diverged from
-	 * this machine's copy or could not be read at all.
-	 *
-	 * Checked twice — once before anything is pushed, and again immediately before
-	 * the merge — so a plan added while the checks were running still stops it.
-	 */
+	/** The work order does not authorize shipping. Checked before the push and again before the merge. */
 	WorkOrderNotAuthorized: 'ticket-not-authorized',
 } as const;
 

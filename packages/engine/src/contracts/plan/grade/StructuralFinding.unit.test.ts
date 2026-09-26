@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StructuralFinding } from '#src/contracts/index.ts';
+import { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {
 	const finding = {
@@ -55,6 +55,21 @@ describe('StructuralFinding', () => {
 			// the per-file ones and the cross-phase ones alike
 			expect(parsed.check).toBe(check);
 		}
+	});
+
+	test('check accepts the touched-file ceiling the plan lint now reports', () => {
+		const { finding } = setupFinding({
+			check: 'touched-files-within-ceiling',
+			issue: 'plan touches 71 source files, over the 70-file ceiling',
+			location: 'plan.md',
+			fix: 'split the phase, or declare it rename-only with a ## Renames section',
+		});
+
+		const parsed = StructuralFinding.parse(finding);
+
+		// the closed check set must admit the id checkPlanSizes and checkPhaseBreakdown
+		// report when a plan or phase touches more files than one run can finish
+		expect(parsed.check).toBe('touched-files-within-ceiling');
 	});
 
 	test('rejects a check outside the structural lint set', () => {

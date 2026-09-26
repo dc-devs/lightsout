@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { checkPhaseBreakdown } from '#src/plan/lint/checkPhaseBreakdown.ts';
 import { type DeclarationSpec, overviewBody } from '#tests/helpers/phasePlan.ts';
 
@@ -239,12 +240,72 @@ describe('checkPhaseBreakdown', () => {
 	});
 
 	test('a declared budget covering the declared touched count silences the note, however far over the configured limit', () => {
-		const params = setupBreakdown({ rows: [{ number: 1, file: 'phase1-core.md', created: 1, touched: 120, fileBudget: 200 }], executorFileLimit: 50 });
+		const params = setupBreakdown({ rows: [{ number: 1, file: 'phase1-core.md', created: 1, touched: 70, fileBudget: 200 }], executorFileLimit: 50 });
 
 		const findings = checkPhaseBreakdown(params);
 
 		// declaring a budget is how a deliberately mechanical phase says so
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('a phase declaring more touched files than the touched ceiling is blocking, naming the phase, its count and the ceiling', () => {
+		const params = setupBreakdown({ rows: [{ number: 1, file: 'phase1-core.md', created: 1, touched: 71 }], executorFileLimit: 50 });
+
+		const findings = checkPhaseBreakdown(params);
+
+		// 70 is the fixed touched ceiling; the advisory budget note still reads beside it
+		expect(findings.map(({ check, severity, location, issue }) => ({ check, severity, location, issue }))).toEqual([
+			{
+				check: StructuralCheck.TouchedFilesWithinCeiling,
+				severity: FindingSeverity.Blocking,
+				location: 'overview.md → Phases → phase1-core.md',
+				issue: expect.stringMatching(/phase1-core\.md.*\b71\b.*70-file ceiling/),
+			},
+			{
+				check: StructuralCheck.ScopeWithinGuardrail,
+				severity: FindingSeverity.Advisory,
+				location: 'overview.md → Phases → phase1-core.md',
+				issue: expect.stringContaining('touch 71 source files, over the 50-file limit'),
+			},
+		]);
+	});
+
+	test('a phase declaring exactly the touched ceiling is silent — the ceiling is the last legal count', () => {
+		const params = setupBreakdown({ rows: [{ number: 1, file: 'phase1-core.md', created: 1, touched: 70, fileBudget: 70 }], executorFileLimit: 50 });
+
+		const findings = checkPhaseBreakdown(params);
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a declared file budget never lifts a phase past the touched ceiling', () => {
+		const params = setupBreakdown({ rows: [{ number: 1, file: 'phase1-core.md', created: 1, touched: 120, fileBudget: 200 }], executorFileLimit: 50 });
+
+		const findings = checkPhaseBreakdown(params);
+
+		// the budget silences the advisory note but cannot raise the fixed ceiling
+		expect(findings.map(({ check, severity, location }) => ({ check, severity, location }))).toStrictEqual([
+			{
+				check: StructuralCheck.TouchedFilesWithinCeiling,
+				severity: FindingSeverity.Blocking,
+				location: 'overview.md → Phases → phase1-core.md',
+			},
+		]);
+	});
+
+	test.each([
+		{ fileBudget: 200, expected: [] },
+		{ fileBudget: undefined, expected: [{ check: StructuralCheck.ScopeWithinGuardrail, severity: FindingSeverity.Advisory }] },
+	])('a rename-only phase is exempt from the touched ceiling however many files it declares', ({ fileBudget, expected }) => {
+		const params = setupBreakdown({
+			rows: [{ number: 1, file: 'phase1-core.md', created: 0, touched: 120, fileBudget, renamesOnly: true }],
+			executorFileLimit: 50,
+		});
+
+		const findings = checkPhaseBreakdown(params);
+
+		// a rename's size is not what makes it hard; only the advisory budget note may still read
+		expect(findings.map(({ check, severity }) => ({ check, severity }))).toStrictEqual(expected);
 	});
 
 	test('a ninth phase raises the phase-count advisory alongside the size rules', () => {

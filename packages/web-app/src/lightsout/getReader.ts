@@ -1,7 +1,7 @@
 import { findRepoRoot } from '#src/common/utils/findRepoRoot.ts';
 import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
 import { FixtureReader } from '#src/lightsout/FixtureReader.ts';
-import { InProcessReader } from '#src/lightsout/InProcessReader.ts';
+import { InProcessReader } from '#src/lightsout/internal/InProcessReader.ts';
 
 /**
  * The reader this process talks to — the single place the implementation is

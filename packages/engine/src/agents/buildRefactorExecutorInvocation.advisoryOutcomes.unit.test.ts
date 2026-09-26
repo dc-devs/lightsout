@@ -1,7 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { buildRefactorExecutorInvocation } from '#src/agents/buildRefactorExecutorInvocation.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 // The advisory-outcomes ask: when it is emitted, what it asks for, and where it
 // sits. Split from the builder's other cases so neither file has to be read

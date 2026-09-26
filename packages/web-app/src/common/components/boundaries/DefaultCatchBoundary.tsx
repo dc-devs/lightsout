@@ -1,6 +1,6 @@
 import type { ErrorComponentProps } from '@tanstack/react-router';
 import { Link, useRouter } from '@tanstack/react-router';
-import { Button } from '#src/appUI/index.ts';
+import { Button } from '#src/appUI/buttons/Button.tsx';
 
 /** What the router renders when a route throws: the message, a retry, and a way back to the runs list. */
 export const DefaultCatchBoundary = ({ error }: ErrorComponentProps) => {

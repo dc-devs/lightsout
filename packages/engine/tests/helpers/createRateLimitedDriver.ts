@@ -1,4 +1,5 @@
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 
 interface Params {
 	/** Collector the stub pushes every invocation it is handed into. */

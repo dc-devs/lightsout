@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { BrainstormDecisions } from '#src/contracts/index.ts';
+import { BrainstormDecisions } from '#src/contracts/plan/decisions/BrainstormDecisions.ts';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
-import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
+import { readPlanWorkspaceFile } from '#src/plan/internal/common/utils/readPlanWorkspaceFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 const brainstormDecisionsFile = 'brainstorm-decisions.json';

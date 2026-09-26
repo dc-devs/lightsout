@@ -1,6 +1,11 @@
 import { expect, test } from '@jest/globals';
-import { type ActivityLevel, buildActivityTree, createActivityRecorder, readActivityMarks } from '#src/activity/index.ts';
-import { ActivityLevelKind, type ActivityNode, RunStatus } from '#src/contracts/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { createActivityRecorder } from '#src/activity/createActivityRecorder.ts';
+import { readActivityMarks } from '#src/activity/readActivityMarks.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityNode } from '#src/contracts/activity/ActivityNode.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 import { createDedupJudgeDriver } from '#tests/helpers/createDedupJudgeDriver.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';

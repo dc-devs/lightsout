@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
 import { createSpecifierResolver } from '#src/common/moduleGraph/createSpecifierResolver.ts';
+import { readImportAliases } from '#src/common/workspace/readImportAliases.ts';
 
 interface Params {
 	cwd: string;
@@ -21,7 +22,7 @@ interface Params {
  * so the whole pass costs file reads, not a compile.
  */
 export const collectImportEdges = async ({ cwd, files, compiler }: Params): Promise<Array<{ from: string; to: string }>> => {
-	const resolve = createSpecifierResolver({ files });
+	const resolve = createSpecifierResolver({ files, importAliases: await readImportAliases({ cwd, files }) });
 	const edges: Array<{ from: string; to: string }> = [];
 
 	for (const from of files) {

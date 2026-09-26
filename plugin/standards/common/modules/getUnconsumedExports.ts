@@ -1,3 +1,4 @@
+import { readPackageEntries } from '../checkInput/readPackageEntries.ts';
 import { getPathCarveOut } from '../frameworks/getPathCarveOut.ts';
 import { isFrameworkLoadedFile } from '../frameworks/isFrameworkLoadedFile.ts';
 import { readFileExports } from '../parsing/readFileExports.ts';
@@ -5,6 +6,7 @@ import { isBarrelFile } from '../paths/isBarrelFile.ts';
 import { isTestFile } from '../paths/isTestFile.ts';
 import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
 import type { UnconsumedExport } from '../types/UnconsumedExport.ts';
+import { isPackageEntry } from './isPackageEntry.ts';
 
 /**
  * An index file is a BARREL only if it exports. An entry index that only
@@ -25,8 +27,8 @@ interface Params {
 }
 
 /**
- * Every export in scope that no production file references, each with what does
- * still mention it — a barrel, a test, or neither.
+ * Every export in scope that no production file references, each with whether
+ * a test still mentions it.
  *
  * Whole-word name counting, which is honest here because one-export-per-file
  * makes every export a distinct searchable name. Conservative by construction:
@@ -37,9 +39,15 @@ interface Params {
  * names belong to the file it re-exports, a test's helpers are the test's own,
  * and a framework-resolved file's exports answer to the framework rather than
  * to any import.
+ *
+ * A package's entry listing a name is a use of it: other packages read the
+ * entry, and they are invisible here. A folder's barrel listing it is not —
+ * every import names the declaring file, so a folder barrel's list is a name
+ * nothing reads through, and counting it would hide a dead export behind it.
  */
 export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOuts }: Params): UnconsumedExport[] => {
 	const scope = new Set(files);
+	const entries = readPackageEntries({ contents });
 	const declarations: Array<{ name: string; file: string }> = [];
 
 	for (const [file, text] of contents) {
@@ -63,7 +71,7 @@ export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOut
 
 	for (const { name, file } of declarations) {
 		const pattern = new RegExp(`\\b${name}\\b`);
-		const reachedBy = { barrel: false, test: false };
+		const reachedBy = { test: false };
 		let source = false;
 
 		for (const [other, text] of contents) {
@@ -76,7 +84,7 @@ export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOut
 			} else if (isFrameworkLoadedFile({ path: other, carveOut: getPathCarveOut({ carveOuts, path: other }) })) {
 				source = true;
 			} else if (isBarrel({ file: other, text })) {
-				reachedBy.barrel = true;
+				source ||= isPackageEntry({ path: other, entries });
 			} else {
 				source = true;
 			}

@@ -1,4 +1,6 @@
-import { type CommandCatalogEntry, CommandGroup, CommandRecordKind } from '#src/contracts/index.ts';
+import type { CommandCatalogEntry } from '#src/contracts/commands/CommandCatalogEntry.ts';
+import { CommandGroup } from '#src/contracts/commands/CommandGroup.ts';
+import { CommandRecordKind } from '#src/contracts/commands/CommandRecordKind.ts';
 
 /** `/auto-plan` — a skill with no CLI command behind it: it drives the `plan` subcommands, and what it changes is who answers the questions. */
 export const autoPlanCatalogEntry: CommandCatalogEntry = {

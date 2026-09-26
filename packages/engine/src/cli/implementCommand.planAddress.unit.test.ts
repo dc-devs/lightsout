@@ -4,9 +4,11 @@ import { join, relative } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { implementCommand } from '#src/cli/implementCommand.ts';
-import { WorktreeOwner } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { readWorktreeRecord, resolveWorktreePath, writeWorktreeRecord } from '#src/worktree/index.ts';
+import { WorktreeOwner } from '#src/contracts/worktree/WorktreeOwner.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { readWorktreeRecord } from '#src/worktree/records/readWorktreeRecord.ts';
+import { writeWorktreeRecord } from '#src/worktree/records/writeWorktreeRecord.ts';
+import { resolveWorktreePath } from '#src/worktree/resolveWorktreePath.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { seedWorkOrderRecord } from '#tests/helpers/seedWorkOrderRecord.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -33,23 +35,21 @@ const mockCreateWorktree = jest.fn<(params: CreateWorktreeParams) => Promise<str
 const mockFetchDefaultBranch = jest.fn<(params: { cwd: string }) => Promise<string | { error: string }>>();
 const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/worktree/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/worktree/index.ts')>('#src/worktree/index.ts'),
-	createWorktree: (params: CreateWorktreeParams) => mockCreateWorktree(params),
-	fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params),
+jest.mock('#src/worktree/createWorktree.ts', () => ({ createWorktree: (params: CreateWorktreeParams) => mockCreateWorktree(params) }));
+jest.mock('#src/worktree/fetchDefaultBranch.ts', () => ({ fetchDefaultBranch: (params: { cwd: string }) => mockFetchDefaultBranch(params) }));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
 	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
 }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: { cwd: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: { cwd: string }) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
 const mockRunPipelineOrFailFast = jest.fn<(params: { cwd: string; planPath: string }) => Promise<PipelineResult>>();
 
-jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/runPipelineOrFailFast.ts', () => ({
 	runPipelineOrFailFast: (params: { cwd: string; planPath: string }) => mockRunPipelineOrFailFast(params),
 }));
 // -------------------------
@@ -57,13 +57,13 @@ jest.mock('#src/cli/common/utils/runPipelineOrFailFast.ts', () => ({
 // pipeline ever wrote, and neither is what these cases are about.
 const mockPrintResult = jest.fn<(params: { result: PipelineResult; cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/render/printResult.ts', () => ({
+jest.mock('#src/cli/internal/common/render/printResult.ts', () => ({
 	printResult: (params: { result: PipelineResult; cwd: string }) => mockPrintResult(params),
 }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: { cwd: string }) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: { cwd: string }) => mockExitAfterImplement(params),
 }));
 // -------------------------

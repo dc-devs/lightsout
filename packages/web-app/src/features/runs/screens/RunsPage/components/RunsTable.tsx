@@ -3,7 +3,13 @@ import { formatCost } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
-import { Button, CopyButton, DataTable, DataTableRow, EmptyState, MetadataTag, StatusBadge } from '#src/appUI/index.ts';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
+import { Button } from '#src/appUI/buttons/Button.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
+import { DataTable } from '#src/appUI/DataTable.tsx';
+import { DataTableRow } from '#src/appUI/DataTableRow.tsx';
+import { EmptyState } from '#src/appUI/EmptyState.tsx';
 import type { SortDirection } from '#src/common/constants/SortDirection.ts';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { TableAlignment } from '#src/common/constants/TableAlignment.ts';
@@ -11,10 +17,10 @@ import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
 import { RunsSortKey } from '#src/features/runs/common/constants/RunsSortKey.ts';
 import type { RunFilters } from '#src/features/runs/common/types/RunFilters.ts';
-import type { RunGroup } from '#src/features/runs/common/types/RunGroup.ts';
 import { filterRuns } from '#src/features/runs/common/utils/filterRuns.ts';
 import { foldPhaseChildren } from '#src/features/runs/common/utils/foldPhaseChildren.ts';
 import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts';
+import type { RunGroup } from '#src/features/runs/internal/common/types/RunGroup.ts';
 
 /** The run's title, as the way into its evidence. */
 const RunLink = ({ run }: { run: RunListing }) => (

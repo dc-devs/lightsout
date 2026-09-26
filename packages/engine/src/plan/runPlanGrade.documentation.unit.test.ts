@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { type ConfigDocs, GradeMemory, GradeReport } from '#src/contracts/index.ts';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { getBlockingGaps, gradeMemoryPath } from '#src/plan/index.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
+import { GradeMemory } from '#src/contracts/plan/memory/GradeMemory.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { getBlockingGaps } from '#src/plan/common/utils/getBlockingGaps.ts';
+import { gradeMemoryPath } from '#src/plan/common/utils/gradeMemoryPath.ts';
 import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { createGapCheckDriver } from '#tests/helpers/createGapCheckDriver.ts';

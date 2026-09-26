@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { BrainstormDecisions } from '#src/contracts/index.ts';
+import { BrainstormDecisions } from '#src/contracts/plan/decisions/BrainstormDecisions.ts';
 
 /** One brainstorm-settled Decision-Log row, as `/brainstorm` writes it into brainstorm-decisions.json. */
 const decisionRow = {

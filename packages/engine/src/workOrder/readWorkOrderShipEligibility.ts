@@ -1,21 +1,42 @@
 import { planNumberOf } from '#src/common/planAddress/planNumberOf.ts';
-import { PlanProgress, WorkOrderMode, type WorkOrderState } from '#src/contracts/index.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
 import type { WorkOrderShipEligibility } from '#src/workOrder/common/types/WorkOrderShipEligibility.ts';
 
 interface Params {
 	record: WorkOrderState;
 }
 
-/** Plan 001 alone supplies a single-plan ticket's implementation, so it alone decides whether the ticket may ship. */
+/** A single-plan ticket holding no plan 001 is implemented by the queue's build from the ticket body, so that build alone decides. */
+const readTicketBodyEligibility = ({ record }: { record: WorkOrderState }): WorkOrderShipEligibility => {
+	const build = record.ticketBodyBuild;
+	let eligibility: WorkOrderShipEligibility;
+
+	if (build === undefined) {
+		eligibility = {
+			eligible: false,
+			reason: `work order ${record.name} is in single-plan mode and holds no plan 001, and no build from the ticket body has passed on it`,
+		};
+	} else if (build.progress !== PlanProgress.Implemented) {
+		eligibility = {
+			eligible: false,
+			reason: `the build from the ticket body of work order ${record.name} under run ${build.runId} has not passed, and a single-plan ticket holding no plan 001 ships once that build passed`,
+		};
+	} else {
+		eligibility = { eligible: true };
+	}
+
+	return eligibility;
+};
+
+/** Plan 001 supplies a single-plan ticket's implementation, so it decides whether the ticket may ship — or, when there is none, the build from the ticket body does. */
 const readSinglePlanEligibility = ({ record }: Params): WorkOrderShipEligibility => {
 	const first = record.plans.find((plan) => planNumberOf({ id: plan.id }) === 1);
 	let eligibility: WorkOrderShipEligibility;
 
 	if (first === undefined) {
-		eligibility = {
-			eligible: false,
-			reason: `work order ${record.name} is in single-plan mode and holds no plan 001, so nothing supplies its implementation`,
-		};
+		eligibility = readTicketBodyEligibility({ record });
 	} else if (first.exclusion !== undefined) {
 		eligibility = {
 			eligible: false,

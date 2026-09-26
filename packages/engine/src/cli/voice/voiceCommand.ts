@@ -1,7 +1,7 @@
-import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getPositionals } from '#src/cli/internal/common/args/getPositionals.ts';
 import { getStreamText } from '#src/cli/voice/common/utils/getStreamText.ts';
 import { voiceHookCommand } from '#src/cli/voice/voiceHookCommand.ts';
 import { voiceOffCommand } from '#src/cli/voice/voiceOffCommand.ts';

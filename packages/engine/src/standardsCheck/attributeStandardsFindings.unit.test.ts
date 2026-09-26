@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import { type AttributedFindings, attributeStandardsFindings } from '#src/standardsCheck/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { attributeStandardsFindings } from '#src/standardsCheck/attributeStandardsFindings.ts';
+import type { AttributedFindings } from '#src/standardsCheck/common/types/AttributedFindings.ts';
 
 const finding = (overrides: Partial<StandardsFinding>): StandardsFinding => ({
 	rule: 'file-size',

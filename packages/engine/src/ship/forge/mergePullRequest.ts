@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import type { ShipMergeMethod } from '#src/contracts/index.ts';
-import { remoteWaitTimings } from '#src/ship/common/constants/remoteWaitTimings.ts';
+import type { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import { sleep } from '#src/ship/common/utils/sleep.ts';
-import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
-import { runGh } from '#src/ship/forge/runGh.ts';
+import { parseForgeJson } from '#src/ship/forge/internal/common/utils/parseForgeJson.ts';
+import { runGh } from '#src/ship/forge/internal/runGh.ts';
+import { remoteWaitTimings } from '#src/ship/internal/common/constants/remoteWaitTimings.ts';
+import { sleep } from '#src/ship/internal/common/utils/sleep.ts';
 
 interface Params {
 	prNumber: number;

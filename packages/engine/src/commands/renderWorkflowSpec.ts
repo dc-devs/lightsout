@@ -1,5 +1,6 @@
 import { getCommandCatalogEntry } from '#src/commands/getCommandCatalogEntry.ts';
-import { CommandActor, type CommandStep } from '#src/contracts/index.ts';
+import { CommandActor } from '#src/contracts/commands/CommandActor.ts';
+import type { CommandStep } from '#src/contracts/commands/CommandStep.ts';
 
 /** The brand gradient every infographic interpolates its card colours between. */
 const theme = { from: '#35d6e8', to: '#b06bf5' };

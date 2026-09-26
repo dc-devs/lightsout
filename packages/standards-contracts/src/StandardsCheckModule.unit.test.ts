@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsCheckModule, StandardsInputKind } from '#src/index.ts';
+import { StandardsCheckModule } from '#src/StandardsCheckModule.ts';
+import { StandardsInputKind } from '#src/StandardsInputKind.ts';
 
 const setupModule = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const run = () => [];

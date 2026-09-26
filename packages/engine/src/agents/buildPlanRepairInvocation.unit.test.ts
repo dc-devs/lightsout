@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanRepairInvocation } from '#src/agents/index.ts';
-import type { StructuralFinding } from '#src/contracts/index.ts';
+import { buildPlanRepairInvocation } from '#src/agents/buildPlanRepairInvocation.ts';
+import type { StructuralFinding } from '#src/contracts/plan/grade/StructuralFinding.ts';
 
 /** A full StructuralFinding with per-test overrides. */
 const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding => ({

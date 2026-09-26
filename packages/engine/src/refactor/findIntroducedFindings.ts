@@ -1,4 +1,5 @@
-import type { StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import type { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 interface Params {
 	/** What the work set out to leave standing — the run's frozen work-list, or a batch's pre-edit review. */

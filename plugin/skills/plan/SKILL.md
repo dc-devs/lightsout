@@ -409,13 +409,17 @@ remaining `structural issue(s)` → relay them. On success → note the written
 `plan.md` path.
 
 A phased draft runs in two stages: one agent authors `overview.md`, the engine
-checks the phase breakdown it declares against the created-file ceiling, and
-then one agent per declared phase authors its `phase<N>-<slug>.md`
-concurrently. So `structural issue(s)` on a phased plan may name the overview's
-**phase breakdown** rather than a phase file: a phase that creates more files
-than one implementing agent may. The fix there is to resplit the phases — edit
-the overview's `## Phases` table and its `## Phase Declarations` to spread the
-creates across more phases — and re-run `plan draft`.
+checks the phase breakdown it declares against both ceilings — the created-file
+ceiling and the touched-file ceiling of 70 — and then one agent per declared
+phase authors its `phase<N>-<slug>.md` concurrently. So `structural issue(s)` on
+a phased plan may name the overview's **phase breakdown** rather than a phase
+file: a phase that creates more files than one implementing agent may, or that
+touches more files than one implementing agent can finish. The fix there is to
+resplit the phases — edit the overview's `## Phases` table and its
+`## Phase Declarations` to spread the created and touched files across more
+phases — and re-run `plan draft`. A phase whose whole work is renaming may
+instead be declared rename-only: a `## Renames` section in its phase file and
+the `- **Renames only:** yes` bullet in its overview declaration.
 
 **5. Grill** — push past conscious knowledge against the *drafted* plan
 (interactive, unbounded):

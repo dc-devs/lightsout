@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { prepareWorkOrderBranch } from '#src/worktree/index.ts';
+import { prepareWorkOrderBranch } from '#src/worktree/prepareWorkOrderBranch.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 
 // Git is real here rather than stubbed, as it is for every other reader of a

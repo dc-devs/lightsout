@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveStandards } from '#src/standards/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 const baseConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };

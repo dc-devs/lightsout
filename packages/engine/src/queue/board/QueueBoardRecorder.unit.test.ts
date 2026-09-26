@@ -3,10 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { QueueBoard } from '#src/contracts/index.ts';
-import { getQueueBoardPath, QueueBoardRecorder, toQueueBoardTickets } from '#src/queue/board/index.ts';
-import type { NamedWorkOrder, QueueDrainReport, WorkOrderRunOutcome } from '#src/queue/index.ts';
-import { resolveWorktreesRoot } from '#src/worktree/index.ts';
+import { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import { QueueBoardRecorder } from '#src/queue/board/QueueBoardRecorder.ts';
+import { toQueueBoardTickets } from '#src/queue/board/toQueueBoardTickets.ts';
+import type { NamedWorkOrder } from '#src/queue/common/types/NamedWorkOrder.ts';
+import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
+import { resolveWorktreesRoot } from '#src/worktree/resolveWorktreesRoot.ts';
 import { queueOutcomeFixture } from '#tests/helpers/queueOutcomeFixture.ts';
 import { queueTicketFixture } from '#tests/helpers/queueTicketFixture.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
@@ -206,8 +210,8 @@ describe('QueueBoardRecorder', () => {
 		const board = await readBoardFile();
 
 		expect(placesOf(board)).toStrictEqual([
-			{ identifier: 'LO-71', lane: 'build-queue' },
 			{ identifier: 'LO-74', lane: 'blocked' },
+			{ identifier: 'LO-71', lane: 'build-queue' },
 		]);
 	});
 

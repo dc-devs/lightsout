@@ -1,7 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { type DecisionRow, DecisionSource } from '#src/contracts/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
 import { writePhasedPlanDeliverable } from '#tests/helpers/writePhasedPlanDeliverable.ts';
 import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { createRun } from '#src/runState/index.ts';
+import { createRun } from '#src/runState/createRun.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const setupRepo = () => {

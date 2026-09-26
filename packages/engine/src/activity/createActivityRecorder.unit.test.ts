@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { createActivityRecorder } from '#src/activity/index.ts';
-import { ActivityLevelKind, ProcessEndReason, RunStatus } from '#src/contracts/index.ts';
+import { createActivityRecorder } from '#src/activity/createActivityRecorder.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import { ProcessEndReason } from '#src/contracts/activity/ProcessEndReason.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 const setupRecorder = ({ label = 'my-plan', blocked = false }: { label?: string; blocked?: boolean } = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-activity-'));

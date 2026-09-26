@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { CoverageScope } from '#src/coverage/internal/common/types/CoverageScope.ts';
 
 const rootScope = 'root';
 

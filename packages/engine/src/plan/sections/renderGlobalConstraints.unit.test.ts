@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource } from '#src/contracts/index.ts';
-import { renderGlobalConstraints } from '#src/plan/sections/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import { renderGlobalConstraints } from '#src/plan/sections/renderGlobalConstraints.ts';
 
 /**
  * The merged rows the renderer is handed, in record order. Every row is a

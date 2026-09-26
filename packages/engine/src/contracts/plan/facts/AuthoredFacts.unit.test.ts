@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { AuthoredFacts } from '#src/contracts/index.ts';
+import { AuthoredFacts } from '#src/contracts/plan/facts/AuthoredFacts.ts';
 
 const setupFacts = (overrides: Record<string, unknown> = {}) => {
 	const area = {

@@ -1,10 +1,10 @@
-import { restoreBrainstormFiles } from '#src/brainstorm/index.ts';
+import { restoreBrainstormFiles } from '#src/brainstorm/restore/restoreBrainstormFiles.ts';
 import { parsePlanAddress } from '#src/common/planAddress/parsePlanAddress.ts';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { restorePlanWorkspace } from '#src/plan/index.ts';
-import { readWorkOrderWithTrackerTarget } from '#src/workOrder/common/utils/readWorkOrderWithTrackerTarget.ts';
-import { recordWorkOrderSyncState } from '#src/workOrder/common/utils/recordWorkOrderSyncState.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
+import { readWorkOrderWithTrackerTarget } from '#src/workOrder/internal/common/utils/readWorkOrderWithTrackerTarget.ts';
+import { recordWorkOrderSyncState } from '#src/workOrder/internal/common/utils/recordWorkOrderSyncState.ts';
 
 interface Params {
 	/** The checkout the plan's own folder is written into. */

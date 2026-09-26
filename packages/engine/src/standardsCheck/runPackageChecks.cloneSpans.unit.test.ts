@@ -2,10 +2,12 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type CloneSpansInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
-import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
-import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { type CloneSpansInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind } from '@lightsout/standards-contracts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/internal/common/types/ResolvedRuleState.ts';
+import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { delegatingSources, duplicatedSources, offsetImportSources, sharedImportSources, writeSampleSources } from '#tests/helpers/duplicationSamples.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 

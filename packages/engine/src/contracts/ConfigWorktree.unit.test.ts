@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ConfigWorktree } from '#src/contracts/index.ts';
+import { ConfigWorktree } from '#src/contracts/ConfigWorktree.ts';
 
 describe('ConfigWorktree', () => {
 	test('accepts the block a repo actually writes, keeping the file’s own spelling', () => {

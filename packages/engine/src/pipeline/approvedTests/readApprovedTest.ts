@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { readGitCommittedFile } from '#src/common/git/readGitCommittedFile.ts';
-import { approvedTestPath } from '#src/pipeline/approvedTests/approvedTestPath.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { approvedTestPath } from '#src/pipeline/approvedTests/internal/approvedTestPath.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;

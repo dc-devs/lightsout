@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { WritersReport } from '#src/contracts/index.ts';
+import { WritersReport } from '#src/contracts/work/WritersReport.ts';
 
 const report = { status: 'complete', changedFiles: [], summary: 'wrote tests', failures: [] };
 

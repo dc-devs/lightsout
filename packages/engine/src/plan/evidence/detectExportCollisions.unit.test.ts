@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { detectExportCollisions, type ExportCensus } from '#src/plan/evidence/index.ts';
+import type { ExportCensus } from '#src/plan/evidence/common/types/ExportCensus.ts';
+import { detectExportCollisions } from '#src/plan/evidence/detectExportCollisions.ts';
 
 /**
  * A census bucketed the way `buildExportCensus` buckets it: the key is the

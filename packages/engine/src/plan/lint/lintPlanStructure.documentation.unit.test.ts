@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
 import { cleanOverviewBody } from '#tests/helpers/cleanOverviewBody.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';

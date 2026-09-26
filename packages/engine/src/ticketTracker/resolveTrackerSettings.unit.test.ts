@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 const trackerBlock = { provider: 'linear', team: 'LO', 'api-key-env': 'LINEAR_API_KEY' } as const;
 

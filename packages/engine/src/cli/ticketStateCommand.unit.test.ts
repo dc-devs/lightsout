@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { ticketStateCommand } from '#src/cli/ticketStateCommand.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import type { TrackerFailure, TrackerSettings, TrackerTicket } from '#src/ticketTracker/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import type { TrackerTicket } from '#src/ticketTracker/common/types/TrackerTicket.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { queueConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
@@ -26,10 +28,10 @@ const mockGetTicketsByIdentifiers = jest.fn<(params: { settings: TrackerSettings
 const mockUpdateTicketLifecycle = jest.fn<(params: LifecycleParams) => Promise<TrackerFailure | undefined>>();
 const mockResolveTrackerSettings = jest.fn<(params: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => TrackerSettings | TrackerFailure>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
+jest.mock('#src/ticketTracker/getTicketsByIdentifiers.ts', () => ({
 	getTicketsByIdentifiers: (params: { settings: TrackerSettings; identifiers: string[] }) => mockGetTicketsByIdentifiers(params),
-	// Stubbed rather than run for real, so the credential never has to be planted
-	// on `process.env` — which nothing restores between files.
+}));
+jest.mock('#src/ticketTracker/resolveTrackerSettings.ts', () => ({
 	resolveTrackerSettings: (params: { config: LightsoutConfig; env: NodeJS.ProcessEnv }) => mockResolveTrackerSettings(params),
 }));
 jest.mock('#src/ticketLifecycle/updateTicketLifecycle.ts', () => ({

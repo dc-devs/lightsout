@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { PipelineKind } from '#src/contracts/index.ts';
-import { resolveNewRunDir } from '#src/runState/index.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import { resolveNewRunDir } from '#src/runState/common/paths/resolveNewRunDir.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 /**

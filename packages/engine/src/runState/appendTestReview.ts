@@ -1,5 +1,5 @@
-import type { TestReviewRecord } from '#src/contracts/index.ts';
-import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
+import type { TestReviewRecord } from '#src/contracts/run/TestReviewRecord.ts';
+import { appendRunLog } from '#src/runState/internal/common/utils/appendRunLog.ts';
 
 interface Params {
 	cwd: string;

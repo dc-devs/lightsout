@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildSupervisorInvocation } from '#src/agents/index.ts';
+import { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 
 interface SetupParams {
 	/** The plan the failing step belongs to — sentinel-marked so leakage into the cached prefix shows. */

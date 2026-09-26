@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
 import { testReporterEnv } from '#src/common/constants/testReporterEnv.ts';
-import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
-import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
-import { findJestConfigs } from '#src/doctor/common/utils/findJestConfigs.ts';
+import type { DoctorCheck } from '#src/doctor/internal/common/types/DoctorCheck.ts';
+import type { PackageDir } from '#src/doctor/internal/common/types/PackageDir.ts';
+import { findJestConfigs } from '#src/doctor/internal/common/utils/findJestConfigs.ts';
 
 /** A path no repository would name by hand, so finding it in `reporters` can only mean the config read the variable. */
 const sentinel = '/lightsout/doctor/jest-reporter-probe.cjs';

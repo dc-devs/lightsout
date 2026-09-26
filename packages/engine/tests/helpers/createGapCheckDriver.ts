@@ -1,5 +1,6 @@
 import { expect } from '@jest/globals';
-import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
 
 interface Params {
 	/** The gap set every checker in the fan-out returns. */

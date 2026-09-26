@@ -1,19 +1,21 @@
-import { RunStatus, type StepRecord, SupervisorDecision } from '#src/contracts/index.ts';
-import { stopOnGateCoordination } from '#src/pipeline/common/utils/stopOnGateCoordination.ts';
-import { stopOnGateCrash } from '#src/pipeline/common/utils/stopOnGateCrash.ts';
-import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
-import { reviewAndVerify } from '#src/pipeline/steps/verify/index.ts';
-import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/common/types/RepairOutcome.ts';
-import type { VerifyContext } from '#src/pipeline/steps/verifyStep/common/types/VerifyContext.ts';
-import { formatAndVerify } from '#src/pipeline/steps/verifyStep/common/utils/formatAndVerify.ts';
-import { runCheapRepairs } from '#src/pipeline/steps/verifyStep/common/utils/runCheapRepairs.ts';
-import { runGuidedRepair } from '#src/pipeline/steps/verifyStep/common/utils/runGuidedRepair.ts';
-import { withResult } from '#src/pipeline/steps/verifyStep/common/utils/withResult.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { StepRecord } from '#src/contracts/run/StepRecord.ts';
+import { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
+import { stopOnGateCoordination } from '#src/pipeline/internal/common/utils/stopOnGateCoordination.ts';
+import { stopOnGateNoVerdict } from '#src/pipeline/internal/common/utils/stopOnGateNoVerdict.ts';
+import type { PipelineStep } from '#src/pipeline/internal/PipelineStep.ts';
+import { reviewAndVerify } from '#src/pipeline/steps/verify/reviewAndVerify.ts';
+import type { RepairOutcome } from '#src/pipeline/steps/verifyStep/internal/common/types/RepairOutcome.ts';
+import type { VerifyContext } from '#src/pipeline/steps/verifyStep/internal/common/types/VerifyContext.ts';
+import { formatAndVerify } from '#src/pipeline/steps/verifyStep/internal/common/utils/formatAndVerify.ts';
+import { runCheapRepairs } from '#src/pipeline/steps/verifyStep/internal/common/utils/runCheapRepairs.ts';
+import { runGuidedRepair } from '#src/pipeline/steps/verifyStep/internal/common/utils/runGuidedRepair.ts';
+import { withResult } from '#src/pipeline/steps/verifyStep/internal/common/utils/withResult.ts';
 
-/** The first entry into the checkpoint when no formatter pass is owed: the review, then the gates. */
+/** The first entry into the checkpoint when no formatter pass is owed: the review (or the rename check), then the gates. */
 const enterVerification = async ({ context, record }: { context: VerifyContext; record: StepRecord }): Promise<RepairOutcome> => {
-	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests } = context;
-	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests });
+	const { run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames } = context;
+	const result = await reviewAndVerify({ run, id, coverage, final, planContent, overviewContent, acceptanceTests, renames });
 
 	if ('rateLimited' in result) {
 		return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
@@ -64,9 +66,10 @@ const runVerificationStep = async ({ context }: { context: VerifyContext }) => {
 		return stopOnGateCoordination({ run, stepId: id, record, coordination: result.coordination, error: result.error });
 	}
 
-	// Both repair stages step aside for a crash, so one check here catches it wherever it appeared.
-	if (result.crashes.length > 0) {
-		return stopOnGateCrash({ run, stepId: id, record, crashes: result.crashes, error: result.error });
+	// Both repair stages step aside for a crash and for a timeout, so one check here catches them wherever they appeared. The
+	// order is coordination, then crash, then timeout; the stop carries the full gate output, which names any other gate too.
+	if (result.crashes.length > 0 || result.timeouts.length > 0) {
+		return stopOnGateNoVerdict({ run, stepId: id, record, crashes: result.crashes, timeouts: result.timeouts, error: result.error });
 	}
 
 	if (result.error) {
@@ -94,7 +97,9 @@ const runVerificationStep = async ({ context }: { context: VerifyContext }) => {
  *
  * The review runs before the gates and can itself go red, under the
  * `test-review` family, without a gate being spent. It rides this budget rather
- * than opening one of its own.
+ * than opening one of its own. A rename-only checkpoint runs the rename check
+ * where the review would run, and its refusal goes red the same way under the
+ * `rename-check` family.
  */
 export const verifyStep = ({
 	run,
@@ -105,9 +110,10 @@ export const verifyStep = ({
 	coverage,
 	acceptanceTests,
 	final,
+	renames,
 	buildFix,
 }: VerifyContext): PipelineStep['run'] => {
-	const context: VerifyContext = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, buildFix };
+	const context: VerifyContext = { run, gitPrefix, planContent, overviewContent, id, coverage, acceptanceTests, final, renames, buildFix };
 
 	return () => runVerificationStep({ context });
 };

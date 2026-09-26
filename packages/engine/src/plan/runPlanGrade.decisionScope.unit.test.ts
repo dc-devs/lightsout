@@ -1,9 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type DecisionRow, DecisionSource, DecisionsRecord } from '#src/contracts/index.ts';
-import type { DriverInvocation } from '#src/drivers/index.ts';
-import { planWorkspaceDir, runPlanGrade, syncPlanDecisions } from '#src/plan/index.ts';
+import type { DecisionRow } from '#src/contracts/plan/decisions/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/decisions/DecisionSource.ts';
+import { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import {
 	closingVerdict,

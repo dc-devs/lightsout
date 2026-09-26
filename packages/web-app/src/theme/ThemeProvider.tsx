@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { themeStorageKey } from '#src/common/constants/themeStorageKey.ts';
-import { ThemeContext } from '#src/theme/ThemeContext.ts';
+import { ThemeContext } from '#src/theme/internal/ThemeContext.ts';
 
 /**
  * The stored choice, or undefined when nothing readable is stored — a browser

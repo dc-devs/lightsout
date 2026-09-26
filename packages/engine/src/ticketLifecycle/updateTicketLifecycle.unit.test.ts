@@ -1,7 +1,10 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { PlanningStatus } from '#src/common/constants/PlanningStatus.ts';
-import { type LifecycleSettings, TrackerStatusRole, updateTicketLifecycle } from '#src/ticketLifecycle/index.ts';
-import type { TrackerFailure, TrackerSettings } from '#src/ticketTracker/index.ts';
+import { TrackerStatusRole } from '#src/ticketLifecycle/common/constants/TrackerStatusRole.ts';
+import type { LifecycleSettings } from '#src/ticketLifecycle/common/types/LifecycleSettings.ts';
+import { updateTicketLifecycle } from '#src/ticketLifecycle/updateTicketLifecycle.ts';
+import type { TrackerFailure } from '#src/ticketTracker/common/types/TrackerFailure.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
 import { trackerSettingsFixture } from '#tests/helpers/trackerSettingsFixture.ts';
 
 // Mocked Imports
@@ -15,10 +18,8 @@ type TicketStatusParams = { settings: TrackerSettings; ticketId: string; statusN
 const mockSetExclusiveLabel = jest.fn<(params: ExclusiveLabelParams) => Promise<TrackerFailure | undefined>>();
 const mockSetTicketStatus = jest.fn<(params: TicketStatusParams) => Promise<TrackerFailure | undefined>>();
 
-jest.mock('#src/ticketTracker/index.ts', () => ({
-	setExclusiveLabel: (params: ExclusiveLabelParams) => mockSetExclusiveLabel(params),
-	setTicketStatus: (params: TicketStatusParams) => mockSetTicketStatus(params),
-}));
+jest.mock('#src/ticketTracker/setExclusiveLabel.ts', () => ({ setExclusiveLabel: (params: ExclusiveLabelParams) => mockSetExclusiveLabel(params) }));
+jest.mock('#src/ticketTracker/setTicketStatus.ts', () => ({ setTicketStatus: (params: TicketStatusParams) => mockSetTicketStatus(params) }));
 // -------------------------
 
 /**

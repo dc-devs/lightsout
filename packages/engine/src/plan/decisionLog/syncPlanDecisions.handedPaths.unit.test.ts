@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { DecisionsRecord } from '#src/contracts/index.ts';
-import { syncPlanDecisions } from '#src/plan/decisionLog/index.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { syncPlanDecisions } from '#src/plan/decisionLog/syncPlanDecisions.ts';
 import {
 	decisionLogPlanBody,
 	decisionTableRows,

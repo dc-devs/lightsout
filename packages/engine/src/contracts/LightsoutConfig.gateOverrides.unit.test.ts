@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig } from '#src/contracts/index.ts';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 
 // `gate-overrides` is the one block whose names cannot be checked by the block
 // itself: a gate may be configured under `gates`, under `package-gates`, or

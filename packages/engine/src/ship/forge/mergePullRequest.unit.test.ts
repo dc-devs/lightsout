@@ -1,14 +1,14 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import { ShipMergeMethod } from '#src/contracts/index.ts';
-import { mergePullRequest } from '#src/ship/forge/index.ts';
-import { runGh } from '#src/ship/forge/runGh.ts';
+import { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import { runGh } from '#src/ship/forge/internal/runGh.ts';
+import { mergePullRequest } from '#src/ship/forge/mergePullRequest.ts';
 
 // The forge command is mocked rather than stubbed onto PATH: confirming a merge
 // the forge only queued polls for up to half an hour, and the fake clock that
 // makes those polls instant also runs out a real child process's own deadline —
 // so a stubbed `gh` would be killed mid-answer instead of replying.
-jest.mock('#src/ship/forge/runGh.ts', () => ({ runGh: jest.fn<typeof runGh>() }));
+jest.mock('#src/ship/forge/internal/runGh.ts', () => ({ runGh: jest.fn<typeof runGh>() }));
 
 const mockRunGh = jest.mocked(runGh);
 

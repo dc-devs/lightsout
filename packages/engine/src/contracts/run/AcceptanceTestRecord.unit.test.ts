@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { AcceptanceTestRecord } from '#src/contracts/index.ts';
+import { AcceptanceTestRecord } from '#src/contracts/run/AcceptanceTestRecord.ts';
 
 const setupRow = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const row: Record<string, unknown> = {

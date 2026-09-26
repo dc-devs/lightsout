@@ -1,8 +1,8 @@
 import type { PullRequestState } from '#src/ship/forge/common/constants/PullRequestState.ts';
 import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
-import { parseForgeJson } from '#src/ship/forge/common/utils/parseForgeJson.ts';
-import { toPullRequestSummary } from '#src/ship/forge/common/utils/toPullRequestSummary.ts';
-import { runGh } from '#src/ship/forge/runGh.ts';
+import { parseForgeJson } from '#src/ship/forge/internal/common/utils/parseForgeJson.ts';
+import { toPullRequestSummary } from '#src/ship/forge/internal/common/utils/toPullRequestSummary.ts';
+import { runGh } from '#src/ship/forge/internal/runGh.ts';
 
 interface Params {
 	branch: string;

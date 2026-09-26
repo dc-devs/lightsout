@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity } from '#src/contracts/plan/grade/FindingSeverity.ts';
+import { StructuralCheck } from '#src/contracts/plan/grade/StructuralCheck.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
 import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
 import { checkPhaseDeclarations } from '#src/plan/lint/checkPhaseDeclarations.ts';
@@ -227,5 +228,43 @@ describe('checkPhaseDeclarations', () => {
 
 		// a budget under the phase own work would refuse it at implement time
 		expect(findings.map((finding) => finding.issue)).toStrictEqual(['the file budget declared for phase1-core.md (3) is below its own touched count (5)']);
+	});
+
+	test("a Renames only declaration that disagrees with its phase file's own Renames section is one blocking finding", () => {
+		const renames = [{ from: 'oldName', to: 'newName' }];
+		const phases = phaseFilesFor({
+			specs: [{ base: 'phase1-declared.md' }, { base: 'phase2-undeclared.md', spec: { renames } }, { base: 'phase3-agreed.md', spec: { renames } }],
+		});
+		const declarations = [
+			declarationFor({ number: 1, file: 'phase1-declared.md', renamesOnly: true }),
+			declarationFor({ number: 2, file: 'phase2-undeclared.md' }),
+			declarationFor({ number: 3, file: 'phase3-agreed.md', renamesOnly: true }),
+		];
+		const counts = new Map([
+			['phase1-declared.md', { created: 0, touched: 0 }],
+			['phase2-undeclared.md', { created: 0, touched: 0 }],
+			['phase3-agreed.md', { created: 0, touched: 0 }],
+		]);
+
+		const findings = check({ declarations, phases, counts });
+
+		// one finding each for the bullet with no Renames section behind it and the
+		// Renames section with no bullet; the phase whose two copies agree is silent
+		expect(findings).toEqual([
+			expect.objectContaining({
+				check: StructuralCheck.DeclarationConsistent,
+				severity: FindingSeverity.Blocking,
+				phase: 'overview.md',
+				location: 'overview.md → Phase Declarations',
+				issue: expect.stringContaining('phase1-declared.md'),
+			}),
+			expect.objectContaining({
+				check: StructuralCheck.DeclarationConsistent,
+				severity: FindingSeverity.Blocking,
+				phase: 'overview.md',
+				location: 'overview.md → Phase Declarations',
+				issue: expect.stringContaining('phase2-undeclared.md'),
+			}),
+		]);
 	});
 });

@@ -5,8 +5,10 @@ import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { FixtureSide } from '#src/contracts/index.ts';
-import { getStandardsPackRuleView, StandardsPackNotFoundError, StandardsPackRuleNotFoundError } from '#src/views/index.ts';
+import { FixtureSide } from '#src/contracts/views/FixtureSide.ts';
+import { getStandardsPackRuleView } from '#src/views/getStandardsPackRuleView.ts';
+import { StandardsPackNotFoundError } from '#src/views/StandardsPackNotFoundError.ts';
+import { StandardsPackRuleNotFoundError } from '#src/views/StandardsPackRuleNotFoundError.ts';
 
 /** Write a set of folder-relative files, creating the folders they need. */
 const writeTree = async ({ dir, files }: { dir: string; files: Record<string, string> }) => {

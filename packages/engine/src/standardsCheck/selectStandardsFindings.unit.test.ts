@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { StandardsFinding } from '#src/contracts/index.ts';
-import { selectStandardsFindings } from '#src/standardsCheck/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { selectStandardsFindings } from '#src/standardsCheck/selectStandardsFindings.ts';
 
 const finding = (overrides: Partial<StandardsFinding>): StandardsFinding => ({
 	rule: 'multi-export',

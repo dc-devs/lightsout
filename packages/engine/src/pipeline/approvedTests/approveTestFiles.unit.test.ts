@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { ApprovedTestRecord } from '#src/contracts/index.ts';
-import { approveTestFiles } from '#src/pipeline/approvedTests/index.ts';
-import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { ApprovedTestRecord } from '#src/contracts/run/ApprovedTestRecord.ts';
+import { approveTestFiles } from '#src/pipeline/approvedTests/approveTestFiles.ts';
+import type { PipelineRun } from '#src/pipeline/internal/PipelineRun.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { seedRunFolder } from '#tests/helpers/seedRunFolder.ts';
 

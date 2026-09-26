@@ -2,8 +2,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { resumeCommand } from '#src/cli/resumeCommand.ts';
-import { type LightsoutConfig, PipelineKind, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PipelineKind } from '#src/contracts/run/PipelineKind.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 
@@ -16,7 +19,13 @@ import { manifestOf, runId, setupResume } from '#tests/helpers/setupResume.ts';
 // the commit module are stubbed, so a commit made anywhere at this edge would
 // be seen rather than silently succeed.
 type DirectWorkParams = { cwd: string; ticketBody: string; ticketRef: string; existing?: RunManifest };
-type CommitParams = { cwd: string; message: string; runDir: string; generated: string[] | undefined; onProgress: (message: string) => void };
+type CommitParams = {
+	cwd: string;
+	composeMessage: ({ cwd }: { cwd: string }) => Promise<string>;
+	runDir: string;
+	generated: string[] | undefined;
+	onProgress: (message: string) => void;
+};
 type CommitRunWorkParams = {
 	run: {
 		cwd: string;
@@ -40,27 +49,23 @@ type ExitAfterImplementParams = {
 
 const mockRunDirectWork = jest.fn<(params: DirectWorkParams) => Promise<PipelineResult>>();
 
-jest.mock('#src/direct/index.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
+jest.mock('#src/direct/runDirectWork.ts', () => ({ runDirectWork: (params: DirectWorkParams) => mockRunDirectWork(params) }));
 // -------------------------
 const mockCommitRunWork = jest.fn<(params: CommitRunWorkParams) => Promise<string | undefined>>();
-const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: boolean } | { error: string }>>();
+const mockCommitTicketWork = jest.fn<(params: CommitParams) => Promise<{ committed: false } | { committed: true; message: string } | { error: string }>>();
 
-jest.mock('#src/commit/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/commit/index.ts')>('#src/commit/index.ts'),
-	commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params),
-	commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params),
-}));
+jest.mock('#src/commit/commitRunWork.ts', () => ({ commitRunWork: (params: CommitRunWorkParams) => mockCommitRunWork(params) }));
+jest.mock('#src/commit/commitWorkOrderWork.ts', () => ({ commitWorkOrderWork: (params: CommitParams) => mockCommitTicketWork(params) }));
 // -------------------------
 const mockRequireImplementLifecycle = jest.fn<(params: GuardParams) => Promise<string | undefined>>();
 
-jest.mock('#src/ticketLifecycle/index.ts', () => ({
-	...jest.requireActual<typeof import('#src/ticketLifecycle/index.ts')>('#src/ticketLifecycle/index.ts'),
+jest.mock('#src/ticketLifecycle/requireImplementLifecycle.ts', () => ({
 	requireImplementLifecycle: (params: GuardParams) => mockRequireImplementLifecycle(params),
 }));
 // -------------------------
 const mockExitAfterImplement = jest.fn<(params: ExitAfterImplementParams) => Promise<void>>();
 
-jest.mock('#src/cli/common/utils/exitAfterImplement.ts', () => ({
+jest.mock('#src/cli/internal/common/utils/exitAfterImplement.ts', () => ({
 	exitAfterImplement: (params: ExitAfterImplementParams) => mockExitAfterImplement(params),
 }));
 // -------------------------
@@ -122,7 +127,7 @@ const setupDirectResume = async ({
 
 	mockRequireImplementLifecycle.mockResolvedValue(undefined);
 	mockRunDirectWork.mockResolvedValue({ ok: true, manifest: manifestOf({ pipeline: PipelineKind.Direct, status: RunStatus.Passed, workspace, branch }) });
-	mockCommitTicketWork.mockResolvedValue({ committed: true });
+	mockCommitTicketWork.mockResolvedValue({ committed: true, message: 'LO-70: stub subject\n\nlightsout run stub\n' });
 	mockExitAfterImplement.mockResolvedValue(undefined);
 
 	return { workspace, ...seeded };

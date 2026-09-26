@@ -1,4 +1,4 @@
-import type { WorkOrderRunOutcome } from '#src/queue/index.ts';
+import type { WorkOrderRunOutcome } from '#src/queue/common/types/WorkOrderRunOutcome.ts';
 
 /** A worker result with stable label, branch and worktree names, optionally failed or parked. */
 export const queueOutcomeFixture = ({

@@ -1,27 +1,26 @@
 import { join } from 'node:path';
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import { buildPlanWriterInvocation } from '#src/agents/buildPlanWriterInvocation/buildPlanWriterInvocation.ts';
 import { createdFileCeiling } from '#src/common/constants/createdFileCeiling.ts';
-import {
-	ActivityLevelKind,
-	type ConfigDocs,
-	type DecisionsRecord,
-	type Effort,
-	type Permissions,
-	PlanDraftReport,
-	type PlanFacts,
-	PlanVariant,
-} from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { getPlanRunStatus } from '#src/plan/common/activity/getPlanRunStatus.ts';
-import { planDraftConcurrency } from '#src/plan/common/constants/planDraftConcurrency.ts';
+import { touchedFileCeiling } from '#src/common/constants/touchedFileCeiling.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ConfigDocs } from '#src/contracts/ConfigDocs.ts';
+import type { Effort } from '#src/contracts/Effort.ts';
+import type { Permissions } from '#src/contracts/Permissions.ts';
+import type { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanDraftReport } from '#src/contracts/plan/draft/PlanDraftReport.ts';
+import { PlanVariant } from '#src/contracts/plan/draft/PlanVariant.ts';
+import type { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import type { PhaseDeclaration } from '#src/plan/common/types/PhaseDeclaration.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
-import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
-import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
-import type { AuthorPhaseFilesResult } from '#src/plan/draft/common/types/AuthorPhaseFilesResult.ts';
-import type { PhaseOutcome } from '#src/plan/draft/common/types/PhaseOutcome.ts';
-import { foldPhaseOutcomes } from '#src/plan/draft/common/utils/foldPhaseOutcomes.ts';
+import type { AuthorPhaseFilesResult } from '#src/plan/draft/internal/common/types/AuthorPhaseFilesResult.ts';
+import type { PhaseOutcome } from '#src/plan/draft/internal/common/types/PhaseOutcome.ts';
+import { foldPhaseOutcomes } from '#src/plan/draft/internal/common/utils/foldPhaseOutcomes.ts';
+import { getPlanRunStatus } from '#src/plan/internal/common/activity/getPlanRunStatus.ts';
+import { planDraftConcurrency } from '#src/plan/internal/common/constants/planDraftConcurrency.ts';
+import { createPlanAgentRunner } from '#src/plan/internal/common/utils/createPlanAgentRunner.ts';
+import { drainTasks } from '#src/plan/internal/common/utils/drainTasks.ts';
+import { isRateLimited } from '#src/plan/internal/common/utils/isRateLimited.ts';
 
 interface Params {
 	cwd: string;
@@ -81,7 +80,7 @@ const spawnPhase = async ({
 			overviewText,
 			declaration,
 			previousDeclaration,
-			limits: { executorFileLimit, createdFileCeiling },
+			limits: { executorFileLimit, createdFileCeiling, touchedFileCeiling },
 			standards,
 			docs,
 			contract,

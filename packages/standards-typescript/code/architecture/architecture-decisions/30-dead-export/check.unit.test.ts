@@ -25,10 +25,11 @@ describe('dead-export check', () => {
 		expect(check.inputKind).toBe('file-text');
 	});
 
-	test('reports an export no module, barrel or test mentions', async () => {
+	test('reports an export no module or test mentions, a folder barrel listing it aside', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting';"],
+				['src/feature/index.ts', "export { renderGreeting, buildGreeting } from './renderGreeting';"],
+				['src/app.ts', 'renderGreeting();'],
 				['src/feature/renderGreeting.ts', 'export const renderGreeting = ({ name }: { name: string }): string => `<p>${name}</p>`;'],
 				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
 			],
@@ -46,10 +47,10 @@ describe('dead-export check', () => {
 		]);
 	});
 
-	test('leaves alone an export a barrel or a test still reaches — those are other rules’ verdicts', async () => {
+	test('leaves alone an export a package entry lists or a test reaches — the entry is read by other packages, and the test is another rule’s verdict', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting';"],
+				['src/index.ts', "export { renderGreeting } from './feature/renderGreeting';"],
 				['src/feature/renderGreeting.ts', 'export const renderGreeting = ({ name }: { name: string }): string => `<p>${name}</p>`;'],
 				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
 				['src/feature/buildGreeting.unit.test.ts', "import { buildGreeting } from './buildGreeting';"],

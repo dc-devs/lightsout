@@ -2,13 +2,14 @@ import { mkdir, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
-import type { QueueBoard, QueueLane } from '#src/contracts/index.ts';
-import type { QueueBoardLanes } from '#src/queue/board/common/types/QueueBoardLanes.ts';
+import type { QueueBoard } from '#src/contracts/queue/QueueBoard.ts';
+import type { QueueLane } from '#src/contracts/queue/QueueLane.ts';
 import { getQueueBoardPath } from '#src/queue/board/getQueueBoardPath.ts';
+import type { QueueBoardLanes } from '#src/queue/board/internal/common/types/QueueBoardLanes.ts';
 import { toQueueBoardTickets } from '#src/queue/board/toQueueBoardTickets.ts';
 import type { QueueDrainReport } from '#src/queue/common/types/QueueDrainReport.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import { resolveWorktreesRoot } from '#src/worktree/index.ts';
+import { resolveWorktreesRoot } from '#src/worktree/resolveWorktreesRoot.ts';
 
 interface ConstructorParams {
 	/** The MAIN repository checkout the coordinator run lives in. */

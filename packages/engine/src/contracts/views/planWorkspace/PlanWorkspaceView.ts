@@ -1,6 +1,9 @@
 import { z } from 'zod';
-import { DedupReport } from '#src/contracts/dedup/index.ts';
-import { BrainstormDecisions, DecisionsRecord, GradeReport, PlanFacts } from '#src/contracts/plan/index.ts';
+import { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
+import { BrainstormDecisions } from '#src/contracts/plan/decisions/BrainstormDecisions.ts';
+import { DecisionsRecord } from '#src/contracts/plan/decisions/DecisionsRecord.ts';
+import { PlanFacts } from '#src/contracts/plan/facts/PlanFacts.ts';
+import { GradeReport } from '#src/contracts/plan/grade/GradeReport.ts';
 import { PlanWorkspaceFile } from '#src/contracts/views/planWorkspace/PlanWorkspaceFile.ts';
 import { PlanWorkspaceListing } from '#src/contracts/views/planWorkspace/PlanWorkspaceListing.ts';
 import { RunListing } from '#src/contracts/views/RunListing.ts';

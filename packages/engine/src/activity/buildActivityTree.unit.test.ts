@@ -1,17 +1,15 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildActivityTree } from '#src/activity/index.ts';
-import {
-	type ActivityLevelEnd,
-	ActivityLevelKind,
-	type ActivityLevelStart,
-	type ActivityMark,
-	ActivityMarkKind,
-	ActivityReport,
-	type HarnessProcessMark,
-	type HarnessProcessUsage,
-	ProcessEndReason,
-	RunStatus,
-} from '#src/contracts/index.ts';
+import { buildActivityTree } from '#src/activity/buildActivityTree.ts';
+import type { ActivityLevelEnd } from '#src/contracts/activity/ActivityLevelEnd.ts';
+import { ActivityLevelKind } from '#src/contracts/activity/ActivityLevelKind.ts';
+import type { ActivityLevelStart } from '#src/contracts/activity/ActivityLevelStart.ts';
+import type { ActivityMark } from '#src/contracts/activity/ActivityMark.ts';
+import { ActivityMarkKind } from '#src/contracts/activity/ActivityMarkKind.ts';
+import { ActivityReport } from '#src/contracts/activity/ActivityReport.ts';
+import type { HarnessProcessMark } from '#src/contracts/activity/HarnessProcessMark.ts';
+import type { HarnessProcessUsage } from '#src/contracts/activity/HarnessProcessUsage.ts';
+import { ProcessEndReason } from '#src/contracts/activity/ProcessEndReason.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /** One level opening, carrying only what a case varies. */
 const levelStart = ({

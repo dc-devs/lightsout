@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { RunDetail, runQueryOptions } from '#src/features/runDetail/index.ts';
+import { runQueryOptions } from '#src/features/runDetail/queries/runQueryOptions.ts';
+import { RunDetail } from '#src/features/runDetail/screens/RunDetail/RunDetail.tsx';
 
 // The trailing underscore on `runs_` is the router's own spelling for "this
 // path segment is not a layout": without it the file router would nest the

@@ -2,7 +2,8 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, realpathSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { RunNotFoundError, resolveRunDir } from '#src/runState/index.ts';
+import { resolveRunDir } from '#src/runState/common/paths/resolveRunDir.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

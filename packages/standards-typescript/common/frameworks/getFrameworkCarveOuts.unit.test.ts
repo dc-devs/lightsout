@@ -8,12 +8,12 @@ describe('getFrameworkCarveOuts', () => {
 	test.each([
 		{
 			dependency: '@nestjs/core',
-			expected: { entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: [], moduleFolders: [] },
+			expected: { entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: [] },
 		},
-		{ dependency: 'next', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['app', 'pages'], moduleFolders: [] } },
+		{ dependency: 'next', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['app', 'pages'] } },
 		{
 			dependency: '@tanstack/react-router',
-			expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: [] },
+			expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'] },
 		},
 		{
 			dependency: '@tanstack/react-start',
@@ -22,11 +22,10 @@ describe('getFrameworkCarveOuts', () => {
 				exemptFolderNames: [],
 				kebabCase: false,
 				routerRoots: ['routes'],
-				moduleFolders: [],
 			},
 		},
-		{ dependency: '@remix-run/react', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: [] } },
-		{ dependency: 'expo-router', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['app'], moduleFolders: [] } },
+		{ dependency: '@remix-run/react', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'] } },
+		{ dependency: 'expo-router', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['app'] } },
 	])('$dependency earns exactly the exemptions its own layout mandates', ({ dependency, expected }) => {
 		const dependencies = setupDependencies({ packages: [['.', [dependency]]] });
 
@@ -42,7 +41,7 @@ describe('getFrameworkCarveOuts', () => {
 
 			const carveOuts = getFrameworkCarveOuts({ dependencies });
 
-			expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] }]);
+			expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [] }]);
 		},
 	);
 
@@ -51,20 +50,17 @@ describe('getFrameworkCarveOuts', () => {
 
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
 
-		expect(carveOuts).toStrictEqual([
-			{ directory: '.', entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: ['app', 'pages'], moduleFolders: [] },
-		]);
+		expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: ['app', 'pages'] }]);
 	});
 
-	test('a package declaring a framework the table knows still gets both empty dimensions — the contract, not an oversight', () => {
+	test('a package declaring a framework the table knows still gets an empty folder-name dimension — the contract, not an oversight', () => {
 		const dependencies = setupDependencies({ packages: [['.', ['@tanstack/react-router', '@nestjs/core']]] });
 
 		const [carveOut] = getFrameworkCarveOuts({ dependencies });
 
-		// no framework's own documents mandate a folder name or a module shape, so
-		// the two questions built on them answer no everywhere until one does
+		// no framework's own documents mandate a folder name, so the question
+		// built on it answers no everywhere until one does
 		expect(carveOut?.exemptFolderNames).toStrictEqual([]);
-		expect(carveOut?.moduleFolders).toStrictEqual([]);
 	});
 
 	test('dedupes a router root two frameworks both mandate, and keeps what each of them alone earns', () => {
@@ -79,7 +75,6 @@ describe('getFrameworkCarveOuts', () => {
 				exemptFolderNames: [],
 				kebabCase: false,
 				routerRoots: ['routes'],
-				moduleFolders: [],
 			},
 		]);
 	});
@@ -89,7 +84,7 @@ describe('getFrameworkCarveOuts', () => {
 
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
 
-		expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] }]);
+		expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [] }]);
 	});
 
 	test('gives each package its own answer rather than the union across the repo', () => {
@@ -109,9 +104,8 @@ describe('getFrameworkCarveOuts', () => {
 				exemptFolderNames: [],
 				kebabCase: true,
 				routerRoots: [],
-				moduleFolders: [],
 			},
-			{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: [] },
+			{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'] },
 		]);
 	});
 

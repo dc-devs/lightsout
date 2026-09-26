@@ -1,6 +1,7 @@
 import { expect, test } from '@jest/globals';
-import type { AgentEnvironment, DriverCapabilities } from '#src/drivers/index.ts';
-import { getMissingEnvironmentControls } from '#src/drivers/index.ts';
+import type { AgentEnvironment } from '#src/drivers/common/types/AgentEnvironment.ts';
+import type { DriverCapabilities } from '#src/drivers/common/types/DriverCapabilities.ts';
+import { getMissingEnvironmentControls } from '#src/drivers/getMissingEnvironmentControls.ts';
 
 const setupControls = ({
 	requires = {},

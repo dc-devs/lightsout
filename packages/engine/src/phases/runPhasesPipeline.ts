@@ -1,10 +1,13 @@
-import type { ActivityLevel } from '#src/activity/index.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
+import type { ActivityLevel } from '#src/activity/common/types/ActivityLevel.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { initializeSequence } from '#src/phases/initializeSequence.ts';
-import { runPhase } from '#src/phases/runPhase.ts';
-import type { PipelineResult } from '#src/pipeline/index.ts';
-import { createProgressSink, writeRunManifest } from '#src/runState/index.ts';
+import { runPhase } from '#src/phases/internal/runPhase.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { createProgressSink } from '#src/runState/progress/createProgressSink.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
 	cwd: string;

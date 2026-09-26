@@ -1,4 +1,4 @@
-import { CopyButton } from '#src/appUI/index.ts';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 import { cn } from '#src/common/utils/cn.ts';
 
 /** The slash command a reader types into Claude Code, and what it is given. Split so the command word can be coloured apart from its argument. */

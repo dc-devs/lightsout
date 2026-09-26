@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { ConfigView } from '#src/contracts/index.ts';
-import { getConfigView } from '#src/views/index.ts';
+import type { ConfigView } from '#src/contracts/views/config/ConfigView.ts';
+import { getConfigView } from '#src/views/getConfigView.ts';
 import { jiraTicketTrackerConfigBlock, ticketTrackerConfigBlock } from '#tests/helpers/queueConfigBlock.ts';
 import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 

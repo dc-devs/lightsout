@@ -1,4 +1,4 @@
-import { RunStatus } from '#src/contracts/index.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
 
 interface Params {

@@ -2,17 +2,17 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import {
-	type LightsoutConfig,
-	PlanProgress,
-	type RunLock,
-	WorkOrderEventKind,
-	WorkOrderMode,
-	type WorkOrderPlan,
-	type WorkOrderState,
-} from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
-import { excludeWorkOrderPlan, setWorkOrderMode, updateLocalWorkOrderState } from '#src/workOrder/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunLock } from '#src/contracts/run/RunLock.ts';
+import { PlanProgress } from '#src/contracts/workOrder/PlanProgress.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
+import type { WorkOrderPlan } from '#src/contracts/workOrder/WorkOrderPlan.ts';
+import type { WorkOrderState } from '#src/contracts/workOrder/WorkOrderState.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
+import { excludeWorkOrderPlan } from '#src/workOrder/excludeWorkOrderPlan.ts';
+import { setWorkOrderMode } from '#src/workOrder/setWorkOrderMode.ts';
+import { updateLocalWorkOrderState } from '#src/workOrder/updateLocalWorkOrderState.ts';
 
 // Mocked Imports
 // -------------------------
@@ -32,15 +32,17 @@ interface GateParams {
 
 const mockRunGates = jest.fn<(params: GateParams) => Promise<GateRunResult>>();
 
-jest.mock('#src/gates/index.ts', () => ({ runGates: (params: GateParams) => mockRunGates(params) }));
+jest.mock('#src/gates/runGates.ts', () => ({ runGates: (params: GateParams) => mockRunGates(params) }));
 // -------------------------
 const mockReadBranchWorktree = jest.fn<(params: { cwd: string; branch: string }) => Promise<string | undefined>>();
 
-jest.mock('#src/worktree/index.ts', () => ({ readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params) }));
+jest.mock('#src/worktree/readBranchWorktree.ts', () => ({
+	readBranchWorktree: (params: { cwd: string; branch: string }) => mockReadBranchWorktree(params),
+}));
 // -------------------------
 const mockReadLiveRunLock = jest.fn<(params: { cwd: string }) => Promise<RunLock | undefined>>();
 
-jest.mock('#src/runState/index.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
+jest.mock('#src/runState/lock/readLiveRunLock.ts', () => ({ readLiveRunLock: (params: { cwd: string }) => mockReadLiveRunLock(params) }));
 // -------------------------
 const mockReadGitChangedFiles = jest.fn<(params: { cwd: string }) => Promise<string[] | undefined>>();
 
@@ -140,7 +142,13 @@ const setupExclusion = async (setup: ExclusionSetup = {}) => {
 	mockReadGitChangedFiles.mockResolvedValue(changed);
 	mockReadGitHeadCommit.mockResolvedValue(head);
 	mockReadConfig.mockResolvedValue(checkoutConfig);
-	mockRunGates.mockResolvedValue({ error: gateError, failedFamilies: gateError === undefined ? [] : ['test'], crashes: [], coordination: undefined });
+	mockRunGates.mockResolvedValue({
+		error: gateError,
+		failedFamilies: gateError === undefined ? [] : ['test'],
+		crashes: [],
+		timeouts: [],
+		coordination: undefined,
+	});
 
 	const recordPath = join(cwd, '.lightsout', 'work-orders', name, 'state.json');
 

@@ -1,16 +1,18 @@
 import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { closeRefactorRun } from '#src/refactor/closeRefactorRun.ts';
-import { countByRule } from '#src/refactor/countByRule.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
 import { initializeRun } from '#src/refactor/initializeRun.ts';
+import { closeRefactorRun } from '#src/refactor/internal/closeRefactorRun.ts';
+import { countByRule } from '#src/refactor/internal/countByRule.ts';
+import { RefactorRun } from '#src/refactor/internal/RefactorRun.ts';
+import { runWorklistBatches } from '#src/refactor/internal/runWorklistBatches.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
-import { RefactorRun } from '#src/refactor/RefactorRun.ts';
-import { runWorklistBatches } from '#src/refactor/runWorklistBatches.ts';
 import { seedResumeState } from '#src/refactor/seedResumeState.ts';
-import { withRunLock } from '#src/runState/index.ts';
-import { resolveStandards } from '#src/standards/index.ts';
-import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
+import { withRunLock } from '#src/runState/lock/withRunLock.ts';
+import { resolveStandards } from '#src/standards/resolveStandards.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/resolveStandardsPacks.ts';
 
 interface Params {
 	cwd: string;

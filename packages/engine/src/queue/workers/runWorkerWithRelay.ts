@@ -1,20 +1,25 @@
 import type { AnsweredQuestion } from '#src/common/types/AnsweredQuestion.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
-import { runDirectWork } from '#src/direct/index.ts';
-import type { Driver } from '#src/drivers/index.ts';
-import { pathExists, planWorkspaceDir, restorePlanWorkspace } from '#src/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { runDirectWork } from '#src/direct/runDirectWork.ts';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { restorePlanWorkspace } from '#src/plan/restore/restorePlanWorkspace.ts';
 import { QueueWorker } from '#src/queue/common/constants/QueueWorker.ts';
 import type { QuestionRelay } from '#src/queue/common/types/QuestionRelay.ts';
 import type { QueueSettings } from '#src/queue/common/types/QueueSettings.ts';
-import type { RunnableTicket } from '#src/queue/common/types/RunnableTicket.ts';
 import type { TicketSummary } from '#src/queue/common/types/TicketSummary.ts';
-import type { WorkerOutcome } from '#src/queue/common/types/WorkerOutcome.ts';
-import { buildWorkOrderPlans } from '#src/queue/workers/buildWorkOrderPlans.ts';
-import { runAutoPlanWorker } from '#src/queue/workers/runAutoPlanWorker.ts';
-import { runPlanFolderPipeline } from '#src/queue/workers/runPlanFolderPipeline.ts';
-import type { TrackerSettings } from '#src/ticketTracker/index.ts';
-import { pullWorkOrderState } from '#src/workOrder/index.ts';
+import type { RunnableTicket } from '#src/queue/internal/common/types/RunnableTicket.ts';
+import type { WorkerOutcome } from '#src/queue/internal/common/types/WorkerOutcome.ts';
+import { buildWorkOrderPlans } from '#src/queue/workers/internal/buildWorkOrderPlans.ts';
+import { toWorkerOutcome } from '#src/queue/workers/internal/common/utils/toWorkerOutcome.ts';
+import { runAutoPlanWorker } from '#src/queue/workers/internal/runAutoPlanWorker.ts';
+import { runPlanFolderPipeline } from '#src/queue/workers/internal/runPlanFolderPipeline.ts';
+import type { TrackerSettings } from '#src/ticketTracker/common/types/TrackerSettings.ts';
+import { runWorkOrderBodyBuildLifecycle } from '#src/workOrder/implementRun/runWorkOrderBodyBuildLifecycle.ts';
+import { pullWorkOrderState } from '#src/workOrder/pullWorkOrderState.ts';
 
 interface Params {
 	/** The worktree this ticket is built in. */
@@ -39,9 +44,16 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
-/** The direct worker, its run result read back in the same three terms. */
+/**
+ * The direct worker, its run result read back in the same three terms.
+ *
+ * The build goes through the body-build lifecycle, which records it on the work
+ * order record when that record is a single-plan one holding no plan 001 — the
+ * build the ship check then reads — and writes nothing otherwise.
+ */
 const runDirectWorker = async ({
 	cwd,
+	workOrderName,
 	ticket,
 	config,
 	driver,
@@ -50,6 +62,7 @@ const runDirectWorker = async ({
 	onProgress,
 }: {
 	cwd: string;
+	workOrderName: string;
 	ticket: TicketSummary;
 	config: LightsoutConfig;
 	driver: Driver;
@@ -57,24 +70,27 @@ const runDirectWorker = async ({
 	answeredQuestion?: AnsweredQuestion;
 	onProgress?: (message: string) => void;
 }): Promise<WorkerOutcome> => {
-	const result = await runDirectWork({
+	const outcome = await runWorkOrderBodyBuildLifecycle({
 		cwd,
-		ticketBody: ticket.description,
-		ticketRef: ticket.identifier,
-		driver,
-		driverName,
-		config,
-		answeredQuestion,
-		onProgress,
+		workOrderName,
+		run: ({ runId }) =>
+			runDirectWork({
+				cwd,
+				ticketBody: ticket.description,
+				ticketRef: ticket.identifier,
+				runId,
+				driver,
+				driverName,
+				config,
+				answeredQuestion,
+				onProgress,
+			}),
 	});
 
-	if (result.ok) {
-		return {};
-	}
-
-	const stated = result.error ?? `the run ended ${result.manifest.status}`;
-
-	return result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated };
+	return toWorkerOutcome({
+		outcome,
+		onFailedRun: ({ stated, result }) => (result.manifest.status === RunStatus.Escalated ? { question: stated } : { error: stated }),
+	});
 };
 
 /**
@@ -150,7 +166,7 @@ const runPlanWorker = async ({
 		if (restored.restored.length === 0) {
 			onProgress?.(`${ticket.identifier} carries no published plan, so it is built from the ticket body`);
 
-			return runDirectWorker({ cwd, ticket, config, driver, driverName, onProgress });
+			return runDirectWorker({ cwd, workOrderName, ticket, config, driver, driverName, onProgress });
 		}
 	}
 
@@ -189,7 +205,7 @@ export const runWorkerWithRelay = async ({
 
 	for (let turn = 0; ; turn += 1) {
 		const workers: Record<QueueWorker, () => Promise<WorkerOutcome>> = {
-			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, ticket, config, driver, driverName, answeredQuestion, onProgress }),
+			[QueueWorker.Direct]: () => runDirectWorker({ cwd: worktreePath, workOrderName, ticket, config, driver, driverName, answeredQuestion, onProgress }),
 			[QueueWorker.Plan]: () =>
 				runPlanWorker({ cwd: worktreePath, ticket, workOrderName, config, driver, driverName, trackerSettings, env, workOrderRunDir, onProgress }),
 			[QueueWorker.AutoPlan]: () =>

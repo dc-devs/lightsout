@@ -1,26 +1,20 @@
 import { defaultGateTimeoutMinutes } from '#src/common/constants/defaultGateTimeoutMinutes.ts';
-import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateResult } from '#src/contracts/gates/GateResult.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { GateScheduleKind } from '#src/gates/common/constants/GateScheduleKind.ts';
 import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { GateSchedule } from '#src/gates/common/types/GateSchedule.ts';
-import { stageCountOf } from '#src/gates/common/utils/stageCountOf.ts';
-import { createGateRunner } from '#src/gates/createGateRunner.ts';
-import { withGateLock } from '#src/gates/gateLock/index.ts';
-import { runGateSchedule } from '#src/gates/runGateSchedule.ts';
+import { withGateLock } from '#src/gates/gateLock/withGateLock.ts';
+import { stageCountOf } from '#src/gates/internal/common/utils/stageCountOf.ts';
+import { createGateRunner } from '#src/gates/internal/createGateRunner.ts';
+import { runGateSchedule } from '#src/gates/internal/runGateSchedule.ts';
 
 interface Params {
 	cwd: string;
 	config: LightsoutConfig;
-	/**
-	 * Also run the coverage gate. On at clean-slate and every verify AFTER
-	 * tests exist; off for verify-implement, where freshly written source has
-	 * no tests yet and a coverage failure would not be the agent's fault.
-	 */
+	/** Also run the coverage gate. Off for verify-implement, where new source has no tests yet. */
 	coverage?: boolean;
-	/**
-	 * Package scope for scoped gates (directory names under packagesDir).
-	 * Ignored unless `config['package-gates']` is set.
-	 */
+	/** Packages in scope (directory names under packagesDir); only used with `package-gates`. */
 	packages?: string[];
 	/** In scoped mode, run the whole-repository `gates.*` instead of package groups. */
 	includeRoot?: boolean;
@@ -28,21 +22,9 @@ interface Params {
 	runId?: string;
 	/** Pipeline step in flight, recorded in the command log. */
 	step?: string;
-	/**
-	 * Stop each group at its first red (default); false runs every gate in every
-	 * group and aggregates the failures — verify's complete-report mode.
-	 *
-	 * It governs a stage of a `single` or `tiered` schedule. An `exact` schedule
-	 * always stops at its first red whatever is passed here, because the declared
-	 * order is the whole reason to write one.
-	 */
+	/** Stop each group at its first red (default). An `exact` schedule always stops at its first red. */
 	failFast?: boolean;
-	/**
-	 * How this run's gates are scheduled. Absent = `single`: one stage in the
-	 * engine's canonical order, which is exactly what this function has always
-	 * done. Only the verification checkpoints pass a schedule; every other gate
-	 * caller keeps today's behaviour by asking for none.
-	 */
+	/** How the gates are scheduled; `single` when absent. */
 	schedule?: GateSchedule;
 	/** Wait for the machine when another gate run holds it. Default true; false takes one attempt and answers a coordination reason rather than waiting. */
 	waitForMachine?: boolean;
@@ -53,45 +35,18 @@ interface Params {
 }
 
 /**
- * Run the consumer's verification gates, holding the machine for the whole of
- * it. Non-monorepo (no `package-gates`): the whole-repo `gates.*` run as one
- * group — exit codes are the only evidence accepted. Monorepo: `package-gates`
- * templates run once per package in scope, in parallel, unless whole-repository
- * precedence is requested because files outside the packages dir changed. In
- * that case, only the root group runs. Package errors aggregate across groups,
- * labelled per package. Every command execution is logged to the run's
- * commands.jsonl.
+ * Runs the repository's gates: the root `gates.*` as one group, or with
+ * `package-gates` one group per package in scope. The whole run holds a gate
+ * reservation shared by every worktree of the repository, because they share
+ * one machine.
  *
- * Every worktree of one repository shares one gate reservation, because they
- * share one machine: four of them starting `pnpm test` in the same second is
- * what makes a suite that passes alone time out or die under load. The
- * reservation is taken around the WHOLE scheduled run — the codegen command,
- * every stage, every package group and every crash re-run — because the settled
- * decision is the whole run, and because codegen mutates the tree and must be
- * inside it. A schedule that runs no stage at all takes none and waits for
- * nothing: there is nothing to serialise, and a repository whose checkpoint is
- * off must behave exactly as it does today.
+ * Crashed and timed-out gates are re-run, and reported in `crashes` and
+ * `timeouts`, never as a failed family. A run that could not get the machine
+ * reports `coordination`. All three set `error`.
  *
- * A run that cannot have the machine answers `coordination` alongside `error`,
- * with no failed family and no crash. That red is not evidence about the code —
- * no gate command executed — so no fix agent may be spent on it, while a caller
- * that reads only `error` still fails closed.
- *
- * A gate whose red is nothing but the known jest worker crash is re-run before
- * its exit code is believed, and if it never recovers it is reported through
- * `crashes` as well as `error` — red, but never as a family a fix agent is
- * asked to repair.
- *
- * Two invariants this function keeps, neither of which the type system can.
- * First, no other lock is acquired while the reservation is held and the
- * reservation never outlives the call, so the ordering is always repository run
- * lock outer, gate reservation inner — the queue coordinator holds that run
- * lock for a whole drain while its shipping validation calls in here. Second,
- * one engine process runs one gate run at a time: a second concurrent call
- * inside one process would wait the full ceiling for a reservation its own
- * process is holding. That holds today because a run's verification checkpoints
- * are sequential and the queue's ship lane is guarded to one merge in flight,
- * and this is where a change that broke it would have to answer for itself.
+ * Callers must not take another lock while this holds the reservation, and one
+ * process must not call this twice at once: the second call would wait on the
+ * reservation its own process holds.
  */
 export const runGates = async ({
 	cwd,
@@ -124,5 +79,7 @@ export const runGates = async ({
 		run: ({ onGateSpawn, onGateExit }) => runGateSchedule({ ...scheduleParams, gate: createGateRunner({ ...runnerParams, onGateSpawn, onGateExit }) }),
 	});
 
-	return 'coordination' in outcome ? { error: outcome.coordination, failedFamilies: [], crashes: [], coordination: outcome.coordination } : outcome.held;
+	return 'coordination' in outcome
+		? { error: outcome.coordination, failedFamilies: [], crashes: [], timeouts: [], coordination: outcome.coordination }
+		: outcome.held;
 };

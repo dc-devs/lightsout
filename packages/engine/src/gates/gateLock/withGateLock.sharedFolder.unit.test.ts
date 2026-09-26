@@ -2,7 +2,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
-import { type GateLockOutcome, withGateLock } from '#src/gates/gateLock/index.ts';
+import type { GateLockOutcome } from '#src/gates/gateLock/common/types/GateLockOutcome.ts';
+import { withGateLock } from '#src/gates/gateLock/withGateLock.ts';
 
 /** Permission bits do not apply to root, so a folder nothing can be written in cannot be arranged there. */
 // Jest has no per-call `{ skip }` option, so the choice is made at the call site.

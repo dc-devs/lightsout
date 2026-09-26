@@ -1,12 +1,13 @@
 import { workOrderNameOf } from '#src/common/planAddress/workOrderNameOf.ts';
 import { sha256 } from '#src/common/utils/sha256.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
-import { attachDurableFiles } from '#src/plan/publish/common/utils/attachDurableFiles.ts';
-import { prepareAttachments } from '#src/plan/publish/common/utils/prepareAttachments.ts';
-import { reportStaleAttachments } from '#src/plan/publish/common/utils/reportStaleAttachments.ts';
+import type { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
 import { durablePlanFiles } from '#src/plan/publish/durablePlanFiles.ts';
+import { attachDurableFiles } from '#src/plan/publish/internal/common/utils/attachDurableFiles.ts';
+import { prepareAttachments } from '#src/plan/publish/internal/common/utils/prepareAttachments.ts';
+import { reportStaleAttachments } from '#src/plan/publish/internal/common/utils/reportStaleAttachments.ts';
 import { readPlanWorkOrderRef } from '#src/plan/readPlanWorkOrderRef.ts';
-import { getTicketsByIdentifiers, resolveTrackerSettings } from '#src/ticketTracker/index.ts';
+import { getTicketsByIdentifiers } from '#src/ticketTracker/getTicketsByIdentifiers.ts';
+import { resolveTrackerSettings } from '#src/ticketTracker/resolveTrackerSettings.ts';
 
 interface Params {
 	cwd: string;

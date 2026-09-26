@@ -1,8 +1,10 @@
 import { jest } from '@jest/globals';
-import type { ShipMergeMethod } from '#src/contracts/index.ts';
-import type { GateRunResult } from '#src/gates/index.ts';
+import type { ShipMergeMethod } from '#src/contracts/ship/ShipMergeMethod.ts';
+import type { GateRunResult } from '#src/gates/common/types/GateRunResult.ts';
 import type { ShipStepFailure } from '#src/ship/common/types/ShipStepFailure.ts';
-import type { CheckFailure, ChecksSummary, PullRequestSummary } from '#src/ship/forge/index.ts';
+import type { CheckFailure } from '#src/ship/forge/common/types/CheckFailure.ts';
+import type { ChecksSummary } from '#src/ship/forge/common/types/ChecksSummary.ts';
+import type { PullRequestSummary } from '#src/ship/forge/common/types/PullRequestSummary.ts';
 
 interface WaitParams {
 	prNumber: number;

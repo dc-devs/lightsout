@@ -3,9 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { testCoverageToThresholdCommand } from '#src/cli/testCoverageToThresholdCommand.ts';
-import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
-import type { CoverageResult } from '#src/coverage/index.ts';
-import { RunLockError } from '#src/runState/index.ts';
+import type { RunManifest } from '#src/contracts/run/RunManifest.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
+import { RunLockError } from '#src/runState/lock/RunLockError.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { runDirFor } from '#tests/helpers/runDirFor.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -29,7 +30,9 @@ interface RunCoveragePipelineParams {
 
 const mockRunCoveragePipeline = jest.fn<(params: RunCoveragePipelineParams) => Promise<CoverageResult>>();
 
-jest.mock('#src/coverage/index.ts', () => ({ runCoveragePipeline: (params: RunCoveragePipelineParams) => mockRunCoveragePipeline(params) }));
+jest.mock('#src/coverage/runCoveragePipeline.ts', () => ({
+	runCoveragePipeline: (params: RunCoveragePipelineParams) => mockRunCoveragePipeline(params),
+}));
 // -------------------------
 
 const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({

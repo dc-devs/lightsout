@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { workOrderFolderDir } from '#src/common/workspace/workOrderFolderDir.ts';
-import { readWorkOrderState } from '#src/workOrder/index.ts';
+import { readWorkOrderState } from '#src/workOrder/readWorkOrderState.ts';
 import { planWorkspaceFolder } from '#tests/helpers/planWorkspaceFolder.ts';
 import { setupBranchRepo } from '#tests/helpers/setupBranchRepo.ts';
 

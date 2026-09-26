@@ -1,6 +1,6 @@
 import { BatchReport, PhaseReport, RefactorStepReport, WorkReport, WritersReport } from '@lightsout/engine/contracts';
-import { StepReportKind } from '#src/features/runDetail/common/constants/StepReportKind.ts';
-import type { StepReport } from '#src/features/runDetail/common/types/StepReport.ts';
+import { StepReportKind } from '#src/features/runDetail/internal/common/constants/StepReportKind.ts';
+import type { StepReport } from '#src/features/runDetail/internal/common/types/StepReport.ts';
 
 /**
  * The write-tests envelope read as one summary: how many writer batches ran,

@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { WorkOrderEventKind, WorkOrderMode } from '#src/contracts/index.ts';
+import { WorkOrderEventKind } from '#src/contracts/workOrder/WorkOrderEventKind.ts';
+import { WorkOrderMode } from '#src/contracts/workOrder/WorkOrderMode.ts';
 
 describe('WorkOrderMode', () => {
 	test('WorkOrderMode and WorkOrderEventKind: stored values are unchanged by the rename', () => {

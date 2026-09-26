@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
-import { CoverageWorklist, type PlanDocument, PlanDocumentKind, RefactorWorklist } from '#src/contracts/index.ts';
+import { CoverageWorklist } from '#src/contracts/coverage/CoverageWorklist.ts';
+import { RefactorWorklist } from '#src/contracts/refactor/RefactorWorklist.ts';
+import type { PlanDocument } from '#src/contracts/views/PlanDocument.ts';
+import { PlanDocumentKind } from '#src/contracts/views/PlanDocumentKind.ts';
 
 /** A JSON plan is one of the two frozen work-lists, or it is nothing a reader can render. */
 const parseWorklist = ({ path, raw }: { path: string; raw: string }): PlanDocument => {

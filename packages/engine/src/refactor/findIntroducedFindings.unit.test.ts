@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
-import { findIntroducedFindings } from '#src/refactor/index.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
+import { findIntroducedFindings } from '#src/refactor/findIntroducedFindings.ts';
 
 const finding = (overrides: Partial<StandardsFinding> & { siteKey: string }): StandardsFinding => ({
 	rule: 'multi-export',

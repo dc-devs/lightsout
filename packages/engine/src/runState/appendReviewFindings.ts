@@ -1,6 +1,7 @@
 import { appendJsonlRecords } from '#src/common/utils/appendJsonlRecords.ts';
-import { ReviewFindingRecord, type StandardsFinding } from '#src/contracts/index.ts';
-import { getReviewFindingsPath } from '#src/runState/common/paths/getReviewFindingsPath.ts';
+import { ReviewFindingRecord } from '#src/contracts/standardsCheck/ReviewFindingRecord.ts';
+import type { StandardsFinding } from '#src/contracts/standardsCheck/StandardsFinding.ts';
+import { getReviewFindingsPath } from '#src/runState/internal/common/paths/getReviewFindingsPath.ts';
 
 interface Params {
 	/** The checkout the run works in — a linked worktree during an isolated run; the primary is resolved from it. */
