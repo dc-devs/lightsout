@@ -55,7 +55,7 @@ export const SiteHeader = () => {
 			<div className="ml-auto flex items-center gap-1">
 				<ThemeToggle />
 				<Button asChild variant="ghost" size="icon" className="text-foreground hover:text-foreground/70">
-					<a href="https://github.com/dc-devs/lightsout" target="_blank" rel="noreferrer" aria-label="GitHub">
+					<a href="https://github.com/lightsout-factory/lightsout" target="_blank" rel="noreferrer" aria-label="GitHub">
 						<GithubMark className="size-4.5" />
 					</a>
 				</Button>

@@ -32,7 +32,7 @@ describe('ClosingSection', () => {
 		expect([
 			screen.getByRole('link', { name: 'Read the docs' }).getAttribute('href'),
 			screen.getByRole('link', { name: 'GitHub' }).getAttribute('href'),
-		]).toStrictEqual(['/docs/configuration', 'https://github.com/dc-devs/lightsout']);
+		]).toStrictEqual(['/docs/configuration', 'https://github.com/lightsout-factory/lightsout']);
 	});
 
 	test('ends on the small print', () => {

@@ -6,8 +6,8 @@
 		"name": "dc-devs",
 		"url": "https://github.com/dc-devs"
 	},
-	"homepage": "https://github.com/dc-devs/lightsout",
-	"repository": "https://github.com/dc-devs/lightsout",
+	"homepage": "https://github.com/lightsout-factory/lightsout",
+	"repository": "https://github.com/lightsout-factory/lightsout",
 	"license": "MIT",
 	"keywords": ["linear", "tickets", "planning", "pull-requests"],
 	"skills": "./skills/",
@@ -18,7 +18,7 @@
 		"developerName": "dc-devs",
 		"category": "Productivity",
 		"capabilities": ["Read", "Write"],
-		"websiteURL": "https://github.com/dc-devs/lightsout",
+		"websiteURL": "https://github.com/lightsout-factory/lightsout",
 		"defaultPrompt": [
 			"Shape this Linear ticket with the Lightsout workflow.",
 			"Start work on this Linear ticket.",

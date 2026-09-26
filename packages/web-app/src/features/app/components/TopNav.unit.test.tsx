@@ -68,7 +68,7 @@ describe('TopNav', () => {
 
 		const source = screen.getByRole('link', { name: 'GitHub' });
 
-		expect(source).toHaveAttribute('href', 'https://github.com/dc-devs/lightsout');
+		expect(source).toHaveAttribute('href', 'https://github.com/lightsout-factory/lightsout');
 	});
 
 	test('carries the theme control, since it belongs to the reader rather than to a page', () => {

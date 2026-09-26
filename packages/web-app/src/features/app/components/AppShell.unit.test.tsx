@@ -123,7 +123,7 @@ describe('AppShell', () => {
 
 		const github = screen.getByRole('link', { name: 'GitHub' });
 
-		expect(github).toHaveAttribute('href', 'https://github.com/dc-devs/lightsout');
+		expect(github).toHaveAttribute('href', 'https://github.com/lightsout-factory/lightsout');
 		expect(github).toHaveAttribute('target', '_blank');
 	});
 });
