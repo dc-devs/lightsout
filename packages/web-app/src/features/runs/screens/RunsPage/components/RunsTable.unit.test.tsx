@@ -68,25 +68,17 @@ const readTitles = () =>
 const setupRunsTable = ({
 	runs = [buildRunListing()],
 	filters = {},
-	commandsDisabled,
 	clearable = true,
 }: {
 	runs?: RunListing[];
 	filters?: Partial<RunFilters>;
-	commandsDisabled?: boolean;
 	clearable?: boolean;
 } = {}) => {
 	const onSort = jest.fn<(params: { key: string; direction: SortDirection }) => void>();
 	const onClearFilters = jest.fn<() => void>();
 
 	render(
-		<RunsTable
-			runs={runs}
-			filters={{ commands: [], statuses: [], ...filters }}
-			onSort={onSort}
-			onClearFilters={clearable ? onClearFilters : undefined}
-			commandsDisabled={commandsDisabled}
-		/>,
+		<RunsTable runs={runs} filters={{ commands: [], statuses: [], ...filters }} onSort={onSort} onClearFilters={clearable ? onClearFilters : undefined} />,
 	);
 
 	return { onClearFilters, onSort };
@@ -196,14 +188,6 @@ describe('RunsTable', () => {
 		const resume = screen.getByRole('button', { name: /Copy resume/ });
 
 		expect(resume).toBeInTheDocument();
-	});
-
-	test('drops that command when no repo was found, since it names a run only this machine has', () => {
-		setupRunsTable({ runs: [buildRunListing({ resumable: true })], commandsDisabled: true });
-
-		const resume = screen.queryByRole('button', { name: /Copy resume/ });
-
-		expect(resume).not.toBeInTheDocument();
 	});
 
 	test('offers nothing to copy for a run the manifest says cannot be resumed', () => {

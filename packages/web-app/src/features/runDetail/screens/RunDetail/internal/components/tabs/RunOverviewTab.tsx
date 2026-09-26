@@ -55,8 +55,6 @@ interface Props {
 	view: RunDetailView;
 	/** Opens one step's full card in the Steps tab. */
 	onOpenStep: (stepId: string) => void;
-	/** Render every router link as plain mono text — the demo frame, whose targets are not routable. Defaults false. */
-	linksDisabled?: boolean;
 }
 
 /**
@@ -67,13 +65,13 @@ interface Props {
  * worth opening, not to read every report at once, and the Steps tab is where
  * the full cards live.
  */
-export const RunOverviewTab = ({ view, onOpenStep, linksDisabled = false }: Props) => (
+export const RunOverviewTab = ({ view, onOpenStep }: Props) => (
 	<div className="flex flex-col gap-6">
 		<Card title="Timeline">
 			<RunTimeline steps={view.steps} activeMs={view.activeMs} />
 		</Card>
 		{view.burnDown === undefined ? null : <BurnDownPanel burnDown={view.burnDown} pipeline={view.listing.pipeline} />}
-		{view.listing.pipeline === PipelineKind.Phases ? <PhaseList steps={view.steps} linksDisabled={linksDisabled} /> : null}
+		{view.listing.pipeline === PipelineKind.Phases ? <PhaseList steps={view.steps} /> : null}
 		<div className="flex flex-col gap-2">
 			{view.steps.map((step) => (
 				<StepRow key={step.id} step={step} onOpen={() => onOpenStep(step.id)} />

@@ -18,11 +18,7 @@ jest.mock('@tanstack/react-router', () => ({
 }));
 // -------------------------
 
-// `repoRoot` is read rather than destructured with a default, because an
-// explicit `undefined` is the no-repo case a default parameter would swallow.
-const setupAppShell = (params: { repoRoot?: string } = {}) => {
-	const repoRoot = Object.hasOwn(params, 'repoRoot') ? params.repoRoot : '/repos/lightsout';
-
+const setupAppShell = ({ repoRoot = '/repos/lightsout' }: { repoRoot?: string } = {}) => {
 	renderWithQueryClient({
 		ui: (
 			<ThemeProvider>
@@ -42,20 +38,12 @@ describe('AppShell', () => {
 		expect(site).toBeInTheDocument();
 	});
 
-	test('offers the local zone when a repo was found, and names it', () => {
+	test('offers the local zone, and names it', () => {
 		setupAppShell({ repoRoot: '/repos/other-project' });
 
 		const zone = screen.getByRole('navigation', { name: 'Your repo' });
 
 		expect(zone).toBeInTheDocument();
-	});
-
-	test('leaves the local zone out entirely when no repo was found, which is what a public build renders', () => {
-		setupAppShell({ repoRoot: undefined });
-
-		const zone = screen.queryByRole('navigation', { name: 'Your repo' });
-
-		expect(zone).not.toBeInTheDocument();
 	});
 
 	test('renders the open route beside that navigation', () => {

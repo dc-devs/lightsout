@@ -24,10 +24,7 @@ const setupFriction = ({ overrides = {}, tab }: { overrides?: Partial<RunView>; 
 	jest.useFakeTimers();
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }],
 	});
 	// Friction and changed files are two tabs now, and a tab strip selects on the
 	// press rather than on the release.

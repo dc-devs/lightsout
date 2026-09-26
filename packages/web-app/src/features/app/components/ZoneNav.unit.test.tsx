@@ -15,23 +15,11 @@ jest.mock('@tanstack/react-router', () => ({
 	),
 }));
 // -------------------------
-// The walk behind the server function the query reads. Only the test that
-// leaves the cache empty on purpose reaches it.
-jest.mock('#src/common/utils/findRepoRoot.ts', () => ({
-	findRepoRoot: () => undefined,
-}));
-// -------------------------
 
-// Three answers, three inputs: a path, an explicit `undefined` for the lookup
-// that found no repo, and `null` to seed nothing at all — the lookup that has
-// not answered, or failed. `repoRoot` is read rather than destructured with a
-// default, because a default parameter would swallow that explicit `undefined`.
-const setupZoneNav = (params: { repoRoot?: string | null } = {}) => {
-	const repoRoot = Object.hasOwn(params, 'repoRoot') ? params.repoRoot : '/repos/lightsout';
-
+const setupZoneNav = ({ repoRoot = '/repos/lightsout' }: { repoRoot?: string } = {}) => {
 	renderWithQueryClient({
 		ui: <ZoneNav />,
-		seed: repoRoot === null ? [] : [{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } }],
+		seed: [{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } }],
 	});
 };
 
@@ -101,21 +89,5 @@ describe('ZoneNav', () => {
 			.map((link) => link.textContent);
 
 		expect(entries).toEqual(['Health', 'Runs', 'Plans', 'Standards', 'Friction', 'Config']);
-	});
-
-	test('renders nothing at all when no repo was found', () => {
-		setupZoneNav({ repoRoot: undefined });
-
-		const zone = screen.queryByRole('navigation', { name: 'Your repo' });
-
-		expect(zone).not.toBeInTheDocument();
-	});
-
-	test('renders nothing while the lookup has not answered, rather than taking the shell down with it', () => {
-		setupZoneNav({ repoRoot: null });
-
-		const zone = screen.queryByRole('navigation', { name: 'Your repo' });
-
-		expect(zone).not.toBeInTheDocument();
 	});
 });

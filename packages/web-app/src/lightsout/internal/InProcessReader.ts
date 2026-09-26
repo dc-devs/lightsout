@@ -1,14 +1,4 @@
-import {
-	commandCatalog,
-	getConfigView,
-	getPlanDocument,
-	getPlanWorkspace,
-	getRunView,
-	getStandardsView,
-	listPlanWorkspaces,
-	listRuns,
-	readFriction,
-} from '@lightsout/engine';
+import { getConfigView, getPlanDocument, getPlanWorkspace, getRunView, getStandardsView, listPlanWorkspaces, listRuns, readFriction } from '@lightsout/engine';
 import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
 
 interface ConstructorParams {
@@ -38,11 +28,6 @@ export class InProcessReader implements LightsoutReader {
 
 	listRuns() {
 		return listRuns({ cwd: this.repoRoot });
-	}
-
-	/** Engine source rather than repo state, so this repo's `cwd` has nothing to say about it. */
-	async listCommands() {
-		return commandCatalog;
 	}
 
 	getRun({ runId }: { runId: string }) {

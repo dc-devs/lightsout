@@ -26,10 +26,7 @@ const setupStep = ({ overrides = {} }: { overrides?: Partial<RunStepView> } = {}
 	jest.useFakeTimers();
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { steps: [buildRunStep({ overrides })], activeMs: 360_000 } }) },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides: { steps: [buildRunStep({ overrides })], activeMs: 360_000 } }) }],
 	});
 	// The full step cards live in a tab of their own now, and a tab strip selects
 	// on the press rather than on the release.

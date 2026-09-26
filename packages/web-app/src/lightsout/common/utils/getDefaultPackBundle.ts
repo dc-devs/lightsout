@@ -1,7 +1,7 @@
 import { StandardsPackBundle } from '@lightsout/engine';
 import bundle from '#assets/default-pack.json';
 
-/** Parsed once, for the same reason `getDemoRunViews` is: the file is bundled data that cannot change while the app runs. */
+/** Parsed once: the file is bundled data that cannot change while the app runs. */
 let parsed: StandardsPackBundle | undefined;
 
 /**

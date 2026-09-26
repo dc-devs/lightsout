@@ -1,0 +1,27 @@
+# The public lightsout site: the web app's public pages, served by Netlify.
+#
+# Netlify builds from its own Git link to this repository — nothing in CI
+# deploys it. The site is a monorepo site: the base is the repository root,
+# where dependencies install and .nvmrc names the Node version, and the site's
+# Package directory setting (a dashboard setting; this file has no key for it)
+# is packages/web-app.
+#
+# `@netlify/vite-plugin-tanstack-start` (enabled in
+# packages/web-app/vite.config.ts only when Netlify sets NETLIFY) writes the
+# server build as a Netlify Function to packages/web-app/.netlify/v1/, and
+# Netlify finds it by joining the base and the Package directory. The base is
+# therefore stated here as the root, which overrides the dashboard's Base
+# directory: any other base is joined with the Package directory and points one
+# packages/web-app too deep. `/` rather than empty, because Netlify reads an
+# empty base as unset and falls back to the dashboard.
+
+[build]
+  base = "/"
+  command = "pnpm --filter @lightsout/web-app run build"
+  publish = "packages/web-app/dist/client"
+
+[build.environment]
+  # The public site: `/app` does not exist and nothing links to it. The build
+  # checks the value and bakes it into the bundle, because variables set here
+  # reach the build and never the functions at run time.
+  LIGHTSOUT_PUBLIC = "1"

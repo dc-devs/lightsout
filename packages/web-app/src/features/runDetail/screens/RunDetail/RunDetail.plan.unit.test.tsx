@@ -40,10 +40,7 @@ const setupPlanDrawer = ({ plan }: { plan?: PlanDocument } = {}) => {
 	mockGetPlan.mockReturnValue(plan === undefined ? new Promise<PlanDocument>(() => undefined) : Promise.resolve(plan));
 	renderWithQueryClient({
 		ui: <RunDetail runId={runId} />,
-		seed: [
-			{ queryKey: [QueryKey.Run, runId], data: buildRunView() },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
-		],
+		seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView() }],
 	});
 
 	return { mockWriteText, openPlan: () => fireEvent.click(screen.getByRole('button', { name: /^plan:/ })) };

@@ -23,17 +23,7 @@ jest.mock('@tanstack/react-router', () => ({
 
 const runId = 'abcdef0123456789';
 
-const setupWhatNow = ({
-	status = RunStatus.Failed,
-	resumable = false,
-	repoFound = true,
-	overrides = {},
-}: {
-	status?: RunStatus;
-	resumable?: boolean;
-	repoFound?: boolean;
-	overrides?: Partial<RunView>;
-} = {}) => {
+const setupWhatNow = ({ status = RunStatus.Failed, overrides = {} }: { status?: RunStatus; overrides?: Partial<RunView> } = {}) => {
 	jest.useFakeTimers();
 
 	// No tab is chosen: the what-now line sits under the header, above the tabs.
@@ -42,9 +32,8 @@ const setupWhatNow = ({
 		seed: [
 			{
 				queryKey: [QueryKey.Run, runId],
-				data: buildRunView({ overrides: { listing: { ...buildRunListing({ status, live: true }), resumable }, ...overrides } }),
+				data: buildRunView({ overrides: { listing: { ...buildRunListing({ status, live: true }) }, ...overrides } }),
 			},
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: repoFound ? '/repos/lightsout' : undefined } },
 		],
 	});
 };
@@ -114,14 +103,5 @@ describe('RunDetail what now', () => {
 		const line = screen.getByText('stopped at');
 
 		expect(line.parentElement).toHaveTextContent('nothing yet');
-	});
-
-	test('offers no resume command on a machine with no repo, where it would name a run nothing has', () => {
-		setupWhatNow({ resumable: true, repoFound: false, overrides: { steps: [buildRunStep({ overrides: { status: RunStatus.Failed } })] } });
-
-		const command = screen.queryByText(/lightsout resume/);
-
-		expect(command).not.toBeInTheDocument();
-		expect(screen.getByText('stopped at')).toBeInTheDocument();
 	});
 });

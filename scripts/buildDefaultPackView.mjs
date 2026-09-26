@@ -12,12 +12,11 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * `plugin/standards/` ships, which the bundler strips the fixtures out of. A
  * rule page has to show the code a rule argues about, so the app substitutes
  * this view wherever the engine finds that stripped copy — which is every repo
- * that is not this monorepo — and serves it outright on a public build holding
- * no repo at all.
+ * that is not this monorepo — and serves it outright on the public
+ * standards-pack pages, which read no repo at all.
  *
  * `rootPath` and `path` are rewritten to the repo-relative
- * `packages/standards-typescript`, the way freezeDemoRuns.mjs relativises a
- * plan path: the file is committed and compared byte for byte, so it may carry
+ * `packages/standards-typescript`: the file is committed and compared byte for byte, so it may carry
  * nothing about the machine that wrote it. Neither field is ever printed for
  * the default pack — its header says "loads when you say nothing" instead.
  *
@@ -26,7 +25,7 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * pack. It is wired beside `check:shipped` in CI and in the pre-push hook.
  *
  * The engine is reached by importing the module file rather than the package,
- * for the reason freezeDemoRuns.mjs states: the package index's graph reaches
+ * because the package index's graph reaches
  * `.md` prompt modules that plain Node cannot load, and `views/` does not.
  *
  * Never hand-edit the output. Run `pnpm build:default-pack` instead.

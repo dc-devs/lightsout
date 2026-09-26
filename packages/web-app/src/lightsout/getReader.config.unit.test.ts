@@ -62,16 +62,8 @@ const setupUnconfiguredRepo = async (): Promise<{ reader: LightsoutReader }> => 
 	return { reader: getReader() };
 };
 
-/** No repo above this directory at all — the public build, which is a page about a file that is not there. */
-const setupPublicBuild = (): { reader: LightsoutReader } => {
-	process.env.LIGHTSOUT_PUBLIC = '1';
-
-	return { reader: getReader() };
-};
-
 afterEach(() => {
 	delete process.env.LIGHTSOUT_REPO;
-	delete process.env.LIGHTSOUT_PUBLIC;
 });
 
 describe('getReader config', () => {
@@ -167,11 +159,5 @@ describe('getReader config', () => {
 		const { reader } = await setupConfigReader({ config: '{ "gates": ' });
 
 		await expect(reader.getConfig()).rejects.toThrow(/is not valid JSON/);
-	});
-
-	test('rejects with that same not-found error where no repo was found, so a deep link into the local zone 404s rather than 500s', async () => {
-		const { reader } = setupPublicBuild();
-
-		await expect(reader.getConfig()).rejects.toThrow(ConfigNotFoundError);
 	});
 });

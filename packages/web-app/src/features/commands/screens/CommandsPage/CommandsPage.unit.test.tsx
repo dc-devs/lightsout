@@ -22,17 +22,10 @@ jest.mock('@tanstack/react-router', () => ({
 }));
 // -------------------------
 
-/**
- * `repoRoot` is seeded absent, which is the public build — the zone this page
- * has to render in, and the one where no card carries a count.
- */
 const setupCommandsPage = ({ commands = [buildCommandCatalogEntry()] }: { commands?: CommandCatalogEntry[] } = {}) => {
 	renderWithQueryClient({
 		ui: <CommandsPage />,
-		seed: [
-			{ queryKey: [QueryKey.Commands], data: commands },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: undefined } },
-		],
+		seed: [{ queryKey: [QueryKey.Commands], data: commands }],
 	});
 };
 

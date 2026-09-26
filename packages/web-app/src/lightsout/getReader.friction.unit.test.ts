@@ -61,16 +61,8 @@ const setupQuietRepo = async (): Promise<{ reader: LightsoutReader }> => {
 	return { reader: getReader() };
 };
 
-/** No repo above this directory at all — the public build, which reads nobody's disk. */
-const setupPublicBuild = (): { reader: LightsoutReader } => {
-	process.env.LIGHTSOUT_PUBLIC = '1';
-
-	return { reader: getReader() };
-};
-
 afterEach(() => {
 	delete process.env.LIGHTSOUT_REPO;
-	delete process.env.LIGHTSOUT_PUBLIC;
 });
 
 describe('getReader friction', () => {
@@ -109,14 +101,6 @@ describe('getReader friction', () => {
 
 	test('answers with an empty log for a repo that has never recorded any', async () => {
 		const { reader } = await setupQuietRepo();
-
-		const records = await reader.getFriction();
-
-		expect(records).toStrictEqual([]);
-	});
-
-	test('answers with an empty log where no repo was found, since nothing ever reported friction in a build that reads no disk', async () => {
-		const { reader } = setupPublicBuild();
 
 		const records = await reader.getFriction();
 

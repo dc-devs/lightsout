@@ -10,8 +10,8 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 
 // Mocked Imports
 // -------------------------
-// The page reads two query options objects, and the runs one reaches the
-// engine's filesystem reader at the far end of the server function behind it.
+// The runs query the page reads reaches the engine's filesystem reader at the
+// far end of the server function behind it.
 // Stubbing the reader keeps that module graph off disk; the seeded cache is
 // what keeps the fetcher from ever being called.
 jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listRuns: () => Promise.resolve([]) }) }));
@@ -74,20 +74,12 @@ const readTitles = () =>
  */
 const openFilter = ({ name }: { name: string }) => fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^${name}`) })[0]);
 
-// `repoRoot` is read rather than destructured with a default, because an
-// explicit `undefined` is the no-repo case a default parameter would swallow.
-const setupRunsPage = (params: { runs?: RunListing[]; search?: Record<string, unknown>; repoRoot?: string } = {}) => {
-	const { runs = [alpha, beta], search = {} } = params;
-	const repoRoot = Object.hasOwn(params, 'repoRoot') ? params.repoRoot : '/repos/lightsout';
-
+const setupRunsPage = ({ runs = [alpha, beta], search = {} }: { runs?: RunListing[]; search?: Record<string, unknown> } = {}) => {
 	mockUseSearch.mockReturnValue(search);
 
 	renderWithQueryClient({
 		ui: <RunsPage />,
-		seed: [
-			{ queryKey: [QueryKey.Runs], data: runs },
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
-		],
+		seed: [{ queryKey: [QueryKey.Runs], data: runs }],
 	});
 };
 
@@ -100,23 +92,7 @@ describe('RunsPage', () => {
 		expect(heading.parentElement?.parentElement?.textContent).toContain('2 runs');
 	});
 
-	test('says the rows are frozen demo data when no repo was found, so a visitor never reads them as their own', () => {
-		setupRunsPage({ repoRoot: undefined });
-
-		const description = screen.getByText(/demo data/);
-
-		expect(description.textContent).toContain("frozen from lightsout's own repository");
-	});
-
-	test('drops the resume commands with no repo, since each names a run only this repository has', () => {
-		setupRunsPage({ runs: [buildRunListing({ resumable: true })], repoRoot: undefined });
-
-		const resume = screen.queryByRole('button', { name: /Copy resume/ });
-
-		expect(resume).not.toBeInTheDocument();
-	});
-
-	test('offers those commands once a repo is open', () => {
+	test('offers the command that would pick a resumable run back up', () => {
 		setupRunsPage({ runs: [buildRunListing({ resumable: true })] });
 
 		const resume = screen.getByRole('button', { name: /Copy resume/ });

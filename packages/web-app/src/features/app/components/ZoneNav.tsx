@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Activity, FileCog, MessageSquareWarning, NotebookPen, ScrollText, SquareCheckBig } from 'lucide-react';
 import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
@@ -8,24 +8,22 @@ const zoneLinkClasses = 'flex shrink-0 items-center gap-2 rounded-md px-3 py-2 t
 const zoneLinkActive = { className: 'bg-sidebar-accent-selected' };
 
 /**
- * The way into the pages that read this machine's repo, and nothing at all when
- * no repo was found.
+ * The way into the pages that read this machine's repo, headed by the path of
+ * the repo they read.
  *
- * That absent case is what makes the public build work: a deployment with no
- * `lightsout.config.json` above it renders a site with no "Your repo" zone
- * rather than a zone whose every page is empty.
- *
- * Subscribes rather than suspends — a repo lookup that fails must not take the
- * whole shell down with it, since every sell-zone page is readable without one.
+ * Suspends on the repo root rather than subscribing: `/app` only exists on a
+ * local server with a repo under it, and its route has the root in the cache
+ * before any child renders, so there is no absent or pending case to draw.
  *
  * A column beside the page on a wide screen, a strip under the site bar on a
  * narrow one, so the page itself always keeps the full width.
  */
 export const ZoneNav = () => {
-	const { data } = useQuery(repoRootQueryOptions());
-	const repoRoot = data?.repoRoot;
+	const {
+		data: { repoRoot },
+	} = useSuspenseQuery(repoRootQueryOptions());
 
-	return repoRoot === undefined ? null : (
+	return (
 		<aside className="flex w-full shrink-0 flex-col gap-3 border-border border-b bg-sidebar p-3 lg:w-56 lg:border-r lg:border-b-0">
 			<header className="flex min-w-0 flex-col gap-1 px-1">
 				<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Your repo</span>

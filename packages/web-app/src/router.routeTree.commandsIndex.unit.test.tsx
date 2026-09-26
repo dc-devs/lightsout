@@ -12,14 +12,11 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 
 // Mocked Imports
 // -------------------------
-// The route tree loads every route module and everything those modules render,
-// and several of those reach the engine's filesystem reader at the far end of
-// that chain. Stubbing the reader keeps the whole graph off disk, and lets this
-// file say what the catalog answered so the loader's cache can be checked
-// against it.
+// The server function the commands route loads through, so this file says what
+// the catalog answered and the loader's cache can be checked against it.
 const mockListCommands = jest.fn<() => Promise<CommandCatalogEntry[]>>();
 
-jest.mock('#src/lightsout/getReader.ts', () => ({ getReader: () => ({ listCommands: () => mockListCommands() }) }));
+jest.mock('#src/features/commands/internal/serverFns/listCommandsServerFn.ts', () => ({ listCommandsServerFn: () => mockListCommands() }));
 // -------------------------
 // Only the piece that needs a live router around it is stood in for, so the
 // route's own component can be rendered on its own. Everything else — above all

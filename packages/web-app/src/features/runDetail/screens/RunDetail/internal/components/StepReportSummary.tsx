@@ -26,8 +26,6 @@ const FailuresSection = ({ failures }: { failures: string[] }) =>
 
 interface Props {
 	report: StepReport;
-	/** Render a phase report's child run as plain mono text instead of a link — the demo frame. Defaults false. */
-	linksDisabled?: boolean;
 }
 
 /**
@@ -40,14 +38,14 @@ interface Props {
  * Every kind but `Raw` and `Phase` is a stack of blocks, so the branch decides
  * only what those blocks are and the stack itself is written once below them.
  */
-export const StepReportSummary = ({ report, linksDisabled = false }: Props) => {
+export const StepReportSummary = ({ report }: Props) => {
 	const isStacked = report.kind !== StepReportKind.Raw && report.kind !== StepReportKind.Phase;
 	let content: ReactNode;
 
 	if (report.kind === StepReportKind.Raw) {
 		content = <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs leading-5">{report.text}</pre>;
 	} else if (report.kind === StepReportKind.Phase) {
-		content = <ChildRunLink runId={report.runId} linksDisabled={linksDisabled} />;
+		content = <ChildRunLink runId={report.runId} />;
 	} else if (report.kind === StepReportKind.Batch) {
 		content = (
 			<>

@@ -1,11 +1,11 @@
+import { commandCatalog } from '@lightsout/engine';
 import { createServerFn } from '@tanstack/react-start';
-import { getReader } from '#src/lightsout/getReader.ts';
 
 /**
  * Every command lightsout offers, as the catalog states them.
  *
- * The one reader method that answers the same either way, because the catalog
- * is engine source rather than repo state — which is what lets `/commands`
- * render on a build with no repo under it.
+ * Read from the engine directly, never through the reader: the catalog is
+ * engine source rather than repo state, and `/commands` is a public page, which
+ * reads nothing a repo holds.
  */
-export const listCommandsServerFn = createServerFn({ method: 'GET' }).handler(async () => getReader().listCommands());
+export const listCommandsServerFn = createServerFn({ method: 'GET' }).handler(async () => commandCatalog);
