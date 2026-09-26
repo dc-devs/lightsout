@@ -19,7 +19,7 @@ import { writeSource } from '#tests/helpers/writeSource.ts';
 const ruleIdsOffered = ({ systemPrompt }: { systemPrompt: string }) => [...systemPrompt.matchAll(/Rule id: `([^`]+)`/g)].map(([, id]) => id ?? '');
 
 /**
- * A file well past the 250-line cap: one blocking `size-file` finding whose
+ * A file well past the 250-line cap: one blocking `file-size` finding whose
  * measure is the line count, which `body` cannot change. Committed before the
  * run, it is debt the pre-edit baseline already carries; rewritten by the run
  * with a different `body`, it is the same site at the same measure.
@@ -146,7 +146,7 @@ describe('runImplementPipeline', () => {
 		expect({ ok: result.ok, error: result.error }).toStrictEqual({ ok: true, error: undefined });
 		expect(roundsRun()).toBe(0);
 		expect(record).toEqual(expect.objectContaining({ roundsUsed: 0, endReason: 'no-work' }));
-		expect(record.inherited.map((finding) => finding.siteKey)).toContain('size-file:src/big.js');
+		expect(record.inherited.map((finding) => finding.siteKey)).toContain('file-size:src/big.js');
 		expect(result.manifest.steps.find((step) => step.id === 'verify-refactor')?.status).toBe('passed');
 	});
 
@@ -359,7 +359,7 @@ describe('runImplementPipeline', () => {
 		expectDefined(record);
 		expect(record).toEqual(expect.objectContaining({ roundsUsed: 2, endReason: 'declined-twice', failures: [] }));
 		expect(record.remaining.map((finding) => finding.siteKey)).toContain('multi-export:src/subject.js');
-		expect(record.inherited.map((finding) => finding.siteKey)).toContain('size-file:src/big.js');
+		expect(record.inherited.map((finding) => finding.siteKey)).toContain('file-size:src/big.js');
 		expect(record.uncertain.map((finding) => finding.siteKey)).toContain('multi-export:src/legacy.js');
 		// cleanup changed nothing, so the read taken before the first round stands as the final one too
 		expect([record.initialReview, record.finalReview]).toEqual([

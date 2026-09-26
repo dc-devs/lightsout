@@ -4,7 +4,7 @@ import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.t
 import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -13,7 +13,7 @@ const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding =>
 });
 
 const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	doc: 'lightsout-defaults: code/style-guide/patterns/functions',
 	summary: 'a function longer than the size cap',
 	checked: true,
@@ -63,7 +63,7 @@ describe('printStandardsSummary', () => {
 			['rule', 'blocking', 'advisories'],
 			['module-boundary', '1', '—'],
 			['a file deep-imported across a module boundary', '', ''],
-			['size-function', '—', '2'],
+			['function-size', '—', '2'],
 			['a function longer than the size cap', '', ''],
 			['total', '1', '2'],
 		]);
@@ -126,7 +126,7 @@ describe('printStandardsSummary', () => {
 			['rule', 'blocking', 'advisories'],
 			['module-boundary', '1', '—'],
 			['a file deep-imported across a module boundary', '', ''],
-			['size-function', '—', '1'],
+			['function-size', '—', '1'],
 			['a function longer than the size cap', '', ''],
 			['total', '1', '1'],
 		]);

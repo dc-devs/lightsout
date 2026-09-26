@@ -1,3 +1,4 @@
+import { renamedRuleIds } from '#src/common/constants/renamedRuleIds.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
@@ -18,7 +19,7 @@ interface Params {
  * would otherwise disable a policy its author believes is live — the same
  * refusal the closed rule enum used to give while parsing the config file.
  *
- * @throws {Error} When two packs claim one rule id, or a config entry names no loaded rule.
+ * @throws {Error} When two packs claim one rule id, or a config entry names no loaded rule (naming the new id when the old one was renamed).
  */
 export const resolvePackageRuleStates = ({ packs, config }: Params): Map<string, ResolvedRuleState> => {
 	const states = new Map<string, ResolvedRuleState>();
@@ -39,6 +40,12 @@ export const resolvePackageRuleStates = ({ packs, config }: Params): Map<string,
 
 	for (const [id, override] of Object.entries(config?.['standards-checks'] ?? {})) {
 		const state = states.get(id);
+
+		const renamedTo = renamedRuleIds[id];
+
+		if (state === undefined && renamedTo !== undefined) {
+			throw new Error(`standards-checks names "${id}", which was renamed to "${renamedTo}" — use the new name in lightsout.config.json`);
+		}
 
 		if (state === undefined) {
 			throw new Error(`standards-checks names "${id}", which no loaded standards pack declares — valid rule ids: ${[...states.keys()].sort().join(', ')}`);

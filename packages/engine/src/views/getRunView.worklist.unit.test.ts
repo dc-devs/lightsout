@@ -46,7 +46,7 @@ describe('getRunView', () => {
 	test('a refactor run reports the burn-down its frozen work-list makes possible, beside the title read from that same file', async () => {
 		const batches = [
 			buildBatch({ id: 'batch-01:multi-export:engine', rule: 'multi-export', blocking: 3 }),
-			buildBatch({ id: 'batch-02:size-file:engine', rule: 'size-file', blocking: 2 }),
+			buildBatch({ id: 'batch-02:file-size:engine', rule: 'file-size', blocking: 2 }),
 		];
 		const { cwd } = await setupRun({
 			pipeline: PipelineKind.Refactor,
@@ -58,7 +58,7 @@ describe('getRunView', () => {
 
 		// one open of worklist.json answers both: the row's title and the panel's
 		// numbers come out of the same frozen file, so they cannot disagree
-		expect(view.listing.title).toBe('refactor · multi-export, size-file');
+		expect(view.listing.title).toBe('refactor · multi-export, file-size');
 		expect(view.burnDown).toEqual(expect.objectContaining({ before: 5, after: 2, batchesResolved: 1, batchesDeclined: 0 }));
 		// the batch the run never reached left its sites exactly where they were
 		expect(view.burnDown?.batches.map((batch) => batch.outcome)).toStrictEqual(['resolved', 'not-run']);

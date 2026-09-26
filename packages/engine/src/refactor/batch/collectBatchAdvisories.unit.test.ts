@@ -6,9 +6,9 @@ import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPac
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
-	siteKey: 'size-function:src/a.ts',
+	siteKey: 'function-size:src/a.ts',
 	files: [{ path: 'src/a.ts' }],
 	detail: '81 lines',
 	...overrides,
@@ -65,7 +65,7 @@ describe('collectBatchAdvisories', () => {
 				finding(),
 				finding({ rule: 'dead-export', siteKey: 'dead-export:src/a.ts' }),
 				// a different file's advisory belongs to a different batch
-				finding({ rule: 'size-function', siteKey: 'size-function:src/b.ts', files: [{ path: 'src/b.ts' }] }),
+				finding({ rule: 'function-size', siteKey: 'function-size:src/b.ts', files: [{ path: 'src/b.ts' }] }),
 				// and blocking work is never advice
 				finding({ rule: 'multi-export', severity: StandardsSeverity.Blocking, siteKey: 'multi-export:src/a.ts' }),
 			],
@@ -74,7 +74,7 @@ describe('collectBatchAdvisories', () => {
 			onProgress,
 		});
 
-		expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/a.ts', 'dead-export:src/a.ts']);
+		expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['function-size:src/a.ts', 'dead-export:src/a.ts']);
 	});
 
 	test('the agent’s read of the judgment rules joins the same list, after the machine’s', async () => {
@@ -95,7 +95,7 @@ describe('collectBatchAdvisories', () => {
 			onProgress,
 		});
 
-		expect(advisories.map((entry) => entry.rule)).toStrictEqual(['size-function', 'path-aliases']);
+		expect(advisories.map((entry) => entry.rule)).toStrictEqual(['function-size', 'path-aliases']);
 		// and it arrives as advice, like everything else in this list
 		expect(advisories[1]?.severity).toBe(StandardsSeverity.Advisory);
 	});
@@ -121,7 +121,7 @@ describe('collectBatchAdvisories', () => {
 			onProgress: () => undefined,
 		});
 
-		expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/a.ts']);
+		expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['function-size:src/a.ts']);
 	});
 
 	test('a review that could not run leaves a note against the batch and no findings', async () => {

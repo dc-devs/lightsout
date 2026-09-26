@@ -122,7 +122,7 @@ test('a refactor run is titled by the rules its frozen work-list burns down, cap
 	await seedRunDir({
 		cwd,
 		manifest: { runId: 'run-few', pipeline: 'refactor', plan: '.lightsout/runs/run-few/worklist.json', updatedAt: '2026-01-02T00:00:00.000Z' },
-		worklist: refactorWorklist({ rules: ['multi-export', 'size-file', 'multi-export'] }),
+		worklist: refactorWorklist({ rules: ['multi-export', 'file-size', 'multi-export'] }),
 	});
 	await seedRunDir({
 		cwd,
@@ -131,7 +131,7 @@ test('a refactor run is titled by the rules its frozen work-list burns down, cap
 	});
 
 	// distinct rules in first-seen order; past three the rest become a count
-	expect((await listRuns({ cwd })).map((run) => run.title)).toStrictEqual(['refactor · multi-export, size-file', 'refactor · a-rule, b-rule, c-rule +2 more']);
+	expect((await listRuns({ cwd })).map((run) => run.title)).toStrictEqual(['refactor · multi-export, file-size', 'refactor · a-rule, b-rule, c-rule +2 more']);
 });
 
 test('a work-list run keeps the kind its manifest recorded even when the file itself is unreadable', async () => {

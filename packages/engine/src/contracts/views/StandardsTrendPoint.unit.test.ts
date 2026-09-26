@@ -10,7 +10,7 @@ const setupPoint = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 		advisory: 2,
 		byRule: [
 			{ rule: 'duplicate-code-block', count: 4 },
-			{ rule: 'size-file', count: 3 },
+			{ rule: 'file-size', count: 3 },
 		],
 		...extra,
 	};
@@ -36,7 +36,7 @@ describe('StandardsTrendPoint', () => {
 			advisory: 2,
 			byRule: [
 				{ rule: 'duplicate-code-block', count: 4 },
-				{ rule: 'size-file', count: 3 },
+				{ rule: 'file-size', count: 3 },
 			],
 		});
 	});

@@ -1,3 +1,4 @@
+import { renamedRuleIds } from '#src/common/constants/renamedRuleIds.ts';
 import {
 	BatchReport,
 	CoverageBatchReport,
@@ -19,10 +20,17 @@ interface JoinedBatch {
 
 /**
  * The rules whose findings are the sprawl itself — a file, a function or a
- * folder past its cap. `test-size-file` is deliberately outside the set: it
- * never forms a batch, so it could never be counted here.
+ * folder past its cap. `test-file-size` is deliberately outside the set: it
+ * never forms a batch, so it could never be counted here. Runs saved before a
+ * rename carry the old ids, so those count too.
  */
-const overCapRules = new Set(['size-file', 'size-function', 'crowded-folder']);
+const currentOverCapRules = ['file-size', 'function-size', 'folder-size'];
+const overCapRules = new Set([
+	...currentOverCapRules,
+	...Object.entries(renamedRuleIds)
+		.filter(([, renamed]) => currentOverCapRules.includes(renamed))
+		.map(([old]) => old),
+]);
 
 /** A total across the joined batches — `blocking` for the before side, `remaining` for the after. */
 const sumOver = ({ entries, read }: { entries: JoinedBatch[]; read: (entry: JoinedBatch) => number }) =>

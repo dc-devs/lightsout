@@ -3,9 +3,9 @@ import { StandardsRuleView } from '#src/contracts/index.ts';
 
 const setupRuleView = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const ruleView: Record<string, unknown> = {
-		rule: 'size-file',
-		doc: '@lightsout/standards: code/size-file',
-		documentPath: 'code/size-file',
+		rule: 'file-size',
+		doc: '@lightsout/standards: code/file-size',
+		documentPath: 'code/file-size',
 		set: 'code',
 		summary: 'A source file stays under its line cap.',
 		prose: '# Size, File\n\nA file past the cap is several modules sharing one name.',
@@ -41,9 +41,9 @@ describe('StandardsRuleView', () => {
 		const parsed = StandardsRuleView.parse(ruleView);
 
 		expect(parsed).toStrictEqual({
-			rule: 'size-file',
-			doc: '@lightsout/standards: code/size-file',
-			documentPath: 'code/size-file',
+			rule: 'file-size',
+			doc: '@lightsout/standards: code/file-size',
+			documentPath: 'code/file-size',
 			set: 'code',
 			summary: 'A source file stays under its line cap.',
 			prose: '# Size, File\n\nA file past the cap is several modules sharing one name.',
@@ -290,7 +290,7 @@ describe('StandardsRuleView', () => {
 	test('keys the contract does not declare are stripped from the row and from its history', () => {
 		const { ruleView } = setupRuleView({
 			extra: {
-				findings: [{ rule: 'size-file' }],
+				findings: [{ rule: 'file-size' }],
 				history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [], batches: 2 },
 			},
 		});

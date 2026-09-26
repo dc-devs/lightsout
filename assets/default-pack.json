@@ -50,7 +50,7 @@
         "top-level-domain-nouns",
         "banned-folder-name",
         "growing-without-new-rules",
-        "crowded-folder",
+        "folder-size",
         "fractal-skeleton",
         "per-folder-readmes",
         "folder-casing",
@@ -178,8 +178,8 @@
         "object-args",
         "single-return",
         "private-helper-colocation",
-        "size-function",
-        "size-file"
+        "function-size",
+        "file-size"
       ]
     },
     {
@@ -288,7 +288,7 @@
         "test-support-in-src",
         "test-nested-describe",
         "files-that-must-not-have-dedicated-tests",
-        "test-size-file",
+        "test-file-size",
         "test-structure-arrange-act-assert-with-setup-factories",
         "test-shared-let",
         "test-assert-in-hook",
@@ -1258,255 +1258,6 @@
       ]
     },
     {
-      "id": "crowded-folder",
-      "set": "code",
-      "documentPath": "code/architecture/folder-structure",
-      "summary": "more files sitting in one flat folder than the cap allows",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {
-        "cap": 20
-      },
-      "fixtureCounts": {
-        "pass": 25,
-        "fail": 21
-      },
-      "prose": "When a folder starts reading like a directory listing instead of a description of the product, group the related siblings under a parent domain folder. Never sort them into a bucket named for what kind of code they are.\n\nA directory a file-based router owns is not judged here: its population is the number of routes the app has, which is a product fact rather than a folder someone let grow.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "package.json",
-          "text": "{\n\t\"name\": \"crowded-folder-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"^1.0.0\"\n\t}\n}\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/narrow/narrow0.ts",
-          "text": "export const narrow0 = 0;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/narrow/narrow1.ts",
-          "text": "export const narrow1 = 1;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/narrow/narrow2.ts",
-          "text": "export const narrow2 = 2;\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route0.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route0')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route1.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route1')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route10.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route10')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route11.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route11')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route12.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route12')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route13.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route13')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route14.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route14')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route15.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route15')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route16.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route16')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route17.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route17')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route18.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route18')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route19.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route19')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route2.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route2')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route20.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route20')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route3.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route3')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route4.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route4')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route5.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route5')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route6.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route6')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route7.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route7')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route8.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route8')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/routes/route9.tsx",
-          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route9')({\n\tcomponent: () => null,\n});\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/index.ts",
-          "text": "export { wide0 } from './wide0';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide0.ts",
-          "text": "export const wide0 = 0;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide1.ts",
-          "text": "export const wide1 = 1;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide10.ts",
-          "text": "export const wide10 = 10;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide11.ts",
-          "text": "export const wide11 = 11;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide12.ts",
-          "text": "export const wide12 = 12;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide13.ts",
-          "text": "export const wide13 = 13;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide14.ts",
-          "text": "export const wide14 = 14;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide15.ts",
-          "text": "export const wide15 = 15;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide16.ts",
-          "text": "export const wide16 = 16;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide17.ts",
-          "text": "export const wide17 = 17;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide18.ts",
-          "text": "export const wide18 = 18;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide19.ts",
-          "text": "export const wide19 = 19;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide2.ts",
-          "text": "export const wide2 = 2;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide3.ts",
-          "text": "export const wide3 = 3;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide4.ts",
-          "text": "export const wide4 = 4;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide5.ts",
-          "text": "export const wide5 = 5;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide6.ts",
-          "text": "export const wide6 = 6;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide7.ts",
-          "text": "export const wide7 = 7;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide8.ts",
-          "text": "export const wide8 = 8;\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/wide/wide9.ts",
-          "text": "export const wide9 = 9;\n"
-        }
-      ]
-    },
-    {
       "id": "dead-export",
       "set": "code",
       "documentPath": "code/architecture/architecture-decisions",
@@ -2032,6 +1783,41 @@
       ]
     },
     {
+      "id": "file-size",
+      "set": "code",
+      "documentPath": "code/style-guide/patterns/functions",
+      "summary": "a file over the standards line cap",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {
+        "file": 250,
+        "tsxFile": 300
+      },
+      "fixtureCounts": {
+        "pass": 2,
+        "fail": 1
+      },
+      "prose": "Files stay under ~250 lines (~300 for `.tsx` — JSX and props interfaces earn the slack) — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\nThe cap exempts a barrel in any source dialect — `index.tsx` included — because a module's public API cannot take the remedy a size finding asks for.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "src/catalog/entries/getCatalogEntry001.ts",
+          "text": "export const getCatalogEntry001 = (): string => 'Catalog entry 001';\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/catalog/index.ts",
+          "text": "// A barrel past the cap, and exempt at any length: the remedy a size finding\n// asks for — split the file, or graduate the concept — is the one thing a\n// module's public API cannot do.\nexport { getCatalogEntry001 } from './entries/getCatalogEntry001';\nexport { getCatalogEntry002 } from './entries/getCatalogEntry002';\nexport { getCatalogEntry003 } from './entries/getCatalogEntry003';\nexport { getCatalogEntry004 } from './entries/getCatalogEntry004';\nexport { getCatalogEntry005 } from './entries/getCatalogEntry005';\nexport { getCatalogEntry006 } from './entries/getCatalogEntry006';\nexport { getCatalogEntry007 } from './entries/getCatalogEntry007';\nexport { getCatalogEntry008 } from './entries/getCatalogEntry008';\nexport { getCatalogEntry009 } from './entries/getCatalogEntry009';\nexport { getCatalogEntry010 } from './entries/getCatalogEntry010';\nexport { getCatalogEntry011 } from './entries/getCatalogEntry011';\nexport { getCatalogEntry012 } from './entries/getCatalogEntry012';\nexport { getCatalogEntry013 } from './entries/getCatalogEntry013';\nexport { getCatalogEntry014 } from './entries/getCatalogEntry014';\nexport { getCatalogEntry015 } from './entries/getCatalogEntry015';\nexport { getCatalogEntry016 } from './entries/getCatalogEntry016';\nexport { getCatalogEntry017 } from './entries/getCatalogEntry017';\nexport { getCatalogEntry018 } from './entries/getCatalogEntry018';\nexport { getCatalogEntry019 } from './entries/getCatalogEntry019';\nexport { getCatalogEntry020 } from './entries/getCatalogEntry020';\nexport { getCatalogEntry021 } from './entries/getCatalogEntry021';\nexport { getCatalogEntry022 } from './entries/getCatalogEntry022';\nexport { getCatalogEntry023 } from './entries/getCatalogEntry023';\nexport { getCatalogEntry024 } from './entries/getCatalogEntry024';\nexport { getCatalogEntry025 } from './entries/getCatalogEntry025';\nexport { getCatalogEntry026 } from './entries/getCatalogEntry026';\nexport { getCatalogEntry027 } from './entries/getCatalogEntry027';\nexport { getCatalogEntry028 } from './entries/getCatalogEntry028';\nexport { getCatalogEntry029 } from './entries/getCatalogEntry029';\nexport { getCatalogEntry030 } from './entries/getCatalogEntry030';\nexport { getCatalogEntry031 } from './entries/getCatalogEntry031';\nexport { getCatalogEntry032 } from './entries/getCatalogEntry032';\nexport { getCatalogEntry033 } from './entries/getCatalogEntry033';\nexport { getCatalogEntry034 } from './entries/getCatalogEntry034';\nexport { getCatalogEntry035 } from './entries/getCatalogEntry035';\nexport { getCatalogEntry036 } from './entries/getCatalogEntry036';\nexport { getCatalogEntry037 } from './entries/getCatalogEntry037';\nexport { getCatalogEntry038 } from './entries/getCatalogEntry038';\nexport { getCatalogEntry039 } from './entries/getCatalogEntry039';\nexport { getCatalogEntry040 } from './entries/getCatalogEntry040';\nexport { getCatalogEntry041 } from './entries/getCatalogEntry041';\nexport { getCatalogEntry042 } from './entries/getCatalogEntry042';\nexport { getCatalogEntry043 } from './entries/getCatalogEntry043';\nexport { getCatalogEntry044 } from './entries/getCatalogEntry044';\nexport { getCatalogEntry045 } from './entries/getCatalogEntry045';\nexport { getCatalogEntry046 } from './entries/getCatalogEntry046';\nexport { getCatalogEntry047 } from './entries/getCatalogEntry047';\nexport { getCatalogEntry048 } from './entries/getCatalogEntry048';\nexport { getCatalogEntry049 } from './entries/getCatalogEntry049';\nexport { getCatalogEntry050 } from './entries/getCatalogEntry050';\nexport { getCatalogEntry051 } from './entries/getCatalogEntry051';\nexport { getCatalogEntry052 } from './entries/getCatalogEntry052';\nexport { getCatalogEntry053 } from './entries/getCatalogEntry053';\nexport { getCatalogEntry054 } from './entries/getCatalogEntry054';\nexport { getCatalogEntry055 } from './entries/getCatalogEntry055';\nexport { getCatalogEntry056 } from './entries/getCatalogEntry056';\nexport { getCatalogEntry057 } from './entries/getCatalogEntry057';\nexport { getCatalogEntry058 } from './entries/getCatalogEntry058';\nexport { getCatalogEntry059 } from './entries/getCatalogEntry059';\nexport { getCatalogEntry060 } from './entries/getCatalogEntry060';\nexport { getCatalogEntry061 } from './entries/getCatalogEntry061';\nexport { getCatalogEntry062 } from './entries/getCatalogEntry062';\nexport { getCatalogEntry063 } from './entries/getCatalogEntry063';\nexport { getCatalogEntry064 } from './entries/getCatalogEntry064';\nexport { getCatalogEntry065 } from './entries/getCatalogEntry065';\nexport { getCatalogEntry066 } from './entries/getCatalogEntry066';\nexport { getCatalogEntry067 } from './entries/getCatalogEntry067';\nexport { getCatalogEntry068 } from './entries/getCatalogEntry068';\nexport { getCatalogEntry069 } from './entries/getCatalogEntry069';\nexport { getCatalogEntry070 } from './entries/getCatalogEntry070';\nexport { getCatalogEntry071 } from './entries/getCatalogEntry071';\nexport { getCatalogEntry072 } from './entries/getCatalogEntry072';\nexport { getCatalogEntry073 } from './entries/getCatalogEntry073';\nexport { getCatalogEntry074 } from './entries/getCatalogEntry074';\nexport { getCatalogEntry075 } from './entries/getCatalogEntry075';\nexport { getCatalogEntry076 } from './entries/getCatalogEntry076';\nexport { getCatalogEntry077 } from './entries/getCatalogEntry077';\nexport { getCatalogEntry078 } from './entries/getCatalogEntry078';\nexport { getCatalogEntry079 } from './entries/getCatalogEntry079';\nexport { getCatalogEntry080 } from './entries/getCatalogEntry080';\nexport { getCatalogEntry081 } from './entries/getCatalogEntry081';\nexport { getCatalogEntry082 } from './entries/getCatalogEntry082';\nexport { getCatalogEntry083 } from './entries/getCatalogEntry083';\nexport { getCatalogEntry084 } from './entries/getCatalogEntry084';\nexport { getCatalogEntry085 } from './entries/getCatalogEntry085';\nexport { getCatalogEntry086 } from './entries/getCatalogEntry086';\nexport { getCatalogEntry087 } from './entries/getCatalogEntry087';\nexport { getCatalogEntry088 } from './entries/getCatalogEntry088';\nexport { getCatalogEntry089 } from './entries/getCatalogEntry089';\nexport { getCatalogEntry090 } from './entries/getCatalogEntry090';\nexport { getCatalogEntry091 } from './entries/getCatalogEntry091';\nexport { getCatalogEntry092 } from './entries/getCatalogEntry092';\nexport { getCatalogEntry093 } from './entries/getCatalogEntry093';\nexport { getCatalogEntry094 } from './entries/getCatalogEntry094';\nexport { getCatalogEntry095 } from './entries/getCatalogEntry095';\nexport { getCatalogEntry096 } from './entries/getCatalogEntry096';\nexport { getCatalogEntry097 } from './entries/getCatalogEntry097';\nexport { getCatalogEntry098 } from './entries/getCatalogEntry098';\nexport { getCatalogEntry099 } from './entries/getCatalogEntry099';\nexport { getCatalogEntry100 } from './entries/getCatalogEntry100';\nexport { getCatalogEntry101 } from './entries/getCatalogEntry101';\nexport { getCatalogEntry102 } from './entries/getCatalogEntry102';\nexport { getCatalogEntry103 } from './entries/getCatalogEntry103';\nexport { getCatalogEntry104 } from './entries/getCatalogEntry104';\nexport { getCatalogEntry105 } from './entries/getCatalogEntry105';\nexport { getCatalogEntry106 } from './entries/getCatalogEntry106';\nexport { getCatalogEntry107 } from './entries/getCatalogEntry107';\nexport { getCatalogEntry108 } from './entries/getCatalogEntry108';\nexport { getCatalogEntry109 } from './entries/getCatalogEntry109';\nexport { getCatalogEntry110 } from './entries/getCatalogEntry110';\nexport { getCatalogEntry111 } from './entries/getCatalogEntry111';\nexport { getCatalogEntry112 } from './entries/getCatalogEntry112';\nexport { getCatalogEntry113 } from './entries/getCatalogEntry113';\nexport { getCatalogEntry114 } from './entries/getCatalogEntry114';\nexport { getCatalogEntry115 } from './entries/getCatalogEntry115';\nexport { getCatalogEntry116 } from './entries/getCatalogEntry116';\nexport { getCatalogEntry117 } from './entries/getCatalogEntry117';\nexport { getCatalogEntry118 } from './entries/getCatalogEntry118';\nexport { getCatalogEntry119 } from './entries/getCatalogEntry119';\nexport { getCatalogEntry120 } from './entries/getCatalogEntry120';\nexport { getCatalogEntry121 } from './entries/getCatalogEntry121';\nexport { getCatalogEntry122 } from './entries/getCatalogEntry122';\nexport { getCatalogEntry123 } from './entries/getCatalogEntry123';\nexport { getCatalogEntry124 } from './entries/getCatalogEntry124';\nexport { getCatalogEntry125 } from './entries/getCatalogEntry125';\nexport { getCatalogEntry126 } from './entries/getCatalogEntry126';\nexport { getCatalogEntry127 } from './entries/getCatalogEntry127';\nexport { getCatalogEntry128 } from './entries/getCatalogEntry128';\nexport { getCatalogEntry129 } from './entries/getCatalogEntry129';\nexport { getCatalogEntry130 } from './entries/getCatalogEntry130';\nexport { getCatalogEntry131 } from './entries/getCatalogEntry131';\nexport { getCatalogEntry132 } from './entries/getCatalogEntry132';\nexport { getCatalogEntry133 } from './entries/getCatalogEntry133';\nexport { getCatalogEntry134 } from './entries/getCatalogEntry134';\nexport { getCatalogEntry135 } from './entries/getCatalogEntry135';\nexport { getCatalogEntry136 } from './entries/getCatalogEntry136';\nexport { getCatalogEntry137 } from './entries/getCatalogEntry137';\nexport { getCatalogEntry138 } from './entries/getCatalogEntry138';\nexport { getCatalogEntry139 } from './entries/getCatalogEntry139';\nexport { getCatalogEntry140 } from './entries/getCatalogEntry140';\nexport { getCatalogEntry141 } from './entries/getCatalogEntry141';\nexport { getCatalogEntry142 } from './entries/getCatalogEntry142';\nexport { getCatalogEntry143 } from './entries/getCatalogEntry143';\nexport { getCatalogEntry144 } from './entries/getCatalogEntry144';\nexport { getCatalogEntry145 } from './entries/getCatalogEntry145';\nexport { getCatalogEntry146 } from './entries/getCatalogEntry146';\nexport { getCatalogEntry147 } from './entries/getCatalogEntry147';\nexport { getCatalogEntry148 } from './entries/getCatalogEntry148';\nexport { getCatalogEntry149 } from './entries/getCatalogEntry149';\nexport { getCatalogEntry150 } from './entries/getCatalogEntry150';\nexport { getCatalogEntry151 } from './entries/getCatalogEntry151';\nexport { getCatalogEntry152 } from './entries/getCatalogEntry152';\nexport { getCatalogEntry153 } from './entries/getCatalogEntry153';\nexport { getCatalogEntry154 } from './entries/getCatalogEntry154';\nexport { getCatalogEntry155 } from './entries/getCatalogEntry155';\nexport { getCatalogEntry156 } from './entries/getCatalogEntry156';\nexport { getCatalogEntry157 } from './entries/getCatalogEntry157';\nexport { getCatalogEntry158 } from './entries/getCatalogEntry158';\nexport { getCatalogEntry159 } from './entries/getCatalogEntry159';\nexport { getCatalogEntry160 } from './entries/getCatalogEntry160';\nexport { getCatalogEntry161 } from './entries/getCatalogEntry161';\nexport { getCatalogEntry162 } from './entries/getCatalogEntry162';\nexport { getCatalogEntry163 } from './entries/getCatalogEntry163';\nexport { getCatalogEntry164 } from './entries/getCatalogEntry164';\nexport { getCatalogEntry165 } from './entries/getCatalogEntry165';\nexport { getCatalogEntry166 } from './entries/getCatalogEntry166';\nexport { getCatalogEntry167 } from './entries/getCatalogEntry167';\nexport { getCatalogEntry168 } from './entries/getCatalogEntry168';\nexport { getCatalogEntry169 } from './entries/getCatalogEntry169';\nexport { getCatalogEntry170 } from './entries/getCatalogEntry170';\nexport { getCatalogEntry171 } from './entries/getCatalogEntry171';\nexport { getCatalogEntry172 } from './entries/getCatalogEntry172';\nexport { getCatalogEntry173 } from './entries/getCatalogEntry173';\nexport { getCatalogEntry174 } from './entries/getCatalogEntry174';\nexport { getCatalogEntry175 } from './entries/getCatalogEntry175';\nexport { getCatalogEntry176 } from './entries/getCatalogEntry176';\nexport { getCatalogEntry177 } from './entries/getCatalogEntry177';\nexport { getCatalogEntry178 } from './entries/getCatalogEntry178';\nexport { getCatalogEntry179 } from './entries/getCatalogEntry179';\nexport { getCatalogEntry180 } from './entries/getCatalogEntry180';\nexport { getCatalogEntry181 } from './entries/getCatalogEntry181';\nexport { getCatalogEntry182 } from './entries/getCatalogEntry182';\nexport { getCatalogEntry183 } from './entries/getCatalogEntry183';\nexport { getCatalogEntry184 } from './entries/getCatalogEntry184';\nexport { getCatalogEntry185 } from './entries/getCatalogEntry185';\nexport { getCatalogEntry186 } from './entries/getCatalogEntry186';\nexport { getCatalogEntry187 } from './entries/getCatalogEntry187';\nexport { getCatalogEntry188 } from './entries/getCatalogEntry188';\nexport { getCatalogEntry189 } from './entries/getCatalogEntry189';\nexport { getCatalogEntry190 } from './entries/getCatalogEntry190';\nexport { getCatalogEntry191 } from './entries/getCatalogEntry191';\nexport { getCatalogEntry192 } from './entries/getCatalogEntry192';\nexport { getCatalogEntry193 } from './entries/getCatalogEntry193';\nexport { getCatalogEntry194 } from './entries/getCatalogEntry194';\nexport { getCatalogEntry195 } from './entries/getCatalogEntry195';\nexport { getCatalogEntry196 } from './entries/getCatalogEntry196';\nexport { getCatalogEntry197 } from './entries/getCatalogEntry197';\nexport { getCatalogEntry198 } from './entries/getCatalogEntry198';\nexport { getCatalogEntry199 } from './entries/getCatalogEntry199';\nexport { getCatalogEntry200 } from './entries/getCatalogEntry200';\nexport { getCatalogEntry201 } from './entries/getCatalogEntry201';\nexport { getCatalogEntry202 } from './entries/getCatalogEntry202';\nexport { getCatalogEntry203 } from './entries/getCatalogEntry203';\nexport { getCatalogEntry204 } from './entries/getCatalogEntry204';\nexport { getCatalogEntry205 } from './entries/getCatalogEntry205';\nexport { getCatalogEntry206 } from './entries/getCatalogEntry206';\nexport { getCatalogEntry207 } from './entries/getCatalogEntry207';\nexport { getCatalogEntry208 } from './entries/getCatalogEntry208';\nexport { getCatalogEntry209 } from './entries/getCatalogEntry209';\nexport { getCatalogEntry210 } from './entries/getCatalogEntry210';\nexport { getCatalogEntry211 } from './entries/getCatalogEntry211';\nexport { getCatalogEntry212 } from './entries/getCatalogEntry212';\nexport { getCatalogEntry213 } from './entries/getCatalogEntry213';\nexport { getCatalogEntry214 } from './entries/getCatalogEntry214';\nexport { getCatalogEntry215 } from './entries/getCatalogEntry215';\nexport { getCatalogEntry216 } from './entries/getCatalogEntry216';\nexport { getCatalogEntry217 } from './entries/getCatalogEntry217';\nexport { getCatalogEntry218 } from './entries/getCatalogEntry218';\nexport { getCatalogEntry219 } from './entries/getCatalogEntry219';\nexport { getCatalogEntry220 } from './entries/getCatalogEntry220';\nexport { getCatalogEntry221 } from './entries/getCatalogEntry221';\nexport { getCatalogEntry222 } from './entries/getCatalogEntry222';\nexport { getCatalogEntry223 } from './entries/getCatalogEntry223';\nexport { getCatalogEntry224 } from './entries/getCatalogEntry224';\nexport { getCatalogEntry225 } from './entries/getCatalogEntry225';\nexport { getCatalogEntry226 } from './entries/getCatalogEntry226';\nexport { getCatalogEntry227 } from './entries/getCatalogEntry227';\nexport { getCatalogEntry228 } from './entries/getCatalogEntry228';\nexport { getCatalogEntry229 } from './entries/getCatalogEntry229';\nexport { getCatalogEntry230 } from './entries/getCatalogEntry230';\nexport { getCatalogEntry231 } from './entries/getCatalogEntry231';\nexport { getCatalogEntry232 } from './entries/getCatalogEntry232';\nexport { getCatalogEntry233 } from './entries/getCatalogEntry233';\nexport { getCatalogEntry234 } from './entries/getCatalogEntry234';\nexport { getCatalogEntry235 } from './entries/getCatalogEntry235';\nexport { getCatalogEntry236 } from './entries/getCatalogEntry236';\nexport { getCatalogEntry237 } from './entries/getCatalogEntry237';\nexport { getCatalogEntry238 } from './entries/getCatalogEntry238';\nexport { getCatalogEntry239 } from './entries/getCatalogEntry239';\nexport { getCatalogEntry240 } from './entries/getCatalogEntry240';\nexport { getCatalogEntry241 } from './entries/getCatalogEntry241';\nexport { getCatalogEntry242 } from './entries/getCatalogEntry242';\nexport { getCatalogEntry243 } from './entries/getCatalogEntry243';\nexport { getCatalogEntry244 } from './entries/getCatalogEntry244';\nexport { getCatalogEntry245 } from './entries/getCatalogEntry245';\nexport { getCatalogEntry246 } from './entries/getCatalogEntry246';\nexport { getCatalogEntry247 } from './entries/getCatalogEntry247';\nexport { getCatalogEntry248 } from './entries/getCatalogEntry248';\nexport { getCatalogEntry249 } from './entries/getCatalogEntry249';\nexport { getCatalogEntry250 } from './entries/getCatalogEntry250';\nexport { getCatalogEntry251 } from './entries/getCatalogEntry251';\nexport { getCatalogEntry252 } from './entries/getCatalogEntry252';\nexport { getCatalogEntry253 } from './entries/getCatalogEntry253';\nexport { getCatalogEntry254 } from './entries/getCatalogEntry254';\nexport { getCatalogEntry255 } from './entries/getCatalogEntry255';\nexport { getCatalogEntry256 } from './entries/getCatalogEntry256';\nexport { getCatalogEntry257 } from './entries/getCatalogEntry257';\nexport { getCatalogEntry258 } from './entries/getCatalogEntry258';\nexport { getCatalogEntry259 } from './entries/getCatalogEntry259';\nexport { getCatalogEntry260 } from './entries/getCatalogEntry260';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/catalog/catalogEntries.ts",
+          "text": "interface CatalogEntry {\n\tsku: string;\n\tlabel: string;\n\tprice: number;\n}\n\n// The whole catalog in one file: past the cap, and the signal that the concept\n// has grown into a module with a boundary of its own.\nexport const catalogEntries: CatalogEntry[] = [\n\t{ sku: 'sku-001', label: 'Catalog entry 001', price: 100 },\n\t{ sku: 'sku-002', label: 'Catalog entry 002', price: 105 },\n\t{ sku: 'sku-003', label: 'Catalog entry 003', price: 110 },\n\t{ sku: 'sku-004', label: 'Catalog entry 004', price: 115 },\n\t{ sku: 'sku-005', label: 'Catalog entry 005', price: 120 },\n\t{ sku: 'sku-006', label: 'Catalog entry 006', price: 125 },\n\t{ sku: 'sku-007', label: 'Catalog entry 007', price: 130 },\n\t{ sku: 'sku-008', label: 'Catalog entry 008', price: 135 },\n\t{ sku: 'sku-009', label: 'Catalog entry 009', price: 140 },\n\t{ sku: 'sku-010', label: 'Catalog entry 010', price: 145 },\n\t{ sku: 'sku-011', label: 'Catalog entry 011', price: 150 },\n\t{ sku: 'sku-012', label: 'Catalog entry 012', price: 155 },\n\t{ sku: 'sku-013', label: 'Catalog entry 013', price: 160 },\n\t{ sku: 'sku-014', label: 'Catalog entry 014', price: 165 },\n\t{ sku: 'sku-015', label: 'Catalog entry 015', price: 170 },\n\t{ sku: 'sku-016', label: 'Catalog entry 016', price: 175 },\n\t{ sku: 'sku-017', label: 'Catalog entry 017', price: 180 },\n\t{ sku: 'sku-018', label: 'Catalog entry 018', price: 185 },\n\t{ sku: 'sku-019', label: 'Catalog entry 019', price: 190 },\n\t{ sku: 'sku-020', label: 'Catalog entry 020', price: 195 },\n\t{ sku: 'sku-021', label: 'Catalog entry 021', price: 200 },\n\t{ sku: 'sku-022', label: 'Catalog entry 022', price: 205 },\n\t{ sku: 'sku-023', label: 'Catalog entry 023', price: 210 },\n\t{ sku: 'sku-024', label: 'Catalog entry 024', price: 215 },\n\t{ sku: 'sku-025', label: 'Catalog entry 025', price: 220 },\n\t{ sku: 'sku-026', label: 'Catalog entry 026', price: 225 },\n\t{ sku: 'sku-027', label: 'Catalog entry 027', price: 230 },\n\t{ sku: 'sku-028', label: 'Catalog entry 028', price: 235 },\n\t{ sku: 'sku-029', label: 'Catalog entry 029', price: 240 },\n\t{ sku: 'sku-030', label: 'Catalog entry 030', price: 245 },\n\t{ sku: 'sku-031', label: 'Catalog entry 031', price: 250 },\n\t{ sku: 'sku-032', label: 'Catalog entry 032', price: 255 },\n\t{ sku: 'sku-033', label: 'Catalog entry 033', price: 260 },\n\t{ sku: 'sku-034', label: 'Catalog entry 034', price: 265 },\n\t{ sku: 'sku-035', label: 'Catalog entry 035', price: 270 },\n\t{ sku: 'sku-036', label: 'Catalog entry 036', price: 275 },\n\t{ sku: 'sku-037', label: 'Catalog entry 037', price: 280 },\n\t{ sku: 'sku-038', label: 'Catalog entry 038', price: 285 },\n\t{ sku: 'sku-039', label: 'Catalog entry 039', price: 290 },\n\t{ sku: 'sku-040', label: 'Catalog entry 040', price: 295 },\n\t{ sku: 'sku-041', label: 'Catalog entry 041', price: 300 },\n\t{ sku: 'sku-042', label: 'Catalog entry 042', price: 305 },\n\t{ sku: 'sku-043', label: 'Catalog entry 043', price: 310 },\n\t{ sku: 'sku-044', label: 'Catalog entry 044', price: 315 },\n\t{ sku: 'sku-045', label: 'Catalog entry 045', price: 320 },\n\t{ sku: 'sku-046', label: 'Catalog entry 046', price: 325 },\n\t{ sku: 'sku-047', label: 'Catalog entry 047', price: 330 },\n\t{ sku: 'sku-048', label: 'Catalog entry 048', price: 335 },\n\t{ sku: 'sku-049', label: 'Catalog entry 049', price: 340 },\n\t{ sku: 'sku-050', label: 'Catalog entry 050', price: 345 },\n\t{ sku: 'sku-051', label: 'Catalog entry 051', price: 350 },\n\t{ sku: 'sku-052', label: 'Catalog entry 052', price: 355 },\n\t{ sku: 'sku-053', label: 'Catalog entry 053', price: 360 },\n\t{ sku: 'sku-054', label: 'Catalog entry 054', price: 365 },\n\t{ sku: 'sku-055', label: 'Catalog entry 055', price: 370 },\n\t{ sku: 'sku-056', label: 'Catalog entry 056', price: 375 },\n\t{ sku: 'sku-057', label: 'Catalog entry 057', price: 380 },\n\t{ sku: 'sku-058', label: 'Catalog entry 058', price: 385 },\n\t{ sku: 'sku-059', label: 'Catalog entry 059', price: 390 },\n\t{ sku: 'sku-060', label: 'Catalog entry 060', price: 395 },\n\t{ sku: 'sku-061', label: 'Catalog entry 061', price: 400 },\n\t{ sku: 'sku-062', label: 'Catalog entry 062', price: 405 },\n\t{ sku: 'sku-063', label: 'Catalog entry 063', price: 410 },\n\t{ sku: 'sku-064', label: 'Catalog entry 064', price: 415 },\n\t{ sku: 'sku-065', label: 'Catalog entry 065', price: 420 },\n\t{ sku: 'sku-066', label: 'Catalog entry 066', price: 425 },\n\t{ sku: 'sku-067', label: 'Catalog entry 067', price: 430 },\n\t{ sku: 'sku-068', label: 'Catalog entry 068', price: 435 },\n\t{ sku: 'sku-069', label: 'Catalog entry 069', price: 440 },\n\t{ sku: 'sku-070', label: 'Catalog entry 070', price: 445 },\n\t{ sku: 'sku-071', label: 'Catalog entry 071', price: 450 },\n\t{ sku: 'sku-072', label: 'Catalog entry 072', price: 455 },\n\t{ sku: 'sku-073', label: 'Catalog entry 073', price: 460 },\n\t{ sku: 'sku-074', label: 'Catalog entry 074', price: 465 },\n\t{ sku: 'sku-075', label: 'Catalog entry 075', price: 470 },\n\t{ sku: 'sku-076', label: 'Catalog entry 076', price: 475 },\n\t{ sku: 'sku-077', label: 'Catalog entry 077', price: 480 },\n\t{ sku: 'sku-078', label: 'Catalog entry 078', price: 485 },\n\t{ sku: 'sku-079', label: 'Catalog entry 079', price: 490 },\n\t{ sku: 'sku-080', label: 'Catalog entry 080', price: 495 },\n\t{ sku: 'sku-081', label: 'Catalog entry 081', price: 500 },\n\t{ sku: 'sku-082', label: 'Catalog entry 082', price: 505 },\n\t{ sku: 'sku-083', label: 'Catalog entry 083', price: 510 },\n\t{ sku: 'sku-084', label: 'Catalog entry 084', price: 515 },\n\t{ sku: 'sku-085', label: 'Catalog entry 085', price: 520 },\n\t{ sku: 'sku-086', label: 'Catalog entry 086', price: 525 },\n\t{ sku: 'sku-087', label: 'Catalog entry 087', price: 530 },\n\t{ sku: 'sku-088', label: 'Catalog entry 088', price: 535 },\n\t{ sku: 'sku-089', label: 'Catalog entry 089', price: 540 },\n\t{ sku: 'sku-090', label: 'Catalog entry 090', price: 545 },\n\t{ sku: 'sku-091', label: 'Catalog entry 091', price: 550 },\n\t{ sku: 'sku-092', label: 'Catalog entry 092', price: 555 },\n\t{ sku: 'sku-093', label: 'Catalog entry 093', price: 560 },\n\t{ sku: 'sku-094', label: 'Catalog entry 094', price: 565 },\n\t{ sku: 'sku-095', label: 'Catalog entry 095', price: 570 },\n\t{ sku: 'sku-096', label: 'Catalog entry 096', price: 575 },\n\t{ sku: 'sku-097', label: 'Catalog entry 097', price: 580 },\n\t{ sku: 'sku-098', label: 'Catalog entry 098', price: 585 },\n\t{ sku: 'sku-099', label: 'Catalog entry 099', price: 590 },\n\t{ sku: 'sku-100', label: 'Catalog entry 100', price: 595 },\n\t{ sku: 'sku-101', label: 'Catalog entry 101', price: 600 },\n\t{ sku: 'sku-102', label: 'Catalog entry 102', price: 605 },\n\t{ sku: 'sku-103', label: 'Catalog entry 103', price: 610 },\n\t{ sku: 'sku-104', label: 'Catalog entry 104', price: 615 },\n\t{ sku: 'sku-105', label: 'Catalog entry 105', price: 620 },\n\t{ sku: 'sku-106', label: 'Catalog entry 106', price: 625 },\n\t{ sku: 'sku-107', label: 'Catalog entry 107', price: 630 },\n\t{ sku: 'sku-108', label: 'Catalog entry 108', price: 635 },\n\t{ sku: 'sku-109', label: 'Catalog entry 109', price: 640 },\n\t{ sku: 'sku-110', label: 'Catalog entry 110', price: 645 },\n\t{ sku: 'sku-111', label: 'Catalog entry 111', price: 650 },\n\t{ sku: 'sku-112', label: 'Catalog entry 112', price: 655 },\n\t{ sku: 'sku-113', label: 'Catalog entry 113', price: 660 },\n\t{ sku: 'sku-114', label: 'Catalog entry 114', price: 665 },\n\t{ sku: 'sku-115', label: 'Catalog entry 115', price: 670 },\n\t{ sku: 'sku-116', label: 'Catalog entry 116', price: 675 },\n\t{ sku: 'sku-117', label: 'Catalog entry 117', price: 680 },\n\t{ sku: 'sku-118', label: 'Catalog entry 118', price: 685 },\n\t{ sku: 'sku-119', label: 'Catalog entry 119', price: 690 },\n\t{ sku: 'sku-120', label: 'Catalog entry 120', price: 695 },\n\t{ sku: 'sku-121', label: 'Catalog entry 121', price: 700 },\n\t{ sku: 'sku-122', label: 'Catalog entry 122', price: 705 },\n\t{ sku: 'sku-123', label: 'Catalog entry 123', price: 710 },\n\t{ sku: 'sku-124', label: 'Catalog entry 124', price: 715 },\n\t{ sku: 'sku-125', label: 'Catalog entry 125', price: 720 },\n\t{ sku: 'sku-126', label: 'Catalog entry 126', price: 725 },\n\t{ sku: 'sku-127', label: 'Catalog entry 127', price: 730 },\n\t{ sku: 'sku-128', label: 'Catalog entry 128', price: 735 },\n\t{ sku: 'sku-129', label: 'Catalog entry 129', price: 740 },\n\t{ sku: 'sku-130', label: 'Catalog entry 130', price: 745 },\n\t{ sku: 'sku-131', label: 'Catalog entry 131', price: 750 },\n\t{ sku: 'sku-132', label: 'Catalog entry 132', price: 755 },\n\t{ sku: 'sku-133', label: 'Catalog entry 133', price: 760 },\n\t{ sku: 'sku-134', label: 'Catalog entry 134', price: 765 },\n\t{ sku: 'sku-135', label: 'Catalog entry 135', price: 770 },\n\t{ sku: 'sku-136', label: 'Catalog entry 136', price: 775 },\n\t{ sku: 'sku-137', label: 'Catalog entry 137', price: 780 },\n\t{ sku: 'sku-138', label: 'Catalog entry 138', price: 785 },\n\t{ sku: 'sku-139', label: 'Catalog entry 139', price: 790 },\n\t{ sku: 'sku-140', label: 'Catalog entry 140', price: 795 },\n\t{ sku: 'sku-141', label: 'Catalog entry 141', price: 800 },\n\t{ sku: 'sku-142', label: 'Catalog entry 142', price: 805 },\n\t{ sku: 'sku-143', label: 'Catalog entry 143', price: 810 },\n\t{ sku: 'sku-144', label: 'Catalog entry 144', price: 815 },\n\t{ sku: 'sku-145', label: 'Catalog entry 145', price: 820 },\n\t{ sku: 'sku-146', label: 'Catalog entry 146', price: 825 },\n\t{ sku: 'sku-147', label: 'Catalog entry 147', price: 830 },\n\t{ sku: 'sku-148', label: 'Catalog entry 148', price: 835 },\n\t{ sku: 'sku-149', label: 'Catalog entry 149', price: 840 },\n\t{ sku: 'sku-150', label: 'Catalog entry 150', price: 845 },\n\t{ sku: 'sku-151', label: 'Catalog entry 151', price: 850 },\n\t{ sku: 'sku-152', label: 'Catalog entry 152', price: 855 },\n\t{ sku: 'sku-153', label: 'Catalog entry 153', price: 860 },\n\t{ sku: 'sku-154', label: 'Catalog entry 154', price: 865 },\n\t{ sku: 'sku-155', label: 'Catalog entry 155', price: 870 },\n\t{ sku: 'sku-156', label: 'Catalog entry 156', price: 875 },\n\t{ sku: 'sku-157', label: 'Catalog entry 157', price: 880 },\n\t{ sku: 'sku-158', label: 'Catalog entry 158', price: 885 },\n\t{ sku: 'sku-159', label: 'Catalog entry 159', price: 890 },\n\t{ sku: 'sku-160', label: 'Catalog entry 160', price: 895 },\n\t{ sku: 'sku-161', label: 'Catalog entry 161', price: 900 },\n\t{ sku: 'sku-162', label: 'Catalog entry 162', price: 905 },\n\t{ sku: 'sku-163', label: 'Catalog entry 163', price: 910 },\n\t{ sku: 'sku-164', label: 'Catalog entry 164', price: 915 },\n\t{ sku: 'sku-165', label: 'Catalog entry 165', price: 920 },\n\t{ sku: 'sku-166', label: 'Catalog entry 166', price: 925 },\n\t{ sku: 'sku-167', label: 'Catalog entry 167', price: 930 },\n\t{ sku: 'sku-168', label: 'Catalog entry 168', price: 935 },\n\t{ sku: 'sku-169', label: 'Catalog entry 169', price: 940 },\n\t{ sku: 'sku-170', label: 'Catalog entry 170', price: 945 },\n\t{ sku: 'sku-171', label: 'Catalog entry 171', price: 950 },\n\t{ sku: 'sku-172', label: 'Catalog entry 172', price: 955 },\n\t{ sku: 'sku-173', label: 'Catalog entry 173', price: 960 },\n\t{ sku: 'sku-174', label: 'Catalog entry 174', price: 965 },\n\t{ sku: 'sku-175', label: 'Catalog entry 175', price: 970 },\n\t{ sku: 'sku-176', label: 'Catalog entry 176', price: 975 },\n\t{ sku: 'sku-177', label: 'Catalog entry 177', price: 980 },\n\t{ sku: 'sku-178', label: 'Catalog entry 178', price: 985 },\n\t{ sku: 'sku-179', label: 'Catalog entry 179', price: 990 },\n\t{ sku: 'sku-180', label: 'Catalog entry 180', price: 995 },\n\t{ sku: 'sku-181', label: 'Catalog entry 181', price: 1000 },\n\t{ sku: 'sku-182', label: 'Catalog entry 182', price: 1005 },\n\t{ sku: 'sku-183', label: 'Catalog entry 183', price: 1010 },\n\t{ sku: 'sku-184', label: 'Catalog entry 184', price: 1015 },\n\t{ sku: 'sku-185', label: 'Catalog entry 185', price: 1020 },\n\t{ sku: 'sku-186', label: 'Catalog entry 186', price: 1025 },\n\t{ sku: 'sku-187', label: 'Catalog entry 187', price: 1030 },\n\t{ sku: 'sku-188', label: 'Catalog entry 188', price: 1035 },\n\t{ sku: 'sku-189', label: 'Catalog entry 189', price: 1040 },\n\t{ sku: 'sku-190', label: 'Catalog entry 190', price: 1045 },\n\t{ sku: 'sku-191', label: 'Catalog entry 191', price: 1050 },\n\t{ sku: 'sku-192', label: 'Catalog entry 192', price: 1055 },\n\t{ sku: 'sku-193', label: 'Catalog entry 193', price: 1060 },\n\t{ sku: 'sku-194', label: 'Catalog entry 194', price: 1065 },\n\t{ sku: 'sku-195', label: 'Catalog entry 195', price: 1070 },\n\t{ sku: 'sku-196', label: 'Catalog entry 196', price: 1075 },\n\t{ sku: 'sku-197', label: 'Catalog entry 197', price: 1080 },\n\t{ sku: 'sku-198', label: 'Catalog entry 198', price: 1085 },\n\t{ sku: 'sku-199', label: 'Catalog entry 199', price: 1090 },\n\t{ sku: 'sku-200', label: 'Catalog entry 200', price: 1095 },\n\t{ sku: 'sku-201', label: 'Catalog entry 201', price: 1100 },\n\t{ sku: 'sku-202', label: 'Catalog entry 202', price: 1105 },\n\t{ sku: 'sku-203', label: 'Catalog entry 203', price: 1110 },\n\t{ sku: 'sku-204', label: 'Catalog entry 204', price: 1115 },\n\t{ sku: 'sku-205', label: 'Catalog entry 205', price: 1120 },\n\t{ sku: 'sku-206', label: 'Catalog entry 206', price: 1125 },\n\t{ sku: 'sku-207', label: 'Catalog entry 207', price: 1130 },\n\t{ sku: 'sku-208', label: 'Catalog entry 208', price: 1135 },\n\t{ sku: 'sku-209', label: 'Catalog entry 209', price: 1140 },\n\t{ sku: 'sku-210', label: 'Catalog entry 210', price: 1145 },\n\t{ sku: 'sku-211', label: 'Catalog entry 211', price: 1150 },\n\t{ sku: 'sku-212', label: 'Catalog entry 212', price: 1155 },\n\t{ sku: 'sku-213', label: 'Catalog entry 213', price: 1160 },\n\t{ sku: 'sku-214', label: 'Catalog entry 214', price: 1165 },\n\t{ sku: 'sku-215', label: 'Catalog entry 215', price: 1170 },\n\t{ sku: 'sku-216', label: 'Catalog entry 216', price: 1175 },\n\t{ sku: 'sku-217', label: 'Catalog entry 217', price: 1180 },\n\t{ sku: 'sku-218', label: 'Catalog entry 218', price: 1185 },\n\t{ sku: 'sku-219', label: 'Catalog entry 219', price: 1190 },\n\t{ sku: 'sku-220', label: 'Catalog entry 220', price: 1195 },\n\t{ sku: 'sku-221', label: 'Catalog entry 221', price: 1200 },\n\t{ sku: 'sku-222', label: 'Catalog entry 222', price: 1205 },\n\t{ sku: 'sku-223', label: 'Catalog entry 223', price: 1210 },\n\t{ sku: 'sku-224', label: 'Catalog entry 224', price: 1215 },\n\t{ sku: 'sku-225', label: 'Catalog entry 225', price: 1220 },\n\t{ sku: 'sku-226', label: 'Catalog entry 226', price: 1225 },\n\t{ sku: 'sku-227', label: 'Catalog entry 227', price: 1230 },\n\t{ sku: 'sku-228', label: 'Catalog entry 228', price: 1235 },\n\t{ sku: 'sku-229', label: 'Catalog entry 229', price: 1240 },\n\t{ sku: 'sku-230', label: 'Catalog entry 230', price: 1245 },\n\t{ sku: 'sku-231', label: 'Catalog entry 231', price: 1250 },\n\t{ sku: 'sku-232', label: 'Catalog entry 232', price: 1255 },\n\t{ sku: 'sku-233', label: 'Catalog entry 233', price: 1260 },\n\t{ sku: 'sku-234', label: 'Catalog entry 234', price: 1265 },\n\t{ sku: 'sku-235', label: 'Catalog entry 235', price: 1270 },\n\t{ sku: 'sku-236', label: 'Catalog entry 236', price: 1275 },\n\t{ sku: 'sku-237', label: 'Catalog entry 237', price: 1280 },\n\t{ sku: 'sku-238', label: 'Catalog entry 238', price: 1285 },\n\t{ sku: 'sku-239', label: 'Catalog entry 239', price: 1290 },\n\t{ sku: 'sku-240', label: 'Catalog entry 240', price: 1295 },\n\t{ sku: 'sku-241', label: 'Catalog entry 241', price: 1300 },\n\t{ sku: 'sku-242', label: 'Catalog entry 242', price: 1305 },\n\t{ sku: 'sku-243', label: 'Catalog entry 243', price: 1310 },\n\t{ sku: 'sku-244', label: 'Catalog entry 244', price: 1315 },\n\t{ sku: 'sku-245', label: 'Catalog entry 245', price: 1320 },\n\t{ sku: 'sku-246', label: 'Catalog entry 246', price: 1325 },\n\t{ sku: 'sku-247', label: 'Catalog entry 247', price: 1330 },\n\t{ sku: 'sku-248', label: 'Catalog entry 248', price: 1335 },\n\t{ sku: 'sku-249', label: 'Catalog entry 249', price: 1340 },\n\t{ sku: 'sku-250', label: 'Catalog entry 250', price: 1345 },\n];\n"
+        }
+      ]
+    },
+    {
       "id": "filename-mismatch",
       "set": "code",
       "documentPath": "code/style-guide/conventions/file-naming",
@@ -2183,6 +1969,255 @@
       ]
     },
     {
+      "id": "folder-size",
+      "set": "code",
+      "documentPath": "code/architecture/folder-structure",
+      "summary": "more files sitting in one flat folder than the cap allows",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {
+        "cap": 20
+      },
+      "fixtureCounts": {
+        "pass": 25,
+        "fail": 21
+      },
+      "prose": "When a folder starts reading like a directory listing instead of a description of the product, group the related siblings under a parent domain folder. Never sort them into a bucket named for what kind of code they are.\n\nA directory a file-based router owns is not judged here: its population is the number of routes the app has, which is a product fact rather than a folder someone let grow.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "package.json",
+          "text": "{\n\t\"name\": \"folder-size-pass-fixture\",\n\t\"private\": true,\n\t\"dependencies\": {\n\t\t\"@tanstack/react-router\": \"^1.0.0\"\n\t}\n}\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/narrow/narrow0.ts",
+          "text": "export const narrow0 = 0;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/narrow/narrow1.ts",
+          "text": "export const narrow1 = 1;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/narrow/narrow2.ts",
+          "text": "export const narrow2 = 2;\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route0.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route0')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route1.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route1')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route10.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route10')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route11.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route11')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route12.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route12')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route13.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route13')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route14.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route14')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route15.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route15')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route16.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route16')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route17.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route17')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route18.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route18')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route19.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route19')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route2.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route2')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route20.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route20')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route3.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route3')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route4.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route4')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route5.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route5')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route6.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route6')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route7.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route7')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route8.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route8')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "pass",
+          "path": "src/routes/route9.tsx",
+          "text": "import { createFileRoute } from '@tanstack/react-router';\n\nexport const Route = createFileRoute('/route9')({\n\tcomponent: () => null,\n});\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/index.ts",
+          "text": "export { wide0 } from './wide0';\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide0.ts",
+          "text": "export const wide0 = 0;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide1.ts",
+          "text": "export const wide1 = 1;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide10.ts",
+          "text": "export const wide10 = 10;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide11.ts",
+          "text": "export const wide11 = 11;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide12.ts",
+          "text": "export const wide12 = 12;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide13.ts",
+          "text": "export const wide13 = 13;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide14.ts",
+          "text": "export const wide14 = 14;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide15.ts",
+          "text": "export const wide15 = 15;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide16.ts",
+          "text": "export const wide16 = 16;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide17.ts",
+          "text": "export const wide17 = 17;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide18.ts",
+          "text": "export const wide18 = 18;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide19.ts",
+          "text": "export const wide19 = 19;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide2.ts",
+          "text": "export const wide2 = 2;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide3.ts",
+          "text": "export const wide3 = 3;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide4.ts",
+          "text": "export const wide4 = 4;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide5.ts",
+          "text": "export const wide5 = 5;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide6.ts",
+          "text": "export const wide6 = 6;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide7.ts",
+          "text": "export const wide7 = 7;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide8.ts",
+          "text": "export const wide8 = 8;\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/wide/wide9.ts",
+          "text": "export const wide9 = 9;\n"
+        }
+      ]
+    },
+    {
       "id": "formatter-config",
       "set": "code",
       "documentPath": "code/style-guide/conventions/lint-and-formatting",
@@ -2275,6 +2310,37 @@
           "side": "fail",
           "path": "src/routes/dashboard.route.unit.test.ts",
           "text": "import { expect, describe, test } from '@jest/globals';\nimport { DashboardRoute } from './dashboard.route';\n\n// A route file is thin wiring covered by e2e tests and the screen component's\n// own tests, and a component test cannot live in a .ts file at all.\ndescribe('DashboardRoute', () => {\n\ttest('is defined', () => {\n\t\texpect(DashboardRoute).toBeDefined();\n\t});\n});\n"
+        }
+      ]
+    },
+    {
+      "id": "function-size",
+      "set": "code",
+      "documentPath": "code/style-guide/patterns/functions",
+      "summary": "a function, hook or component over its line cap",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {
+        "function": 80,
+        "hook": 160,
+        "component": 200
+      },
+      "fixtureCounts": {
+        "pass": 1,
+        "fail": 1
+      },
+      "prose": "## Function Size Limits\n\n| Lines | Assessment |\n| ----- | ------------------------------------ |\n| <=50  | Fine |\n| 50-80 | Review — look for extractable logic |\n| 80+   | Needs splitting |\n\n**The one exemption, in one sentence:** a function is exempt when every\nstatement is a call to a named step (or the assignment of its result) and the\ncontrol flow is linear — any inline loop, branch, or transformation\ndisqualifies it. A 150-line `start()` calling 8 step functions is fine; a\n150-line function with an inline loop is not. Such a function has no logic to\nextract, and splitting it would only scatter the sequence over more files than\nthe reader has to hold.\n\nReach for the exemption last, not first. It is the verdict a function earns\nonce the logic is out of it, not a reason to leave the logic in — and a\nfunction that is genuinely just sequencing calls will be short enough that the\ncap never asks. Extract the work into named pieces, then look again: what\nremains is either under the cap or visibly a sequence, and either way the\nquestion has answered itself.\n\nExtraction moves cost rather than removing it. Each piece pulled out is a new\nname to read and, if it leaves the file, a new file in the folder. Split\nbecause the piece deserves a name, not to buy back lines.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "src/reporting/buildReportSummary.ts",
+          "text": "interface Row {\n\tregion: string;\n\tproduct: string;\n\tcurrency: string;\n\tamount: number;\n\trefunded: boolean;\n}\n\ninterface Params {\n\trows: Row[];\n\trates: Record<string, number>;\n}\n\n// One grouping helper the export reuses three times — the same report, with the\n// body under the cap because the repeated work was named once.\nconst sumBy = ({ rows, rates, key }: { rows: Row[]; rates: Record<string, number>; key: keyof Row }) => {\n\tconst totals: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst group = String(row[key]);\n\n\t\ttotals[group] = (totals[group] ?? 0) + row.amount * (rates[row.currency] ?? 1);\n\t}\n\n\treturn totals;\n};\n\nexport const buildReportSummary = ({ rows, rates }: Params): Record<string, number> => {\n\tconst summary: Record<string, number> = {};\n\n\tfor (const key of ['region', 'product', 'currency'] as const) {\n\t\tfor (const [group, total] of Object.entries(sumBy({ rows, rates, key }))) {\n\t\t\tsummary[`${key}.${group}.total`] = total;\n\t\t}\n\t}\n\n\tsummary['rows.counted'] = rows.length;\n\n\treturn summary;\n};\n"
+        },
+        {
+          "side": "fail",
+          "path": "src/reporting/buildReportSummary.ts",
+          "text": "interface Row {\n\tregion: string;\n\tproduct: string;\n\tcurrency: string;\n\tamount: number;\n\trefunded: boolean;\n}\n\ninterface Params {\n\trows: Row[];\n\trates: Record<string, number>;\n}\n\n// Every step of the summary inlined into one body — not a linear flow of step\n// calls, just a long function, which is the shape the table calls \"needs\n// splitting\".\nexport const buildReportSummary = ({ rows, rates }: Params): Record<string, number> => {\n\tconst regionTotals: Record<string, number> = {};\n\tconst regionRefunds: Record<string, number> = {};\n\tconst regionCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tregionRefunds[row.region] = (regionRefunds[row.region] ?? 0) + converted;\n\t\t} else {\n\t\t\tregionTotals[row.region] = (regionTotals[row.region] ?? 0) + converted;\n\t\t}\n\n\t\tregionCounts[row.region] = (regionCounts[row.region] ?? 0) + 1;\n\t}\n\n\tconst productTotals: Record<string, number> = {};\n\tconst productRefunds: Record<string, number> = {};\n\tconst productCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tproductRefunds[row.product] = (productRefunds[row.product] ?? 0) + converted;\n\t\t} else {\n\t\t\tproductTotals[row.product] = (productTotals[row.product] ?? 0) + converted;\n\t\t}\n\n\t\tproductCounts[row.product] = (productCounts[row.product] ?? 0) + 1;\n\t}\n\n\tconst currencyTotals: Record<string, number> = {};\n\tconst currencyRefunds: Record<string, number> = {};\n\tconst currencyCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tcurrencyRefunds[row.currency] = (currencyRefunds[row.currency] ?? 0) + converted;\n\t\t} else {\n\t\t\tcurrencyTotals[row.currency] = (currencyTotals[row.currency] ?? 0) + converted;\n\t\t}\n\n\t\tcurrencyCounts[row.currency] = (currencyCounts[row.currency] ?? 0) + 1;\n\t}\n\n\tconst summary: Record<string, number> = {};\n\n\tfor (const [region, total] of Object.entries(regionTotals)) {\n\t\tsummary[`region.${region}.total`] = total;\n\t\tsummary[`region.${region}.refunded`] = regionRefunds[region] ?? 0;\n\t\tsummary[`region.${region}.count`] = regionCounts[region] ?? 0;\n\t\tsummary[`region.${region}.average`] = total / (regionCounts[region] ?? 1);\n\t}\n\n\tfor (const [product, total] of Object.entries(productTotals)) {\n\t\tsummary[`product.${product}.total`] = total;\n\t\tsummary[`product.${product}.refunded`] = productRefunds[product] ?? 0;\n\t\tsummary[`product.${product}.count`] = productCounts[product] ?? 0;\n\t\tsummary[`product.${product}.average`] = total / (productCounts[product] ?? 1);\n\t}\n\n\tfor (const [currency, total] of Object.entries(currencyTotals)) {\n\t\tsummary[`currency.${currency}.total`] = total;\n\t\tsummary[`currency.${currency}.refunded`] = currencyRefunds[currency] ?? 0;\n\t\tsummary[`currency.${currency}.count`] = currencyCounts[currency] ?? 0;\n\t\tsummary[`currency.${currency}.average`] = total / (currencyCounts[currency] ?? 1);\n\t}\n\n\tsummary['rows.counted'] = rows.length;\n\tsummary['rows.refunded'] = rows.filter((row) => row.refunded).length;\n\tsummary['rows.settled'] = rows.filter((row) => !row.refunded).length;\n\tsummary['regions.counted'] = Object.keys(regionTotals).length;\n\tsummary['products.counted'] = Object.keys(productTotals).length;\n\tsummary['currencies.counted'] = Object.keys(currencyTotals).length;\n\n\tfor (const [region, count] of Object.entries(regionCounts)) {\n\t\tsummary[`region.${region}.share`] = count / rows.length;\n\t}\n\n\tfor (const [product, count] of Object.entries(productCounts)) {\n\t\tsummary[`product.${product}.share`] = count / rows.length;\n\t}\n\n\tfor (const [currency, count] of Object.entries(currencyCounts)) {\n\t\tsummary[`currency.${currency}.share`] = count / rows.length;\n\t}\n\n\treturn summary;\n};\n"
         }
       ]
     },
@@ -3548,72 +3614,6 @@
       ]
     },
     {
-      "id": "size-file",
-      "set": "code",
-      "documentPath": "code/style-guide/patterns/functions",
-      "summary": "a file over the standards line cap",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {
-        "file": 250,
-        "tsxFile": 300
-      },
-      "fixtureCounts": {
-        "pass": 2,
-        "fail": 1
-      },
-      "prose": "Files stay under ~250 lines (~300 for `.tsx` — JSX and props interfaces earn the slack) — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\nThe cap exempts a barrel in any source dialect — `index.tsx` included — because a module's public API cannot take the remedy a size finding asks for.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/catalog/entries/getCatalogEntry001.ts",
-          "text": "export const getCatalogEntry001 = (): string => 'Catalog entry 001';\n"
-        },
-        {
-          "side": "pass",
-          "path": "src/catalog/index.ts",
-          "text": "// A barrel past the cap, and exempt at any length: the remedy a size finding\n// asks for — split the file, or graduate the concept — is the one thing a\n// module's public API cannot do.\nexport { getCatalogEntry001 } from './entries/getCatalogEntry001';\nexport { getCatalogEntry002 } from './entries/getCatalogEntry002';\nexport { getCatalogEntry003 } from './entries/getCatalogEntry003';\nexport { getCatalogEntry004 } from './entries/getCatalogEntry004';\nexport { getCatalogEntry005 } from './entries/getCatalogEntry005';\nexport { getCatalogEntry006 } from './entries/getCatalogEntry006';\nexport { getCatalogEntry007 } from './entries/getCatalogEntry007';\nexport { getCatalogEntry008 } from './entries/getCatalogEntry008';\nexport { getCatalogEntry009 } from './entries/getCatalogEntry009';\nexport { getCatalogEntry010 } from './entries/getCatalogEntry010';\nexport { getCatalogEntry011 } from './entries/getCatalogEntry011';\nexport { getCatalogEntry012 } from './entries/getCatalogEntry012';\nexport { getCatalogEntry013 } from './entries/getCatalogEntry013';\nexport { getCatalogEntry014 } from './entries/getCatalogEntry014';\nexport { getCatalogEntry015 } from './entries/getCatalogEntry015';\nexport { getCatalogEntry016 } from './entries/getCatalogEntry016';\nexport { getCatalogEntry017 } from './entries/getCatalogEntry017';\nexport { getCatalogEntry018 } from './entries/getCatalogEntry018';\nexport { getCatalogEntry019 } from './entries/getCatalogEntry019';\nexport { getCatalogEntry020 } from './entries/getCatalogEntry020';\nexport { getCatalogEntry021 } from './entries/getCatalogEntry021';\nexport { getCatalogEntry022 } from './entries/getCatalogEntry022';\nexport { getCatalogEntry023 } from './entries/getCatalogEntry023';\nexport { getCatalogEntry024 } from './entries/getCatalogEntry024';\nexport { getCatalogEntry025 } from './entries/getCatalogEntry025';\nexport { getCatalogEntry026 } from './entries/getCatalogEntry026';\nexport { getCatalogEntry027 } from './entries/getCatalogEntry027';\nexport { getCatalogEntry028 } from './entries/getCatalogEntry028';\nexport { getCatalogEntry029 } from './entries/getCatalogEntry029';\nexport { getCatalogEntry030 } from './entries/getCatalogEntry030';\nexport { getCatalogEntry031 } from './entries/getCatalogEntry031';\nexport { getCatalogEntry032 } from './entries/getCatalogEntry032';\nexport { getCatalogEntry033 } from './entries/getCatalogEntry033';\nexport { getCatalogEntry034 } from './entries/getCatalogEntry034';\nexport { getCatalogEntry035 } from './entries/getCatalogEntry035';\nexport { getCatalogEntry036 } from './entries/getCatalogEntry036';\nexport { getCatalogEntry037 } from './entries/getCatalogEntry037';\nexport { getCatalogEntry038 } from './entries/getCatalogEntry038';\nexport { getCatalogEntry039 } from './entries/getCatalogEntry039';\nexport { getCatalogEntry040 } from './entries/getCatalogEntry040';\nexport { getCatalogEntry041 } from './entries/getCatalogEntry041';\nexport { getCatalogEntry042 } from './entries/getCatalogEntry042';\nexport { getCatalogEntry043 } from './entries/getCatalogEntry043';\nexport { getCatalogEntry044 } from './entries/getCatalogEntry044';\nexport { getCatalogEntry045 } from './entries/getCatalogEntry045';\nexport { getCatalogEntry046 } from './entries/getCatalogEntry046';\nexport { getCatalogEntry047 } from './entries/getCatalogEntry047';\nexport { getCatalogEntry048 } from './entries/getCatalogEntry048';\nexport { getCatalogEntry049 } from './entries/getCatalogEntry049';\nexport { getCatalogEntry050 } from './entries/getCatalogEntry050';\nexport { getCatalogEntry051 } from './entries/getCatalogEntry051';\nexport { getCatalogEntry052 } from './entries/getCatalogEntry052';\nexport { getCatalogEntry053 } from './entries/getCatalogEntry053';\nexport { getCatalogEntry054 } from './entries/getCatalogEntry054';\nexport { getCatalogEntry055 } from './entries/getCatalogEntry055';\nexport { getCatalogEntry056 } from './entries/getCatalogEntry056';\nexport { getCatalogEntry057 } from './entries/getCatalogEntry057';\nexport { getCatalogEntry058 } from './entries/getCatalogEntry058';\nexport { getCatalogEntry059 } from './entries/getCatalogEntry059';\nexport { getCatalogEntry060 } from './entries/getCatalogEntry060';\nexport { getCatalogEntry061 } from './entries/getCatalogEntry061';\nexport { getCatalogEntry062 } from './entries/getCatalogEntry062';\nexport { getCatalogEntry063 } from './entries/getCatalogEntry063';\nexport { getCatalogEntry064 } from './entries/getCatalogEntry064';\nexport { getCatalogEntry065 } from './entries/getCatalogEntry065';\nexport { getCatalogEntry066 } from './entries/getCatalogEntry066';\nexport { getCatalogEntry067 } from './entries/getCatalogEntry067';\nexport { getCatalogEntry068 } from './entries/getCatalogEntry068';\nexport { getCatalogEntry069 } from './entries/getCatalogEntry069';\nexport { getCatalogEntry070 } from './entries/getCatalogEntry070';\nexport { getCatalogEntry071 } from './entries/getCatalogEntry071';\nexport { getCatalogEntry072 } from './entries/getCatalogEntry072';\nexport { getCatalogEntry073 } from './entries/getCatalogEntry073';\nexport { getCatalogEntry074 } from './entries/getCatalogEntry074';\nexport { getCatalogEntry075 } from './entries/getCatalogEntry075';\nexport { getCatalogEntry076 } from './entries/getCatalogEntry076';\nexport { getCatalogEntry077 } from './entries/getCatalogEntry077';\nexport { getCatalogEntry078 } from './entries/getCatalogEntry078';\nexport { getCatalogEntry079 } from './entries/getCatalogEntry079';\nexport { getCatalogEntry080 } from './entries/getCatalogEntry080';\nexport { getCatalogEntry081 } from './entries/getCatalogEntry081';\nexport { getCatalogEntry082 } from './entries/getCatalogEntry082';\nexport { getCatalogEntry083 } from './entries/getCatalogEntry083';\nexport { getCatalogEntry084 } from './entries/getCatalogEntry084';\nexport { getCatalogEntry085 } from './entries/getCatalogEntry085';\nexport { getCatalogEntry086 } from './entries/getCatalogEntry086';\nexport { getCatalogEntry087 } from './entries/getCatalogEntry087';\nexport { getCatalogEntry088 } from './entries/getCatalogEntry088';\nexport { getCatalogEntry089 } from './entries/getCatalogEntry089';\nexport { getCatalogEntry090 } from './entries/getCatalogEntry090';\nexport { getCatalogEntry091 } from './entries/getCatalogEntry091';\nexport { getCatalogEntry092 } from './entries/getCatalogEntry092';\nexport { getCatalogEntry093 } from './entries/getCatalogEntry093';\nexport { getCatalogEntry094 } from './entries/getCatalogEntry094';\nexport { getCatalogEntry095 } from './entries/getCatalogEntry095';\nexport { getCatalogEntry096 } from './entries/getCatalogEntry096';\nexport { getCatalogEntry097 } from './entries/getCatalogEntry097';\nexport { getCatalogEntry098 } from './entries/getCatalogEntry098';\nexport { getCatalogEntry099 } from './entries/getCatalogEntry099';\nexport { getCatalogEntry100 } from './entries/getCatalogEntry100';\nexport { getCatalogEntry101 } from './entries/getCatalogEntry101';\nexport { getCatalogEntry102 } from './entries/getCatalogEntry102';\nexport { getCatalogEntry103 } from './entries/getCatalogEntry103';\nexport { getCatalogEntry104 } from './entries/getCatalogEntry104';\nexport { getCatalogEntry105 } from './entries/getCatalogEntry105';\nexport { getCatalogEntry106 } from './entries/getCatalogEntry106';\nexport { getCatalogEntry107 } from './entries/getCatalogEntry107';\nexport { getCatalogEntry108 } from './entries/getCatalogEntry108';\nexport { getCatalogEntry109 } from './entries/getCatalogEntry109';\nexport { getCatalogEntry110 } from './entries/getCatalogEntry110';\nexport { getCatalogEntry111 } from './entries/getCatalogEntry111';\nexport { getCatalogEntry112 } from './entries/getCatalogEntry112';\nexport { getCatalogEntry113 } from './entries/getCatalogEntry113';\nexport { getCatalogEntry114 } from './entries/getCatalogEntry114';\nexport { getCatalogEntry115 } from './entries/getCatalogEntry115';\nexport { getCatalogEntry116 } from './entries/getCatalogEntry116';\nexport { getCatalogEntry117 } from './entries/getCatalogEntry117';\nexport { getCatalogEntry118 } from './entries/getCatalogEntry118';\nexport { getCatalogEntry119 } from './entries/getCatalogEntry119';\nexport { getCatalogEntry120 } from './entries/getCatalogEntry120';\nexport { getCatalogEntry121 } from './entries/getCatalogEntry121';\nexport { getCatalogEntry122 } from './entries/getCatalogEntry122';\nexport { getCatalogEntry123 } from './entries/getCatalogEntry123';\nexport { getCatalogEntry124 } from './entries/getCatalogEntry124';\nexport { getCatalogEntry125 } from './entries/getCatalogEntry125';\nexport { getCatalogEntry126 } from './entries/getCatalogEntry126';\nexport { getCatalogEntry127 } from './entries/getCatalogEntry127';\nexport { getCatalogEntry128 } from './entries/getCatalogEntry128';\nexport { getCatalogEntry129 } from './entries/getCatalogEntry129';\nexport { getCatalogEntry130 } from './entries/getCatalogEntry130';\nexport { getCatalogEntry131 } from './entries/getCatalogEntry131';\nexport { getCatalogEntry132 } from './entries/getCatalogEntry132';\nexport { getCatalogEntry133 } from './entries/getCatalogEntry133';\nexport { getCatalogEntry134 } from './entries/getCatalogEntry134';\nexport { getCatalogEntry135 } from './entries/getCatalogEntry135';\nexport { getCatalogEntry136 } from './entries/getCatalogEntry136';\nexport { getCatalogEntry137 } from './entries/getCatalogEntry137';\nexport { getCatalogEntry138 } from './entries/getCatalogEntry138';\nexport { getCatalogEntry139 } from './entries/getCatalogEntry139';\nexport { getCatalogEntry140 } from './entries/getCatalogEntry140';\nexport { getCatalogEntry141 } from './entries/getCatalogEntry141';\nexport { getCatalogEntry142 } from './entries/getCatalogEntry142';\nexport { getCatalogEntry143 } from './entries/getCatalogEntry143';\nexport { getCatalogEntry144 } from './entries/getCatalogEntry144';\nexport { getCatalogEntry145 } from './entries/getCatalogEntry145';\nexport { getCatalogEntry146 } from './entries/getCatalogEntry146';\nexport { getCatalogEntry147 } from './entries/getCatalogEntry147';\nexport { getCatalogEntry148 } from './entries/getCatalogEntry148';\nexport { getCatalogEntry149 } from './entries/getCatalogEntry149';\nexport { getCatalogEntry150 } from './entries/getCatalogEntry150';\nexport { getCatalogEntry151 } from './entries/getCatalogEntry151';\nexport { getCatalogEntry152 } from './entries/getCatalogEntry152';\nexport { getCatalogEntry153 } from './entries/getCatalogEntry153';\nexport { getCatalogEntry154 } from './entries/getCatalogEntry154';\nexport { getCatalogEntry155 } from './entries/getCatalogEntry155';\nexport { getCatalogEntry156 } from './entries/getCatalogEntry156';\nexport { getCatalogEntry157 } from './entries/getCatalogEntry157';\nexport { getCatalogEntry158 } from './entries/getCatalogEntry158';\nexport { getCatalogEntry159 } from './entries/getCatalogEntry159';\nexport { getCatalogEntry160 } from './entries/getCatalogEntry160';\nexport { getCatalogEntry161 } from './entries/getCatalogEntry161';\nexport { getCatalogEntry162 } from './entries/getCatalogEntry162';\nexport { getCatalogEntry163 } from './entries/getCatalogEntry163';\nexport { getCatalogEntry164 } from './entries/getCatalogEntry164';\nexport { getCatalogEntry165 } from './entries/getCatalogEntry165';\nexport { getCatalogEntry166 } from './entries/getCatalogEntry166';\nexport { getCatalogEntry167 } from './entries/getCatalogEntry167';\nexport { getCatalogEntry168 } from './entries/getCatalogEntry168';\nexport { getCatalogEntry169 } from './entries/getCatalogEntry169';\nexport { getCatalogEntry170 } from './entries/getCatalogEntry170';\nexport { getCatalogEntry171 } from './entries/getCatalogEntry171';\nexport { getCatalogEntry172 } from './entries/getCatalogEntry172';\nexport { getCatalogEntry173 } from './entries/getCatalogEntry173';\nexport { getCatalogEntry174 } from './entries/getCatalogEntry174';\nexport { getCatalogEntry175 } from './entries/getCatalogEntry175';\nexport { getCatalogEntry176 } from './entries/getCatalogEntry176';\nexport { getCatalogEntry177 } from './entries/getCatalogEntry177';\nexport { getCatalogEntry178 } from './entries/getCatalogEntry178';\nexport { getCatalogEntry179 } from './entries/getCatalogEntry179';\nexport { getCatalogEntry180 } from './entries/getCatalogEntry180';\nexport { getCatalogEntry181 } from './entries/getCatalogEntry181';\nexport { getCatalogEntry182 } from './entries/getCatalogEntry182';\nexport { getCatalogEntry183 } from './entries/getCatalogEntry183';\nexport { getCatalogEntry184 } from './entries/getCatalogEntry184';\nexport { getCatalogEntry185 } from './entries/getCatalogEntry185';\nexport { getCatalogEntry186 } from './entries/getCatalogEntry186';\nexport { getCatalogEntry187 } from './entries/getCatalogEntry187';\nexport { getCatalogEntry188 } from './entries/getCatalogEntry188';\nexport { getCatalogEntry189 } from './entries/getCatalogEntry189';\nexport { getCatalogEntry190 } from './entries/getCatalogEntry190';\nexport { getCatalogEntry191 } from './entries/getCatalogEntry191';\nexport { getCatalogEntry192 } from './entries/getCatalogEntry192';\nexport { getCatalogEntry193 } from './entries/getCatalogEntry193';\nexport { getCatalogEntry194 } from './entries/getCatalogEntry194';\nexport { getCatalogEntry195 } from './entries/getCatalogEntry195';\nexport { getCatalogEntry196 } from './entries/getCatalogEntry196';\nexport { getCatalogEntry197 } from './entries/getCatalogEntry197';\nexport { getCatalogEntry198 } from './entries/getCatalogEntry198';\nexport { getCatalogEntry199 } from './entries/getCatalogEntry199';\nexport { getCatalogEntry200 } from './entries/getCatalogEntry200';\nexport { getCatalogEntry201 } from './entries/getCatalogEntry201';\nexport { getCatalogEntry202 } from './entries/getCatalogEntry202';\nexport { getCatalogEntry203 } from './entries/getCatalogEntry203';\nexport { getCatalogEntry204 } from './entries/getCatalogEntry204';\nexport { getCatalogEntry205 } from './entries/getCatalogEntry205';\nexport { getCatalogEntry206 } from './entries/getCatalogEntry206';\nexport { getCatalogEntry207 } from './entries/getCatalogEntry207';\nexport { getCatalogEntry208 } from './entries/getCatalogEntry208';\nexport { getCatalogEntry209 } from './entries/getCatalogEntry209';\nexport { getCatalogEntry210 } from './entries/getCatalogEntry210';\nexport { getCatalogEntry211 } from './entries/getCatalogEntry211';\nexport { getCatalogEntry212 } from './entries/getCatalogEntry212';\nexport { getCatalogEntry213 } from './entries/getCatalogEntry213';\nexport { getCatalogEntry214 } from './entries/getCatalogEntry214';\nexport { getCatalogEntry215 } from './entries/getCatalogEntry215';\nexport { getCatalogEntry216 } from './entries/getCatalogEntry216';\nexport { getCatalogEntry217 } from './entries/getCatalogEntry217';\nexport { getCatalogEntry218 } from './entries/getCatalogEntry218';\nexport { getCatalogEntry219 } from './entries/getCatalogEntry219';\nexport { getCatalogEntry220 } from './entries/getCatalogEntry220';\nexport { getCatalogEntry221 } from './entries/getCatalogEntry221';\nexport { getCatalogEntry222 } from './entries/getCatalogEntry222';\nexport { getCatalogEntry223 } from './entries/getCatalogEntry223';\nexport { getCatalogEntry224 } from './entries/getCatalogEntry224';\nexport { getCatalogEntry225 } from './entries/getCatalogEntry225';\nexport { getCatalogEntry226 } from './entries/getCatalogEntry226';\nexport { getCatalogEntry227 } from './entries/getCatalogEntry227';\nexport { getCatalogEntry228 } from './entries/getCatalogEntry228';\nexport { getCatalogEntry229 } from './entries/getCatalogEntry229';\nexport { getCatalogEntry230 } from './entries/getCatalogEntry230';\nexport { getCatalogEntry231 } from './entries/getCatalogEntry231';\nexport { getCatalogEntry232 } from './entries/getCatalogEntry232';\nexport { getCatalogEntry233 } from './entries/getCatalogEntry233';\nexport { getCatalogEntry234 } from './entries/getCatalogEntry234';\nexport { getCatalogEntry235 } from './entries/getCatalogEntry235';\nexport { getCatalogEntry236 } from './entries/getCatalogEntry236';\nexport { getCatalogEntry237 } from './entries/getCatalogEntry237';\nexport { getCatalogEntry238 } from './entries/getCatalogEntry238';\nexport { getCatalogEntry239 } from './entries/getCatalogEntry239';\nexport { getCatalogEntry240 } from './entries/getCatalogEntry240';\nexport { getCatalogEntry241 } from './entries/getCatalogEntry241';\nexport { getCatalogEntry242 } from './entries/getCatalogEntry242';\nexport { getCatalogEntry243 } from './entries/getCatalogEntry243';\nexport { getCatalogEntry244 } from './entries/getCatalogEntry244';\nexport { getCatalogEntry245 } from './entries/getCatalogEntry245';\nexport { getCatalogEntry246 } from './entries/getCatalogEntry246';\nexport { getCatalogEntry247 } from './entries/getCatalogEntry247';\nexport { getCatalogEntry248 } from './entries/getCatalogEntry248';\nexport { getCatalogEntry249 } from './entries/getCatalogEntry249';\nexport { getCatalogEntry250 } from './entries/getCatalogEntry250';\nexport { getCatalogEntry251 } from './entries/getCatalogEntry251';\nexport { getCatalogEntry252 } from './entries/getCatalogEntry252';\nexport { getCatalogEntry253 } from './entries/getCatalogEntry253';\nexport { getCatalogEntry254 } from './entries/getCatalogEntry254';\nexport { getCatalogEntry255 } from './entries/getCatalogEntry255';\nexport { getCatalogEntry256 } from './entries/getCatalogEntry256';\nexport { getCatalogEntry257 } from './entries/getCatalogEntry257';\nexport { getCatalogEntry258 } from './entries/getCatalogEntry258';\nexport { getCatalogEntry259 } from './entries/getCatalogEntry259';\nexport { getCatalogEntry260 } from './entries/getCatalogEntry260';\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/catalog/catalogEntries.ts",
-          "text": "interface CatalogEntry {\n\tsku: string;\n\tlabel: string;\n\tprice: number;\n}\n\n// The whole catalog in one file: past the cap, and the signal that the concept\n// has grown into a module with a boundary of its own.\nexport const catalogEntries: CatalogEntry[] = [\n\t{ sku: 'sku-001', label: 'Catalog entry 001', price: 100 },\n\t{ sku: 'sku-002', label: 'Catalog entry 002', price: 105 },\n\t{ sku: 'sku-003', label: 'Catalog entry 003', price: 110 },\n\t{ sku: 'sku-004', label: 'Catalog entry 004', price: 115 },\n\t{ sku: 'sku-005', label: 'Catalog entry 005', price: 120 },\n\t{ sku: 'sku-006', label: 'Catalog entry 006', price: 125 },\n\t{ sku: 'sku-007', label: 'Catalog entry 007', price: 130 },\n\t{ sku: 'sku-008', label: 'Catalog entry 008', price: 135 },\n\t{ sku: 'sku-009', label: 'Catalog entry 009', price: 140 },\n\t{ sku: 'sku-010', label: 'Catalog entry 010', price: 145 },\n\t{ sku: 'sku-011', label: 'Catalog entry 011', price: 150 },\n\t{ sku: 'sku-012', label: 'Catalog entry 012', price: 155 },\n\t{ sku: 'sku-013', label: 'Catalog entry 013', price: 160 },\n\t{ sku: 'sku-014', label: 'Catalog entry 014', price: 165 },\n\t{ sku: 'sku-015', label: 'Catalog entry 015', price: 170 },\n\t{ sku: 'sku-016', label: 'Catalog entry 016', price: 175 },\n\t{ sku: 'sku-017', label: 'Catalog entry 017', price: 180 },\n\t{ sku: 'sku-018', label: 'Catalog entry 018', price: 185 },\n\t{ sku: 'sku-019', label: 'Catalog entry 019', price: 190 },\n\t{ sku: 'sku-020', label: 'Catalog entry 020', price: 195 },\n\t{ sku: 'sku-021', label: 'Catalog entry 021', price: 200 },\n\t{ sku: 'sku-022', label: 'Catalog entry 022', price: 205 },\n\t{ sku: 'sku-023', label: 'Catalog entry 023', price: 210 },\n\t{ sku: 'sku-024', label: 'Catalog entry 024', price: 215 },\n\t{ sku: 'sku-025', label: 'Catalog entry 025', price: 220 },\n\t{ sku: 'sku-026', label: 'Catalog entry 026', price: 225 },\n\t{ sku: 'sku-027', label: 'Catalog entry 027', price: 230 },\n\t{ sku: 'sku-028', label: 'Catalog entry 028', price: 235 },\n\t{ sku: 'sku-029', label: 'Catalog entry 029', price: 240 },\n\t{ sku: 'sku-030', label: 'Catalog entry 030', price: 245 },\n\t{ sku: 'sku-031', label: 'Catalog entry 031', price: 250 },\n\t{ sku: 'sku-032', label: 'Catalog entry 032', price: 255 },\n\t{ sku: 'sku-033', label: 'Catalog entry 033', price: 260 },\n\t{ sku: 'sku-034', label: 'Catalog entry 034', price: 265 },\n\t{ sku: 'sku-035', label: 'Catalog entry 035', price: 270 },\n\t{ sku: 'sku-036', label: 'Catalog entry 036', price: 275 },\n\t{ sku: 'sku-037', label: 'Catalog entry 037', price: 280 },\n\t{ sku: 'sku-038', label: 'Catalog entry 038', price: 285 },\n\t{ sku: 'sku-039', label: 'Catalog entry 039', price: 290 },\n\t{ sku: 'sku-040', label: 'Catalog entry 040', price: 295 },\n\t{ sku: 'sku-041', label: 'Catalog entry 041', price: 300 },\n\t{ sku: 'sku-042', label: 'Catalog entry 042', price: 305 },\n\t{ sku: 'sku-043', label: 'Catalog entry 043', price: 310 },\n\t{ sku: 'sku-044', label: 'Catalog entry 044', price: 315 },\n\t{ sku: 'sku-045', label: 'Catalog entry 045', price: 320 },\n\t{ sku: 'sku-046', label: 'Catalog entry 046', price: 325 },\n\t{ sku: 'sku-047', label: 'Catalog entry 047', price: 330 },\n\t{ sku: 'sku-048', label: 'Catalog entry 048', price: 335 },\n\t{ sku: 'sku-049', label: 'Catalog entry 049', price: 340 },\n\t{ sku: 'sku-050', label: 'Catalog entry 050', price: 345 },\n\t{ sku: 'sku-051', label: 'Catalog entry 051', price: 350 },\n\t{ sku: 'sku-052', label: 'Catalog entry 052', price: 355 },\n\t{ sku: 'sku-053', label: 'Catalog entry 053', price: 360 },\n\t{ sku: 'sku-054', label: 'Catalog entry 054', price: 365 },\n\t{ sku: 'sku-055', label: 'Catalog entry 055', price: 370 },\n\t{ sku: 'sku-056', label: 'Catalog entry 056', price: 375 },\n\t{ sku: 'sku-057', label: 'Catalog entry 057', price: 380 },\n\t{ sku: 'sku-058', label: 'Catalog entry 058', price: 385 },\n\t{ sku: 'sku-059', label: 'Catalog entry 059', price: 390 },\n\t{ sku: 'sku-060', label: 'Catalog entry 060', price: 395 },\n\t{ sku: 'sku-061', label: 'Catalog entry 061', price: 400 },\n\t{ sku: 'sku-062', label: 'Catalog entry 062', price: 405 },\n\t{ sku: 'sku-063', label: 'Catalog entry 063', price: 410 },\n\t{ sku: 'sku-064', label: 'Catalog entry 064', price: 415 },\n\t{ sku: 'sku-065', label: 'Catalog entry 065', price: 420 },\n\t{ sku: 'sku-066', label: 'Catalog entry 066', price: 425 },\n\t{ sku: 'sku-067', label: 'Catalog entry 067', price: 430 },\n\t{ sku: 'sku-068', label: 'Catalog entry 068', price: 435 },\n\t{ sku: 'sku-069', label: 'Catalog entry 069', price: 440 },\n\t{ sku: 'sku-070', label: 'Catalog entry 070', price: 445 },\n\t{ sku: 'sku-071', label: 'Catalog entry 071', price: 450 },\n\t{ sku: 'sku-072', label: 'Catalog entry 072', price: 455 },\n\t{ sku: 'sku-073', label: 'Catalog entry 073', price: 460 },\n\t{ sku: 'sku-074', label: 'Catalog entry 074', price: 465 },\n\t{ sku: 'sku-075', label: 'Catalog entry 075', price: 470 },\n\t{ sku: 'sku-076', label: 'Catalog entry 076', price: 475 },\n\t{ sku: 'sku-077', label: 'Catalog entry 077', price: 480 },\n\t{ sku: 'sku-078', label: 'Catalog entry 078', price: 485 },\n\t{ sku: 'sku-079', label: 'Catalog entry 079', price: 490 },\n\t{ sku: 'sku-080', label: 'Catalog entry 080', price: 495 },\n\t{ sku: 'sku-081', label: 'Catalog entry 081', price: 500 },\n\t{ sku: 'sku-082', label: 'Catalog entry 082', price: 505 },\n\t{ sku: 'sku-083', label: 'Catalog entry 083', price: 510 },\n\t{ sku: 'sku-084', label: 'Catalog entry 084', price: 515 },\n\t{ sku: 'sku-085', label: 'Catalog entry 085', price: 520 },\n\t{ sku: 'sku-086', label: 'Catalog entry 086', price: 525 },\n\t{ sku: 'sku-087', label: 'Catalog entry 087', price: 530 },\n\t{ sku: 'sku-088', label: 'Catalog entry 088', price: 535 },\n\t{ sku: 'sku-089', label: 'Catalog entry 089', price: 540 },\n\t{ sku: 'sku-090', label: 'Catalog entry 090', price: 545 },\n\t{ sku: 'sku-091', label: 'Catalog entry 091', price: 550 },\n\t{ sku: 'sku-092', label: 'Catalog entry 092', price: 555 },\n\t{ sku: 'sku-093', label: 'Catalog entry 093', price: 560 },\n\t{ sku: 'sku-094', label: 'Catalog entry 094', price: 565 },\n\t{ sku: 'sku-095', label: 'Catalog entry 095', price: 570 },\n\t{ sku: 'sku-096', label: 'Catalog entry 096', price: 575 },\n\t{ sku: 'sku-097', label: 'Catalog entry 097', price: 580 },\n\t{ sku: 'sku-098', label: 'Catalog entry 098', price: 585 },\n\t{ sku: 'sku-099', label: 'Catalog entry 099', price: 590 },\n\t{ sku: 'sku-100', label: 'Catalog entry 100', price: 595 },\n\t{ sku: 'sku-101', label: 'Catalog entry 101', price: 600 },\n\t{ sku: 'sku-102', label: 'Catalog entry 102', price: 605 },\n\t{ sku: 'sku-103', label: 'Catalog entry 103', price: 610 },\n\t{ sku: 'sku-104', label: 'Catalog entry 104', price: 615 },\n\t{ sku: 'sku-105', label: 'Catalog entry 105', price: 620 },\n\t{ sku: 'sku-106', label: 'Catalog entry 106', price: 625 },\n\t{ sku: 'sku-107', label: 'Catalog entry 107', price: 630 },\n\t{ sku: 'sku-108', label: 'Catalog entry 108', price: 635 },\n\t{ sku: 'sku-109', label: 'Catalog entry 109', price: 640 },\n\t{ sku: 'sku-110', label: 'Catalog entry 110', price: 645 },\n\t{ sku: 'sku-111', label: 'Catalog entry 111', price: 650 },\n\t{ sku: 'sku-112', label: 'Catalog entry 112', price: 655 },\n\t{ sku: 'sku-113', label: 'Catalog entry 113', price: 660 },\n\t{ sku: 'sku-114', label: 'Catalog entry 114', price: 665 },\n\t{ sku: 'sku-115', label: 'Catalog entry 115', price: 670 },\n\t{ sku: 'sku-116', label: 'Catalog entry 116', price: 675 },\n\t{ sku: 'sku-117', label: 'Catalog entry 117', price: 680 },\n\t{ sku: 'sku-118', label: 'Catalog entry 118', price: 685 },\n\t{ sku: 'sku-119', label: 'Catalog entry 119', price: 690 },\n\t{ sku: 'sku-120', label: 'Catalog entry 120', price: 695 },\n\t{ sku: 'sku-121', label: 'Catalog entry 121', price: 700 },\n\t{ sku: 'sku-122', label: 'Catalog entry 122', price: 705 },\n\t{ sku: 'sku-123', label: 'Catalog entry 123', price: 710 },\n\t{ sku: 'sku-124', label: 'Catalog entry 124', price: 715 },\n\t{ sku: 'sku-125', label: 'Catalog entry 125', price: 720 },\n\t{ sku: 'sku-126', label: 'Catalog entry 126', price: 725 },\n\t{ sku: 'sku-127', label: 'Catalog entry 127', price: 730 },\n\t{ sku: 'sku-128', label: 'Catalog entry 128', price: 735 },\n\t{ sku: 'sku-129', label: 'Catalog entry 129', price: 740 },\n\t{ sku: 'sku-130', label: 'Catalog entry 130', price: 745 },\n\t{ sku: 'sku-131', label: 'Catalog entry 131', price: 750 },\n\t{ sku: 'sku-132', label: 'Catalog entry 132', price: 755 },\n\t{ sku: 'sku-133', label: 'Catalog entry 133', price: 760 },\n\t{ sku: 'sku-134', label: 'Catalog entry 134', price: 765 },\n\t{ sku: 'sku-135', label: 'Catalog entry 135', price: 770 },\n\t{ sku: 'sku-136', label: 'Catalog entry 136', price: 775 },\n\t{ sku: 'sku-137', label: 'Catalog entry 137', price: 780 },\n\t{ sku: 'sku-138', label: 'Catalog entry 138', price: 785 },\n\t{ sku: 'sku-139', label: 'Catalog entry 139', price: 790 },\n\t{ sku: 'sku-140', label: 'Catalog entry 140', price: 795 },\n\t{ sku: 'sku-141', label: 'Catalog entry 141', price: 800 },\n\t{ sku: 'sku-142', label: 'Catalog entry 142', price: 805 },\n\t{ sku: 'sku-143', label: 'Catalog entry 143', price: 810 },\n\t{ sku: 'sku-144', label: 'Catalog entry 144', price: 815 },\n\t{ sku: 'sku-145', label: 'Catalog entry 145', price: 820 },\n\t{ sku: 'sku-146', label: 'Catalog entry 146', price: 825 },\n\t{ sku: 'sku-147', label: 'Catalog entry 147', price: 830 },\n\t{ sku: 'sku-148', label: 'Catalog entry 148', price: 835 },\n\t{ sku: 'sku-149', label: 'Catalog entry 149', price: 840 },\n\t{ sku: 'sku-150', label: 'Catalog entry 150', price: 845 },\n\t{ sku: 'sku-151', label: 'Catalog entry 151', price: 850 },\n\t{ sku: 'sku-152', label: 'Catalog entry 152', price: 855 },\n\t{ sku: 'sku-153', label: 'Catalog entry 153', price: 860 },\n\t{ sku: 'sku-154', label: 'Catalog entry 154', price: 865 },\n\t{ sku: 'sku-155', label: 'Catalog entry 155', price: 870 },\n\t{ sku: 'sku-156', label: 'Catalog entry 156', price: 875 },\n\t{ sku: 'sku-157', label: 'Catalog entry 157', price: 880 },\n\t{ sku: 'sku-158', label: 'Catalog entry 158', price: 885 },\n\t{ sku: 'sku-159', label: 'Catalog entry 159', price: 890 },\n\t{ sku: 'sku-160', label: 'Catalog entry 160', price: 895 },\n\t{ sku: 'sku-161', label: 'Catalog entry 161', price: 900 },\n\t{ sku: 'sku-162', label: 'Catalog entry 162', price: 905 },\n\t{ sku: 'sku-163', label: 'Catalog entry 163', price: 910 },\n\t{ sku: 'sku-164', label: 'Catalog entry 164', price: 915 },\n\t{ sku: 'sku-165', label: 'Catalog entry 165', price: 920 },\n\t{ sku: 'sku-166', label: 'Catalog entry 166', price: 925 },\n\t{ sku: 'sku-167', label: 'Catalog entry 167', price: 930 },\n\t{ sku: 'sku-168', label: 'Catalog entry 168', price: 935 },\n\t{ sku: 'sku-169', label: 'Catalog entry 169', price: 940 },\n\t{ sku: 'sku-170', label: 'Catalog entry 170', price: 945 },\n\t{ sku: 'sku-171', label: 'Catalog entry 171', price: 950 },\n\t{ sku: 'sku-172', label: 'Catalog entry 172', price: 955 },\n\t{ sku: 'sku-173', label: 'Catalog entry 173', price: 960 },\n\t{ sku: 'sku-174', label: 'Catalog entry 174', price: 965 },\n\t{ sku: 'sku-175', label: 'Catalog entry 175', price: 970 },\n\t{ sku: 'sku-176', label: 'Catalog entry 176', price: 975 },\n\t{ sku: 'sku-177', label: 'Catalog entry 177', price: 980 },\n\t{ sku: 'sku-178', label: 'Catalog entry 178', price: 985 },\n\t{ sku: 'sku-179', label: 'Catalog entry 179', price: 990 },\n\t{ sku: 'sku-180', label: 'Catalog entry 180', price: 995 },\n\t{ sku: 'sku-181', label: 'Catalog entry 181', price: 1000 },\n\t{ sku: 'sku-182', label: 'Catalog entry 182', price: 1005 },\n\t{ sku: 'sku-183', label: 'Catalog entry 183', price: 1010 },\n\t{ sku: 'sku-184', label: 'Catalog entry 184', price: 1015 },\n\t{ sku: 'sku-185', label: 'Catalog entry 185', price: 1020 },\n\t{ sku: 'sku-186', label: 'Catalog entry 186', price: 1025 },\n\t{ sku: 'sku-187', label: 'Catalog entry 187', price: 1030 },\n\t{ sku: 'sku-188', label: 'Catalog entry 188', price: 1035 },\n\t{ sku: 'sku-189', label: 'Catalog entry 189', price: 1040 },\n\t{ sku: 'sku-190', label: 'Catalog entry 190', price: 1045 },\n\t{ sku: 'sku-191', label: 'Catalog entry 191', price: 1050 },\n\t{ sku: 'sku-192', label: 'Catalog entry 192', price: 1055 },\n\t{ sku: 'sku-193', label: 'Catalog entry 193', price: 1060 },\n\t{ sku: 'sku-194', label: 'Catalog entry 194', price: 1065 },\n\t{ sku: 'sku-195', label: 'Catalog entry 195', price: 1070 },\n\t{ sku: 'sku-196', label: 'Catalog entry 196', price: 1075 },\n\t{ sku: 'sku-197', label: 'Catalog entry 197', price: 1080 },\n\t{ sku: 'sku-198', label: 'Catalog entry 198', price: 1085 },\n\t{ sku: 'sku-199', label: 'Catalog entry 199', price: 1090 },\n\t{ sku: 'sku-200', label: 'Catalog entry 200', price: 1095 },\n\t{ sku: 'sku-201', label: 'Catalog entry 201', price: 1100 },\n\t{ sku: 'sku-202', label: 'Catalog entry 202', price: 1105 },\n\t{ sku: 'sku-203', label: 'Catalog entry 203', price: 1110 },\n\t{ sku: 'sku-204', label: 'Catalog entry 204', price: 1115 },\n\t{ sku: 'sku-205', label: 'Catalog entry 205', price: 1120 },\n\t{ sku: 'sku-206', label: 'Catalog entry 206', price: 1125 },\n\t{ sku: 'sku-207', label: 'Catalog entry 207', price: 1130 },\n\t{ sku: 'sku-208', label: 'Catalog entry 208', price: 1135 },\n\t{ sku: 'sku-209', label: 'Catalog entry 209', price: 1140 },\n\t{ sku: 'sku-210', label: 'Catalog entry 210', price: 1145 },\n\t{ sku: 'sku-211', label: 'Catalog entry 211', price: 1150 },\n\t{ sku: 'sku-212', label: 'Catalog entry 212', price: 1155 },\n\t{ sku: 'sku-213', label: 'Catalog entry 213', price: 1160 },\n\t{ sku: 'sku-214', label: 'Catalog entry 214', price: 1165 },\n\t{ sku: 'sku-215', label: 'Catalog entry 215', price: 1170 },\n\t{ sku: 'sku-216', label: 'Catalog entry 216', price: 1175 },\n\t{ sku: 'sku-217', label: 'Catalog entry 217', price: 1180 },\n\t{ sku: 'sku-218', label: 'Catalog entry 218', price: 1185 },\n\t{ sku: 'sku-219', label: 'Catalog entry 219', price: 1190 },\n\t{ sku: 'sku-220', label: 'Catalog entry 220', price: 1195 },\n\t{ sku: 'sku-221', label: 'Catalog entry 221', price: 1200 },\n\t{ sku: 'sku-222', label: 'Catalog entry 222', price: 1205 },\n\t{ sku: 'sku-223', label: 'Catalog entry 223', price: 1210 },\n\t{ sku: 'sku-224', label: 'Catalog entry 224', price: 1215 },\n\t{ sku: 'sku-225', label: 'Catalog entry 225', price: 1220 },\n\t{ sku: 'sku-226', label: 'Catalog entry 226', price: 1225 },\n\t{ sku: 'sku-227', label: 'Catalog entry 227', price: 1230 },\n\t{ sku: 'sku-228', label: 'Catalog entry 228', price: 1235 },\n\t{ sku: 'sku-229', label: 'Catalog entry 229', price: 1240 },\n\t{ sku: 'sku-230', label: 'Catalog entry 230', price: 1245 },\n\t{ sku: 'sku-231', label: 'Catalog entry 231', price: 1250 },\n\t{ sku: 'sku-232', label: 'Catalog entry 232', price: 1255 },\n\t{ sku: 'sku-233', label: 'Catalog entry 233', price: 1260 },\n\t{ sku: 'sku-234', label: 'Catalog entry 234', price: 1265 },\n\t{ sku: 'sku-235', label: 'Catalog entry 235', price: 1270 },\n\t{ sku: 'sku-236', label: 'Catalog entry 236', price: 1275 },\n\t{ sku: 'sku-237', label: 'Catalog entry 237', price: 1280 },\n\t{ sku: 'sku-238', label: 'Catalog entry 238', price: 1285 },\n\t{ sku: 'sku-239', label: 'Catalog entry 239', price: 1290 },\n\t{ sku: 'sku-240', label: 'Catalog entry 240', price: 1295 },\n\t{ sku: 'sku-241', label: 'Catalog entry 241', price: 1300 },\n\t{ sku: 'sku-242', label: 'Catalog entry 242', price: 1305 },\n\t{ sku: 'sku-243', label: 'Catalog entry 243', price: 1310 },\n\t{ sku: 'sku-244', label: 'Catalog entry 244', price: 1315 },\n\t{ sku: 'sku-245', label: 'Catalog entry 245', price: 1320 },\n\t{ sku: 'sku-246', label: 'Catalog entry 246', price: 1325 },\n\t{ sku: 'sku-247', label: 'Catalog entry 247', price: 1330 },\n\t{ sku: 'sku-248', label: 'Catalog entry 248', price: 1335 },\n\t{ sku: 'sku-249', label: 'Catalog entry 249', price: 1340 },\n\t{ sku: 'sku-250', label: 'Catalog entry 250', price: 1345 },\n];\n"
-        }
-      ]
-    },
-    {
-      "id": "size-function",
-      "set": "code",
-      "documentPath": "code/style-guide/patterns/functions",
-      "summary": "a function, hook or component over its line cap",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {
-        "function": 80,
-        "hook": 160,
-        "component": 200
-      },
-      "fixtureCounts": {
-        "pass": 1,
-        "fail": 1
-      },
-      "prose": "## Function Size Limits\n\n| Lines | Assessment |\n| ----- | ------------------------------------ |\n| <=50  | Fine |\n| 50-80 | Review — look for extractable logic |\n| 80+   | Needs splitting |\n\n**The one exemption, in one sentence:** a function is exempt when every\nstatement is a call to a named step (or the assignment of its result) and the\ncontrol flow is linear — any inline loop, branch, or transformation\ndisqualifies it. A 150-line `start()` calling 8 step functions is fine; a\n150-line function with an inline loop is not. Such a function has no logic to\nextract, and splitting it would only scatter the sequence over more files than\nthe reader has to hold.\n\nReach for the exemption last, not first. It is the verdict a function earns\nonce the logic is out of it, not a reason to leave the logic in — and a\nfunction that is genuinely just sequencing calls will be short enough that the\ncap never asks. Extract the work into named pieces, then look again: what\nremains is either under the cap or visibly a sequence, and either way the\nquestion has answered itself.\n\nExtraction moves cost rather than removing it. Each piece pulled out is a new\nname to read and, if it leaves the file, a new file in the folder. Split\nbecause the piece deserves a name, not to buy back lines.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "src/reporting/buildReportSummary.ts",
-          "text": "interface Row {\n\tregion: string;\n\tproduct: string;\n\tcurrency: string;\n\tamount: number;\n\trefunded: boolean;\n}\n\ninterface Params {\n\trows: Row[];\n\trates: Record<string, number>;\n}\n\n// One grouping helper the export reuses three times — the same report, with the\n// body under the cap because the repeated work was named once.\nconst sumBy = ({ rows, rates, key }: { rows: Row[]; rates: Record<string, number>; key: keyof Row }) => {\n\tconst totals: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst group = String(row[key]);\n\n\t\ttotals[group] = (totals[group] ?? 0) + row.amount * (rates[row.currency] ?? 1);\n\t}\n\n\treturn totals;\n};\n\nexport const buildReportSummary = ({ rows, rates }: Params): Record<string, number> => {\n\tconst summary: Record<string, number> = {};\n\n\tfor (const key of ['region', 'product', 'currency'] as const) {\n\t\tfor (const [group, total] of Object.entries(sumBy({ rows, rates, key }))) {\n\t\t\tsummary[`${key}.${group}.total`] = total;\n\t\t}\n\t}\n\n\tsummary['rows.counted'] = rows.length;\n\n\treturn summary;\n};\n"
-        },
-        {
-          "side": "fail",
-          "path": "src/reporting/buildReportSummary.ts",
-          "text": "interface Row {\n\tregion: string;\n\tproduct: string;\n\tcurrency: string;\n\tamount: number;\n\trefunded: boolean;\n}\n\ninterface Params {\n\trows: Row[];\n\trates: Record<string, number>;\n}\n\n// Every step of the summary inlined into one body — not a linear flow of step\n// calls, just a long function, which is the shape the table calls \"needs\n// splitting\".\nexport const buildReportSummary = ({ rows, rates }: Params): Record<string, number> => {\n\tconst regionTotals: Record<string, number> = {};\n\tconst regionRefunds: Record<string, number> = {};\n\tconst regionCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tregionRefunds[row.region] = (regionRefunds[row.region] ?? 0) + converted;\n\t\t} else {\n\t\t\tregionTotals[row.region] = (regionTotals[row.region] ?? 0) + converted;\n\t\t}\n\n\t\tregionCounts[row.region] = (regionCounts[row.region] ?? 0) + 1;\n\t}\n\n\tconst productTotals: Record<string, number> = {};\n\tconst productRefunds: Record<string, number> = {};\n\tconst productCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tproductRefunds[row.product] = (productRefunds[row.product] ?? 0) + converted;\n\t\t} else {\n\t\t\tproductTotals[row.product] = (productTotals[row.product] ?? 0) + converted;\n\t\t}\n\n\t\tproductCounts[row.product] = (productCounts[row.product] ?? 0) + 1;\n\t}\n\n\tconst currencyTotals: Record<string, number> = {};\n\tconst currencyRefunds: Record<string, number> = {};\n\tconst currencyCounts: Record<string, number> = {};\n\n\tfor (const row of rows) {\n\t\tconst converted = row.amount * (rates[row.currency] ?? 1);\n\n\t\tif (row.refunded) {\n\t\t\tcurrencyRefunds[row.currency] = (currencyRefunds[row.currency] ?? 0) + converted;\n\t\t} else {\n\t\t\tcurrencyTotals[row.currency] = (currencyTotals[row.currency] ?? 0) + converted;\n\t\t}\n\n\t\tcurrencyCounts[row.currency] = (currencyCounts[row.currency] ?? 0) + 1;\n\t}\n\n\tconst summary: Record<string, number> = {};\n\n\tfor (const [region, total] of Object.entries(regionTotals)) {\n\t\tsummary[`region.${region}.total`] = total;\n\t\tsummary[`region.${region}.refunded`] = regionRefunds[region] ?? 0;\n\t\tsummary[`region.${region}.count`] = regionCounts[region] ?? 0;\n\t\tsummary[`region.${region}.average`] = total / (regionCounts[region] ?? 1);\n\t}\n\n\tfor (const [product, total] of Object.entries(productTotals)) {\n\t\tsummary[`product.${product}.total`] = total;\n\t\tsummary[`product.${product}.refunded`] = productRefunds[product] ?? 0;\n\t\tsummary[`product.${product}.count`] = productCounts[product] ?? 0;\n\t\tsummary[`product.${product}.average`] = total / (productCounts[product] ?? 1);\n\t}\n\n\tfor (const [currency, total] of Object.entries(currencyTotals)) {\n\t\tsummary[`currency.${currency}.total`] = total;\n\t\tsummary[`currency.${currency}.refunded`] = currencyRefunds[currency] ?? 0;\n\t\tsummary[`currency.${currency}.count`] = currencyCounts[currency] ?? 0;\n\t\tsummary[`currency.${currency}.average`] = total / (currencyCounts[currency] ?? 1);\n\t}\n\n\tsummary['rows.counted'] = rows.length;\n\tsummary['rows.refunded'] = rows.filter((row) => row.refunded).length;\n\tsummary['rows.settled'] = rows.filter((row) => !row.refunded).length;\n\tsummary['regions.counted'] = Object.keys(regionTotals).length;\n\tsummary['products.counted'] = Object.keys(productTotals).length;\n\tsummary['currencies.counted'] = Object.keys(currencyTotals).length;\n\n\tfor (const [region, count] of Object.entries(regionCounts)) {\n\t\tsummary[`region.${region}.share`] = count / rows.length;\n\t}\n\n\tfor (const [product, count] of Object.entries(productCounts)) {\n\t\tsummary[`product.${product}.share`] = count / rows.length;\n\t}\n\n\tfor (const [currency, count] of Object.entries(currencyCounts)) {\n\t\tsummary[`currency.${currency}.share`] = count / rows.length;\n\t}\n\n\treturn summary;\n};\n"
-        }
-      ]
-    },
-    {
       "id": "synonym-export-name",
       "set": "code",
       "documentPath": "code/style-guide/conventions/naming",
@@ -3716,6 +3716,35 @@
           "side": "fail",
           "path": "subject.unit.test.ts",
           "text": "import { expect, describe, test, beforeEach } from '@jest/globals';\n\ndescribe('subject', () => {\n\tbeforeEach(() => {\n\t\texpect(1 + 1).toBe(2);\n\t});\n\n\ttest('adds two numbers', () => {\n\t\texpect(2 + 2).toBe(4);\n\t});\n});\n"
+        }
+      ]
+    },
+    {
+      "id": "test-file-size",
+      "set": "tests",
+      "documentPath": "tests/unit-testing",
+      "summary": "a test file over the test-file line cap",
+      "channel": "base",
+      "checked": true,
+      "defaultSeverity": "advisory",
+      "defaultSettings": {
+        "testFile": 400
+      },
+      "fixtureCounts": {
+        "pass": 1,
+        "fail": 1
+      },
+      "prose": "## Test Files Have a Line Cap Too\n\nTest files stay under ~400 lines. Arrangement earns tests more room than source gets, but a test file past the cap is almost never \"thorough\" — it is the boundary test of an under-graduated module, absorbing the contracts of every internal unit behind a one-name barrel.\n\nThe fix is a reshape of the module, not of the test file:\n\n1. **Give each internal unit** the oversized file is really testing a direct test beside it, asserting on the unit itself. The unit may not be a file yet — a long schema or config object tested block by block is several contracts living in one file; split the source into its blocks first, then test each. (A direct test needs no barrel promotion — see the module-boundary-testing rule.)\n2. **Leave the boundary file only what the boundary owns** — sequencing, short-circuits, which units run at all, ordering of the result.\n3. **Then delete the boundary tests the move made redundant.** A boundary test whose every claim is now pinned by a unit's direct test (or by another module's own test of the same renderer or parser) is duplicate coverage — deleting it is consolidation. What stays banned is deleting a claim that afterward lives nowhere.\n\nOne shape is different: a pipeline orchestrator whose internal units are already promoted and directly tested, whose oversized file is genuinely end-to-end scenarios of the orchestrator's own outcomes. There is no unit left to graduate — so there, and only there, split the scenario suite by named concern (`runPipeline.supervisor.unit.test.ts`, `runPipeline.advisories.unit.test.ts`), each file carrying one concern and its own fixtures.\n\nSplitting a test file into unnamed halves, or deleting assertions to duck the cap, clears the finding and keeps the disease — neither is a fix.",
+      "fixtures": [
+        {
+          "side": "pass",
+          "path": "subject.unit.test.ts",
+          "text": "import { test, expect } from '@jest/globals';\n\ntest('case 0 holds its contract', () => {\n\texpect(0 + 1).toBe(1);\n});\n\ntest('case 1 holds its contract', () => {\n\texpect(1 + 1).toBe(2);\n});\n\ntest('case 2 holds its contract', () => {\n\texpect(2 + 1).toBe(3);\n});\n\ntest('case 3 holds its contract', () => {\n\texpect(3 + 1).toBe(4);\n});\n\ntest('case 4 holds its contract', () => {\n\texpect(4 + 1).toBe(5);\n});\n\ntest('case 5 holds its contract', () => {\n\texpect(5 + 1).toBe(6);\n});\n\ntest('case 6 holds its contract', () => {\n\texpect(6 + 1).toBe(7);\n});\n\ntest('case 7 holds its contract', () => {\n\texpect(7 + 1).toBe(8);\n});\n\ntest('case 8 holds its contract', () => {\n\texpect(8 + 1).toBe(9);\n});\n\n"
+        },
+        {
+          "side": "fail",
+          "path": "subject.unit.test.ts",
+          "text": "import { test, expect } from '@jest/globals';\n\ntest('case 0 holds its contract', () => {\n\texpect(0 + 1).toBe(1);\n});\n\ntest('case 1 holds its contract', () => {\n\texpect(1 + 1).toBe(2);\n});\n\ntest('case 2 holds its contract', () => {\n\texpect(2 + 1).toBe(3);\n});\n\ntest('case 3 holds its contract', () => {\n\texpect(3 + 1).toBe(4);\n});\n\ntest('case 4 holds its contract', () => {\n\texpect(4 + 1).toBe(5);\n});\n\ntest('case 5 holds its contract', () => {\n\texpect(5 + 1).toBe(6);\n});\n\ntest('case 6 holds its contract', () => {\n\texpect(6 + 1).toBe(7);\n});\n\ntest('case 7 holds its contract', () => {\n\texpect(7 + 1).toBe(8);\n});\n\ntest('case 8 holds its contract', () => {\n\texpect(8 + 1).toBe(9);\n});\n\ntest('case 9 holds its contract', () => {\n\texpect(9 + 1).toBe(10);\n});\n\ntest('case 10 holds its contract', () => {\n\texpect(10 + 1).toBe(11);\n});\n\ntest('case 11 holds its contract', () => {\n\texpect(11 + 1).toBe(12);\n});\n\ntest('case 12 holds its contract', () => {\n\texpect(12 + 1).toBe(13);\n});\n\ntest('case 13 holds its contract', () => {\n\texpect(13 + 1).toBe(14);\n});\n\ntest('case 14 holds its contract', () => {\n\texpect(14 + 1).toBe(15);\n});\n\ntest('case 15 holds its contract', () => {\n\texpect(15 + 1).toBe(16);\n});\n\ntest('case 16 holds its contract', () => {\n\texpect(16 + 1).toBe(17);\n});\n\ntest('case 17 holds its contract', () => {\n\texpect(17 + 1).toBe(18);\n});\n\ntest('case 18 holds its contract', () => {\n\texpect(18 + 1).toBe(19);\n});\n\ntest('case 19 holds its contract', () => {\n\texpect(19 + 1).toBe(20);\n});\n\ntest('case 20 holds its contract', () => {\n\texpect(20 + 1).toBe(21);\n});\n\ntest('case 21 holds its contract', () => {\n\texpect(21 + 1).toBe(22);\n});\n\ntest('case 22 holds its contract', () => {\n\texpect(22 + 1).toBe(23);\n});\n\ntest('case 23 holds its contract', () => {\n\texpect(23 + 1).toBe(24);\n});\n\ntest('case 24 holds its contract', () => {\n\texpect(24 + 1).toBe(25);\n});\n\ntest('case 25 holds its contract', () => {\n\texpect(25 + 1).toBe(26);\n});\n\ntest('case 26 holds its contract', () => {\n\texpect(26 + 1).toBe(27);\n});\n\ntest('case 27 holds its contract', () => {\n\texpect(27 + 1).toBe(28);\n});\n\ntest('case 28 holds its contract', () => {\n\texpect(28 + 1).toBe(29);\n});\n\ntest('case 29 holds its contract', () => {\n\texpect(29 + 1).toBe(30);\n});\n\ntest('case 30 holds its contract', () => {\n\texpect(30 + 1).toBe(31);\n});\n\ntest('case 31 holds its contract', () => {\n\texpect(31 + 1).toBe(32);\n});\n\ntest('case 32 holds its contract', () => {\n\texpect(32 + 1).toBe(33);\n});\n\ntest('case 33 holds its contract', () => {\n\texpect(33 + 1).toBe(34);\n});\n\ntest('case 34 holds its contract', () => {\n\texpect(34 + 1).toBe(35);\n});\n\ntest('case 35 holds its contract', () => {\n\texpect(35 + 1).toBe(36);\n});\n\ntest('case 36 holds its contract', () => {\n\texpect(36 + 1).toBe(37);\n});\n\ntest('case 37 holds its contract', () => {\n\texpect(37 + 1).toBe(38);\n});\n\ntest('case 38 holds its contract', () => {\n\texpect(38 + 1).toBe(39);\n});\n\ntest('case 39 holds its contract', () => {\n\texpect(39 + 1).toBe(40);\n});\n\ntest('case 40 holds its contract', () => {\n\texpect(40 + 1).toBe(41);\n});\n\ntest('case 41 holds its contract', () => {\n\texpect(41 + 1).toBe(42);\n});\n\ntest('case 42 holds its contract', () => {\n\texpect(42 + 1).toBe(43);\n});\n\ntest('case 43 holds its contract', () => {\n\texpect(43 + 1).toBe(44);\n});\n\ntest('case 44 holds its contract', () => {\n\texpect(44 + 1).toBe(45);\n});\n\ntest('case 45 holds its contract', () => {\n\texpect(45 + 1).toBe(46);\n});\n\ntest('case 46 holds its contract', () => {\n\texpect(46 + 1).toBe(47);\n});\n\ntest('case 47 holds its contract', () => {\n\texpect(47 + 1).toBe(48);\n});\n\ntest('case 48 holds its contract', () => {\n\texpect(48 + 1).toBe(49);\n});\n\ntest('case 49 holds its contract', () => {\n\texpect(49 + 1).toBe(50);\n});\n\ntest('case 50 holds its contract', () => {\n\texpect(50 + 1).toBe(51);\n});\n\ntest('case 51 holds its contract', () => {\n\texpect(51 + 1).toBe(52);\n});\n\ntest('case 52 holds its contract', () => {\n\texpect(52 + 1).toBe(53);\n});\n\ntest('case 53 holds its contract', () => {\n\texpect(53 + 1).toBe(54);\n});\n\ntest('case 54 holds its contract', () => {\n\texpect(54 + 1).toBe(55);\n});\n\ntest('case 55 holds its contract', () => {\n\texpect(55 + 1).toBe(56);\n});\n\ntest('case 56 holds its contract', () => {\n\texpect(56 + 1).toBe(57);\n});\n\ntest('case 57 holds its contract', () => {\n\texpect(57 + 1).toBe(58);\n});\n\ntest('case 58 holds its contract', () => {\n\texpect(58 + 1).toBe(59);\n});\n\ntest('case 59 holds its contract', () => {\n\texpect(59 + 1).toBe(60);\n});\n\ntest('case 60 holds its contract', () => {\n\texpect(60 + 1).toBe(61);\n});\n\ntest('case 61 holds its contract', () => {\n\texpect(61 + 1).toBe(62);\n});\n\ntest('case 62 holds its contract', () => {\n\texpect(62 + 1).toBe(63);\n});\n\ntest('case 63 holds its contract', () => {\n\texpect(63 + 1).toBe(64);\n});\n\ntest('case 64 holds its contract', () => {\n\texpect(64 + 1).toBe(65);\n});\n\ntest('case 65 holds its contract', () => {\n\texpect(65 + 1).toBe(66);\n});\n\ntest('case 66 holds its contract', () => {\n\texpect(66 + 1).toBe(67);\n});\n\ntest('case 67 holds its contract', () => {\n\texpect(67 + 1).toBe(68);\n});\n\ntest('case 68 holds its contract', () => {\n\texpect(68 + 1).toBe(69);\n});\n\ntest('case 69 holds its contract', () => {\n\texpect(69 + 1).toBe(70);\n});\n\ntest('case 70 holds its contract', () => {\n\texpect(70 + 1).toBe(71);\n});\n\ntest('case 71 holds its contract', () => {\n\texpect(71 + 1).toBe(72);\n});\n\ntest('case 72 holds its contract', () => {\n\texpect(72 + 1).toBe(73);\n});\n\ntest('case 73 holds its contract', () => {\n\texpect(73 + 1).toBe(74);\n});\n\ntest('case 74 holds its contract', () => {\n\texpect(74 + 1).toBe(75);\n});\n\ntest('case 75 holds its contract', () => {\n\texpect(75 + 1).toBe(76);\n});\n\ntest('case 76 holds its contract', () => {\n\texpect(76 + 1).toBe(77);\n});\n\ntest('case 77 holds its contract', () => {\n\texpect(77 + 1).toBe(78);\n});\n\ntest('case 78 holds its contract', () => {\n\texpect(78 + 1).toBe(79);\n});\n\ntest('case 79 holds its contract', () => {\n\texpect(79 + 1).toBe(80);\n});\n\ntest('case 80 holds its contract', () => {\n\texpect(80 + 1).toBe(81);\n});\n\ntest('case 81 holds its contract', () => {\n\texpect(81 + 1).toBe(82);\n});\n\ntest('case 82 holds its contract', () => {\n\texpect(82 + 1).toBe(83);\n});\n\ntest('case 83 holds its contract', () => {\n\texpect(83 + 1).toBe(84);\n});\n\ntest('case 84 holds its contract', () => {\n\texpect(84 + 1).toBe(85);\n});\n\ntest('case 85 holds its contract', () => {\n\texpect(85 + 1).toBe(86);\n});\n\ntest('case 86 holds its contract', () => {\n\texpect(86 + 1).toBe(87);\n});\n\ntest('case 87 holds its contract', () => {\n\texpect(87 + 1).toBe(88);\n});\n\ntest('case 88 holds its contract', () => {\n\texpect(88 + 1).toBe(89);\n});\n\ntest('case 89 holds its contract', () => {\n\texpect(89 + 1).toBe(90);\n});\n\ntest('case 90 holds its contract', () => {\n\texpect(90 + 1).toBe(91);\n});\n\ntest('case 91 holds its contract', () => {\n\texpect(91 + 1).toBe(92);\n});\n\ntest('case 92 holds its contract', () => {\n\texpect(92 + 1).toBe(93);\n});\n\ntest('case 93 holds its contract', () => {\n\texpect(93 + 1).toBe(94);\n});\n\ntest('case 94 holds its contract', () => {\n\texpect(94 + 1).toBe(95);\n});\n\ntest('case 95 holds its contract', () => {\n\texpect(95 + 1).toBe(96);\n});\n\ntest('case 96 holds its contract', () => {\n\texpect(96 + 1).toBe(97);\n});\n\ntest('case 97 holds its contract', () => {\n\texpect(97 + 1).toBe(98);\n});\n\ntest('case 98 holds its contract', () => {\n\texpect(98 + 1).toBe(99);\n});\n\ntest('case 99 holds its contract', () => {\n\texpect(99 + 1).toBe(100);\n});\n\ntest('case 100 holds its contract', () => {\n\texpect(100 + 1).toBe(101);\n});\n\ntest('case 101 holds its contract', () => {\n\texpect(101 + 1).toBe(102);\n});\n\ntest('case 102 holds its contract', () => {\n\texpect(102 + 1).toBe(103);\n});\n\ntest('case 103 holds its contract', () => {\n\texpect(103 + 1).toBe(104);\n});\n\ntest('case 104 holds its contract', () => {\n\texpect(104 + 1).toBe(105);\n});\n\ntest('case 105 holds its contract', () => {\n\texpect(105 + 1).toBe(106);\n});\n\ntest('case 106 holds its contract', () => {\n\texpect(106 + 1).toBe(107);\n});\n\ntest('case 107 holds its contract', () => {\n\texpect(107 + 1).toBe(108);\n});\n\ntest('case 108 holds its contract', () => {\n\texpect(108 + 1).toBe(109);\n});\n\ntest('case 109 holds its contract', () => {\n\texpect(109 + 1).toBe(110);\n});\n\ntest('case 110 holds its contract', () => {\n\texpect(110 + 1).toBe(111);\n});\n\ntest('case 111 holds its contract', () => {\n\texpect(111 + 1).toBe(112);\n});\n\ntest('case 112 holds its contract', () => {\n\texpect(112 + 1).toBe(113);\n});\n\ntest('case 113 holds its contract', () => {\n\texpect(113 + 1).toBe(114);\n});\n\ntest('case 114 holds its contract', () => {\n\texpect(114 + 1).toBe(115);\n});\n\ntest('case 115 holds its contract', () => {\n\texpect(115 + 1).toBe(116);\n});\n\ntest('case 116 holds its contract', () => {\n\texpect(116 + 1).toBe(117);\n});\n\ntest('case 117 holds its contract', () => {\n\texpect(117 + 1).toBe(118);\n});\n\ntest('case 118 holds its contract', () => {\n\texpect(118 + 1).toBe(119);\n});\n\ntest('case 119 holds its contract', () => {\n\texpect(119 + 1).toBe(120);\n});\n\ntest('case 120 holds its contract', () => {\n\texpect(120 + 1).toBe(121);\n});\n\ntest('case 121 holds its contract', () => {\n\texpect(121 + 1).toBe(122);\n});\n\ntest('case 122 holds its contract', () => {\n\texpect(122 + 1).toBe(123);\n});\n\ntest('case 123 holds its contract', () => {\n\texpect(123 + 1).toBe(124);\n});\n\ntest('case 124 holds its contract', () => {\n\texpect(124 + 1).toBe(125);\n});\n\ntest('case 125 holds its contract', () => {\n\texpect(125 + 1).toBe(126);\n});\n\ntest('case 126 holds its contract', () => {\n\texpect(126 + 1).toBe(127);\n});\n\ntest('case 127 holds its contract', () => {\n\texpect(127 + 1).toBe(128);\n});\n\ntest('case 128 holds its contract', () => {\n\texpect(128 + 1).toBe(129);\n});\n\ntest('case 129 holds its contract', () => {\n\texpect(129 + 1).toBe(130);\n});\n\ntest('case 130 holds its contract', () => {\n\texpect(130 + 1).toBe(131);\n});\n\ntest('case 131 holds its contract', () => {\n\texpect(131 + 1).toBe(132);\n});\n\ntest('case 132 holds its contract', () => {\n\texpect(132 + 1).toBe(133);\n});\n\ntest('case 133 holds its contract', () => {\n\texpect(133 + 1).toBe(134);\n});\n\ntest('case 134 holds its contract', () => {\n\texpect(134 + 1).toBe(135);\n});\n"
         }
       ]
     },
@@ -4120,35 +4149,6 @@
           "side": "fail",
           "path": "subject.unit.test.ts",
           "text": "import { expect, describe, test, beforeEach } from '@jest/globals';\n\nlet subject: string;\n\ndescribe('subject', () => {\n\tbeforeEach(() => {\n\t\tsubject = 'ready';\n\t});\n\n\ttest('reads the subject', () => {\n\t\texpect(subject).toBe('ready');\n\t});\n});\n"
-        }
-      ]
-    },
-    {
-      "id": "test-size-file",
-      "set": "tests",
-      "documentPath": "tests/unit-testing",
-      "summary": "a test file over the test-file line cap",
-      "channel": "base",
-      "checked": true,
-      "defaultSeverity": "advisory",
-      "defaultSettings": {
-        "testFile": 400
-      },
-      "fixtureCounts": {
-        "pass": 1,
-        "fail": 1
-      },
-      "prose": "## Test Files Have a Line Cap Too\n\nTest files stay under ~400 lines. Arrangement earns tests more room than source gets, but a test file past the cap is almost never \"thorough\" — it is the boundary test of an under-graduated module, absorbing the contracts of every internal unit behind a one-name barrel.\n\nThe fix is a reshape of the module, not of the test file:\n\n1. **Give each internal unit** the oversized file is really testing a direct test beside it, asserting on the unit itself. The unit may not be a file yet — a long schema or config object tested block by block is several contracts living in one file; split the source into its blocks first, then test each. (A direct test needs no barrel promotion — see the module-boundary-testing rule.)\n2. **Leave the boundary file only what the boundary owns** — sequencing, short-circuits, which units run at all, ordering of the result.\n3. **Then delete the boundary tests the move made redundant.** A boundary test whose every claim is now pinned by a unit's direct test (or by another module's own test of the same renderer or parser) is duplicate coverage — deleting it is consolidation. What stays banned is deleting a claim that afterward lives nowhere.\n\nOne shape is different: a pipeline orchestrator whose internal units are already promoted and directly tested, whose oversized file is genuinely end-to-end scenarios of the orchestrator's own outcomes. There is no unit left to graduate — so there, and only there, split the scenario suite by named concern (`runPipeline.supervisor.unit.test.ts`, `runPipeline.advisories.unit.test.ts`), each file carrying one concern and its own fixtures.\n\nSplitting a test file into unnamed halves, or deleting assertions to duck the cap, clears the finding and keeps the disease — neither is a fix.",
-      "fixtures": [
-        {
-          "side": "pass",
-          "path": "subject.unit.test.ts",
-          "text": "import { test, expect } from '@jest/globals';\n\ntest('case 0 holds its contract', () => {\n\texpect(0 + 1).toBe(1);\n});\n\ntest('case 1 holds its contract', () => {\n\texpect(1 + 1).toBe(2);\n});\n\ntest('case 2 holds its contract', () => {\n\texpect(2 + 1).toBe(3);\n});\n\ntest('case 3 holds its contract', () => {\n\texpect(3 + 1).toBe(4);\n});\n\ntest('case 4 holds its contract', () => {\n\texpect(4 + 1).toBe(5);\n});\n\ntest('case 5 holds its contract', () => {\n\texpect(5 + 1).toBe(6);\n});\n\ntest('case 6 holds its contract', () => {\n\texpect(6 + 1).toBe(7);\n});\n\ntest('case 7 holds its contract', () => {\n\texpect(7 + 1).toBe(8);\n});\n\ntest('case 8 holds its contract', () => {\n\texpect(8 + 1).toBe(9);\n});\n\n"
-        },
-        {
-          "side": "fail",
-          "path": "subject.unit.test.ts",
-          "text": "import { test, expect } from '@jest/globals';\n\ntest('case 0 holds its contract', () => {\n\texpect(0 + 1).toBe(1);\n});\n\ntest('case 1 holds its contract', () => {\n\texpect(1 + 1).toBe(2);\n});\n\ntest('case 2 holds its contract', () => {\n\texpect(2 + 1).toBe(3);\n});\n\ntest('case 3 holds its contract', () => {\n\texpect(3 + 1).toBe(4);\n});\n\ntest('case 4 holds its contract', () => {\n\texpect(4 + 1).toBe(5);\n});\n\ntest('case 5 holds its contract', () => {\n\texpect(5 + 1).toBe(6);\n});\n\ntest('case 6 holds its contract', () => {\n\texpect(6 + 1).toBe(7);\n});\n\ntest('case 7 holds its contract', () => {\n\texpect(7 + 1).toBe(8);\n});\n\ntest('case 8 holds its contract', () => {\n\texpect(8 + 1).toBe(9);\n});\n\ntest('case 9 holds its contract', () => {\n\texpect(9 + 1).toBe(10);\n});\n\ntest('case 10 holds its contract', () => {\n\texpect(10 + 1).toBe(11);\n});\n\ntest('case 11 holds its contract', () => {\n\texpect(11 + 1).toBe(12);\n});\n\ntest('case 12 holds its contract', () => {\n\texpect(12 + 1).toBe(13);\n});\n\ntest('case 13 holds its contract', () => {\n\texpect(13 + 1).toBe(14);\n});\n\ntest('case 14 holds its contract', () => {\n\texpect(14 + 1).toBe(15);\n});\n\ntest('case 15 holds its contract', () => {\n\texpect(15 + 1).toBe(16);\n});\n\ntest('case 16 holds its contract', () => {\n\texpect(16 + 1).toBe(17);\n});\n\ntest('case 17 holds its contract', () => {\n\texpect(17 + 1).toBe(18);\n});\n\ntest('case 18 holds its contract', () => {\n\texpect(18 + 1).toBe(19);\n});\n\ntest('case 19 holds its contract', () => {\n\texpect(19 + 1).toBe(20);\n});\n\ntest('case 20 holds its contract', () => {\n\texpect(20 + 1).toBe(21);\n});\n\ntest('case 21 holds its contract', () => {\n\texpect(21 + 1).toBe(22);\n});\n\ntest('case 22 holds its contract', () => {\n\texpect(22 + 1).toBe(23);\n});\n\ntest('case 23 holds its contract', () => {\n\texpect(23 + 1).toBe(24);\n});\n\ntest('case 24 holds its contract', () => {\n\texpect(24 + 1).toBe(25);\n});\n\ntest('case 25 holds its contract', () => {\n\texpect(25 + 1).toBe(26);\n});\n\ntest('case 26 holds its contract', () => {\n\texpect(26 + 1).toBe(27);\n});\n\ntest('case 27 holds its contract', () => {\n\texpect(27 + 1).toBe(28);\n});\n\ntest('case 28 holds its contract', () => {\n\texpect(28 + 1).toBe(29);\n});\n\ntest('case 29 holds its contract', () => {\n\texpect(29 + 1).toBe(30);\n});\n\ntest('case 30 holds its contract', () => {\n\texpect(30 + 1).toBe(31);\n});\n\ntest('case 31 holds its contract', () => {\n\texpect(31 + 1).toBe(32);\n});\n\ntest('case 32 holds its contract', () => {\n\texpect(32 + 1).toBe(33);\n});\n\ntest('case 33 holds its contract', () => {\n\texpect(33 + 1).toBe(34);\n});\n\ntest('case 34 holds its contract', () => {\n\texpect(34 + 1).toBe(35);\n});\n\ntest('case 35 holds its contract', () => {\n\texpect(35 + 1).toBe(36);\n});\n\ntest('case 36 holds its contract', () => {\n\texpect(36 + 1).toBe(37);\n});\n\ntest('case 37 holds its contract', () => {\n\texpect(37 + 1).toBe(38);\n});\n\ntest('case 38 holds its contract', () => {\n\texpect(38 + 1).toBe(39);\n});\n\ntest('case 39 holds its contract', () => {\n\texpect(39 + 1).toBe(40);\n});\n\ntest('case 40 holds its contract', () => {\n\texpect(40 + 1).toBe(41);\n});\n\ntest('case 41 holds its contract', () => {\n\texpect(41 + 1).toBe(42);\n});\n\ntest('case 42 holds its contract', () => {\n\texpect(42 + 1).toBe(43);\n});\n\ntest('case 43 holds its contract', () => {\n\texpect(43 + 1).toBe(44);\n});\n\ntest('case 44 holds its contract', () => {\n\texpect(44 + 1).toBe(45);\n});\n\ntest('case 45 holds its contract', () => {\n\texpect(45 + 1).toBe(46);\n});\n\ntest('case 46 holds its contract', () => {\n\texpect(46 + 1).toBe(47);\n});\n\ntest('case 47 holds its contract', () => {\n\texpect(47 + 1).toBe(48);\n});\n\ntest('case 48 holds its contract', () => {\n\texpect(48 + 1).toBe(49);\n});\n\ntest('case 49 holds its contract', () => {\n\texpect(49 + 1).toBe(50);\n});\n\ntest('case 50 holds its contract', () => {\n\texpect(50 + 1).toBe(51);\n});\n\ntest('case 51 holds its contract', () => {\n\texpect(51 + 1).toBe(52);\n});\n\ntest('case 52 holds its contract', () => {\n\texpect(52 + 1).toBe(53);\n});\n\ntest('case 53 holds its contract', () => {\n\texpect(53 + 1).toBe(54);\n});\n\ntest('case 54 holds its contract', () => {\n\texpect(54 + 1).toBe(55);\n});\n\ntest('case 55 holds its contract', () => {\n\texpect(55 + 1).toBe(56);\n});\n\ntest('case 56 holds its contract', () => {\n\texpect(56 + 1).toBe(57);\n});\n\ntest('case 57 holds its contract', () => {\n\texpect(57 + 1).toBe(58);\n});\n\ntest('case 58 holds its contract', () => {\n\texpect(58 + 1).toBe(59);\n});\n\ntest('case 59 holds its contract', () => {\n\texpect(59 + 1).toBe(60);\n});\n\ntest('case 60 holds its contract', () => {\n\texpect(60 + 1).toBe(61);\n});\n\ntest('case 61 holds its contract', () => {\n\texpect(61 + 1).toBe(62);\n});\n\ntest('case 62 holds its contract', () => {\n\texpect(62 + 1).toBe(63);\n});\n\ntest('case 63 holds its contract', () => {\n\texpect(63 + 1).toBe(64);\n});\n\ntest('case 64 holds its contract', () => {\n\texpect(64 + 1).toBe(65);\n});\n\ntest('case 65 holds its contract', () => {\n\texpect(65 + 1).toBe(66);\n});\n\ntest('case 66 holds its contract', () => {\n\texpect(66 + 1).toBe(67);\n});\n\ntest('case 67 holds its contract', () => {\n\texpect(67 + 1).toBe(68);\n});\n\ntest('case 68 holds its contract', () => {\n\texpect(68 + 1).toBe(69);\n});\n\ntest('case 69 holds its contract', () => {\n\texpect(69 + 1).toBe(70);\n});\n\ntest('case 70 holds its contract', () => {\n\texpect(70 + 1).toBe(71);\n});\n\ntest('case 71 holds its contract', () => {\n\texpect(71 + 1).toBe(72);\n});\n\ntest('case 72 holds its contract', () => {\n\texpect(72 + 1).toBe(73);\n});\n\ntest('case 73 holds its contract', () => {\n\texpect(73 + 1).toBe(74);\n});\n\ntest('case 74 holds its contract', () => {\n\texpect(74 + 1).toBe(75);\n});\n\ntest('case 75 holds its contract', () => {\n\texpect(75 + 1).toBe(76);\n});\n\ntest('case 76 holds its contract', () => {\n\texpect(76 + 1).toBe(77);\n});\n\ntest('case 77 holds its contract', () => {\n\texpect(77 + 1).toBe(78);\n});\n\ntest('case 78 holds its contract', () => {\n\texpect(78 + 1).toBe(79);\n});\n\ntest('case 79 holds its contract', () => {\n\texpect(79 + 1).toBe(80);\n});\n\ntest('case 80 holds its contract', () => {\n\texpect(80 + 1).toBe(81);\n});\n\ntest('case 81 holds its contract', () => {\n\texpect(81 + 1).toBe(82);\n});\n\ntest('case 82 holds its contract', () => {\n\texpect(82 + 1).toBe(83);\n});\n\ntest('case 83 holds its contract', () => {\n\texpect(83 + 1).toBe(84);\n});\n\ntest('case 84 holds its contract', () => {\n\texpect(84 + 1).toBe(85);\n});\n\ntest('case 85 holds its contract', () => {\n\texpect(85 + 1).toBe(86);\n});\n\ntest('case 86 holds its contract', () => {\n\texpect(86 + 1).toBe(87);\n});\n\ntest('case 87 holds its contract', () => {\n\texpect(87 + 1).toBe(88);\n});\n\ntest('case 88 holds its contract', () => {\n\texpect(88 + 1).toBe(89);\n});\n\ntest('case 89 holds its contract', () => {\n\texpect(89 + 1).toBe(90);\n});\n\ntest('case 90 holds its contract', () => {\n\texpect(90 + 1).toBe(91);\n});\n\ntest('case 91 holds its contract', () => {\n\texpect(91 + 1).toBe(92);\n});\n\ntest('case 92 holds its contract', () => {\n\texpect(92 + 1).toBe(93);\n});\n\ntest('case 93 holds its contract', () => {\n\texpect(93 + 1).toBe(94);\n});\n\ntest('case 94 holds its contract', () => {\n\texpect(94 + 1).toBe(95);\n});\n\ntest('case 95 holds its contract', () => {\n\texpect(95 + 1).toBe(96);\n});\n\ntest('case 96 holds its contract', () => {\n\texpect(96 + 1).toBe(97);\n});\n\ntest('case 97 holds its contract', () => {\n\texpect(97 + 1).toBe(98);\n});\n\ntest('case 98 holds its contract', () => {\n\texpect(98 + 1).toBe(99);\n});\n\ntest('case 99 holds its contract', () => {\n\texpect(99 + 1).toBe(100);\n});\n\ntest('case 100 holds its contract', () => {\n\texpect(100 + 1).toBe(101);\n});\n\ntest('case 101 holds its contract', () => {\n\texpect(101 + 1).toBe(102);\n});\n\ntest('case 102 holds its contract', () => {\n\texpect(102 + 1).toBe(103);\n});\n\ntest('case 103 holds its contract', () => {\n\texpect(103 + 1).toBe(104);\n});\n\ntest('case 104 holds its contract', () => {\n\texpect(104 + 1).toBe(105);\n});\n\ntest('case 105 holds its contract', () => {\n\texpect(105 + 1).toBe(106);\n});\n\ntest('case 106 holds its contract', () => {\n\texpect(106 + 1).toBe(107);\n});\n\ntest('case 107 holds its contract', () => {\n\texpect(107 + 1).toBe(108);\n});\n\ntest('case 108 holds its contract', () => {\n\texpect(108 + 1).toBe(109);\n});\n\ntest('case 109 holds its contract', () => {\n\texpect(109 + 1).toBe(110);\n});\n\ntest('case 110 holds its contract', () => {\n\texpect(110 + 1).toBe(111);\n});\n\ntest('case 111 holds its contract', () => {\n\texpect(111 + 1).toBe(112);\n});\n\ntest('case 112 holds its contract', () => {\n\texpect(112 + 1).toBe(113);\n});\n\ntest('case 113 holds its contract', () => {\n\texpect(113 + 1).toBe(114);\n});\n\ntest('case 114 holds its contract', () => {\n\texpect(114 + 1).toBe(115);\n});\n\ntest('case 115 holds its contract', () => {\n\texpect(115 + 1).toBe(116);\n});\n\ntest('case 116 holds its contract', () => {\n\texpect(116 + 1).toBe(117);\n});\n\ntest('case 117 holds its contract', () => {\n\texpect(117 + 1).toBe(118);\n});\n\ntest('case 118 holds its contract', () => {\n\texpect(118 + 1).toBe(119);\n});\n\ntest('case 119 holds its contract', () => {\n\texpect(119 + 1).toBe(120);\n});\n\ntest('case 120 holds its contract', () => {\n\texpect(120 + 1).toBe(121);\n});\n\ntest('case 121 holds its contract', () => {\n\texpect(121 + 1).toBe(122);\n});\n\ntest('case 122 holds its contract', () => {\n\texpect(122 + 1).toBe(123);\n});\n\ntest('case 123 holds its contract', () => {\n\texpect(123 + 1).toBe(124);\n});\n\ntest('case 124 holds its contract', () => {\n\texpect(124 + 1).toBe(125);\n});\n\ntest('case 125 holds its contract', () => {\n\texpect(125 + 1).toBe(126);\n});\n\ntest('case 126 holds its contract', () => {\n\texpect(126 + 1).toBe(127);\n});\n\ntest('case 127 holds its contract', () => {\n\texpect(127 + 1).toBe(128);\n});\n\ntest('case 128 holds its contract', () => {\n\texpect(128 + 1).toBe(129);\n});\n\ntest('case 129 holds its contract', () => {\n\texpect(129 + 1).toBe(130);\n});\n\ntest('case 130 holds its contract', () => {\n\texpect(130 + 1).toBe(131);\n});\n\ntest('case 131 holds its contract', () => {\n\texpect(131 + 1).toBe(132);\n});\n\ntest('case 132 holds its contract', () => {\n\texpect(132 + 1).toBe(133);\n});\n\ntest('case 133 holds its contract', () => {\n\texpect(133 + 1).toBe(134);\n});\n\ntest('case 134 holds its contract', () => {\n\texpect(134 + 1).toBe(135);\n});\n"
         }
       ]
     },

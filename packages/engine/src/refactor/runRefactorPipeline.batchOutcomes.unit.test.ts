@@ -365,8 +365,8 @@ describe('runRefactorPipeline batch outcomes', () => {
 						changedFiles: [{ path: pass === 1 ? 'src/one.ts' : 'src/two.ts', summary: 'split' }],
 						advisoryOutcomes: [
 							{
-								rule: 'size-function',
-								siteKey: 'size-function:src/one.ts',
+								rule: 'function-size',
+								siteKey: 'function-size:src/one.ts',
 								outcome: pass === 1 ? 'declined' : 'applied',
 								...(pass === 1 ? { reason: 'orchestration exemption' } : {}),
 							},
@@ -389,7 +389,7 @@ describe('runRefactorPipeline batch outcomes', () => {
 		// the requeue's answer about a site replaces the first pass's, and a site
 		// only the requeue spoke about is kept alongside it
 		expect(persisted.advisoryOutcomes).toStrictEqual([
-			{ rule: 'size-function', siteKey: 'size-function:src/one.ts', outcome: 'applied' },
+			{ rule: 'function-size', siteKey: 'function-size:src/one.ts', outcome: 'applied' },
 			{ rule: 'dead-export', siteKey: 'dead-export:src/two.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' },
 		]);
 	});

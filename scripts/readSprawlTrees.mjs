@@ -13,7 +13,7 @@ const findPackRoots = ({ paths }) =>
  *
  * Inside a pack, `fixtures/fail/` holds code written to break the very rule it
  * proves — the widest folder in this repo is a folder-census fixture, and its
- * longest file is a size-file fixture. `listSourceFiles` prunes them for
+ * longest file is a file-size fixture. `listSourceFiles` prunes them for
  * exactly that reason, so a chart that drew them would report a pack's samples
  * as the repository's own sprawl.
  *
@@ -80,7 +80,7 @@ const readBlobLines = ({ repoRoot, oids }) => {
  * Every commit's tree, measured: the TypeScript files with their line counts,
  * and every folder's direct-file population.
  *
- * The folder population is counted the way the `crowded-folder` check counts it
+ * The folder population is counted the way the `folder-size` check counts it
  * — non-test files of any type sitting directly in the folder, barrels
  * included, subfolders excluded — so a row the chart draws as over cap is over
  * cap by the repo's own measure rather than by one invented for a drawing.

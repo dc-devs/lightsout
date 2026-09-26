@@ -8,7 +8,7 @@ const caps = { file: 6, tsxFile: 9 };
 /** A file spanning exactly `lines` lines, its body statements nothing else depends on and no terminating newline. */
 const buildSource = ({ lines }: { lines: number }) => Array.from({ length: lines }, (_, index) => `export const step${index} = ${index};`).join('\n');
 
-describe('size-file check', () => {
+describe('file-size check', () => {
 	test('rides the parsed trees the other size rules already paid for, rather than asking for the text a second time', () => {
 		expect(check.inputKind).toBe('syntax-tree');
 	});
@@ -20,7 +20,7 @@ describe('size-file check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'size-file:src/reporting/buildReportSummary.ts',
+				siteKey: 'file-size:src/reporting/buildReportSummary.ts',
 				files: [{ path: 'src/reporting/buildReportSummary.ts' }],
 				detail: '7 lines (cap ~6)',
 				guidance: 'Split the file, or graduate the concept it has grown into.',
@@ -61,7 +61,7 @@ describe('size-file check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'size-file:src/reporting/ReportPanel.tsx',
+				siteKey: 'file-size:src/reporting/ReportPanel.tsx',
 				files: [{ path: 'src/reporting/ReportPanel.tsx' }],
 				detail: '10 lines (cap ~9)',
 				guidance: 'Split the file, or graduate the concept it has grown into.',
@@ -91,7 +91,7 @@ describe('size-file check', () => {
 
 		const findings = await check.run({ input, settings: caps });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['size-file:src/reporting/indexes.ts']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['file-size:src/reporting/indexes.ts']);
 	});
 
 	test('the empty line a terminating newline leaves behind counts, exactly as the line count it replaces did', async () => {
@@ -113,7 +113,7 @@ describe('size-file check', () => {
 
 		const findings = await check.run({ input, settings: caps });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['size-file:src/reporting/buildReportSummary.ts', 'size-file:src/reporting/ReportPanel.tsx']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['file-size:src/reporting/buildReportSummary.ts', 'file-size:src/reporting/ReportPanel.tsx']);
 	});
 
 	test('reports nothing for a repo with no source files rather than refusing', async () => {

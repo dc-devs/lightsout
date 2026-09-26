@@ -80,9 +80,9 @@ const renderLane = ({ state, maxLines, caps, theme, scale, top }) => {
  *
  * The composition is fixed at 1200 × 630 — a social-card size — and scales
  * whole: a caption strip, the without lane, a gap, the with lane, the frame's
- * own `sha · at · subject` line, and the payoff counter. The caption is the
- * same sentence `SprawlComparison` shows, so the README never puts the
- * counterfactual on screen unlabelled.
+ * own `sha · at · subject` line, and the payoff counter. The caption labels
+ * the two lanes, so the README never puts the counterfactual on screen
+ * unlabelled.
  *
  * The counter carries one pair for the whole image — the last frame of each
  * lane — because the claim is where the two histories end up rather than where

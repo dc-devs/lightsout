@@ -22,7 +22,7 @@ test('StandardsCheckOverrides: the renamed finding severity is refused with a me
 test('StandardsCheckOverrides: both override forms come through parsing intact', () => {
 	const overrides = {
 		'duplicate-code-block': 'off',
-		'size-file': { severity: 'advisory', settings: { file: 200, tsxFile: 260 } },
+		'file-size': { severity: 'advisory', settings: { file: 200, tsxFile: 260 } },
 	};
 
 	// a bare severity and a full object are both recognized, so neither is
@@ -32,7 +32,7 @@ test('StandardsCheckOverrides: both override forms come through parsing intact',
 
 test('StandardsCheckOverrides: a rule the map never names is left alone entirely', () => {
 	// naming one rule says nothing about the other sixteen — silence is never a change
-	expect(StandardsCheckOverrides.parse({ 'size-function': { settings: { function: 40 } } })).toStrictEqual({ 'size-function': { settings: { function: 40 } } });
+	expect(StandardsCheckOverrides.parse({ 'function-size': { settings: { function: 40 } } })).toStrictEqual({ 'function-size': { settings: { function: 40 } } });
 	// an empty map is valid — every rule already has a default
 	expect(StandardsCheckOverrides.parse({})).toStrictEqual({});
 });
@@ -52,7 +52,7 @@ test.each([{ severity: 'blocking' }, { severity: 'advisory' }, { severity: 'off'
 test('StandardsCheckOverrides: an override object may carry severity alone, settings alone, or neither', () => {
 	const overrides = {
 		'duplicate-code-block': { severity: 'advisory' },
-		'crowded-folder': { settings: { cap: 30 } },
+		'folder-size': { settings: { cap: 30 } },
 		'barrel-star': {},
 	};
 

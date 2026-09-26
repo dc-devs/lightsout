@@ -51,7 +51,7 @@ const classMethodSource = [
 	'}',
 ].join('\n');
 
-describe('size-function check', () => {
+describe('function-size check', () => {
 	test('asks for parsed trees, since only the parse says where a signature and its closing brace sit', () => {
 		expect(check.inputKind).toBe('syntax-tree');
 	});
@@ -63,7 +63,7 @@ describe('size-function check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'size-function:src/reporting/buildReportSummary.ts',
+				siteKey: 'function-size:src/reporting/buildReportSummary.ts',
 				files: [{ path: 'src/reporting/buildReportSummary.ts', startLine: 1, endLine: 7 }],
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5)",
 				guidance:
@@ -136,7 +136,7 @@ describe('size-function check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'size-function:src/reporting/buildReportSummary.ts',
+				siteKey: 'function-size:src/reporting/buildReportSummary.ts',
 				files: [{ path: 'src/reporting/buildReportSummary.ts', startLine: 1, endLine: 12 }],
 				detail: "function 'buildReportSummary' is 12 lines (cap ~5)",
 				guidance:
@@ -152,7 +152,7 @@ describe('size-function check', () => {
 		const findings = await check.run({ input, settings: caps });
 
 		expect(findings[0]).toStrictEqual({
-			siteKey: 'size-function:src/reporting/buildReportSummary.ts',
+			siteKey: 'function-size:src/reporting/buildReportSummary.ts',
 			files: [
 				{ path: 'src/reporting/buildReportSummary.ts', startLine: 1, endLine: 10 },
 				{ path: 'src/reporting/buildReportSummary.ts', startLine: 2, endLine: 7 },
@@ -170,7 +170,7 @@ describe('size-function check', () => {
 		const findings = await check.run({ input, settings: caps });
 
 		expect(findings[0]).toStrictEqual({
-			siteKey: 'size-function:src/ledger/Ledger.ts',
+			siteKey: 'function-size:src/ledger/Ledger.ts',
 			files: [{ path: 'src/ledger/Ledger.ts', startLine: 2, endLine: 7 }],
 			detail: "function 'total' is 6 lines (cap ~5)",
 			guidance:
@@ -190,7 +190,7 @@ describe('size-function check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'size-function:src/reporting/summaries.ts',
+				siteKey: 'function-size:src/reporting/summaries.ts',
 				files: [
 					{ path: 'src/reporting/summaries.ts', startLine: 1, endLine: 7 },
 					{ path: 'src/reporting/summaries.ts', startLine: 8, endLine: 13 },
@@ -214,7 +214,7 @@ describe('size-function check', () => {
 
 		expect([grownFindings[0], singleFindings[0]]).toStrictEqual([
 			{
-				siteKey: 'size-function:src/reporting/summaries.ts',
+				siteKey: 'function-size:src/reporting/summaries.ts',
 				files: [
 					{ path: 'src/reporting/summaries.ts', startLine: 1, endLine: 7 },
 					{ path: 'src/reporting/summaries.ts', startLine: 8, endLine: 13 },
@@ -225,7 +225,7 @@ describe('size-function check', () => {
 				measure: 13,
 			},
 			{
-				siteKey: 'size-function:src/reporting/summaries.ts',
+				siteKey: 'function-size:src/reporting/summaries.ts',
 				files: [{ path: 'src/reporting/summaries.ts', startLine: 1, endLine: 7 }],
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5)",
 				guidance:
@@ -247,8 +247,8 @@ describe('size-function check', () => {
 		const findings = await check.run({ input, settings: caps });
 
 		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual([
-			'size-function:src/reporting/buildReportSummary.ts',
-			'size-function:src/reporting/buildReportTotals.ts',
+			'function-size:src/reporting/buildReportSummary.ts',
+			'function-size:src/reporting/buildReportTotals.ts',
 		]);
 	});
 

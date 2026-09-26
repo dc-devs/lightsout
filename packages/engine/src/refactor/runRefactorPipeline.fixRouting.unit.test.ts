@@ -288,7 +288,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 		expect(result.ok).toBe(true);
 		// the advisories the pre-batch check recomputed ride the fix pass beside the
 		// findings, so the second pass judges the same context the first one did
-		expect(fixPrompt).toMatch(/- \[size-function] alpha\/multi\.ts:\d+/);
+		expect(fixPrompt).toMatch(/- \[function-size] alpha\/multi\.ts:\d+/);
 	});
 
 	test('asks the fix pass to account for the advisories it carries', async () => {

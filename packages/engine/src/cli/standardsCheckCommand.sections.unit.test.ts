@@ -40,7 +40,7 @@ jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: Revi
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],

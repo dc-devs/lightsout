@@ -3,7 +3,7 @@ import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: 'size-function',
+	rule: 'function-size',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],

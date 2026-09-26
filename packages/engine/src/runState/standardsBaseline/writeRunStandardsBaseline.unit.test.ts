@@ -31,9 +31,9 @@ const setupBaselineWrite = async () => {
 		path: '.',
 		findings: [
 			{
-				rule: 'size-file',
+				rule: 'file-size',
 				severity: StandardsSeverity.Blocking,
-				siteKey: 'size-file:src/a/big.ts',
+				siteKey: 'file-size:src/a/big.ts',
 				files: [{ path: 'src/a/big.ts' }],
 				detail: '420 lines',
 			},

@@ -18,7 +18,7 @@ const seedPlans = async () => {
 			at: '2026-01-01T00:00:00.000Z',
 			path: '.',
 			all: false,
-			batches: [{ id: 'batch-00:size-file:src', rule: 'size-file', folder: 'src', blocking: [], advisories: [] }],
+			batches: [{ id: 'batch-00:file-size:src', rule: 'file-size', folder: 'src', blocking: [], advisories: [] }],
 		}),
 		'utf8',
 	);
@@ -37,7 +37,7 @@ const seedPlans = async () => {
 			at: '2026-01-01T00:00:00.000Z',
 			path: '.',
 			all: false,
-			batches: [{ id: 'batch-00:size-file:src', rule: 'size-file', folder: 'src', blocking: [], advisories: [] }],
+			batches: [{ id: 'batch-00:file-size:src', rule: 'file-size', folder: 'src', blocking: [], advisories: [] }],
 			totals: [{ scope: 'engine', statementsPct: 91.5, passed: false }],
 			files: [{ path: 'packages/engine/src/views/listRuns.ts', scope: 'engine', statementsPct: 62.5 }],
 		}),
@@ -75,7 +75,7 @@ test('a JSON plan is tried as each frozen work-list in turn', async () => {
 
 	// a refactor run's frozen work-list parses into its batches
 	expect(refactor.kind).toBe(PlanDocumentKind.Worklist);
-	expect(refactor.worklist?.batches.map((batch) => batch.rule)).toStrictEqual(['size-file']);
+	expect(refactor.worklist?.batches.map((batch) => batch.rule)).toStrictEqual(['file-size']);
 	// a coverage run's frozen measurement is the other shape at the same filename
 	expect(coverage.kind).toBe(PlanDocumentKind.CoverageWorklist);
 	expect(coverage.coverageWorklist?.files).toStrictEqual([{ path: 'packages/engine/src/views/listRuns.ts', scope: 'engine', statementsPct: 62.5 }]);
@@ -90,7 +90,7 @@ test('a JSON answering to both work-lists is read as the refactor one, because t
 	// attempts is the whole contract — swapping them would silently retag every
 	// such plan, and the drawer would render a measurement as a batch list
 	expect(planDocument.kind).toBe(PlanDocumentKind.Worklist);
-	expect(planDocument.worklist?.batches.map((batch) => batch.rule)).toStrictEqual(['size-file']);
+	expect(planDocument.worklist?.batches.map((batch) => batch.rule)).toStrictEqual(['file-size']);
 	expect(planDocument.coverageWorklist).toBeUndefined();
 });
 

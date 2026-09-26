@@ -50,7 +50,7 @@ const setupResumeEvidence = () =>
 
 /** One deterministic standards finding. Only the site key varies: the cleanup line counts findings, it never reads them. */
 const finding = ({ siteKey }: { siteKey: string }): StandardsFinding => ({
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: StandardsSeverity.Blocking,
 	siteKey,
 	files: [{ path: `src/${siteKey}.ts` }],

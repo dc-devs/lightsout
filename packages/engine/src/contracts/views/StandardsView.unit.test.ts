@@ -2,9 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import { StandardsView } from '#src/contracts/index.ts';
 
 const buildRuleView = (extra: Record<string, unknown> = {}) => ({
-	rule: 'size-file',
-	doc: '@lightsout/standards: code/size-file',
-	documentPath: 'code/size-file',
+	rule: 'file-size',
+	doc: '@lightsout/standards: code/file-size',
+	documentPath: 'code/file-size',
 	set: 'code',
 	summary: 'A source file stays under its line cap.',
 	prose: '# Size, File\n\nA file past the cap is several modules sharing one name.',
@@ -18,9 +18,9 @@ const buildRuleView = (extra: Record<string, unknown> = {}) => ({
 });
 
 const buildFinding = (extra: Record<string, unknown> = {}) => ({
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: 'blocking',
-	siteKey: 'size-file:src/views/getStandardsView.ts',
+	siteKey: 'file-size:src/views/getStandardsView.ts',
 	files: [{ path: 'src/views/getStandardsView.ts', startLine: 1, endLine: 420 }],
 	detail: 'a 420-line file, 20 over the cap',
 	...extra,
@@ -32,7 +32,7 @@ const buildTrendPoint = (extra: Record<string, unknown> = {}) => ({
 	total: 2,
 	blocking: 2,
 	advisory: 0,
-	byRule: [{ rule: 'size-file', count: 2 }],
+	byRule: [{ rule: 'file-size', count: 2 }],
 	...extra,
 });
 
@@ -118,7 +118,7 @@ describe('StandardsView', () => {
 		const parsed = StandardsView.parse(view);
 
 		// the rules list is every rule the repo enforces, not only the broken ones
-		expect(parsed.rules.map((rule) => rule.rule)).toStrictEqual(['size-file', 'duplicate-code-block']);
+		expect(parsed.rules.map((rule) => rule.rule)).toStrictEqual(['file-size', 'duplicate-code-block']);
 	});
 
 	test('a finding whose rule no package loads is counted as an orphan', () => {
@@ -227,7 +227,7 @@ describe('StandardsView', () => {
 	});
 
 	test('rejects a finding missing the fields the finding contract requires', () => {
-		const { view } = setupView({ extra: { findings: [{ rule: 'size-file', severity: 'blocking' }] } });
+		const { view } = setupView({ extra: { findings: [{ rule: 'file-size', severity: 'blocking' }] } });
 
 		const result = StandardsView.safeParse(view);
 
@@ -275,7 +275,7 @@ describe('StandardsView', () => {
 	test('keys the contract does not declare are stripped from the view and from its totals', () => {
 		const { view } = setupView({
 			extra: {
-				baseline: { 'size-file:src/views/getStandardsView.ts': true },
+				baseline: { 'file-size:src/views/getStandardsView.ts': true },
 				totals: { rules: 37, checked: 34, judgment: 3, blocking: 1, advisory: 0, orphans: 0, off: 2 },
 			},
 		});
@@ -314,7 +314,7 @@ describe('StandardsView', () => {
 		expect(parsed).toEqual(
 			expect.objectContaining({
 				findings: [
-					expect.objectContaining({ rule: 'size-file', severity: 'blocking' }),
+					expect.objectContaining({ rule: 'file-size', severity: 'blocking' }),
 					expect.objectContaining({ rule: 'duplicate-code-block', severity: 'advisory' }),
 				],
 				totals: expect.objectContaining({ blocking: 1, advisory: 1 }),

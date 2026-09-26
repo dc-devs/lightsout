@@ -29,7 +29,7 @@ reaches the shipped `plugin/standards/` bundle.
 4. **The id must not read as the opposite of what it enforces.**
    `index-not-barrel` fails: the rule requires an index file to *be* a barrel.
 5. **Word order follows English.** The defect is a noun phrase read left to
-   right: `duplicate-export-name`, not `name-duplicate`; `crowded-folder`, not
+   right: `duplicate-export-name`, not `name-duplicate`; `folder-size`, not
    `folder-census`. An id that reads as a database column name fails.
 6. **A word the id shares with its document folder is not automatically
    redundant.** Ids are read in flat lists — config keys, findings output, the

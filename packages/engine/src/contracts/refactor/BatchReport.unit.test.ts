@@ -155,13 +155,13 @@ describe('BatchReport', () => {
 
 	test('the advisory account rides along when the agent gave one', () => {
 		const { report } = setupReport({
-			advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' }],
+			advisoryOutcomes: [{ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' }],
 		});
 
 		const parsed = BatchReport.parse(report);
 
 		expect(parsed.advisoryOutcomes).toStrictEqual([
-			{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' },
+			{ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' },
 		]);
 	});
 
@@ -183,7 +183,7 @@ describe('BatchReport', () => {
 	});
 
 	test('a lone advisory entry handed over outside a list is refused', () => {
-		const { report } = setupReport({ advisoryOutcomes: { rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'applied' } });
+		const { report } = setupReport({ advisoryOutcomes: { rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'applied' } });
 
 		const result = BatchReport.safeParse(report);
 
@@ -193,7 +193,7 @@ describe('BatchReport', () => {
 	});
 
 	test('a malformed advisory entry refuses the whole report rather than being dropped', () => {
-		const { report } = setupReport({ advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'maybe' }] });
+		const { report } = setupReport({ advisoryOutcomes: [{ rule: 'function-size', siteKey: 'function-size:src/a.ts', outcome: 'maybe' }] });
 
 		// the health report counts these entries — one that means nothing would be
 		// counted as something

@@ -3,9 +3,9 @@ import type { StandardsFinding } from '#src/contracts/index.ts';
 import { type AttributedFindings, attributeStandardsFindings } from '#src/standardsCheck/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding>): StandardsFinding => ({
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: 'blocking',
-	siteKey: 'size-file:src/a.ts',
+	siteKey: 'file-size:src/a.ts',
 	files: [{ path: 'src/a.ts' }],
 	detail: 'x',
 	...overrides,
@@ -26,8 +26,8 @@ const bucketKeys = (attributed: AttributedFindings) => ({
 describe('attributeStandardsFindings', () => {
 	test('a site key the baseline never carried is introduced', () => {
 		const { live, baseline } = setupAttribution({
-			live: [{ siteKey: 'size-file:src/fresh.ts', files: [{ path: 'src/fresh.ts' }], measure: 320 }],
-			baseline: [{ siteKey: 'size-file:src/old.ts', files: [{ path: 'src/old.ts' }], measure: 400 }],
+			live: [{ siteKey: 'file-size:src/fresh.ts', files: [{ path: 'src/fresh.ts' }], measure: 320 }],
+			baseline: [{ siteKey: 'file-size:src/old.ts', files: [{ path: 'src/old.ts' }], measure: 400 }],
 		});
 
 		const attributed = attributeStandardsFindings({ live, baseline });
@@ -35,7 +35,7 @@ describe('attributeStandardsFindings', () => {
 		// a violation the baseline never saw is the run's own, and no other bucket
 		// may absorb it
 		expect(bucketKeys(attributed)).toStrictEqual({
-			introduced: ['size-file:src/fresh.ts'],
+			introduced: ['file-size:src/fresh.ts'],
 			worsened: [],
 			inherited: [],
 			uncertain: [],
@@ -45,12 +45,12 @@ describe('attributeStandardsFindings', () => {
 	test('a larger live measure at a known site is worsened', () => {
 		const { live, baseline } = setupAttribution({
 			live: [
-				{ siteKey: 'size-file:src/grew.ts', files: [{ path: 'src/grew.ts' }], measure: 15 },
-				{ siteKey: 'size-file:src/same.ts', files: [{ path: 'src/same.ts' }], measure: 15 },
+				{ siteKey: 'file-size:src/grew.ts', files: [{ path: 'src/grew.ts' }], measure: 15 },
+				{ siteKey: 'file-size:src/same.ts', files: [{ path: 'src/same.ts' }], measure: 15 },
 			],
 			baseline: [
-				{ siteKey: 'size-file:src/grew.ts', files: [{ path: 'src/grew.ts' }], measure: 12 },
-				{ siteKey: 'size-file:src/same.ts', files: [{ path: 'src/same.ts' }], measure: 15 },
+				{ siteKey: 'file-size:src/grew.ts', files: [{ path: 'src/grew.ts' }], measure: 12 },
+				{ siteKey: 'file-size:src/same.ts', files: [{ path: 'src/same.ts' }], measure: 15 },
 			],
 		});
 
@@ -60,8 +60,8 @@ describe('attributeStandardsFindings', () => {
 		// reported a second time and buys nothing
 		expect(bucketKeys(attributed)).toStrictEqual({
 			introduced: [],
-			worsened: ['size-file:src/grew.ts'],
-			inherited: ['size-file:src/same.ts'],
+			worsened: ['file-size:src/grew.ts'],
+			inherited: ['file-size:src/same.ts'],
 			uncertain: [],
 		});
 		// the bucketed entry is the LIVE finding, not the baseline one it matched:
@@ -73,12 +73,12 @@ describe('attributeStandardsFindings', () => {
 	test('an equal or smaller live measure at a known site is inherited', () => {
 		const { live, baseline } = setupAttribution({
 			live: [
-				{ siteKey: 'size-file:src/equal.ts', files: [{ path: 'src/equal.ts' }], measure: 10 },
-				{ siteKey: 'size-file:src/shrank.ts', files: [{ path: 'src/shrank.ts' }], measure: 8 },
+				{ siteKey: 'file-size:src/equal.ts', files: [{ path: 'src/equal.ts' }], measure: 10 },
+				{ siteKey: 'file-size:src/shrank.ts', files: [{ path: 'src/shrank.ts' }], measure: 8 },
 			],
 			baseline: [
-				{ siteKey: 'size-file:src/equal.ts', files: [{ path: 'src/equal.ts' }], measure: 10 },
-				{ siteKey: 'size-file:src/shrank.ts', files: [{ path: 'src/shrank.ts' }], measure: 20 },
+				{ siteKey: 'file-size:src/equal.ts', files: [{ path: 'src/equal.ts' }], measure: 10 },
+				{ siteKey: 'file-size:src/shrank.ts', files: [{ path: 'src/shrank.ts' }], measure: 20 },
 			],
 		});
 
@@ -89,7 +89,7 @@ describe('attributeStandardsFindings', () => {
 		expect(bucketKeys(attributed)).toStrictEqual({
 			introduced: [],
 			worsened: [],
-			inherited: ['size-file:src/equal.ts', 'size-file:src/shrank.ts'],
+			inherited: ['file-size:src/equal.ts', 'file-size:src/shrank.ts'],
 			uncertain: [],
 		});
 		// recorded as the live read: the shrunk site reports today's 8, not the
@@ -100,14 +100,14 @@ describe('attributeStandardsFindings', () => {
 	test('a site with no measure on both sides is uncertain', () => {
 		const { live, baseline } = setupAttribution({
 			live: [
-				{ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] },
-				{ siteKey: 'size-file:src/liveOnly.ts', files: [{ path: 'src/liveOnly.ts' }], measure: 9 },
-				{ siteKey: 'size-file:src/baselineOnly.ts', files: [{ path: 'src/baselineOnly.ts' }] },
+				{ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] },
+				{ siteKey: 'file-size:src/liveOnly.ts', files: [{ path: 'src/liveOnly.ts' }], measure: 9 },
+				{ siteKey: 'file-size:src/baselineOnly.ts', files: [{ path: 'src/baselineOnly.ts' }] },
 			],
 			baseline: [
-				{ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] },
-				{ siteKey: 'size-file:src/liveOnly.ts', files: [{ path: 'src/liveOnly.ts' }] },
-				{ siteKey: 'size-file:src/baselineOnly.ts', files: [{ path: 'src/baselineOnly.ts' }], measure: 9 },
+				{ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] },
+				{ siteKey: 'file-size:src/liveOnly.ts', files: [{ path: 'src/liveOnly.ts' }] },
+				{ siteKey: 'file-size:src/baselineOnly.ts', files: [{ path: 'src/baselineOnly.ts' }], measure: 9 },
 			],
 		});
 
@@ -119,15 +119,15 @@ describe('attributeStandardsFindings', () => {
 			introduced: [],
 			worsened: [],
 			inherited: [],
-			uncertain: ['crowded-folder:src/appUI', 'size-file:src/liveOnly.ts', 'size-file:src/baselineOnly.ts'],
+			uncertain: ['folder-size:src/appUI', 'file-size:src/liveOnly.ts', 'file-size:src/baselineOnly.ts'],
 		});
 	});
 
 	test('a missing baseline puts every live finding in uncertain', () => {
 		const { live, baseline } = setupAttribution({
 			live: [
-				{ siteKey: 'size-file:src/a.ts', files: [{ path: 'src/a.ts' }], measure: 400 },
-				{ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] },
+				{ siteKey: 'file-size:src/a.ts', files: [{ path: 'src/a.ts' }], measure: 400 },
+				{ rule: 'folder-size', siteKey: 'folder-size:src/appUI', files: [{ path: 'src/appUI' }] },
 			],
 		});
 
@@ -139,7 +139,7 @@ describe('attributeStandardsFindings', () => {
 			introduced: [],
 			worsened: [],
 			inherited: [],
-			uncertain: ['size-file:src/a.ts', 'crowded-folder:src/appUI'],
+			uncertain: ['file-size:src/a.ts', 'folder-size:src/appUI'],
 		});
 	});
 });

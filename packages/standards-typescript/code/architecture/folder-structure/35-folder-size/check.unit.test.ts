@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { setupFileListInput, setupOtherKindInput } from '@lightsout/standards-testkit';
 import { check } from './check.ts';
 
-describe('crowded-folder check', () => {
+describe('folder-size check', () => {
 	test('asks for the file list alone, since a folder is counted from the paths in it', () => {
 		expect(check.inputKind).toBe('file-list');
 	});
@@ -14,7 +14,7 @@ describe('crowded-folder check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'crowded-folder:src/wide',
+				siteKey: 'folder-size:src/wide',
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
@@ -59,7 +59,7 @@ describe('crowded-folder check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'crowded-folder:src/wide',
+				siteKey: 'folder-size:src/wide',
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
@@ -75,7 +75,7 @@ describe('crowded-folder check', () => {
 
 		const findings = await check.run({ input, settings: { cap: 2 } });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['crowded-folder:src/wide', 'crowded-folder:src/other']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['folder-size:src/wide', 'folder-size:src/other']);
 	});
 
 	test('names the repo root as the folder when the pile sits at the top level', async () => {
@@ -85,7 +85,7 @@ describe('crowded-folder check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'crowded-folder:.',
+				siteKey: 'folder-size:.',
 				files: [{ path: '.' }],
 				detail: '3 files in one flat folder (cap ~2)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
@@ -129,7 +129,7 @@ describe('crowded-folder check', () => {
 
 		const findings = await check.run({ input, settings: { cap: 3 } });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['crowded-folder:src/routes']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['folder-size:src/routes']);
 	});
 
 	test('never counts a folder beneath a router root either, since the router owns its whole subtree', async () => {
@@ -162,7 +162,7 @@ describe('crowded-folder check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'crowded-folder:src/wide',
+				siteKey: 'folder-size:src/wide',
 				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (cap ~3)',
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
@@ -198,7 +198,7 @@ describe('crowded-folder check', () => {
 
 		const findings = await check.run({ input, settings: { cap: 3 } });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['crowded-folder:src/features/runs']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['folder-size:src/features/runs']);
 	});
 
 	test('reads each folder against its own package’s carve-out, so one workspace’s router never exempts another’s', async () => {
@@ -221,7 +221,7 @@ describe('crowded-folder check', () => {
 
 		const findings = await check.run({ input, settings: { cap: 3 } });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['crowded-folder:packages/api/src/routes']);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['folder-size:packages/api/src/routes']);
 	});
 
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
@@ -252,8 +252,8 @@ describe('crowded-folder check', () => {
 		const findings = await check.run({ input, settings: { cap: 3 } });
 
 		expect(findings.map(({ siteKey, measure }) => ({ siteKey, measure }))).toStrictEqual([
-			{ siteKey: 'crowded-folder:src/wide', measure: 6 },
-			{ siteKey: 'crowded-folder:src', measure: 5 },
+			{ siteKey: 'folder-size:src/wide', measure: 6 },
+			{ siteKey: 'folder-size:src', measure: 5 },
 		]);
 	});
 });

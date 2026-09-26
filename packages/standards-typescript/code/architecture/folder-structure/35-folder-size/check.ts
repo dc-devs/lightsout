@@ -44,7 +44,7 @@ export const check: StandardsCheckModule = {
 			.filter(([, paths]) => paths.length > cap)
 			.map(([directory, paths]) =>
 				buildRawFinding({
-					rule: 'crowded-folder',
+					rule: 'folder-size',
 					files: [{ path: directory }],
 					detail: `${paths.length} files in one flat folder (cap ~${cap})`,
 					guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',

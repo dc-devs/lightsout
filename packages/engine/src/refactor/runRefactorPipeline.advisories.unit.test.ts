@@ -77,7 +77,7 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	expect(resumed.ok).toBe(true);
 	// the advisory in the prompt cites the LIVE line (12), not the frozen one (2)
 	// — got:\n${prompts[0]?.split('\n').filter((line) =>
-	// line.includes('[size-function]')).join('\n')}
+	// line.includes('[function-size]')).join('\n')}
 	expect(prompts[0]?.includes('alpha/multi.ts:12')).toBeTruthy();
 });
 

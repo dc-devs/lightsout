@@ -53,11 +53,11 @@ describe('resolvePackageRuleStates', () => {
 
 	test('an object override merges its settings over the front matter rather than replacing them', () => {
 		const { states } = setupStates({
-			packs: [standardsPack({ rules: [rule({ id: 'size-file', defaultSeverity: StandardsSeverity.Blocking, defaultSettings: { file: 250, tsxFile: 300 } })] })],
-			standardsChecks: { 'size-file': { settings: { file: 400 } } },
+			packs: [standardsPack({ rules: [rule({ id: 'file-size', defaultSeverity: StandardsSeverity.Blocking, defaultSettings: { file: 250, tsxFile: 300 } })] })],
+			standardsChecks: { 'file-size': { settings: { file: 400 } } },
 		});
 
-		expect(states.get('size-file')).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { file: 400, tsxFile: 300 }, fromConfig: true });
+		expect(states.get('file-size')).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { file: 400, tsxFile: 300 }, fromConfig: true });
 	});
 
 	test('an override carrying both a severity and settings applies both', () => {
@@ -105,6 +105,14 @@ describe('resolvePackageRuleStates', () => {
 	test('a config naming a rule no pack declares is refused, with the valid ids listed', () => {
 		expect(() => setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { 'duplicate-code-block-detector': 'off' } })).toThrow(
 			/standards-checks names "duplicate-code-block-detector".*valid rule ids: duplicate-code-block, module-boundary/,
+		);
+	});
+
+	test('a config naming a renamed rule by its old id is refused, naming the new id', () => {
+		const packs = [standardsPack({ rules: [rule({ id: 'folder-size' })] })];
+
+		expect(() => setupStates({ packs, standardsChecks: { 'crowded-folder': 'blocking' } })).toThrow(
+			'standards-checks names "crowded-folder", which was renamed to "folder-size" — use the new name in lightsout.config.json',
 		);
 	});
 

@@ -6,7 +6,7 @@ import { seedSprawlRepo } from '#tests/helpers/sprawl/seedSprawlRepo.ts';
 
 // What the chart is allowed to draw at each commit: the TypeScript files with
 // their line counts, and every folder's direct-file population counted the way
-// the crowded-folder check counts it. A standards pack's own counter-examples
+// the folder-size check counts it. A standards pack's own counter-examples
 // are pruned, because a pack's deliberately oversized fixture is a sample of
 // the rule rather than this repository's sprawl.
 
@@ -81,7 +81,7 @@ describe('readSprawlTrees', () => {
 		});
 	});
 
-	test('counts a folder the way the crowded-folder check counts it: direct non-test files of any type, no subfolders', () => {
+	test('counts a folder the way the folder-size check counts it: direct non-test files of any type, no subfolders', () => {
 		const { cwd } = setupTreeRepo();
 
 		const trees = readTrees({ cwd });

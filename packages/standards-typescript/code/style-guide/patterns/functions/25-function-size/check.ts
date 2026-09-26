@@ -76,7 +76,7 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 		if (oversized.length > 0) {
 			findings.push(
 				buildRawFinding({
-					rule: 'size-function',
+					rule: 'function-size',
 					files: oversized.map(({ startLine, endLine }) => ({ path, startLine, endLine })),
 					detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join('; '),
 					guidance:

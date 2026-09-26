@@ -133,7 +133,7 @@ describe('standardsHealthCommand', () => {
 			health: {
 				rules: [
 					{
-						id: 'size-file',
+						id: 'file-size',
 						set: 'code',
 						documentPath: 'code/style-guide/structure/size',
 						checked: true,

@@ -28,14 +28,14 @@ const mechanicalFirstOrder = [
 	'dead-export',
 	'test-only-export',
 	'barrel-is-only-consumer',
-	'size-file',
-	'size-function',
+	'file-size',
+	'function-size',
 	'ungrouped-domain-utils',
 	'single-file-domain-folder',
 	'folder-casing',
 	'test-multiple-setups',
 	'oversized-setup-factory',
-	'crowded-folder',
+	'folder-size',
 	'duplicate-function-body',
 	'duplicate-code-block',
 	'duplicate-export-name',
@@ -171,13 +171,13 @@ test('batchFindings: an advisory attaches only to the chunk holding its file', (
 	const findings = Array.from({ length: 13 }, (_, index) =>
 		finding({ rule: 'duplicate-code-block', path: `src/file${index}.ts`, siteKey: `duplicate-code-block:${String(index).padStart(2, '0')}` }),
 	);
-	const advisory: StandardsFinding = { ...finding({ rule: 'size-file', path: 'src/file12.ts', siteKey: 'size-file:src/file12.ts' }), severity: 'advisory' };
+	const advisory: StandardsFinding = { ...finding({ rule: 'file-size', path: 'src/file12.ts', siteKey: 'file-size:src/file12.ts' }), severity: 'advisory' };
 
 	const batches = batchFindings({ blocking: findings, advisories: [advisory], packagesDir: 'packages' });
 
 	// the overlap is per chunk, not per group: file12 lands in the second chunk,
 	// so the first chunk carries none of its advisories
-	expect(batches.map((batch) => batch.advisories.map((entry) => entry.siteKey))).toStrictEqual([[], ['size-file:src/file12.ts']]);
+	expect(batches.map((batch) => batch.advisories.map((entry) => entry.siteKey))).toStrictEqual([[], ['file-size:src/file12.ts']]);
 });
 
 test('batchFindings: paths that name no package folder fall back to their top segment, or (root)', () => {
@@ -197,7 +197,7 @@ test('batchFindings: paths that name no package folder fall back to their top se
 });
 
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
-	const advisory: StandardsFinding = { ...finding({ rule: 'size-function', path: 'src/a.ts', siteKey: 'size-function:src/a.ts' }), severity: 'advisory' };
+	const advisory: StandardsFinding = { ...finding({ rule: 'function-size', path: 'src/a.ts', siteKey: 'function-size:src/a.ts' }), severity: 'advisory' };
 	const batches = batchFindings({
 		blocking: [
 			finding({ rule: 'duplicate-code-block', path: 'src/a.ts', siteKey: 'duplicate-code-block:a' }),
@@ -236,12 +236,12 @@ test('batchFindings: a finding spanning folders gets a dedicated cross batch wit
 
 test('batchFindings: a finding naming no file still batches, under (root)', () => {
 	const batches = batchFindings({
-		blocking: [{ ...finding({ rule: 'crowded-folder', path: 'src/a.ts', siteKey: 'crowded-folder:src' }), files: [] }],
+		blocking: [{ ...finding({ rule: 'folder-size', path: 'src/a.ts', siteKey: 'folder-size:src' }), files: [] }],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
 	// a file-less finding has no area to group by — it degrades to (root) rather
 	// than an undefined folder in the batch id an agent is handed
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:crowded-folder:(root)']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:folder-size:(root)']);
 });

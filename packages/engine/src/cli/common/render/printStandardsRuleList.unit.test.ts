@@ -87,7 +87,7 @@ describe('printStandardsRuleList', () => {
 				listing(),
 				listing({ rule: 'duplicate-code-block', severity: StandardsSeverity.Advisory }),
 				listing({ rule: 'filename-mismatch', severity: StandardsSeverity.Advisory }),
-				listing({ rule: 'crowded-folder', severity: StandardsSeverity.Off }),
+				listing({ rule: 'folder-size', severity: StandardsSeverity.Off }),
 				listing({ rule: 'premature-abstraction', severity: StandardsSeverity.Advisory, checked: false }),
 			],
 		});

@@ -3,10 +3,10 @@ import { join } from 'node:path';
 
 /** Which rule file answers which cap. Every number the animation states is read from one of these. */
 const capSources = [
-	{ rule: 'code/style-guide/patterns/functions/30-size-file/rule.md', keys: { file: 'file', tsxFile: 'tsxFile' } },
-	{ rule: 'code/style-guide/patterns/functions/25-size-function/rule.md', keys: { function: 'function' } },
-	{ rule: 'tests/unit-testing/18-test-size-file/rule.md', keys: { testFile: 'testFile' } },
-	{ rule: 'code/architecture/folder-structure/35-crowded-folder/rule.md', keys: { folderCensus: 'cap' } },
+	{ rule: 'code/style-guide/patterns/functions/30-file-size/rule.md', keys: { file: 'file', tsxFile: 'tsxFile' } },
+	{ rule: 'code/style-guide/patterns/functions/25-function-size/rule.md', keys: { function: 'function' } },
+	{ rule: 'tests/unit-testing/18-test-file-size/rule.md', keys: { testFile: 'testFile' } },
+	{ rule: 'code/architecture/folder-structure/35-folder-size/rule.md', keys: { folderCensus: 'cap' } },
 ];
 
 /**

@@ -5,7 +5,7 @@ import { check } from './check.ts';
 /** A test file spanning exactly `lines` lines, each of them a trivial test case. */
 const buildTestSource = ({ lines }: { lines: number }) => Array.from({ length: lines }, (_, index) => `test('case ${index}', () => {});`).join('\n');
 
-describe('test-size-file check', () => {
+describe('test-file-size check', () => {
 	test('asks for test files, the one input kind that carries test text alone', () => {
 		expect(check.inputKind).toBe('test-file');
 	});
@@ -17,7 +17,7 @@ describe('test-size-file check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'test-size-file:src/doctor/runDoctor.unit.test.ts',
+				siteKey: 'test-file-size:src/doctor/runDoctor.unit.test.ts',
 				files: [{ path: 'src/doctor/runDoctor.unit.test.ts' }],
 				detail: '6 lines (cap ~5)',
 				guidance:
@@ -47,7 +47,7 @@ describe('test-size-file check', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'test-size-file:src/doctor/runDoctor.unit.test.ts',
+				siteKey: 'test-file-size:src/doctor/runDoctor.unit.test.ts',
 				files: [{ path: 'src/doctor/runDoctor.unit.test.ts' }],
 				detail: '4 lines (cap ~3)',
 				guidance:

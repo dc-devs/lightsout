@@ -360,12 +360,12 @@ test('summarizeRun: leaves self-check gate executions out of the gate counts, re
 const cleanupReport = (): RefactorStepReport => ({
 	roundsUsed: 3,
 	endReason: 'budget-exhausted',
-	remaining: countableFindings({ count: 2, rule: 'size-file' }),
-	inherited: countableFindings({ count: 1, rule: 'crowded-folder' }),
+	remaining: countableFindings({ count: 2, rule: 'file-size' }),
+	inherited: countableFindings({ count: 1, rule: 'folder-size' }),
 	uncertain: countableFindings({ count: 3, rule: 'star-re-export' }),
 	failures: ['the cleanup agent timed out', 'the cleanup agent returned no usable report'],
 	initialReview: countableFindings({ count: 7, rule: 'naming' }),
-	finalReview: countableFindings({ count: 5, rule: 'size-function' }),
+	finalReview: countableFindings({ count: 5, rule: 'function-size' }),
 });
 
 test('summarizeRun reports the refactor step cleanup outcome alongside, never inside, the verification repair counts', async () => {

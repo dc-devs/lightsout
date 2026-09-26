@@ -57,7 +57,7 @@ const setupTools = ({ introduced = [], settleKind = SettleKind.Green, revived = 
 		polishBatchOutput({
 			tools,
 			batch,
-			baseline: [finding({ siteKey: 'size-function:src/a.ts', rule: 'size-function' })],
+			baseline: [finding({ siteKey: 'function-size:src/a.ts', rule: 'function-size' })],
 			workFindings,
 			onProgress: (line) => progress.push(line),
 		});
@@ -81,7 +81,7 @@ describe('polishBatchOutput', () => {
 
 		await call();
 
-		expect(reviewed.map((baseline) => baseline.map((entry) => entry.siteKey))).toStrictEqual([['size-function:src/a.ts']]);
+		expect(reviewed.map((baseline) => baseline.map((entry) => entry.siteKey))).toStrictEqual([['function-size:src/a.ts']]);
 	});
 
 	test('a new advisory buys exactly one polish pass, and the batch still resolves', async () => {
