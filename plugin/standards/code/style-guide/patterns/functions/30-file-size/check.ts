@@ -20,7 +20,7 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 		if (lineCount > cap && !isBarrelFile({ path })) {
 			findings.push(
 				buildRawFinding({
-					rule: 'size-file',
+					rule: 'file-size',
 					files: [{ path }],
 					detail: `${lineCount} lines (cap ~${cap})`,
 					guidance: 'Split the file, or graduate the concept it has grown into.',
