@@ -1,21 +1,23 @@
 # The public lightsout site: the web app's public pages, served by Netlify.
 #
 # Netlify builds from its own Git link to this repository — nothing in CI
-# deploys it. `@netlify/vite-plugin-tanstack-start` (enabled in
-# packages/web-app/vite.config.ts only when Netlify sets NETLIFY) turns the
-# server build into Netlify Functions under packages/web-app/.netlify/, which is
-# why the base is the app's package rather than the repository root.
+# deploys it. The site is a monorepo site: the base is the repository root,
+# where dependencies install and .nvmrc names the Node version, and the site's
+# Package directory setting is packages/web-app.
+#
+# `@netlify/vite-plugin-tanstack-start` (enabled in
+# packages/web-app/vite.config.ts only when Netlify sets NETLIFY) writes the
+# server build as a Netlify Function to packages/web-app/.netlify/v1/, and
+# Netlify finds it by joining the base and the Package directory — which is why
+# no `base` is set here: a base of packages/web-app would be joined with the
+# Package directory a second time.
 
 [build]
-  base = "packages/web-app"
-  publish = "dist/client"
-  command = "pnpm run build"
+  command = "pnpm --filter @lightsout/web-app run build"
+  publish = "packages/web-app/dist/client"
 
 [build.environment]
   # The public site: `/app` does not exist and nothing links to it. The build
   # checks the value and bakes it into the bundle, because variables set here
   # reach the build and never the functions at run time.
   LIGHTSOUT_PUBLIC = "1"
-  # Netlify reads .nvmrc from the base directory, and ours sits at the repository
-  # root, so the major version is stated here. Keep it on the major .nvmrc pins.
-  NODE_VERSION = "24"
