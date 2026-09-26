@@ -1,0 +1,9 @@
+# Keeps the actions the workflows use up to date. Dependency security fixes
+# for the pnpm workspace are raised by Dependabot security updates, which are
+# turned on in the repository settings and need no entry here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
