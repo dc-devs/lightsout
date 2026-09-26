@@ -1,4 +1,6 @@
 import type { StandardsView } from '@lightsout/engine';
+import { CheckKind } from '#src/common/constants/CheckKind.ts';
+import { checkKindLabels } from '#src/common/constants/checkKindLabels.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 
@@ -48,7 +50,8 @@ export const StandardsHeader = ({ view }: Props) => {
 				<span className="text-muted-foreground-strong">{formatCount({ count: totals.advisory, noun: 'advisory finding' })}</span>
 				<span className="text-muted-foreground">·</span>
 				<span className="text-muted-foreground">
-					{formatCount({ count: totals.rules, noun: 'rule' })}, {totals.checked} by code and {totals.judgment} by judgment
+					{formatCount({ count: totals.rules, noun: 'rule' })}, {totals.checked} {checkKindLabels[CheckKind.Deterministic].plural} and {totals.judgment}{' '}
+					{checkKindLabels[CheckKind.Agent].plural}
 				</span>
 			</div>
 			{totals.orphans === 0 ? null : (

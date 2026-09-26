@@ -117,7 +117,7 @@ describe('RepoHealth needs-you panel', () => {
 
 		const row = readCard({ title: 'Needs you' }).getByRole('link', { name: 'add search' });
 
-		expect(row).toHaveAttribute('href', '/repo/runs/abcdef0123456789');
+		expect(row).toHaveAttribute('href', '/app/runs/abcdef0123456789');
 	});
 
 	test('hands that run the command that picks it up, naming the run itself', async () => {
@@ -143,7 +143,7 @@ describe('RepoHealth needs-you panel', () => {
 
 		const action = readCard({ title: 'Needs you' }).getByRole('link', { name: 'Read the escalation →' });
 
-		expect(action).toHaveAttribute('href', '/repo/runs/abcdef0123456789');
+		expect(action).toHaveAttribute('href', '/app/runs/abcdef0123456789');
 		expect(screen.queryByRole('button', { name: 'Copy resume' })).not.toBeInTheDocument();
 	});
 
@@ -230,6 +230,6 @@ describe('RepoHealth recent runs', () => {
 
 		const link = readCard({ title: 'Recent runs' }).getByRole('link', { name: 'See all runs →' });
 
-		expect(link).toHaveAttribute('href', '/repo/runs');
+		expect(link).toHaveAttribute('href', '/app/runs');
 	});
 });

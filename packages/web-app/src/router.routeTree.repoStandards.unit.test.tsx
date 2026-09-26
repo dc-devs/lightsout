@@ -49,7 +49,7 @@ const setupStandardsRoute = () => {
 	// for the router to be built at all. Nothing this file drives reads it: the
 	// page's own data is seeded into the cache the render helper creates.
 	const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/repo/standards'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/app/standards'];
 
 	return { head: route.options.head, route, validateSearch: route.options.validateSearch };
 };
@@ -77,9 +77,9 @@ const setupStandardsPage = ({ search = {}, overrides = {} }: PageParams = {}) =>
 
 /** Two findings under two rules, so a narrowed table can be told from an unnarrowed one. */
 const twoRules: Partial<StandardsView> = {
-	rules: [buildStandardsRuleView({ rule: 'size-file' }), buildStandardsRuleView({ rule: 'duplicate-code-block' })],
+	rules: [buildStandardsRuleView({ rule: 'file-size' }), buildStandardsRuleView({ rule: 'duplicate-code-block' })],
 	findings: [
-		buildStandardsFinding({ rule: 'size-file', detail: 'the long file' }),
+		buildStandardsFinding({ rule: 'file-size', detail: 'the long file' }),
 		buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['b/two.ts'], detail: 'the copied block' }),
 	],
 };
@@ -88,15 +88,15 @@ const twoRules: Partial<StandardsView> = {
 // writes and the repo lists as generated output — so it is not a subject a test
 // may be named after. `router.tsx` is the tree's only consumer, which makes this
 // a scenario suite on the router, split from the tree's own by concern: what
-// `/repo/standards` will accept from a query string, and what a reader sees for
+// `/app/standards` will accept from a query string, and what a reader sees for
 // it.
 describe('routeTree repo standards route', () => {
 	test('keeps the rule a link narrowed the page to, which is what `?rule=` deep links are for', () => {
 		const { validateSearch } = setupStandardsRoute();
 
-		const search = validateSearch({ rule: 'size-file' });
+		const search = validateSearch({ rule: 'file-size' });
 
-		expect(search).toStrictEqual({ rule: 'size-file' });
+		expect(search).toStrictEqual({ rule: 'file-size' });
 	});
 
 	test('reads a query string that names no rule as the page’s own "all rules"', () => {
@@ -123,7 +123,7 @@ describe('routeTree repo standards route', () => {
 	test('drops a rule that arrived as something other than one word', () => {
 		const { validateSearch } = setupStandardsRoute();
 
-		const search = validateSearch({ rule: ['size-file', 'duplicate-code-block'] });
+		const search = validateSearch({ rule: ['file-size', 'duplicate-code-block'] });
 
 		expect(search).toStrictEqual({ rule: undefined });
 	});
@@ -131,9 +131,9 @@ describe('routeTree repo standards route', () => {
 	test('carries nothing else a URL happens to say, since the page has one key', () => {
 		const { validateSearch } = setupStandardsRoute();
 
-		const search = validateSearch({ rule: 'size-file', folder: 'packages/engine', depth: 3 });
+		const search = validateSearch({ rule: 'file-size', folder: 'packages/engine', depth: 3 });
 
-		expect(search).toStrictEqual({ rule: 'size-file' });
+		expect(search).toStrictEqual({ rule: 'file-size' });
 	});
 
 	test('names the tab before any of that view has resolved', () => {
@@ -145,7 +145,7 @@ describe('routeTree repo standards route', () => {
 	});
 
 	test('lands a reader who followed a `?rule=` link on that rule’s rows alone', () => {
-		setupStandardsPage({ overrides: twoRules, search: { rule: 'size-file' } });
+		setupStandardsPage({ overrides: twoRules, search: { rule: 'file-size' } });
 
 		expect(screen.getByText('the long file')).toBeInTheDocument();
 		expect(screen.queryByText('the copied block')).not.toBeInTheDocument();

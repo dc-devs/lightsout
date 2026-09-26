@@ -8,226 +8,421 @@
 @import "@fontsource/be-vietnam-pro/600.css";
 @import "@fontsource/be-vietnam-pro/700.css";
 @import "@fontsource/be-vietnam-pro/800.css";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/500.css";
 @import "tailwindcss";
 @import "tw-animate-css";
-
-/* Tailwind v4 keys `dark:` to the operating system unless it is told otherwise,
-   and this app's theme is a stored choice a reader makes — so a `dark:` utility
-   has to follow the class the theme provider sets on `<html>`, exactly as the
-   colour tokens below already do. Without this the two disagree: the page turns
-   dark while anything written as `dark:` stays where the OS left it. */
-@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
 	/* ========================================
 	   BRAND COLORS - Single source of truth
 	   ======================================== */
-	/* The two stops of the lightsout gradient, cyan to violet, and the single
-	   colour every solid brand surface uses. The light theme takes the flow
-	   graphic's own darker pair, because white text has to read on them; the
-	   dark theme keeps the neon pair from the README infographics. */
-	--brand-from: oklch(0.58 0.11 210); /* #0e93ad */
-	--brand-to: oklch(0.55 0.25 293); /* #7c3aed */
-	--brand: var(--brand-to);
-	--brand-gradient: linear-gradient(90deg, var(--brand-from), var(--brand-to));
-	--brand-lighter: oklch(from var(--brand) l c h / 90%);
-	--brand-semi-light: oklch(from var(--brand) l c h / 5%);
-	--brand-light: oklch(from var(--brand) l c h / 3%);
-	--brand-dark: oklch(from var(--brand) calc(l - 0.1) c h);
+	--drop-blue: oklch(0.5 0.26 263.83); /* #0847f7 */
+	--drop-blue-lighter: oklch(
+		from var(--drop-blue) l c h /
+		90%
+	); /* 90% opacity */
+	--drop-blue-semi-light: oklch(
+		from var(--drop-blue) l c h /
+		5%
+	); /* 5% opacity */
+	--drop-blue-light: oklch(from var(--drop-blue) l c h / 3%); /* 3% opacity */
+	--drop-blue-dark: oklch(
+		from var(--drop-blue) calc(l - 0.1) c h
+	); /* 10% darker */
+
+	--drop-navy: #02015a;
 
 	/* ========================================
-	   RUN STATUS COLORS
-	   Tailwind's own palette values, written out. The `theme()` helper that
-	   names them is deprecated in v4, and `var(--color-*)` would tie these to
-	   Tailwind still emitting palette entries nothing else in this app uses.
-	   The comment on each line says which entry the value came from.
+	   PRIMARY BRAND COLOR ALIASES
 	   ======================================== */
-	--status-running: oklch(76.9% 0.188 70.08); /* amber 500 */
-	--status-running-light: oklch(98.7% 0.022 95.277); /* amber 50 */
-	--status-running-border: oklch(92.4% 0.12 95.746); /* amber 200 */
-
-	--status-passed: oklch(69.6% 0.17 162.48); /* emerald 500 */
-	--status-passed-light: oklch(97.9% 0.021 166.113); /* emerald 50 */
-	--status-passed-border: oklch(90.5% 0.093 164.15); /* emerald 200 */
-
-	--status-failed: oklch(63.7% 0.237 25.331); /* red 500 */
-	--status-failed-light: oklch(97.1% 0.013 17.38); /* red 50 */
-	--status-failed-border: oklch(88.5% 0.062 18.334); /* red 200 */
-
-	/* Both paused states share one colour; the badge text still names which. */
-	--status-paused: oklch(70.4% 0.04 256.788); /* slate 400 */
-	--status-paused-light: oklch(98.4% 0.003 247.858); /* slate 50 */
-	--status-paused-border: oklch(92.9% 0.013 255.508); /* slate 200 */
-
-	--status-escalated: oklch(62.7% 0.265 303.9); /* purple 500 */
-	--status-escalated-light: oklch(97.7% 0.014 308.299); /* purple 50 */
-	--status-escalated-border: oklch(90.2% 0.063 306.703); /* purple 200 */
+	--primary-brand-color: var(--drop-blue);
+	--primary-brand-color-lighter: var(--drop-blue-lighter);
+	--primary-brand-color-semi-light: var(--drop-blue-semi-light);
+	--primary-brand-color-light: var(--drop-blue-light);
+	--primary-brand-color-dark: var(--drop-blue-dark);
 
 	/* ========================================
-	   CORE THEME
+	   CATEGORY COLORS - Using Tailwind palette
 	   ======================================== */
-	--primary: var(--brand);
-	--primary-light: var(--brand-light);
-	--primary-foreground: oklch(1 0 0);
+	--category-bug: theme(colors.red.500);
+	--category-bug-light: theme(colors.red.50);
+	--category-bug-border: theme(colors.red.200);
 
+	--category-feature: theme(colors.yellow.600);
+	--category-feature-light: theme(colors.yellow.50);
+	--category-feature-border: theme(colors.yellow.200);
+
+	--category-praise: theme(colors.emerald.500);
+	--category-praise-light: theme(colors.emerald.50);
+	--category-praise-border: theme(colors.emerald.200);
+
+	--category-design: theme(colors.purple.500);
+	--category-design-light: theme(colors.purple.50);
+	--category-design-border: theme(colors.purple.200);
+
+	--category-content: theme(colors.slate.500);
+	--category-content-light: theme(colors.slate.50);
+	--category-content-border: theme(colors.slate.200);
+
+	--category-other: theme(colors.blue.500);
+	--category-other-light: theme(colors.blue.50);
+	--category-other-border: theme(colors.blue.200);
+
+	/* ========================================
+	   STATUS COLORS - Using Tailwind palette
+	   ======================================== */
+	--status-open: theme(colors.blue.500);
+	--status-open-light: theme(colors.blue.50);
+	--status-open-border: theme(colors.blue.200);
+
+	--status-in-progress: theme(colors.amber.500);
+	--status-in-progress-light: theme(colors.amber.50);
+	--status-in-progress-border: theme(colors.amber.200);
+
+	--status-resolved: theme(colors.emerald.500);
+	--status-resolved-light: theme(colors.emerald.50);
+	--status-resolved-border: theme(colors.emerald.200);
+
+	--status-ignored: theme(colors.slate.400);
+	--status-ignored-light: theme(colors.slate.50);
+	--status-ignored-border: theme(colors.slate.200);
+
+	/* ========================================
+	   PRIORITY COLORS - Using Tailwind palette
+	   ======================================== */
+	--priority-critical: theme(colors.red.500);
+	--priority-high: theme(colors.orange.500);
+	--priority-medium: theme(colors.yellow.500);
+	--priority-low: theme(colors.slate.400);
+
+	/* ========================================
+	   ROLE COLORS - Using Tailwind palette
+	   ======================================== */
+	--role-admin: theme(colors.emerald.600);
+	--role-admin-light: theme(colors.emerald.50);
+	--role-admin-border: theme(colors.emerald.200);
+
+	--role-manager: theme(colors.blue.600);
+	--role-manager-light: theme(colors.blue.50);
+	--role-manager-border: theme(colors.blue.200);
+
+	--role-member: theme(colors.purple.600);
+	--role-member-light: theme(colors.purple.50);
+	--role-member-border: theme(colors.purple.200);
+
+	/* ========================================
+	   CORE THEME - Light Mode
+	   ======================================== */
+	/* Primary: Main brand color */
+	--primary: var(--primary-brand-color); /* Royal blue for CTAs, links */
+	--primary-light: var(
+		--primary-brand-color-light
+	); /* Royal blue light for hover states */
+	--primary-foreground: oklch(1 0 0); /* White text on primary */
+
+	/* Global border radius */
 	--radius: 0.6rem;
 
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.23 0 0);
+	/* Base: Main surface and text */
+	--background: oklch(1 0 0); /* Pure white */
+	--foreground: oklch(0.23 0 0); /* rgb(32, 32, 32) - neutral dark gray */
 
-	--border: oklch(92.9% 0.013 255.508); /* slate 200 */
-	--ring: var(--primary);
+	/* Structural: Borders and focus */
+	--border: theme(colors.slate.200); /* Cool-tinted grey to harmonize with the blue brand family */
+	--ring: var(--primary); /* Focus ring for accessibility */
 
-	--muted: oklch(96.8% 0.007 247.896); /* slate 100 */
-	--muted-foreground: oklch(55.4% 0.046 257.417); /* slate 500 */
-	--muted-foreground-strong: oklch(44.6% 0.043 257.281); /* slate 600 */
+	/* Muted: Subtle backgrounds and secondary text */
+	/*--muted: oklch(0.98 0 0); /* Light gray for disabled states */
+	/*--muted-foreground: oklch(0.47 0 0); /*  Subheader/Secondary text color */
 
-	--destructive: oklch(0.65 0.25 25);
-	--destructive-foreground: oklch(1 0 0);
+	--muted: theme(colors.slate.100);
+	--muted-foreground: theme(colors.slate.500);
+	--muted-foreground-strong: theme(colors.slate.600);
 
-	--success: oklch(59.6% 0.145 163.225); /* emerald 600 */
+	/* Destructive: Errors and delete actions */
+	--destructive: oklch(0.65 0.25 25); /* Red for warnings/errors */
+	--destructive-foreground: oklch(1 0 0); /* White text on red */
 
-	--accent: var(--brand-light);
+	/* Success: Confirmation states (e.g. "Copied!") */
+	--success: theme(colors.emerald.600);
+
+	/* Accent: Hover/focus states for ShadCN components (buttons, menus, etc.) */
+	--accent: var(--primary-brand-color-light);
 	--accent-foreground: var(--foreground);
 
+	/* Popovers (Dropdowns, Dialogs, etc) */
 	--popover: var(--background);
 	--popover-foreground: var(--foreground);
 
-	--card: oklch(1 0 0);
+	/* Card: Elevated surfaces (forms, cards, dialogs) */
+	--card: oklch(1 0 0); /* Pure white */
 	--card-foreground: var(--foreground);
 
-	--surface: oklch(1 0 0);
+	/* Surface colors */
+	--surface: oklch(
+		1 0 0
+	); /* Pure white — flat surface, hierarchy via borders */
 	--surface-foreground: var(--foreground);
 
-	--sidebar: var(--background);
+	/* ========================================
+	   ShadCN Components
+	   ======================================== */
+
+	/* Sidebar colors - point to main theme */
+	--sidebar: var(--background); /* Same as main background */
+	--sidebar-foreground: var(--foreground); /* Same as main text */
+	--sidebar-accent: var(--primary-brand-color-light); /* Hover state */
+	--sidebar-accent-selected: var(
+		--primary-brand-color-semi-light
+	); /* Selected state */
+	--sidebar-accent-foreground: var(--accent-foreground); /* Text on hover */
+	--sidebar-border: var(--border); /* Same as main border */
+	--sidebar-ring: var(--ring);
+}
+
+/* ========================================
+   DARK MODE THEME
+   ======================================== */
+.dark {
+	/* Brand colors adjusted for dark backgrounds */
+	--drop-blue: oklch(0.6 0.24 263.83); /* Brighter blue for dark mode */
+	--drop-blue-lighter: oklch(from var(--drop-blue) l c h / 90%);
+	--drop-blue-semi-light: oklch(from var(--drop-blue) l c h / 12%);
+	--drop-blue-light: oklch(from var(--drop-blue) l c h / 8%);
+	--drop-blue-dark: oklch(from var(--drop-blue) calc(l + 0.1) c h);
+
+	/* Category colors - dark mode (brighter text, darker bg) */
+	--category-bug: theme(colors.red.400);
+	--category-bug-light: theme(colors.red.950);
+	--category-bug-border: theme(colors.red.800);
+
+	--category-feature: theme(colors.yellow.400);
+	--category-feature-light: theme(colors.yellow.950);
+	--category-feature-border: theme(colors.yellow.800);
+
+	--category-praise: theme(colors.emerald.400);
+	--category-praise-light: theme(colors.emerald.950);
+	--category-praise-border: theme(colors.emerald.800);
+
+	--category-design: theme(colors.purple.400);
+	--category-design-light: theme(colors.purple.950);
+	--category-design-border: theme(colors.purple.800);
+
+	--category-content: theme(colors.slate.400);
+	--category-content-light: theme(colors.slate.900);
+	--category-content-border: theme(colors.slate.700);
+
+	--category-other: theme(colors.blue.400);
+	--category-other-light: theme(colors.blue.950);
+	--category-other-border: theme(colors.blue.800);
+
+	/* Status colors - dark mode */
+	--status-open: theme(colors.blue.400);
+	--status-open-light: theme(colors.blue.950);
+	--status-open-border: theme(colors.blue.800);
+
+	--status-in-progress: theme(colors.amber.400);
+	--status-in-progress-light: theme(colors.amber.950);
+	--status-in-progress-border: theme(colors.amber.800);
+
+	--status-resolved: theme(colors.emerald.400);
+	--status-resolved-light: theme(colors.emerald.950);
+	--status-resolved-border: theme(colors.emerald.800);
+
+	--status-ignored: theme(colors.slate.500);
+	--status-ignored-light: theme(colors.slate.900);
+	--status-ignored-border: theme(colors.slate.700);
+
+	/* Priority colors - dark mode */
+	--priority-critical: theme(colors.red.400);
+	--priority-high: theme(colors.orange.400);
+	--priority-medium: theme(colors.yellow.400);
+	--priority-low: theme(colors.slate.500);
+
+	/* Role colors - dark mode */
+	--role-admin: theme(colors.emerald.400);
+	--role-admin-light: theme(colors.emerald.950);
+	--role-admin-border: theme(colors.emerald.800);
+
+	--role-manager: theme(colors.blue.400);
+	--role-manager-light: theme(colors.blue.950);
+	--role-manager-border: theme(colors.blue.800);
+
+	--role-member: theme(colors.purple.400);
+	--role-member-light: theme(colors.purple.950);
+	--role-member-border: theme(colors.purple.800);
+
+	/* Primary: Main brand color */
+	--primary: var(--drop-blue);
+	--primary-light: var(--drop-blue-light);
+	--primary-foreground: oklch(1 0 0);
+
+	/* Base: Main surface and text */
+	--background: oklch(0.13 0.016 263.83); /* Dark blue-gray */
+	--foreground: oklch(0.94 0.01 263.83); /* Off-white text */
+
+	/* Structural: Borders and focus */
+	--border: oklch(1 0 0 / 8%); /* Subtle border */
+	--ring: var(--primary);
+
+	/* Muted: Subtle backgrounds and secondary text */
+	/* --muted: oklch(0.11 0.015 263.83); */
+	/* --muted-foreground: oklch(0.7 0.02 263.83); */
+
+	--muted: theme(colors.slate.800);
+	--muted-foreground: theme(colors.slate.400);
+	--muted-foreground-strong: theme(colors.slate.300);
+
+	/* Destructive: Errors and delete actions */
+	--destructive: oklch(0.6 0.2 25);
+	--destructive-foreground: oklch(1 0 0);
+
+	/* Success: Confirmation states (brighter for dark surfaces) */
+	--success: theme(colors.emerald.400);
+
+	/* Accent: Hover/focus states */
+	--accent: var(--drop-blue-light);
+	--accent-foreground: var(--foreground);
+
+	/* Popovers */
+	--popover: oklch(0.16 0.015 263.83);
+	--popover-foreground: var(--foreground);
+
+	/* Card */
+	--card: oklch(0.2 0.025 263.83);
+	--card-foreground: var(--foreground);
+
+	/* Surface */
+	--surface: oklch(0.15 0.012 263.83 / 50%);
+	--surface-foreground: var(--foreground);
+
+	/* Sidebar */
+	--sidebar: oklch(0.16 0.02 263.83);
 	--sidebar-foreground: var(--foreground);
-	--sidebar-accent: var(--brand-light);
-	--sidebar-accent-selected: var(--brand-semi-light);
-	--sidebar-accent-foreground: var(--accent-foreground);
+	--sidebar-accent: var(--accent);
+	--sidebar-accent-selected: var(--drop-blue-semi-light);
+	--sidebar-accent-foreground: var(--foreground);
 	--sidebar-border: var(--border);
 	--sidebar-ring: var(--ring);
 }
 
-/* Dark is this app's default: the server sends this class, and the inline
-   script in the root document is what lets a viewer who chose light out of it
-   before first paint. Only the values that differ are restated — every token
-   spelled `var(--something)` in :root follows its source automatically. */
-.dark {
-	--brand-from: oklch(0.79 0.135 202); /* #35d6e8 */
-	--brand-to: oklch(0.66 0.209 305); /* #b06bf5 */
-	--brand: var(--brand-from);
-
-	/* White on the neon cyan is about 1.3:1, so the solid-brand surface takes
-	   the ground colour for its text here rather than white. */
-	--primary-foreground: var(--background);
-
-	--background: oklch(0.16 0.019 258);
-	--foreground: oklch(0.89 0.017 253);
-
-	--card: oklch(0.19 0.02 258);
-	--surface: oklch(0.19 0.02 258);
-	--popover: oklch(0.19 0.02 258);
-
-	--muted: oklch(0.22 0.02 258);
-	--muted-foreground: oklch(0.68 0.02 253);
-	--muted-foreground-strong: oklch(0.78 0.02 253);
-
-	--border: oklch(0.27 0.02 258);
-
-	/* One rule off the five hues above: a status tint is that hue at the
-	   lightness a dark surface needs, so a new status family never has to have
-	   its two tints picked by hand. */
-	--status-running-light: oklch(from var(--status-running) 0.24 c h);
-	--status-running-border: oklch(from var(--status-running) 0.38 c h);
-
-	--status-passed-light: oklch(from var(--status-passed) 0.24 c h);
-	--status-passed-border: oklch(from var(--status-passed) 0.38 c h);
-
-	--status-failed-light: oklch(from var(--status-failed) 0.24 c h);
-	--status-failed-border: oklch(from var(--status-failed) 0.38 c h);
-
-	--status-paused-light: oklch(from var(--status-paused) 0.24 c h);
-	--status-paused-border: oklch(from var(--status-paused) 0.38 c h);
-
-	--status-escalated-light: oklch(from var(--status-escalated) 0.24 c h);
-	--status-escalated-border: oklch(from var(--status-escalated) 0.38 c h);
-}
-
 @theme inline {
+	/* Font family */
 	--font-sans:
-		"Plus Jakarta Sans", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-	/* Mono is reserved for machine truth — ids, paths, commands — so the face is
-	   vendored rather than left to whatever each machine calls monospace. */
-	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+		'Plus Jakarta Sans', 'Be Vietnam Pro', ui-sans-serif, system-ui,
+		sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+		'Noto Color Emoji';
 
+	/* Border radius */
 	--radius-lg: var(--radius);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-sm: calc(var(--radius) - 4px);
 
-	--color-brand-from: var(--brand-from);
-	--color-brand-to: var(--brand-to);
-
-	/* A finding's severity is its own thing, never the brand accent: blocking
-	   borrows the failed hue and advisory the running one. */
-	--color-severity-blocking: var(--status-failed);
-	--color-severity-advisory: var(--status-running);
-
+	/* Core colors */
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-border: var(--border);
 	--color-ring: var(--ring);
 
-	--color-status-running: var(--status-running);
-	--color-status-running-light: var(--status-running-light);
-	--color-status-running-border: var(--status-running-border);
+	/* Category colors */
+	--color-category-bug: var(--category-bug);
+	--color-category-bug-light: var(--category-bug-light);
+	--color-category-bug-border: var(--category-bug-border);
 
-	--color-status-passed: var(--status-passed);
-	--color-status-passed-light: var(--status-passed-light);
-	--color-status-passed-border: var(--status-passed-border);
+	--color-category-feature: var(--category-feature);
+	--color-category-feature-light: var(--category-feature-light);
+	--color-category-feature-border: var(--category-feature-border);
 
-	--color-status-failed: var(--status-failed);
-	--color-status-failed-light: var(--status-failed-light);
-	--color-status-failed-border: var(--status-failed-border);
+	--color-category-praise: var(--category-praise);
+	--color-category-praise-light: var(--category-praise-light);
+	--color-category-praise-border: var(--category-praise-border);
 
-	--color-status-paused: var(--status-paused);
-	--color-status-paused-light: var(--status-paused-light);
-	--color-status-paused-border: var(--status-paused-border);
+	--color-category-design: var(--category-design);
+	--color-category-design-light: var(--category-design-light);
+	--color-category-design-border: var(--category-design-border);
 
-	--color-status-escalated: var(--status-escalated);
-	--color-status-escalated-light: var(--status-escalated-light);
-	--color-status-escalated-border: var(--status-escalated-border);
+	--color-category-content: var(--category-content);
+	--color-category-content-light: var(--category-content-light);
+	--color-category-content-border: var(--category-content-border);
 
+	--color-category-other: var(--category-other);
+	--color-category-other-light: var(--category-other-light);
+	--color-category-other-border: var(--category-other-border);
+
+	/* Status colors */
+	--color-status-open: var(--status-open);
+	--color-status-open-light: var(--status-open-light);
+	--color-status-open-border: var(--status-open-border);
+
+	--color-status-in-progress: var(--status-in-progress);
+	--color-status-in-progress-light: var(--status-in-progress-light);
+	--color-status-in-progress-border: var(--status-in-progress-border);
+
+	--color-status-resolved: var(--status-resolved);
+	--color-status-resolved-light: var(--status-resolved-light);
+	--color-status-resolved-border: var(--status-resolved-border);
+
+	--color-status-ignored: var(--status-ignored);
+	--color-status-ignored-light: var(--status-ignored-light);
+	--color-status-ignored-border: var(--status-ignored-border);
+
+	/* Priority colors */
+	--color-priority-critical: var(--priority-critical);
+	--color-priority-high: var(--priority-high);
+	--color-priority-medium: var(--priority-medium);
+	--color-priority-low: var(--priority-low);
+
+	/* Role colors */
+	--color-role-admin: var(--role-admin);
+	--color-role-admin-light: var(--role-admin-light);
+	--color-role-admin-border: var(--role-admin-border);
+
+	--color-role-manager: var(--role-manager);
+	--color-role-manager-light: var(--role-manager-light);
+	--color-role-manager-border: var(--role-manager-border);
+
+	--color-role-member: var(--role-member);
+	--color-role-member-light: var(--role-member-light);
+	--color-role-member-border: var(--role-member-border);
+
+	--color-drop-navy: var(--drop-navy);
+
+	/* Primary brand */
 	--color-primary: var(--primary);
-	--color-primary-hover: var(--brand-lighter);
+	--color-primary-hover: var(--primary-brand-color-lighter);
 	--color-primary-foreground: var(--primary-foreground);
 
+	/* Muted (disabled/secondary) */
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
-	--color-muted-foreground-strong: var(--muted-foreground-strong);
 
+	/* Accent (hover states - ShadCN) */
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 
+	/* Destructive (errors/delete) */
 	--color-destructive: var(--destructive);
 	--color-destructive-foreground: var(--destructive-foreground);
 
+	/* Success (confirmation states) */
 	--color-success: var(--success);
 
+	/* Popover */
 	--color-popover: var(--popover);
 	--color-popover-foreground: var(--popover-foreground);
 
+	/* Card */
 	--color-card: var(--card);
 	--color-card-foreground: var(--card-foreground);
 
+	/* Surface */
 	--color-surface: var(--surface);
 	--color-surface-foreground: var(--surface-foreground);
 
+	/* Sidebar - complete set */
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-accent: var(--sidebar-accent);
-	--color-sidebar-accent-selected: var(--sidebar-accent-selected);
+	--color-sidebar-accent-selected: var(--primary-brand-color-semi-light);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
@@ -240,4 +435,168 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@keyframes signal-pulse {
+	0% {
+		transform: scale(0.8);
+		opacity: 0.4;
+	}
+	100% {
+		transform: scale(1);
+		opacity: 0;
+	}
+}
+
+@keyframes dashFlowOut {
+	0% {
+		stroke-dashoffset: 24;
+	}
+	100% {
+		stroke-dashoffset: 0;
+	}
+}
+
+.path-animated-out {
+	stroke-dasharray: 6 6;
+	animation: dashFlowOut 1.2s linear infinite;
+}
+
+/* ShadCN Manual Edits:
+----------------------
+sidebar.tsx
+----------------------
+- sidebarMenuButtonVariants:
+-- Removed `group-data-[collapsible=icon]:p-2!` on default variant
+-- This allows <SidebarMenuButton size="lg" /> to look clean when icon collapse is enabled
+*/
+
+/* ========================================
+   LIGHTSOUT TOKENS
+   Everything above is FeedbackDrop's sheet, kept as it ships. Everything below
+   is lightsout's own: the run-status colours the app's pages draw with, the
+   brand gradient, and the handful of roles the home page paints in — each with
+   a light and a dark value, so no page has to spell a palette step itself.
+   ======================================== */
+:root {
+	--brand-from: oklch(0.58 0.11 210); /* #0e93ad */
+	--brand-to: oklch(0.55 0.25 293); /* #7c3aed */
+	--brand-gradient: linear-gradient(90deg, var(--brand-from), var(--brand-to));
+
+	/* Text quieter than muted-foreground: captions, labels, placeholders. */
+	--subtle-foreground: theme(colors.slate.400);
+
+	/* A wash and an edge in the brand blue, for pills and highlighted panels. */
+	--primary-tint: theme(colors.blue.50);
+	--primary-tint-border: theme(colors.blue.200);
+
+	/* What an agent does, set apart from what a person does (the brand blue). */
+	--agent: theme(colors.indigo.600);
+	--agent-foreground: theme(colors.indigo.700);
+	--agent-light: theme(colors.indigo.50);
+	--agent-border: theme(colors.indigo.200);
+
+	--status-running: theme(colors.amber.500);
+	--status-running-foreground: theme(colors.amber.700);
+	--status-running-light: theme(colors.amber.50);
+	--status-running-border: theme(colors.amber.200);
+
+	--status-passed: theme(colors.emerald.500);
+	--status-passed-foreground: theme(colors.emerald.700);
+	--status-passed-light: theme(colors.emerald.50);
+	--status-passed-border: theme(colors.emerald.200);
+
+	--status-failed: theme(colors.red.500);
+	--status-failed-foreground: theme(colors.red.700);
+	--status-failed-light: theme(colors.red.50);
+	--status-failed-border: theme(colors.red.200);
+
+	--status-paused: theme(colors.slate.400);
+	--status-paused-light: theme(colors.slate.50);
+	--status-paused-border: theme(colors.slate.200);
+
+	--status-escalated: theme(colors.purple.500);
+	--status-escalated-light: theme(colors.purple.50);
+	--status-escalated-border: theme(colors.purple.200);
+}
+
+.dark {
+	/* The headline navy becomes the off-white of dark text. */
+	--drop-navy: oklch(0.96 0.01 263.83);
+
+	--brand-from: oklch(0.79 0.135 202); /* #35d6e8 */
+	--brand-to: oklch(0.66 0.209 305); /* #b06bf5 */
+
+	--subtle-foreground: theme(colors.slate.500);
+
+	--primary-tint: oklch(from var(--drop-blue) l c h / 12%);
+	--primary-tint-border: oklch(from var(--drop-blue) l c h / 35%);
+
+	--agent: theme(colors.indigo.400);
+	--agent-foreground: theme(colors.indigo.300);
+	--agent-light: oklch(from theme(colors.indigo.500) l c h / 12%);
+	--agent-border: oklch(from theme(colors.indigo.500) l c h / 35%);
+
+	/* Each status keeps its hue; its wash and edge are drawn from it, dimmed for a dark page. */
+	--status-running-foreground: theme(colors.amber.300);
+	--status-running-light: oklch(from var(--status-running) l c h / 12%);
+	--status-running-border: oklch(from var(--status-running) l c h / 35%);
+
+	--status-passed-foreground: theme(colors.emerald.300);
+	--status-passed-light: oklch(from var(--status-passed) l c h / 12%);
+	--status-passed-border: oklch(from var(--status-passed) l c h / 35%);
+
+	--status-failed-foreground: theme(colors.red.300);
+	--status-failed-light: oklch(from var(--status-failed) l c h / 12%);
+	--status-failed-border: oklch(from var(--status-failed) l c h / 35%);
+
+	--status-paused-light: oklch(from var(--status-paused) l c h / 12%);
+	--status-paused-border: oklch(from var(--status-paused) l c h / 35%);
+
+	--status-escalated-light: oklch(from var(--status-escalated) l c h / 12%);
+	--status-escalated-border: oklch(from var(--status-escalated) l c h / 35%);
+}
+
+@theme inline {
+	--color-brand-from: var(--brand-from);
+	--color-brand-to: var(--brand-to);
+
+	--color-muted-foreground-strong: var(--muted-foreground-strong);
+	--color-subtle-foreground: var(--subtle-foreground);
+
+	--color-primary-tint: var(--primary-tint);
+	--color-primary-tint-border: var(--primary-tint-border);
+
+	--color-agent: var(--agent);
+	--color-agent-foreground: var(--agent-foreground);
+	--color-agent-light: var(--agent-light);
+	--color-agent-border: var(--agent-border);
+
+	--color-severity-blocking: var(--status-failed);
+	--color-severity-advisory: var(--status-running);
+
+	--color-status-running: var(--status-running);
+	--color-status-running-foreground: var(--status-running-foreground);
+	--color-status-running-light: var(--status-running-light);
+	--color-status-running-border: var(--status-running-border);
+
+	--color-status-passed: var(--status-passed);
+	--color-status-passed-foreground: var(--status-passed-foreground);
+	--color-status-passed-light: var(--status-passed-light);
+	--color-status-passed-border: var(--status-passed-border);
+
+	--color-status-failed: var(--status-failed);
+	--color-status-failed-foreground: var(--status-failed-foreground);
+	--color-status-failed-light: var(--status-failed-light);
+	--color-status-failed-border: var(--status-failed-border);
+
+	--color-status-paused: var(--status-paused);
+	--color-status-paused-light: var(--status-paused-light);
+	--color-status-paused-border: var(--status-paused-border);
+
+	--color-status-escalated: var(--status-escalated);
+	--color-status-escalated-light: var(--status-escalated-light);
+	--color-status-escalated-border: var(--status-escalated-border);
 }

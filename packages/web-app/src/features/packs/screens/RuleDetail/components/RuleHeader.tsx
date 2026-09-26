@@ -1,5 +1,7 @@
 import type { StandardsPackRuleView } from '@lightsout/engine';
 import { Badge, MetadataTag } from '#src/appUI/index.ts';
+import { checkKindLabels } from '#src/common/constants/checkKindLabels.ts';
+import { toCheckKind } from '#src/common/utils/toCheckKind.ts';
 import { severityBadgeVariants } from '#src/features/packs/common/constants/severityBadgeVariants.ts';
 
 interface Props {
@@ -19,7 +21,7 @@ export const RuleHeader = ({ rule }: Props) => (
 		<h1 className="font-mono font-semibold text-2xl">{rule.id}</h1>
 		<p className="max-w-3xl text-sm leading-6">{rule.summary}</p>
 		<div className="flex flex-wrap items-center gap-2">
-			<Badge>{rule.checked ? 'enforced by code' : 'judgment'}</Badge>
+			<Badge>{checkKindLabels[toCheckKind({ checked: rule.checked })].label}</Badge>
 			<Badge variant={severityBadgeVariants[rule.defaultSeverity]}>{rule.defaultSeverity} by default</Badge>
 			<MetadataTag>{rule.channel}</MetadataTag>
 			<MetadataTag>{rule.set}</MetadataTag>

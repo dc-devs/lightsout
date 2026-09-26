@@ -1,15 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Card, ContentHeader, Markdown } from '#src/appUI/index.ts';
+import { describeChannel } from '#src/features/packs/common/utils/describeChannel.ts';
+import { toRuleSetSlug } from '#src/features/packs/common/utils/toRuleSetSlug.ts';
 import { FixtureDiff } from '#src/features/packs/components/FixtureDiff.tsx';
-import { packQueryOptions } from '#src/features/packs/queries/packQueryOptions.ts';
-import { packRuleQueryOptions } from '#src/features/packs/queries/packRuleQueryOptions.ts';
+import { defaultPackRuleQueryOptions } from '#src/features/packs/queries/defaultPackRuleQueryOptions.ts';
 import { RuleHeader } from '#src/features/packs/screens/RuleDetail/components/RuleHeader.tsx';
-import { RuleInThisRepo } from '#src/features/packs/screens/RuleDetail/components/RuleInThisRepo.tsx';
 import { RuleSettingsCard } from '#src/features/packs/screens/RuleDetail/components/RuleSettingsCard.tsx';
 import { TurnItDownCard } from '#src/features/packs/screens/RuleDetail/components/TurnItDownCard.tsx';
 
 interface Props {
-	packName: string;
 	ruleId: string;
 }
 
@@ -21,17 +20,18 @@ interface Props {
  * to agree or disagree is the argument and the proof; how the check is
  * implemented is neither.
  */
-export const RuleDetail = ({ packName, ruleId }: Props) => {
-	const { data: rule } = useSuspenseQuery(packRuleQueryOptions({ name: packName, rule: ruleId }));
-	const { data: pack } = useSuspenseQuery(packQueryOptions({ name: packName }));
+export const RuleDetail = ({ ruleId }: Props) => {
+	const { data: rule } = useSuspenseQuery(defaultPackRuleQueryOptions({ rule: ruleId }));
 
 	return (
 		<div className="flex flex-col gap-6 p-6">
 			<ContentHeader
 				crumbs={[
-					{ label: 'Standards packs', link: { to: '/standards' } },
-					{ label: pack.name, link: { to: '/standards/$pack', params: { pack: pack.name } } },
-					{ label: rule.documentPath },
+					{ label: 'Standards Packs', link: { to: '/standards-packs' } },
+					{
+						label: describeChannel({ channel: rule.channel }).name,
+						link: { to: '/standards-packs/$ruleSet', params: { ruleSet: toRuleSetSlug({ channel: rule.channel }) } },
+					},
 					{ label: rule.id },
 				]}
 			/>
@@ -48,7 +48,6 @@ export const RuleDetail = ({ packName, ruleId }: Props) => {
 			</Card>
 			<RuleSettingsCard rule={rule} />
 			<TurnItDownCard ruleId={rule.id} />
-			<RuleInThisRepo ruleId={rule.id} />
 		</div>
 	);
 };

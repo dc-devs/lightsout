@@ -1,14 +1,22 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Tabs } from '#src/appUI/Tabs.tsx';
+import { TabsVariant } from '#src/common/constants/TabsVariant.ts';
 
 const items = [
 	{ value: 'steps', label: 'Steps', content: <p>eight steps</p> },
 	{ value: 'gates', label: 'Gates', content: <p>four gates</p> },
 ];
 
-const setupTabs = ({ defaultValue, value, onValueChange }: { defaultValue?: string; value?: string; onValueChange?: (next: string) => void } = {}) => {
-	render(<Tabs items={items} defaultValue={defaultValue} value={value} onValueChange={onValueChange} className="mt-4" />);
+interface SetupParams {
+	variant?: TabsVariant;
+	defaultValue?: string;
+	value?: string;
+	onValueChange?: (next: string) => void;
+}
+
+const setupTabs = ({ variant, defaultValue, value, onValueChange }: SetupParams = {}) => {
+	render(<Tabs items={items} variant={variant} defaultValue={defaultValue} value={value} onValueChange={onValueChange} className="mt-4" />);
 };
 
 const setupEmptyTabs = () => {
@@ -72,5 +80,17 @@ describe('Tabs', () => {
 
 		expect(tabs).toHaveLength(0);
 		expect(panels).toHaveLength(0);
+	});
+
+	test('draws a rule under the labels unless told otherwise', () => {
+		setupTabs();
+
+		expect(screen.getByRole('tablist').className).toContain('border-b');
+	});
+
+	test('puts the tabs in a column beside the panel when asked for the side look', () => {
+		setupTabs({ variant: TabsVariant.Side });
+
+		expect(screen.getByRole('tablist').className).toContain('flex-col');
 	});
 });

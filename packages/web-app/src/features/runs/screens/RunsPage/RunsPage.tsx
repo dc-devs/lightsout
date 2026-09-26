@@ -28,8 +28,8 @@ const readSortKey = ({ key }: { key?: string }) => Object.values(RunsSortKey).fi
 export const RunsPage = () => {
 	const { data: runs } = useSuspenseQuery(runsQueryOptions());
 	const { data: repo } = useQuery(repoRootQueryOptions());
-	const search = useSearch({ from: '/repo/runs' });
-	const navigate = useNavigate({ from: '/repo/runs' });
+	const search = useSearch({ from: '/app/runs' });
+	const navigate = useNavigate({ from: '/app/runs' });
 	const commandsDisabled = repo?.repoRoot === undefined;
 	// What the three frozen runs are, said out loud, so a visitor never reads
 	// them as their own state.

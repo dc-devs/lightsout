@@ -3,11 +3,14 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 import { cn } from '#src/common/utils/cn.ts';
 
+// `cursor-pointer` is stated because Tailwind v4 dropped it from buttons' base
+// styles; every control here is pressable, so every one should say so.
+//
 // Unexported on purpose. The upstream shadcn file publishes its variants beside
 // the component, which this repo's one-export-per-file rule forbids; a caller
 // that needs a button-shaped link reaches for `asChild` instead.
 const buttonVariants = cva(
-	'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all shrink-0 outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] [&_svg]:pointer-events-none [&_svg]:shrink-0',
+	'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all shrink-0 outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] [&_svg]:pointer-events-none [&_svg]:shrink-0',
 	{
 		variants: {
 			variant: {

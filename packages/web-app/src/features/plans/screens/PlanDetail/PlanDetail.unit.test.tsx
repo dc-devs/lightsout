@@ -92,7 +92,7 @@ describe('PlanDetail', () => {
 			view: buildPlanWorkspaceView({ overrides: { runs: [buildRunListing({ runId: 'abcdef0123456789', title: 'phase 1' })] } }),
 		});
 
-		expect(screen.getByRole('link', { name: /phase 1/ })).toHaveAttribute('href', '/repo/runs/abcdef0123456789');
+		expect(screen.getByRole('link', { name: /phase 1/ })).toHaveAttribute('href', '/app/runs/abcdef0123456789');
 	});
 
 	test('says which file would not parse, rather than rendering a corrupt workspace as an empty one', () => {

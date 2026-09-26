@@ -6,7 +6,7 @@ describe('groupFindingsByFolder', () => {
 	test('buckets a finding under the folder its file sits in, with the file name dropped', () => {
 		const groups = groupFindingsByFolder({ findings: [buildStandardsFinding()], depth: 4 });
 
-		expect(groups).toStrictEqual([{ folder: 'packages/engine/src/plan', count: 1, rules: [{ rule: 'size-file', count: 1 }] }]);
+		expect(groups).toStrictEqual([{ folder: 'packages/engine/src/plan', count: 1, rules: [{ rule: 'file-size', count: 1 }] }]);
 	});
 
 	test('decides the bucket from the first file, since that is the site the rule reported', () => {
@@ -45,7 +45,7 @@ describe('groupFindingsByFolder', () => {
 	test('buckets a finding that names no file at all under the root, rather than losing it', () => {
 		const groups = groupFindingsByFolder({ findings: [buildStandardsFinding({ paths: [] })], depth: 4 });
 
-		expect(groups).toStrictEqual([{ folder: '.', count: 1, rules: [{ rule: 'size-file', count: 1 }] }]);
+		expect(groups).toStrictEqual([{ folder: '.', count: 1, rules: [{ rule: 'file-size', count: 1 }] }]);
 	});
 
 	test('puts the largest bucket first, which is the whole point of looking', () => {
@@ -76,7 +76,7 @@ describe('groupFindingsByFolder', () => {
 	test('names the rules behind a bucket, most findings first', () => {
 		const groups = groupFindingsByFolder({
 			findings: [
-				buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
+				buildStandardsFinding({ rule: 'file-size', paths: ['packages/engine/src/plan/a.ts'] }),
 				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/b.ts'] }),
 				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/c.ts'] }),
 			],
@@ -85,20 +85,20 @@ describe('groupFindingsByFolder', () => {
 
 		expect(groups[0].rules).toStrictEqual([
 			{ rule: 'duplicate-code-block', count: 2 },
-			{ rule: 'size-file', count: 1 },
+			{ rule: 'file-size', count: 1 },
 		]);
 	});
 
 	test('breaks a rule tie on the rule id, for the same reason folders break theirs', () => {
 		const groups = groupFindingsByFolder({
 			findings: [
-				buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
+				buildStandardsFinding({ rule: 'file-size', paths: ['packages/engine/src/plan/a.ts'] }),
 				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/b.ts'] }),
 			],
 			depth: 4,
 		});
 
-		expect(groups[0].rules.map(({ rule }) => rule)).toStrictEqual(['duplicate-code-block', 'size-file']);
+		expect(groups[0].rules.map(({ rule }) => rule)).toStrictEqual(['duplicate-code-block', 'file-size']);
 	});
 
 	test('answers an empty report with an empty breakdown', () => {

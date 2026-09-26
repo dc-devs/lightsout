@@ -7,8 +7,20 @@ import { ThemeProvider } from '#src/theme/index.ts';
 // Mocked Imports
 // -------------------------
 jest.mock('@tanstack/react-router', () => ({
-	Link: ({ to, params, children, className }: { to: string; params?: Record<string, string>; children: ReactNode; className?: string }) => (
-		<a href={Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)} className={className}>
+	Link: ({
+		to,
+		params,
+		children,
+		className,
+		'aria-label': ariaLabel,
+	}: {
+		to: string;
+		params?: Record<string, string>;
+		children: ReactNode;
+		className?: string;
+		'aria-label'?: string;
+	}) => (
+		<a href={Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)} className={className} aria-label={ariaLabel}>
 			{children}
 		</a>
 	),
@@ -37,7 +49,7 @@ describe('TopNav', () => {
 
 		const packs = screen.getAllByRole('link', { name: 'Standards packs' });
 
-		expect(packs[0]).toHaveAttribute('href', '/standards');
+		expect(packs[0]).toHaveAttribute('href', '/standards-packs');
 	});
 
 	test.each([
@@ -62,7 +74,7 @@ describe('TopNav', () => {
 	test('carries the theme control, since it belongs to the reader rather than to a page', () => {
 		setupTopNav();
 
-		const toggle = screen.getByRole('button', { name: 'Switch to system theme' });
+		const toggle = screen.getByRole('button', { name: 'Switch to dark theme' });
 
 		expect(toggle).toBeInTheDocument();
 	});
@@ -82,7 +94,7 @@ describe('TopNav', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
 		const packs = within(screen.getByRole('navigation', { name: 'Site pages' })).getByRole('link', { name: 'Standards packs' });
 
-		expect(packs).toHaveAttribute('href', '/standards');
+		expect(packs).toHaveAttribute('href', '/standards-packs');
 	});
 
 	test.each([

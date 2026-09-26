@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsSet, StandardsSeverity } from '@lightsout/engine/contracts';
+import { CheckKind } from '#src/common/constants/CheckKind.ts';
 import type { PackRuleFilters } from '#src/features/packs/common/types/PackRuleFilters.ts';
 import { filterPackRules } from '#src/features/packs/common/utils/filterPackRules.ts';
 import { buildStandardsPackRuleListing } from '#tests/helpers/buildStandardsPackRuleListing.ts';
@@ -45,14 +46,14 @@ describe('filterPackRules', () => {
 		expect(ids).toStrictEqual(['component-file-structure']);
 	});
 
-	test('keeps only what code enforces when the reader asked for that half', () => {
-		const { ids } = setupFilterPackRules({ filters: { checked: true } });
+	test('keeps only the deterministic checks when the reader asked for those', () => {
+		const { ids } = setupFilterPackRules({ filters: { check: CheckKind.Deterministic } });
 
 		expect(ids).toStrictEqual(['type-assertion', 'test-shared-let']);
 	});
 
-	test('keeps only what judgment decides when the reader asked for the other half', () => {
-		const { ids } = setupFilterPackRules({ filters: { checked: false } });
+	test('keeps only the agent checks when the reader asked for those', () => {
+		const { ids } = setupFilterPackRules({ filters: { check: CheckKind.Agent } });
 
 		expect(ids).toStrictEqual(['component-file-structure']);
 	});
@@ -88,7 +89,7 @@ describe('filterPackRules', () => {
 	});
 
 	test('applies every filter at once, so two narrowings are an intersection rather than a union', () => {
-		const { ids } = setupFilterPackRules({ filters: { set: StandardsSet.Code, checked: false } });
+		const { ids } = setupFilterPackRules({ filters: { set: StandardsSet.Code, check: CheckKind.Agent } });
 
 		expect(ids).toStrictEqual(['component-file-structure']);
 	});

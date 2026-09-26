@@ -31,8 +31,10 @@ export const ConfigView = z.object({
 	ruleStates: z.array(
 		z.object({
 			rule: z.string(),
-			/** The pack that declares the rule — what the ledger's link to `/standards/$pack/$rule` needs when several packs load. */
+			/** The pack that declares the rule, named beside it when several packs load. */
 			pack: z.string(),
+			/** The rule's channel — which set of rules it belongs to, and so where the ledger's link to it points. */
+			channel: z.string(),
 			severity: z.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory, StandardsSeverity.Off]),
 			fromConfig: z.boolean(),
 			settings: z.record(z.string(), z.number()),

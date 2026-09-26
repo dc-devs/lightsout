@@ -8,10 +8,10 @@ import { configQueryOptions } from '#src/features/config/queries/configQueryOpti
 import { ConfigFieldRow } from '#src/features/config/screens/ConfigPage/components/ConfigFieldRow.tsx';
 import { RuleLedger } from '#src/features/config/screens/ConfigPage/components/RuleLedger.tsx';
 
-/** One loaded pack, as the way into what it says and which framework documents it carries. */
+/** One loaded pack, as the way into the Standards Packs page that shows its rules, and which framework documents it carries. */
 const PackRow = ({ pack }: { pack: ConfigView['packs'][number] }) => (
 	<div className="flex flex-wrap items-center gap-2 border-border border-b py-3 first:pt-0 last:border-0 last:pb-0">
-		<Link to="/standards/$pack" params={{ pack: pack.name }} className="font-medium text-sm hover:underline hover:underline-offset-2">
+		<Link to="/standards-packs" className="font-medium text-sm hover:underline hover:underline-offset-2">
 			{pack.name}
 		</Link>
 		{pack.isDefault ? <Badge variant={BadgeVariant.Neutral}>default</Badge> : null}

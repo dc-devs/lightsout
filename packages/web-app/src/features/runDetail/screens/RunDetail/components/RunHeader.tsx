@@ -70,7 +70,7 @@ export const RunHeader = ({ view, onOpenPlan, linksDisabled = false, commandsDis
 					{linksDisabled ? (
 						<MetadataTag>{view.parent.title}</MetadataTag>
 					) : (
-						<Link to="/repo/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
+						<Link to="/app/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
 							{view.parent.title}
 						</Link>
 					)}

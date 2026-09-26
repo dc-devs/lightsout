@@ -8,9 +8,11 @@ import { StandardsPackRuleView } from '#src/contracts/views/StandardsPackRuleVie
  * reads from disk once, and what a stateless build bundles for the default pack.
  *
  * Never sent over the wire whole: the listing, the view and the rule view are
- * projections of it. About two megabytes for the default pack.
+ * projections of it. About two megabytes for the default pack. The listing's
+ * per-channel counts are not stored here — they are worked out from `rules`
+ * whenever the pack is listed, so a stored bundle can never disagree with them.
  */
-export const StandardsPackBundle = StandardsPackListing.extend({
+export const StandardsPackBundle = StandardsPackListing.omit({ channelTotals: true }).extend({
 	documents: z.array(StandardsPackDocumentView),
 	rules: z.array(StandardsPackRuleView),
 });

@@ -5,13 +5,9 @@ import { ThemeProvider } from '#src/theme/ThemeProvider.tsx';
 import { useTheme } from '#src/theme/useTheme.ts';
 
 const ThemeReadout = () => {
-	const { theme, resolvedTheme } = useTheme();
+	const { theme } = useTheme();
 
-	return (
-		<p>
-			{theme} renders {resolvedTheme}
-		</p>
-	);
+	return <p>theme: {theme}</p>;
 };
 
 const setupUseTheme = () => {
@@ -31,10 +27,10 @@ const setupUnwrappedReader = () => {
 };
 
 describe('useTheme', () => {
-	test('hands back the preference in force and what it resolved to', () => {
+	test('hands back the theme in force', () => {
 		setupUseTheme();
 
-		const readout = screen.getByText('light renders light');
+		const readout = screen.getByText('theme: light');
 
 		expect(readout).toBeInTheDocument();
 	});

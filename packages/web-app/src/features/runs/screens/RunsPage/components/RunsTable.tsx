@@ -18,7 +18,7 @@ import { getRunCommand } from '#src/features/runs/common/utils/getRunCommand.ts'
 
 /** The run's title, as the way into its evidence. */
 const RunLink = ({ run }: { run: RunListing }) => (
-	<Link to="/repo/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
+	<Link to="/app/runs/$runId" params={{ runId: run.runId }} className="font-medium hover:underline hover:underline-offset-2">
 		{run.title}
 	</Link>
 );

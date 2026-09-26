@@ -1,9 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import { render } from '@testing-library/react';
 import { GridBackground } from '#src/appUI/GridBackground.tsx';
+import { GridPattern } from '#src/common/constants/GridPattern.ts';
 
-const setupGridBackground = ({ className }: { className?: string } = {}) => {
-	const { container } = render(<GridBackground className={className} />);
+const setupGridBackground = ({ pattern, maskImage, className }: { pattern?: GridPattern; maskImage?: string; className?: string } = {}) => {
+	const { container } = render(<GridBackground pattern={pattern} maskImage={maskImage} className={className} />);
 
 	return { grid: container.firstElementChild };
 };
@@ -37,5 +38,23 @@ describe('GridBackground', () => {
 		const { grid } = setupGridBackground({ className: 'opacity-30' });
 
 		expect(grid?.className).toContain('opacity-30');
+	});
+
+	test('draws ruled lines unless told otherwise', () => {
+		const { grid } = setupGridBackground();
+
+		expect(grid?.getAttribute('style')).toContain('repeating-linear-gradient');
+	});
+
+	test('draws a fine 40px square grid when a section asks for squares', () => {
+		const { grid } = setupGridBackground({ pattern: GridPattern.Squares });
+
+		expect(grid?.getAttribute('style')).toContain('background-size: 40px 40px');
+	});
+
+	test('fades the way a section asks, when it names a mask of its own', () => {
+		const { grid } = setupGridBackground({ maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)' });
+
+		expect(grid?.getAttribute('style')).toContain('mask-image: linear-gradient(to bottom, black 40%, transparent 100%)');
 	});
 });

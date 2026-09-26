@@ -42,7 +42,7 @@ export const PlanHeader = ({ view }: Props) => (
 				{view.runs.map((run) => (
 					<Link
 						key={run.runId}
-						to="/repo/runs/$runId"
+						to="/app/runs/$runId"
 						params={{ runId: run.runId }}
 						className="flex min-w-0 items-center gap-2 hover:underline hover:underline-offset-2"
 					>

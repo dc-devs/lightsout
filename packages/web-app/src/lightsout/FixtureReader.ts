@@ -1,33 +1,7 @@
-import {
-	ConfigNotFoundError,
-	commandCatalog,
-	PlanDocumentKind,
-	PlanWorkspaceNotFoundError,
-	RunNotFoundError,
-	StandardsPackNotFoundError,
-	toStandardsPackListing,
-	toStandardsPackRuleView,
-	toStandardsPackView,
-} from '@lightsout/engine';
+import { ConfigNotFoundError, commandCatalog, PlanDocumentKind, PlanWorkspaceNotFoundError, RunNotFoundError } from '@lightsout/engine';
 import type { LightsoutReader } from '#src/lightsout/common/types/LightsoutReader.ts';
-import { getDefaultPackBundle } from '#src/lightsout/common/utils/getDefaultPackBundle.ts';
 import { getDemoRunListings } from '#src/lightsout/common/utils/getDemoRunListings.ts';
 import { getDemoRunViews } from '#src/lightsout/common/utils/getDemoRunViews.ts';
-
-/**
- * The one pack this reader carries, under the name it answers to.
- *
- * @throws {StandardsPackNotFoundError} When the name addresses any other pack — this build holds no others.
- */
-const readBundle = ({ name }: { name: string }) => {
-	const bundle = getDefaultPackBundle();
-
-	if (name !== bundle.name) {
-		throw new StandardsPackNotFoundError({ name });
-	}
-
-	return bundle;
-};
 
 /**
  * The reader a build with no repo under it holds: every method answered from
@@ -69,7 +43,7 @@ export class FixtureReader implements LightsoutReader {
 	/**
 	 * The empty standards view, said out loud.
 	 *
-	 * `/repo/standards` stays registered and reachable on a public build, and its
+	 * `/app/standards` stays registered and reachable on a public build, and its
 	 * loader suspends on this query, so a throw here would be a 500 on a deep
 	 * link. The page's own "no check has run" state is the right answer instead.
 	 */
@@ -120,20 +94,5 @@ export class FixtureReader implements LightsoutReader {
 	 */
 	async getPlanWorkspace({ name }: { name: string }): Promise<never> {
 		throw new PlanWorkspaceNotFoundError({ name });
-	}
-
-	async listPacks() {
-		return [toStandardsPackListing({ bundle: getDefaultPackBundle() })];
-	}
-
-	async getPack({ name }: { name: string }) {
-		return toStandardsPackView({ bundle: readBundle({ name }) });
-	}
-
-	async getPackRule({ name, rule }: { name: string; rule: string }) {
-		// `toStandardsPackRuleView` throws `StandardsPackRuleNotFoundError` for an
-		// id the pack does not carry, which the server function turns into the same
-		// not-found the pack name does.
-		return toStandardsPackRuleView({ bundle: readBundle({ name }), rule });
 	}
 }

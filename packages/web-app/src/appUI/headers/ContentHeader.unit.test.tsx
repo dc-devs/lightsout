@@ -15,7 +15,7 @@ jest.mock('@tanstack/react-router', () => ({
 // -------------------------
 
 const setupContentHeader = ({
-	crumbs = [{ label: 'Your repo', link: { to: '/repo/runs' } }, { label: 'Runs', link: { to: '/repo/runs' } }, { label: 'a3808d03' }],
+	crumbs = [{ label: 'Your repo', link: { to: '/app/runs' } }, { label: 'Runs', link: { to: '/app/runs' } }, { label: 'a3808d03' }],
 }: {
 	crumbs?: Parameters<typeof ContentHeader>[0]['crumbs'];
 } = {}) => {
@@ -36,7 +36,7 @@ describe('ContentHeader', () => {
 
 		const runs = screen.getByRole('link', { name: 'Runs' });
 
-		expect(runs).toHaveAttribute('href', '/repo/runs');
+		expect(runs).toHaveAttribute('href', '/app/runs');
 	});
 
 	test('leaves the last crumb unlinked, since it is the page already open', () => {
@@ -65,10 +65,10 @@ describe('ContentHeader', () => {
 	});
 
 	test('hands the router every part of a crumb link, so a path with parameters resolves', () => {
-		setupContentHeader({ crumbs: [{ label: 'Runs', link: { to: '/repo/runs/$runId', params: { runId: 'a3808d03' } } }, { label: 'Steps' }] });
+		setupContentHeader({ crumbs: [{ label: 'Runs', link: { to: '/app/runs/$runId', params: { runId: 'a3808d03' } } }, { label: 'Steps' }] });
 
 		const runs = screen.getByRole('link', { name: 'Runs' });
 
-		expect(runs).toHaveAttribute('href', '/repo/runs/a3808d03');
+		expect(runs).toHaveAttribute('href', '/app/runs/a3808d03');
 	});
 });

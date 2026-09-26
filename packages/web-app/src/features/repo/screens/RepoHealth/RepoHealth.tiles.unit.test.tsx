@@ -140,7 +140,7 @@ describe('RepoHealth repo strip', () => {
 
 		const chip = await screen.findByRole('link', { name: 'config unreadable' });
 
-		expect(chip).toHaveAttribute('href', '/repo/config');
+		expect(chip).toHaveAttribute('href', '/app/config');
 		expect(screen.getByRole('heading', { level: 1, name: 'Health' })).toBeInTheDocument();
 	});
 
@@ -311,7 +311,7 @@ describe('RepoHealth tiles', () => {
 
 		const tile = readTile({ label: 'open plans' });
 
-		expect(tile.getByRole('link', { name: '2' })).toHaveAttribute('href', '/repo/plans');
+		expect(tile.getByRole('link', { name: '2' })).toHaveAttribute('href', '/app/plans');
 	});
 
 	test('holds the open-plans tile at a dash while the plans are still loading, since no plans and none read yet are different facts', () => {
@@ -338,7 +338,7 @@ describe('RepoHealth top rules panel', () => {
 				overrides: {
 					rules: [
 						buildStandardsRuleView({ rule: 'loose-file', findingCount: 3 }),
-						buildStandardsRuleView({ rule: 'size-file', findingCount: 11 }),
+						buildStandardsRuleView({ rule: 'file-size', findingCount: 11 }),
 						buildStandardsRuleView({ rule: 'naming-boolean', findingCount: 7 }),
 					],
 				},
@@ -347,7 +347,7 @@ describe('RepoHealth top rules panel', () => {
 
 		const bars = readTopRules();
 
-		expect(bars.map((bar) => bar.rule)).toStrictEqual(['size-file', 'naming-boolean', 'loose-file']);
+		expect(bars.map((bar) => bar.rule)).toStrictEqual(['file-size', 'naming-boolean', 'loose-file']);
 		expect(bars.map((bar) => bar.count)).toStrictEqual(['11 findings', '7 findings', '3 findings']);
 	});
 
@@ -355,14 +355,14 @@ describe('RepoHealth top rules panel', () => {
 		setupRepoHealth({
 			standards: buildStandardsView({
 				overrides: {
-					rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 4 }), buildStandardsRuleView({ rule: 'loose-file', findingCount: 4 })],
+					rules: [buildStandardsRuleView({ rule: 'loose-file', findingCount: 4 }), buildStandardsRuleView({ rule: 'file-size', findingCount: 4 })],
 				},
 			}),
 		});
 
 		const bars = readTopRules();
 
-		expect(bars.map((bar) => bar.rule)).toStrictEqual(['loose-file', 'size-file']);
+		expect(bars.map((bar) => bar.rule)).toStrictEqual(['file-size', 'loose-file']);
 	});
 
 	test('holds that ranking to five, however many rules a repo breaks', () => {
@@ -378,17 +378,17 @@ describe('RepoHealth top rules panel', () => {
 	});
 
 	test('points a bar at the findings table, already narrowed to the rule it counted', () => {
-		setupRepoHealth({ standards: buildStandardsView({ overrides: { rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 4 })] } }) });
+		setupRepoHealth({ standards: buildStandardsView({ overrides: { rules: [buildStandardsRuleView({ rule: 'file-size', findingCount: 4 })] } }) });
 
 		const [bar] = readTopRules();
 
-		expect(bar.href).toBe('/repo/standards?rule=size-file');
+		expect(bar.href).toBe('/app/standards?rule=file-size');
 	});
 
 	test('says a check came back clean rather than drawing five bars of nothing', () => {
 		setupRepoHealth({
 			standards: buildStandardsView({
-				overrides: { rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 0 }), buildStandardsRuleView({ rule: 'loose-file', findingCount: 0 })] },
+				overrides: { rules: [buildStandardsRuleView({ rule: 'file-size', findingCount: 0 }), buildStandardsRuleView({ rule: 'loose-file', findingCount: 0 })] },
 			}),
 		});
 

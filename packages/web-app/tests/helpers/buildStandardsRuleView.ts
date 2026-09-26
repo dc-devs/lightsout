@@ -14,7 +14,7 @@ interface Params {
 
 /** One rule's row, joined as `getStandardsView` joins it, over a rule nothing remarkable has happened to. */
 export const buildStandardsRuleView = ({
-	rule = 'size-file',
+	rule = 'file-size',
 	checked = true,
 	severity = StandardsSeverity.Blocking,
 	fromConfig = false,

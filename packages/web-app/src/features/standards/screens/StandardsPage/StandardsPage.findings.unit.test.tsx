@@ -82,7 +82,7 @@ describe('StandardsPage findings', () => {
 		setupFindings({
 			overrides: {
 				findings: [
-					buildStandardsFinding({ rule: 'size-file', paths: ['a/one.ts'] }),
+					buildStandardsFinding({ rule: 'file-size', paths: ['a/one.ts'] }),
 					buildStandardsFinding({ rule: 'single-return', severity: StandardsSeverity.Advisory, paths: ['a/two.ts'] }),
 				],
 			},
@@ -111,14 +111,14 @@ describe('StandardsPage findings', () => {
 	});
 
 	test('hands the clipboard the site key exactly as the ledger records it', async () => {
-		const { mockWriteText } = setupFindings({ overrides: { findings: [buildStandardsFinding({ siteKey: 'size-file:packages/engine/src/plan/a.ts' })] } });
+		const { mockWriteText } = setupFindings({ overrides: { findings: [buildStandardsFinding({ siteKey: 'file-size:packages/engine/src/plan/a.ts' })] } });
 		openTheRow();
 
 		await act(async () => {
 			fireEvent.click(screen.getByRole('button', { name: 'Copy site key' }));
 		});
 
-		expect(mockWriteText).toHaveBeenCalledWith('size-file:packages/engine/src/plan/a.ts');
+		expect(mockWriteText).toHaveBeenCalledWith('file-size:packages/engine/src/plan/a.ts');
 	});
 
 	test('closes a row a reader opened again, so the advice does not stay under every row they touched', () => {
@@ -164,25 +164,25 @@ describe('StandardsPage findings', () => {
 	});
 
 	test('says which rule it answered when a narrowed table comes back empty', () => {
-		setupFindings({ rule: 'size-file' });
+		setupFindings({ rule: 'file-size' });
 
-		const notice = screen.getByText('Nothing is open under size-file.');
+		const notice = screen.getByText('Nothing is open under file-size.');
 
 		expect(notice).toBeInTheDocument();
 	});
 
 	test('writes the rule a reader pressed into the URL, so a narrowed page is a link somebody can send', () => {
-		setupFindings({ overrides: { findings: [buildStandardsFinding({ rule: 'size-file' })] } });
+		setupFindings({ overrides: { findings: [buildStandardsFinding({ rule: 'file-size' })] } });
 
-		fireEvent.click(screen.getByRole('button', { name: 'size-file' }));
+		fireEvent.click(screen.getByRole('button', { name: 'file-size' }));
 
-		expect(mockNavigate).toHaveBeenCalledWith({ search: { rule: 'size-file' }, replace: true });
+		expect(mockNavigate).toHaveBeenCalledWith({ search: { rule: 'file-size' }, replace: true });
 	});
 
 	test('clears the filter when the rule already in charge is pressed again', () => {
-		setupFindings({ overrides: { findings: [buildStandardsFinding({ rule: 'size-file' })] }, rule: 'size-file' });
+		setupFindings({ overrides: { findings: [buildStandardsFinding({ rule: 'file-size' })] }, rule: 'file-size' });
 
-		fireEvent.click(screen.getByRole('button', { name: 'size-file' }));
+		fireEvent.click(screen.getByRole('button', { name: 'file-size' }));
 
 		expect(mockNavigate).toHaveBeenCalledWith({ search: { rule: undefined }, replace: true });
 	});
@@ -190,13 +190,13 @@ describe('StandardsPage findings', () => {
 	test('narrows the table to the rule the URL named', () => {
 		setupFindings({
 			overrides: {
-				rules: [buildStandardsRuleView({ rule: 'size-file' }), buildStandardsRuleView({ rule: 'duplicate-code-block' })],
+				rules: [buildStandardsRuleView({ rule: 'file-size' }), buildStandardsRuleView({ rule: 'duplicate-code-block' })],
 				findings: [
-					buildStandardsFinding({ rule: 'size-file', detail: 'the long file' }),
+					buildStandardsFinding({ rule: 'file-size', detail: 'the long file' }),
 					buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['b/two.ts'], detail: 'the copied block' }),
 				],
 			},
-			rule: 'size-file',
+			rule: 'file-size',
 		});
 
 		expect(screen.getByText('the long file')).toBeInTheDocument();
@@ -206,7 +206,7 @@ describe('StandardsPage findings', () => {
 
 describe('StandardsPage folder facet', () => {
 	const spread = {
-		rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 3 })],
+		rules: [buildStandardsRuleView({ rule: 'file-size', findingCount: 3 })],
 		findings: [
 			buildStandardsFinding({ paths: ['packages/engine/src/plan/a.ts'], detail: 'engine one' }),
 			buildStandardsFinding({ paths: ['packages/engine/src/plan/b.ts'], detail: 'engine two' }),

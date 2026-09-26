@@ -49,7 +49,7 @@ describe('ZoneNav', () => {
 
 		const runs = screen.getByRole('link', { name: 'Runs' });
 
-		expect(runs).toHaveAttribute('href', '/repo/runs');
+		expect(runs).toHaveAttribute('href', '/app/runs');
 	});
 
 	test('offers what was settled before any agent ran', () => {
@@ -57,7 +57,7 @@ describe('ZoneNav', () => {
 
 		const plans = screen.getByRole('link', { name: 'Plans' });
 
-		expect(plans).toHaveAttribute('href', '/repo/plans');
+		expect(plans).toHaveAttribute('href', '/app/plans');
 	});
 
 	test('offers what this repo enforces', () => {
@@ -65,7 +65,7 @@ describe('ZoneNav', () => {
 
 		const standards = screen.getByRole('link', { name: 'Standards' });
 
-		expect(standards).toHaveAttribute('href', '/repo/standards');
+		expect(standards).toHaveAttribute('href', '/app/standards');
 	});
 
 	test('opens on the page that answers whether anything needs a person right now', () => {
@@ -73,7 +73,7 @@ describe('ZoneNav', () => {
 
 		const health = screen.getByRole('link', { name: 'Health' });
 
-		expect(health).toHaveAttribute('href', '/repo');
+		expect(health).toHaveAttribute('href', '/app');
 	});
 
 	test('offers what agents said got in their way', () => {
@@ -81,7 +81,7 @@ describe('ZoneNav', () => {
 
 		const friction = screen.getByRole('link', { name: 'Friction' });
 
-		expect(friction).toHaveAttribute('href', '/repo/friction');
+		expect(friction).toHaveAttribute('href', '/app/friction');
 	});
 
 	test('offers what this repo told lightsout', () => {
@@ -89,7 +89,7 @@ describe('ZoneNav', () => {
 
 		const config = screen.getByRole('link', { name: 'Config' });
 
-		expect(config).toHaveAttribute('href', '/repo/config');
+		expect(config).toHaveAttribute('href', '/app/config');
 	});
 
 	test('orders the zone from the page that says what needs a person to the pages that say what was settled', () => {

@@ -5,13 +5,18 @@ import { useState } from 'react';
 import { Badge, DataTable, EmptyState, FilterDropdown, MetadataTag } from '#src/appUI/index.ts';
 import { ruleStateBadgeVariants } from '#src/common/constants/ruleStateBadgeVariants.ts';
 import type { DataTableColumn } from '#src/common/types/DataTableColumn.ts';
+import { toRuleSetSlug } from '#src/features/packs/index.ts';
 
 /** One row of the ledger — a loaded rule and the state this repo runs it at. */
 type RuleState = ConfigView['ruleStates'][number];
 
 /** The rule id, as the way into what the rule actually says. */
 const RuleLink = ({ state }: { state: RuleState }) => (
-	<Link to="/standards/$pack/$rule" params={{ pack: state.pack, rule: state.rule }} className="font-mono text-sm hover:underline hover:underline-offset-2">
+	<Link
+		to="/standards-packs/$ruleSet/$rule"
+		params={{ ruleSet: toRuleSetSlug({ channel: state.channel }), rule: state.rule }}
+		className="font-mono text-sm hover:underline hover:underline-offset-2"
+	>
 		{state.rule}
 	</Link>
 );

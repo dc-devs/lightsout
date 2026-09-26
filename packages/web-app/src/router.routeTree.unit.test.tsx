@@ -82,7 +82,8 @@ jest.mock('@tanstack/react-router', () => {
  */
 interface RootPage {
 	head: () => { meta: Record<string, string>[]; links: { rel: string; href: string }[] };
-	loader: (params: { context: { queryClient: QueryClient } }) => Promise<void>;
+	/** Absent: the root asks nothing of any repo, so a public page never waits on one. */
+	loader?: (params: { context: { queryClient: QueryClient } }) => Promise<void>;
 	component: ComponentType;
 	errorComponent: ComponentType<{ error: Error; reset: () => void }>;
 	notFoundComponent: ComponentType;
@@ -150,7 +151,7 @@ const setupRootPage = (params: SetupParams = {}) => {
 	});
 };
 
-/** One of the two frames — `/_site` or `/repo` — with a route open inside it. */
+/** One of the two frames — `/_site` or `/app` — with a route open inside it. */
 const setupFrame = ({ id, ...params }: SetupParams & { id: string }) => {
 	const { pages, repoRoot, runs } = setupRouteTree(params);
 	const Frame = pages[id].options.component;
@@ -186,14 +187,14 @@ const setupMissingPage = () => {
 
 const setupStandardsPage = () => {
 	const { pages, standards } = setupRouteTree();
-	const Page = pages['/repo/standards'].options.component;
+	const Page = pages['/app/standards'].options.component;
 
 	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Standards], data: standards }] });
 };
 
 const setupRepoIndexPage = (params: SetupParams = {}) => {
 	const { pages, repoRoot, runs, standards } = setupRouteTree(params);
-	const Page = pages['/repo/'].options.component;
+	const Page = pages['/app/'].options.component;
 
 	renderWithQueryClient({
 		ui: <Page />,
@@ -209,7 +210,7 @@ const setupRepoIndexPage = (params: SetupParams = {}) => {
 
 const setupRunsPage = ({ runs = [buildRunListing({ title: 'raise coverage' })], ...rest }: SetupParams = {}) => {
 	const { pages, repoRoot } = setupRouteTree({ runs, ...rest });
-	const Page = pages['/repo/runs'].options.component;
+	const Page = pages['/app/runs'].options.component;
 
 	renderWithQueryClient({
 		ui: <Page />,
@@ -229,12 +230,12 @@ const setupRunsPage = ({ runs = [buildRunListing({ title: 'raise coverage' })], 
 // of their own and have their own suites beside this one; this file carries the
 // shell and the rest of the local zone.
 describe('routeTree', () => {
-	// The `_` in `/repo/runs_/$runId` is the router's own mark for a route that
+	// The `_` in `/app/runs_/$runId` is the router's own mark for a route that
 	// does not nest inside its path's parent; the address a reader sees is still
-	// /repo/runs/$runId.
+	// /app/runs/$runId.
 	//
-	// `/_site` and `/repo` are the two frames. `/_site` carries no address of its
-	// own — the pages under it are served at `/`, `/standards` and the rest,
+	// `/_site` and `/app` are the two frames. `/_site` carries no address of its
+	// own — the pages under it are served at `/`, `/standards-packs` and the rest,
 	// exactly where they always were — and which frame a page wears is settled by
 	// which of the two it sits under.
 	test('hangs one route off the root for every route file the app has, and nothing else', () => {
@@ -248,18 +249,18 @@ describe('routeTree', () => {
 			'/_site/commands/',
 			'/_site/commands/$command',
 			'/_site/docs/$doc',
-			'/_site/standards/',
-			'/_site/standards/$pack/',
-			'/_site/standards/$pack/$rule',
-			'/repo',
-			'/repo/',
-			'/repo/config',
-			'/repo/friction',
-			'/repo/plans/',
-			'/repo/plans/$name',
-			'/repo/runs',
-			'/repo/runs_/$runId',
-			'/repo/standards',
+			'/_site/standards-packs/',
+			'/_site/standards-packs/$ruleSet/',
+			'/_site/standards-packs/$ruleSet/$rule',
+			'/app',
+			'/app/',
+			'/app/config',
+			'/app/friction',
+			'/app/plans/',
+			'/app/plans/$name',
+			'/app/runs',
+			'/app/runs_/$runId',
+			'/app/standards',
 			'__root__',
 		]);
 	});
@@ -273,13 +274,21 @@ describe('routeTree', () => {
 		expect(head.links).toStrictEqual([{ rel: 'stylesheet', href: appCssHref }]);
 	});
 
-	test('warms only the question the shell itself asks, leaving run state to the pages that show it', async () => {
-		const { queryClient, repoRoot, rootPage } = setupRouteTree({ repoRoot: '/repos/other-project' });
+	test('asks nothing of any repo at the root, so the public pages never do', () => {
+		const { rootPage } = setupRouteTree();
 
-		await rootPage.loader({ context: { queryClient } });
+		expect(rootPage.loader).toBeUndefined();
+	});
 
-		expect(queryClient.getQueryData([QueryKey.RepoRoot])).toStrictEqual({ repoRoot });
-		expect(queryClient.getQueryData([QueryKey.Runs])).toBeUndefined();
+	test('asks whether a repo was found in the app frame alone, leaving run state to the pages that show it', async () => {
+		const { pages, queryClient, repoRoot } = setupRouteTree({ repoRoot: '/repos/other-project' });
+
+		await pages['/app'].options.loader({ context: { queryClient } });
+
+		expect({ repoRoot: queryClient.getQueryData([QueryKey.RepoRoot]), runs: queryClient.getQueryData([QueryKey.Runs]) }).toStrictEqual({
+			repoRoot: { repoRoot },
+			runs: undefined,
+		});
 	});
 
 	test('renders the page as an English HTML document', () => {
@@ -290,12 +299,12 @@ describe('routeTree', () => {
 		expect(page).toBeInTheDocument();
 	});
 
-	test('sends that document dark, so a first-time reader never sees the light theme flash past', () => {
+	test('sends that document light, so a first-time reader never sees the dark theme flash past', () => {
 		setupRootPage();
 
 		const page = document.querySelector('html[lang="en"]');
 
-		expect(page?.className).toContain('dark');
+		expect(page?.className.split(' ')).toContain('light');
 	});
 
 	test('puts whichever route is open inside that document', () => {
@@ -307,7 +316,7 @@ describe('routeTree', () => {
 	});
 
 	test('gives the app frame the local zone when a repo was found', () => {
-		setupFrame({ id: '/repo', repoRoot: '/repos/other-project' });
+		setupFrame({ id: '/app', repoRoot: '/repos/other-project' });
 
 		const zone = screen.getByRole('navigation', { name: 'Your repo' });
 
@@ -322,16 +331,8 @@ describe('routeTree', () => {
 		expect(zone).not.toBeInTheDocument();
 	});
 
-	test('offers the site a way into the app when a repo was found', () => {
+	test('offers the public pages no way into the app, even with a repo found, since they never read one', () => {
 		setupFrame({ id: '/_site', repoRoot: '/repos/other-project' });
-
-		const app = screen.getByRole('link', { name: 'App' });
-
-		expect(app).toHaveAttribute('href', '/repo');
-	});
-
-	test('offers no way in when no repo was found, since there would be nothing to open', () => {
-		setupFrame({ id: '/_site', repoRoot: null });
 
 		const app = screen.queryByRole('link', { name: 'App' });
 
@@ -367,7 +368,7 @@ describe('routeTree', () => {
 	});
 
 	test('the repo route warms the run list it counts', async () => {
-		const { loader, queryClient, runs } = setupLoader({ id: '/repo/' });
+		const { loader, queryClient, runs } = setupLoader({ id: '/app/' });
 
 		await loader({ context: { queryClient } });
 
@@ -377,7 +378,7 @@ describe('routeTree', () => {
 	test('the repo route titles the tab after what the page answers, not after the zone', () => {
 		const { pages } = setupRouteTree();
 
-		const head = pages['/repo/'].options.head();
+		const head = pages['/app/'].options.head();
 
 		expect(head.meta).toStrictEqual([{ title: 'Health' }]);
 	});
@@ -415,7 +416,7 @@ describe('routeTree', () => {
 	});
 
 	test('the runs route warms its own list before the page renders', async () => {
-		const { loader, queryClient, runs } = setupLoader({ id: '/repo/runs' });
+		const { loader, queryClient, runs } = setupLoader({ id: '/app/runs' });
 
 		await loader({ context: { queryClient } });
 
@@ -431,7 +432,7 @@ describe('routeTree', () => {
 	});
 
 	test('the standards route warms its own view before the page renders', async () => {
-		const { loader, queryClient, standards } = setupLoader({ id: '/repo/standards' });
+		const { loader, queryClient, standards } = setupLoader({ id: '/app/standards' });
 
 		await loader({ context: { queryClient } });
 

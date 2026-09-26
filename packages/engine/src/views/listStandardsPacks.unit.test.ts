@@ -155,6 +155,18 @@ describe('listStandardsPacks', () => {
 		);
 	});
 
+	test('counts rules per channel, leaving out a channel that holds prose but no rules', async () => {
+		const { cwd, packPath } = await setupRepoOnADefaultPackElsewhere({ root: { name: 'acme', formatVersion: 1 } });
+		await writeTree({ dir: packPath, files: { 'code/nest/document.md': '---\nchannel: nestjs\n---\n\n# Nest\n\nHow the base rules read in Nest.\n' } });
+
+		const packs = await listStandardsPacks({ cwd });
+
+		expect({ channels: packs[0]?.channels, channelTotals: packs[0]?.channelTotals }).toStrictEqual({
+			channels: ['base', 'nestjs'],
+			channelTotals: [{ channel: 'base', rules: 1, checked: 0, judgment: 1 }],
+		});
+	});
+
 	test('leaves description and homepage off a pack that declares neither, rather than carrying empty ones', async () => {
 		const { cwd } = await setupRepoOnADefaultPackElsewhere({ root: { name: 'acme', formatVersion: 1 } });
 
@@ -162,7 +174,7 @@ describe('listStandardsPacks', () => {
 
 		// both are optional on the contract, so a card shows only what the pack said —
 		// and no rule or document rides along on a listing row
-		expect(Object.keys(packs[0] ?? {}).sort()).toStrictEqual(['built', 'channels', 'isDefault', 'name', 'path', 'rootPath', 'totals']);
+		expect(Object.keys(packs[0] ?? {}).sort()).toStrictEqual(['built', 'channelTotals', 'channels', 'isDefault', 'name', 'path', 'rootPath', 'totals']);
 	});
 
 	test('leaves out the second pack claiming a name the first already took, since the name is what a URL addresses', async () => {

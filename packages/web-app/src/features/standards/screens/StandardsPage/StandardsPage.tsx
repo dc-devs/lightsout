@@ -20,15 +20,15 @@ import { StandardsTrendChart } from '#src/features/standards/screens/StandardsPa
  * The folder facet and its depth stay in component state: they describe how this
  * reader is looking rather than what they are looking at.
  *
- * What a rule SAYS is not here any more. That lives on `/standards/$pack/$rule`,
+ * What a rule SAYS is not here any more. That lives on `/standards-packs/$pack/$rule`,
  * which renders the prose, the fixtures and this repo's own history of the rule,
- * and the severity ledger lives on `/repo/config`, whose rows carry the pack a
+ * and the severity ledger lives on `/app/config`, whose rows carry the pack a
  * link to a rule page needs.
  */
 export const StandardsPage = () => {
 	const { data: view } = useSuspenseQuery(standardsQueryOptions());
-	const search = useSearch({ from: '/repo/standards' });
-	const navigate = useNavigate({ from: '/repo/standards' });
+	const search = useSearch({ from: '/app/standards' });
+	const navigate = useNavigate({ from: '/app/standards' });
 	// Opens at a folder inside one package's src, which is where a repo's debt usually gathers.
 	const [depth, setDepth] = useState(4);
 	const [folderFilter, setFolderFilter] = useState<string | undefined>(undefined);

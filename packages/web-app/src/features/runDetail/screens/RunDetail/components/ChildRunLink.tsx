@@ -22,7 +22,7 @@ export const ChildRunLink = ({ runId, linksDisabled = false }: Props) => {
 	return linksDisabled ? (
 		<MetadataTag>{shortId}</MetadataTag>
 	) : (
-		<Link to="/repo/runs/$runId" params={{ runId }} className="font-mono text-primary text-xs underline underline-offset-2">
+		<Link to="/app/runs/$runId" params={{ runId }} className="font-mono text-primary text-xs underline underline-offset-2">
 			{shortId}
 		</Link>
 	);

@@ -20,13 +20,19 @@ const setupFadeIn = ({
 } = {}) => {
 	const disconnect = jest.fn<() => void>();
 	const observe = jest.fn<(target: Element) => void>();
+	const observerOptions: unknown[] = [];
 	const mediaQueries: string[] = [];
 
 	if (observed) {
 		// The browser dictates this constructor's shape, so it is written as the
 		// platform declares it rather than as this repo writes its own classes.
 		class TestObserver {
-			constructor(private readonly notify: (entries: { isIntersecting: boolean }[]) => void) {}
+			constructor(
+				private readonly notify: (entries: { isIntersecting: boolean }[]) => void,
+				options?: unknown,
+			) {
+				observerOptions.push(options);
+			}
 
 			observe(target: Element) {
 				observe(target);
@@ -57,7 +63,7 @@ const setupFadeIn = ({
 		</FadeIn>,
 	);
 
-	return { disconnect, mediaQueries, observe, unmount };
+	return { disconnect, mediaQueries, observe, observerOptions, unmount };
 };
 
 afterEach(() => {
@@ -135,5 +141,17 @@ describe('FadeIn', () => {
 		const content = screen.getByText('the proof section');
 
 		expect(content.parentElement?.className).toContain('mt-4');
+	});
+
+	test('eases in on load through CSS alone, so no script decides whether the content shows', () => {
+		setupFadeIn();
+
+		expect(screen.getByText('the proof section').parentElement).toHaveClass('motion-safe:starting:opacity-0', 'motion-safe:starting:translate-y-[30px]');
+	});
+
+	test('reveals an off-screen block as a sliver of it comes into view, a little above the bottom edge', () => {
+		const { observerOptions } = setupFadeIn({ observed: true, intersecting: false });
+
+		expect(observerOptions).toStrictEqual([{ threshold: 0.15, rootMargin: '0px 0px -100px 0px' }]);
 	});
 });

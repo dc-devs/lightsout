@@ -123,9 +123,9 @@ describe('getConfigView', () => {
 	test('reports a rule this repo turned up as set by config, at the severity the file asked for', async () => {
 		const view = await getConfigView({ cwd: repoRoot });
 
-		const sizeFile = view.ruleStates.find((state) => state.rule === 'size-file');
+		const fileSize = view.ruleStates.find((state) => state.rule === 'file-size');
 
-		expect(sizeFile).toMatchObject({ fromConfig: true, severity: StandardsSeverity.Blocking });
+		expect(fileSize).toMatchObject({ fromConfig: true, severity: StandardsSeverity.Blocking });
 	});
 
 	test('says a repo with no config has none, rather than answering with the defaults it would have used', async () => {
@@ -216,7 +216,7 @@ describe('getConfigView', () => {
 
 		const view = await getConfigView({ cwd });
 
-		expect(view.ruleStates).toEqual([expect.objectContaining({ rule: 'house-rule', pack: 'house' })]);
+		expect(view.ruleStates).toEqual([expect.objectContaining({ rule: 'house-rule', pack: 'house', channel: 'base' })]);
 	});
 
 	test('a config that is not JSON at all comes back as that, rather than as a repo that has no config', async () => {

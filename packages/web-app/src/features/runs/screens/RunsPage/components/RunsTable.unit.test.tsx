@@ -99,7 +99,7 @@ describe('RunsTable', () => {
 
 		const open = screen.getByRole('link', { name: 'raise coverage' });
 
-		expect(open).toHaveAttribute('href', '/repo/runs/ffff0000ffff0000');
+		expect(open).toHaveAttribute('href', '/app/runs/ffff0000ffff0000');
 	});
 
 	test('says which command produced a run rather than which pipeline ran it', () => {

@@ -19,6 +19,19 @@ export const StandardsPackListing = z.object({
 	built: z.boolean(),
 	/** Distinct channels across the pack's documents, sorted. */
 	channels: z.array(z.string()),
+	/**
+	 * Rule counts per channel, in `channels` order — only the channels that carry
+	 * at least one rule, so a channel of prose alone is never shown as a set of
+	 * rules it does not have.
+	 */
+	channelTotals: z.array(
+		z.object({
+			channel: z.string(),
+			rules: z.number(),
+			checked: z.number(),
+			judgment: z.number(),
+		}),
+	),
 	totals: z.object({
 		rules: z.number(),
 		checked: z.number(),

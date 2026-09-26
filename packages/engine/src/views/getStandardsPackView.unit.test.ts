@@ -151,7 +151,17 @@ describe('listStandardsPacks', () => {
 		const packs = await listStandardsPacks({ cwd });
 
 		expect(packs.map((pack) => pack.name)).toStrictEqual(['acme']);
-		expect(Object.keys(packs[0] ?? {}).sort()).toStrictEqual(['built', 'channels', 'description', 'isDefault', 'name', 'path', 'rootPath', 'totals']);
+		expect(Object.keys(packs[0] ?? {}).sort()).toStrictEqual([
+			'built',
+			'channelTotals',
+			'channels',
+			'description',
+			'isDefault',
+			'name',
+			'path',
+			'rootPath',
+			'totals',
+		]);
 	});
 
 	test('lists nothing for a repo that switched standards off, rather than falling back to the default pack', async () => {

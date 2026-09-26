@@ -3,7 +3,7 @@ import type { ThemeContextValue } from '#src/theme/common/types/ThemeContextValu
 import { ThemeContext } from '#src/theme/ThemeContext.ts';
 
 /**
- * The current theme preference, what it resolved to, and the way to change it.
+ * The theme in force, and the way to change it.
  *
  * @throws {Error} When called outside a `ThemeProvider`.
  */

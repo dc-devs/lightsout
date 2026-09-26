@@ -22,7 +22,7 @@ const setupRunsRoute = () => {
 	const router = createRouter({ routeTree, context: { queryClient } });
 	const pages = (router as unknown as { routesById: Record<string, FilePage> }).routesById;
 
-	return { head: pages['/repo/runs'].options.head, validateSearch: pages['/repo/runs'].options.validateSearch };
+	return { head: pages['/app/runs'].options.head, validateSearch: pages['/app/runs'].options.validateSearch };
 };
 
 // The tree this file drives lives in `routeTree.gen.ts`, which TanStack Router

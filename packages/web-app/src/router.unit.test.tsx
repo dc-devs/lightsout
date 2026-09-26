@@ -62,7 +62,7 @@ describe('getRouter', () => {
 
 		const router = getRouter();
 
-		// Two ids carry no URL of their own: `/_site` and `/repo` are the frames,
+		// Two ids carry no URL of their own: `/_site` and `/app` are the frames,
 		// and every page below one of them says which frame it wears by sitting
 		// there. The public pages keep the addresses they always had — `/_site/`
 		// is served at `/`.
@@ -72,18 +72,18 @@ describe('getRouter', () => {
 			'/_site/commands/',
 			'/_site/commands/$command',
 			'/_site/docs/$doc',
-			'/_site/standards/',
-			'/_site/standards/$pack/',
-			'/_site/standards/$pack/$rule',
-			'/repo',
-			'/repo/',
-			'/repo/config',
-			'/repo/friction',
-			'/repo/plans/',
-			'/repo/plans/$name',
-			'/repo/runs',
-			'/repo/runs_/$runId',
-			'/repo/standards',
+			'/_site/standards-packs/',
+			'/_site/standards-packs/$ruleSet/',
+			'/_site/standards-packs/$ruleSet/$rule',
+			'/app',
+			'/app/',
+			'/app/config',
+			'/app/friction',
+			'/app/plans/',
+			'/app/plans/$name',
+			'/app/runs',
+			'/app/runs_/$runId',
+			'/app/standards',
 			'__root__',
 		]);
 	});

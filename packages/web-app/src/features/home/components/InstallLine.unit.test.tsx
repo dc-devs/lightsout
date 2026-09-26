@@ -2,22 +2,28 @@ import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { InstallLine } from '#src/features/home/components/InstallLine.tsx';
 
+const setupInstallLine = ({ className }: { className?: string } = {}) => {
+	const { container } = render(<InstallLine className={className} />);
+
+	return { line: container.firstElementChild, command: container.querySelector('code') };
+};
+
 describe('InstallLine', () => {
 	test('shows the one command the page asks a reader to run', () => {
-		render(<InstallLine />);
+		const { command } = setupInstallLine();
 
-		expect(screen.getByText('/plugin marketplace add dc-devs/lightsout')).toBeInTheDocument();
+		expect(command).toHaveTextContent('/plugin marketplace add dc-devs/lightsout');
 	});
 
-	test('offers to put that command on the clipboard, which is the whole point of showing it', () => {
-		render(<InstallLine />);
+	test('offers that command to the clipboard as an icon', () => {
+		setupInstallLine();
 
-		expect(screen.getByRole('button', { name: 'Copy install command' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Copy install command' })).toHaveTextContent('');
 	});
 
 	test('takes a class from whichever section it is standing in', () => {
-		const { container } = render(<InstallLine className="w-full" />);
+		const { line } = setupInstallLine({ className: 'w-full' });
 
-		expect(container.firstChild).toHaveClass('w-full');
+		expect(line).toHaveClass('w-full');
 	});
 });

@@ -9,8 +9,8 @@ import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx'
 // Mocked Imports
 // -------------------------
 jest.mock('@tanstack/react-router', () => ({
-	Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
-		<a href={to} className={className}>
+	Link: ({ to, children, className, 'aria-label': ariaLabel }: { to: string; children: ReactNode; className?: string; 'aria-label'?: string }) => (
+		<a href={to} className={className} aria-label={ariaLabel}>
 			{children}
 		</a>
 	),
@@ -109,13 +109,13 @@ describe('AppShell', () => {
 		expect(path).toHaveAttribute('title', '/repos/other-project');
 	});
 
-	test('points the local zone at the repo pages, which now live under /repo', () => {
+	test('points the local zone at the repo pages, which now live under /app', () => {
 		setupAppShell();
 
 		const runs = screen.getByRole('link', { name: 'Runs' });
 		const standards = screen.getByRole('link', { name: 'Standards' });
 
-		expect([runs.getAttribute('href'), standards.getAttribute('href')]).toEqual(['/repo/runs', '/repo/standards']);
+		expect([runs.getAttribute('href'), standards.getAttribute('href')]).toEqual(['/app/runs', '/app/standards']);
 	});
 
 	test('offers the source repository as an outward link that leaves the app', () => {

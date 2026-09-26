@@ -73,7 +73,7 @@ const setupRunDetailRoute = () => {
 
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const router = createRouter({ routeTree, context: { queryClient } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/repo/runs_/$runId'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/app/runs_/$runId'];
 
 	return { queryClient, route, runView };
 };

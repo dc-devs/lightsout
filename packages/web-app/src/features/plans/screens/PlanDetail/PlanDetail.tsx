@@ -28,7 +28,7 @@ export const PlanDetail = ({ name }: Props) => {
 
 	return (
 		<div className="flex flex-col gap-6 p-6">
-			<ContentHeader crumbs={[{ label: 'Your repo', link: { to: '/repo' } }, { label: 'Plans', link: { to: '/repo/plans' } }, { label: view.listing.name }]} />
+			<ContentHeader crumbs={[{ label: 'Your repo', link: { to: '/app' } }, { label: 'Plans', link: { to: '/app/plans' } }, { label: view.listing.name }]} />
 			<PlanHeader view={view} />
 			<Tabs
 				items={[

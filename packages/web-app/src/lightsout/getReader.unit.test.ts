@@ -3,7 +3,7 @@
  */
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { getReader, type LightsoutReader } from '#src/lightsout/index.ts';
@@ -64,38 +64,6 @@ const setupReader = async (): Promise<{ reader: LightsoutReader }> => {
 		}),
 		'utf8',
 	);
-
-	process.env.LIGHTSOUT_REPO = repoRoot;
-
-	return { reader: getReader() };
-};
-
-/**
- * A repo of somebody's own, on a house pack of two rules — one of them shipping
- * both sides of its proof.
- *
- * A separate arrangement rather than a parameter on the one above: the pack
- * questions are answered by a repo whose own config names a pack, which is what
- * proves the reader asks the engine about the root it was pointed at rather than
- * about the directory the suite happens to run from.
- */
-const setupPackReader = async (): Promise<{ reader: LightsoutReader }> => {
-	const repoRoot = await mkdtemp(join(tmpdir(), 'lightsout-reader-packs-'));
-	const files: Record<string, string> = {
-		'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'standards-packs': ['./house'] }),
-		'house/lightsout-standards.json': JSON.stringify({ name: 'acme', formatVersion: 1, description: 'what this shop agrees on' }),
-		'house/code/house/document.md': '---\nchannel: react\n---\n\n# House Style\n\nWhat this shop agrees on.\n',
-		'house/code/house/05-house-loose-file/rule.md':
-			'---\nsummary: a source file outside a module\nchecked: false\nseverity: blocking\n---\n\nEvery file belongs to a module.\n',
-		'house/code/house/05-house-loose-file/fixtures/pass/src/mod/index.ts': 'export const mod = 1;\n',
-		'house/code/house/05-house-loose-file/fixtures/fail/src/loose.ts': 'export const loose = 1;\n',
-		'house/code/house/10-house-name-things-well/rule.md': '---\nsummary: a name that hides what it does\n---\n\nNames are the cheapest documentation.\n',
-	};
-
-	for (const [path, content] of Object.entries(files)) {
-		await mkdir(dirname(join(repoRoot, path)), { recursive: true });
-		await writeFile(join(repoRoot, path), content, 'utf8');
-	}
 
 	process.env.LIGHTSOUT_REPO = repoRoot;
 
@@ -174,123 +142,6 @@ describe('getReader', () => {
 		expect(standards.findings).toStrictEqual([]);
 	});
 
-	test('lists the standards packs the repo it was pointed at loads, with the path a config entry would carry', async () => {
-		const { reader } = await setupPackReader();
-
-		const packs = await reader.listPacks();
-
-		expect(packs).toEqual([
-			expect.objectContaining({
-				name: 'acme',
-				description: 'what this shop agrees on',
-				isDefault: false,
-				built: false,
-				path: 'house',
-				channels: ['react'],
-				totals: { rules: 2, checked: 0, judgment: 2, documents: 1, withFixtures: 1 },
-			}),
-		]);
-	});
-
-	test('lists a pack without its rules, so the packs page stays light', async () => {
-		const { reader } = await setupPackReader();
-
-		const packs = await reader.listPacks();
-
-		expect(Object.keys(packs[0] ?? {}).sort()).toStrictEqual(['built', 'channels', 'description', 'isDefault', 'name', 'path', 'rootPath', 'totals']);
-	});
-
-	test('falls back to the default pack for a repo whose config names none', async () => {
-		const { reader } = await setupReader();
-
-		const packs = await reader.listPacks();
-
-		expect(packs.map((pack) => ({ name: pack.name, isDefault: pack.isDefault }))).toStrictEqual([{ name: 'lightsout-defaults', isDefault: true }]);
-	});
-
-	test('returns one pack as its page shows it: every document a group and every rule a row', async () => {
-		const { reader } = await setupPackReader();
-
-		const view = await reader.getPack({ name: 'acme' });
-
-		expect({
-			documents: view.documents.map((document) => ({ path: document.path, channel: document.channel, ruleIds: document.ruleIds })),
-			rules: view.rules.map((rule) => ({ id: rule.id, checked: rule.checked, fixtureCounts: rule.fixtureCounts })),
-		}).toStrictEqual({
-			documents: [{ path: 'code/house', channel: 'react', ruleIds: ['house-loose-file', 'house-name-things-well'] }],
-			rules: [
-				{ id: 'house-loose-file', checked: false, fixtureCounts: { pass: 1, fail: 1 } },
-				{ id: 'house-name-things-well', checked: false, fixtureCounts: { pass: 0, fail: 0 } },
-			],
-		});
-	});
-
-	test('rejects a pack name no pack this repo loads answers to', async () => {
-		const { reader } = await setupPackReader();
-
-		await expect(reader.getPack({ name: 'no-such-pack' })).rejects.toThrow(/no-such-pack/);
-	});
-
-	test('returns one rule whole — its prose and the text of both sides of its proof', async () => {
-		const { reader } = await setupPackReader();
-
-		const view = await reader.getPackRule({ name: 'acme', rule: 'house-loose-file' });
-
-		expect({
-			id: view.id,
-			prose: view.prose,
-			fixtures: view.fixtures,
-		}).toEqual({
-			id: 'house-loose-file',
-			prose: expect.stringContaining('Every file belongs to a module.'),
-			fixtures: [
-				{ side: 'pass', path: 'src/mod/index.ts', text: 'export const mod = 1;\n' },
-				{ side: 'fail', path: 'src/loose.ts', text: 'export const loose = 1;\n' },
-			],
-		});
-	});
-
-	test('rejects a rule id the named pack does not carry', async () => {
-		const { reader } = await setupPackReader();
-
-		await expect(reader.getPackRule({ name: 'acme', rule: 'no-such-rule' })).rejects.toThrow(/no-such-rule/);
-	});
-
-	test('rejects a rule of a pack name no pack this repo loads answers to', async () => {
-		const { reader } = await setupPackReader();
-
-		await expect(reader.getPackRule({ name: 'no-such-pack', rule: 'house-loose-file' })).rejects.toThrow(/no-such-pack/);
-	});
-
-	test('reads a repo’s own packs live rather than substituting anything, since only the shipped default is stripped', async () => {
-		const { reader } = await setupPackReader();
-
-		const packs = await reader.listPacks();
-
-		expect(packs.map((pack) => pack.name)).toStrictEqual(['acme']);
-	});
-
-	test('reads the default pack live where the engine finds the authored folder, rather than serving a snapshot that may be older than the pack', async () => {
-		const { reader } = await setupReader();
-
-		const packs = await reader.listPacks();
-
-		// The committed snapshot carries the repo-relative
-		// `packages/standards-typescript`; a live read carries this machine's
-		// absolute path, so the two are told apart without naming either.
-		expect(packs.map((pack) => ({ name: pack.name, readFromThisMachine: isAbsolute(pack.rootPath) }))).toStrictEqual([
-			{ name: 'lightsout-defaults', readFromThisMachine: true },
-		]);
-	});
-
-	test('serves that same live pack for its own page, so the pack list and the pack page cannot disagree', async () => {
-		const { reader } = await setupReader();
-
-		const view = await reader.getPack({ name: 'lightsout-defaults' });
-
-		expect({ name: view.name, readFromThisMachine: isAbsolute(view.rootPath) }).toStrictEqual({ name: 'lightsout-defaults', readFromThisMachine: true });
-	});
-
 	test('answers the whole command catalog for the repo it was pointed at, since the catalog is engine source rather than repo state', async () => {
 		const { reader } = await setupReader();
 
@@ -315,14 +166,6 @@ describe('getReader with no repo found', () => {
 		const runs = await reader.listRuns();
 
 		expect(runs).toHaveLength(3);
-	});
-
-	test('serves the bundled default pack, read from no disk', async () => {
-		const { reader } = setupPublicBuild();
-
-		const packs = await reader.listPacks();
-
-		expect(packs.map((pack) => pack.name)).toStrictEqual(['lightsout-defaults']);
 	});
 
 	test('answers the standards view with its empty form rather than failing a deep link into the local zone', async () => {

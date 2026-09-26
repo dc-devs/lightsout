@@ -9,71 +9,71 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RepoRouteImport } from './routes/repo'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as SiteRouteImport } from './routes/_site'
-import { Route as RepoIndexRouteImport } from './routes/repo.index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as SiteIndexRouteImport } from './routes/_site.index'
-import { Route as RepoStandardsRouteImport } from './routes/repo.standards'
-import { Route as RepoRunsRouteImport } from './routes/repo.runs'
-import { Route as RepoFrictionRouteImport } from './routes/repo.friction'
-import { Route as RepoConfigRouteImport } from './routes/repo.config'
-import { Route as RepoPlansIndexRouteImport } from './routes/repo.plans.index'
-import { Route as SiteStandardsIndexRouteImport } from './routes/_site.standards.index'
+import { Route as AppStandardsRouteImport } from './routes/app.standards'
+import { Route as AppRunsRouteImport } from './routes/app.runs'
+import { Route as AppFrictionRouteImport } from './routes/app.friction'
+import { Route as AppConfigRouteImport } from './routes/app.config'
+import { Route as AppPlansIndexRouteImport } from './routes/app.plans.index'
+import { Route as SiteStandardsPacksIndexRouteImport } from './routes/_site.standards-packs.index'
 import { Route as SiteCommandsIndexRouteImport } from './routes/_site.commands.index'
-import { Route as RepoRunsRunIdRouteImport } from './routes/repo.runs_.$runId'
-import { Route as RepoPlansNameRouteImport } from './routes/repo.plans.$name'
+import { Route as AppRunsRunIdRouteImport } from './routes/app.runs_.$runId'
+import { Route as AppPlansNameRouteImport } from './routes/app.plans.$name'
 import { Route as SiteDocsDocRouteImport } from './routes/_site.docs.$doc'
 import { Route as SiteCommandsCommandRouteImport } from './routes/_site.commands.$command'
-import { Route as SiteStandardsPackIndexRouteImport } from './routes/_site.standards.$pack.index'
-import { Route as SiteStandardsPackRuleRouteImport } from './routes/_site.standards.$pack.$rule'
+import { Route as SiteStandardsPacksRuleSetIndexRouteImport } from './routes/_site.standards-packs.$ruleSet.index'
+import { Route as SiteStandardsPacksRuleSetRuleRouteImport } from './routes/_site.standards-packs.$ruleSet.$rule'
 
-const RepoRoute = RepoRouteImport.update({
-  id: '/repo',
-  path: '/repo',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RepoIndexRoute = RepoIndexRouteImport.update({
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
 const SiteIndexRoute = SiteIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SiteRoute,
 } as any)
-const RepoStandardsRoute = RepoStandardsRouteImport.update({
+const AppStandardsRoute = AppStandardsRouteImport.update({
   id: '/standards',
   path: '/standards',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const RepoRunsRoute = RepoRunsRouteImport.update({
+const AppRunsRoute = AppRunsRouteImport.update({
   id: '/runs',
   path: '/runs',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const RepoFrictionRoute = RepoFrictionRouteImport.update({
+const AppFrictionRoute = AppFrictionRouteImport.update({
   id: '/friction',
   path: '/friction',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const RepoConfigRoute = RepoConfigRouteImport.update({
+const AppConfigRoute = AppConfigRouteImport.update({
   id: '/config',
   path: '/config',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const RepoPlansIndexRoute = RepoPlansIndexRouteImport.update({
+const AppPlansIndexRoute = AppPlansIndexRouteImport.update({
   id: '/plans/',
   path: '/plans/',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const SiteStandardsIndexRoute = SiteStandardsIndexRouteImport.update({
-  id: '/standards/',
-  path: '/standards/',
+const SiteStandardsPacksIndexRoute = SiteStandardsPacksIndexRouteImport.update({
+  id: '/standards-packs/',
+  path: '/standards-packs/',
   getParentRoute: () => SiteRoute,
 } as any)
 const SiteCommandsIndexRoute = SiteCommandsIndexRouteImport.update({
@@ -81,15 +81,15 @@ const SiteCommandsIndexRoute = SiteCommandsIndexRouteImport.update({
   path: '/commands/',
   getParentRoute: () => SiteRoute,
 } as any)
-const RepoRunsRunIdRoute = RepoRunsRunIdRouteImport.update({
+const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
   id: '/runs_/$runId',
   path: '/runs/$runId',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const RepoPlansNameRoute = RepoPlansNameRouteImport.update({
+const AppPlansNameRoute = AppPlansNameRouteImport.update({
   id: '/plans/$name',
   path: '/plans/$name',
-  getParentRoute: () => RepoRoute,
+  getParentRoute: () => AppRoute,
 } as any)
 const SiteDocsDocRoute = SiteDocsDocRouteImport.update({
   id: '/docs/$doc',
@@ -101,141 +101,143 @@ const SiteCommandsCommandRoute = SiteCommandsCommandRouteImport.update({
   path: '/commands/$command',
   getParentRoute: () => SiteRoute,
 } as any)
-const SiteStandardsPackIndexRoute = SiteStandardsPackIndexRouteImport.update({
-  id: '/standards/$pack/',
-  path: '/standards/$pack/',
-  getParentRoute: () => SiteRoute,
-} as any)
-const SiteStandardsPackRuleRoute = SiteStandardsPackRuleRouteImport.update({
-  id: '/standards/$pack/$rule',
-  path: '/standards/$pack/$rule',
-  getParentRoute: () => SiteRoute,
-} as any)
+const SiteStandardsPacksRuleSetIndexRoute =
+  SiteStandardsPacksRuleSetIndexRouteImport.update({
+    id: '/standards-packs/$ruleSet/',
+    path: '/standards-packs/$ruleSet/',
+    getParentRoute: () => SiteRoute,
+  } as any)
+const SiteStandardsPacksRuleSetRuleRoute =
+  SiteStandardsPacksRuleSetRuleRouteImport.update({
+    id: '/standards-packs/$ruleSet/$rule',
+    path: '/standards-packs/$ruleSet/$rule',
+    getParentRoute: () => SiteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
-  '/repo': typeof RepoRouteWithChildren
-  '/repo/config': typeof RepoConfigRoute
-  '/repo/friction': typeof RepoFrictionRoute
-  '/repo/runs': typeof RepoRunsRoute
-  '/repo/standards': typeof RepoStandardsRoute
-  '/repo/': typeof RepoIndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/config': typeof AppConfigRoute
+  '/app/friction': typeof AppFrictionRoute
+  '/app/runs': typeof AppRunsRoute
+  '/app/standards': typeof AppStandardsRoute
+  '/app/': typeof AppIndexRoute
   '/commands/$command': typeof SiteCommandsCommandRoute
   '/docs/$doc': typeof SiteDocsDocRoute
-  '/repo/plans/$name': typeof RepoPlansNameRoute
-  '/repo/runs/$runId': typeof RepoRunsRunIdRoute
+  '/app/plans/$name': typeof AppPlansNameRoute
+  '/app/runs/$runId': typeof AppRunsRunIdRoute
   '/commands/': typeof SiteCommandsIndexRoute
-  '/standards/': typeof SiteStandardsIndexRoute
-  '/repo/plans/': typeof RepoPlansIndexRoute
-  '/standards/$pack/$rule': typeof SiteStandardsPackRuleRoute
-  '/standards/$pack/': typeof SiteStandardsPackIndexRoute
+  '/standards-packs/': typeof SiteStandardsPacksIndexRoute
+  '/app/plans/': typeof AppPlansIndexRoute
+  '/standards-packs/$ruleSet/$rule': typeof SiteStandardsPacksRuleSetRuleRoute
+  '/standards-packs/$ruleSet/': typeof SiteStandardsPacksRuleSetIndexRoute
 }
 export interface FileRoutesByTo {
-  '/repo/config': typeof RepoConfigRoute
-  '/repo/friction': typeof RepoFrictionRoute
-  '/repo/runs': typeof RepoRunsRoute
-  '/repo/standards': typeof RepoStandardsRoute
+  '/app/config': typeof AppConfigRoute
+  '/app/friction': typeof AppFrictionRoute
+  '/app/runs': typeof AppRunsRoute
+  '/app/standards': typeof AppStandardsRoute
   '/': typeof SiteIndexRoute
-  '/repo': typeof RepoIndexRoute
+  '/app': typeof AppIndexRoute
   '/commands/$command': typeof SiteCommandsCommandRoute
   '/docs/$doc': typeof SiteDocsDocRoute
-  '/repo/plans/$name': typeof RepoPlansNameRoute
-  '/repo/runs/$runId': typeof RepoRunsRunIdRoute
+  '/app/plans/$name': typeof AppPlansNameRoute
+  '/app/runs/$runId': typeof AppRunsRunIdRoute
   '/commands': typeof SiteCommandsIndexRoute
-  '/standards': typeof SiteStandardsIndexRoute
-  '/repo/plans': typeof RepoPlansIndexRoute
-  '/standards/$pack/$rule': typeof SiteStandardsPackRuleRoute
-  '/standards/$pack': typeof SiteStandardsPackIndexRoute
+  '/standards-packs': typeof SiteStandardsPacksIndexRoute
+  '/app/plans': typeof AppPlansIndexRoute
+  '/standards-packs/$ruleSet/$rule': typeof SiteStandardsPacksRuleSetRuleRoute
+  '/standards-packs/$ruleSet': typeof SiteStandardsPacksRuleSetIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_site': typeof SiteRouteWithChildren
-  '/repo': typeof RepoRouteWithChildren
-  '/repo/config': typeof RepoConfigRoute
-  '/repo/friction': typeof RepoFrictionRoute
-  '/repo/runs': typeof RepoRunsRoute
-  '/repo/standards': typeof RepoStandardsRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/config': typeof AppConfigRoute
+  '/app/friction': typeof AppFrictionRoute
+  '/app/runs': typeof AppRunsRoute
+  '/app/standards': typeof AppStandardsRoute
   '/_site/': typeof SiteIndexRoute
-  '/repo/': typeof RepoIndexRoute
+  '/app/': typeof AppIndexRoute
   '/_site/commands/$command': typeof SiteCommandsCommandRoute
   '/_site/docs/$doc': typeof SiteDocsDocRoute
-  '/repo/plans/$name': typeof RepoPlansNameRoute
-  '/repo/runs_/$runId': typeof RepoRunsRunIdRoute
+  '/app/plans/$name': typeof AppPlansNameRoute
+  '/app/runs_/$runId': typeof AppRunsRunIdRoute
   '/_site/commands/': typeof SiteCommandsIndexRoute
-  '/_site/standards/': typeof SiteStandardsIndexRoute
-  '/repo/plans/': typeof RepoPlansIndexRoute
-  '/_site/standards/$pack/$rule': typeof SiteStandardsPackRuleRoute
-  '/_site/standards/$pack/': typeof SiteStandardsPackIndexRoute
+  '/_site/standards-packs/': typeof SiteStandardsPacksIndexRoute
+  '/app/plans/': typeof AppPlansIndexRoute
+  '/_site/standards-packs/$ruleSet/$rule': typeof SiteStandardsPacksRuleSetRuleRoute
+  '/_site/standards-packs/$ruleSet/': typeof SiteStandardsPacksRuleSetIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/repo'
-    | '/repo/config'
-    | '/repo/friction'
-    | '/repo/runs'
-    | '/repo/standards'
-    | '/repo/'
+    | '/app'
+    | '/app/config'
+    | '/app/friction'
+    | '/app/runs'
+    | '/app/standards'
+    | '/app/'
     | '/commands/$command'
     | '/docs/$doc'
-    | '/repo/plans/$name'
-    | '/repo/runs/$runId'
+    | '/app/plans/$name'
+    | '/app/runs/$runId'
     | '/commands/'
-    | '/standards/'
-    | '/repo/plans/'
-    | '/standards/$pack/$rule'
-    | '/standards/$pack/'
+    | '/standards-packs/'
+    | '/app/plans/'
+    | '/standards-packs/$ruleSet/$rule'
+    | '/standards-packs/$ruleSet/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/repo/config'
-    | '/repo/friction'
-    | '/repo/runs'
-    | '/repo/standards'
+    | '/app/config'
+    | '/app/friction'
+    | '/app/runs'
+    | '/app/standards'
     | '/'
-    | '/repo'
+    | '/app'
     | '/commands/$command'
     | '/docs/$doc'
-    | '/repo/plans/$name'
-    | '/repo/runs/$runId'
+    | '/app/plans/$name'
+    | '/app/runs/$runId'
     | '/commands'
-    | '/standards'
-    | '/repo/plans'
-    | '/standards/$pack/$rule'
-    | '/standards/$pack'
+    | '/standards-packs'
+    | '/app/plans'
+    | '/standards-packs/$ruleSet/$rule'
+    | '/standards-packs/$ruleSet'
   id:
     | '__root__'
     | '/_site'
-    | '/repo'
-    | '/repo/config'
-    | '/repo/friction'
-    | '/repo/runs'
-    | '/repo/standards'
+    | '/app'
+    | '/app/config'
+    | '/app/friction'
+    | '/app/runs'
+    | '/app/standards'
     | '/_site/'
-    | '/repo/'
+    | '/app/'
     | '/_site/commands/$command'
     | '/_site/docs/$doc'
-    | '/repo/plans/$name'
-    | '/repo/runs_/$runId'
+    | '/app/plans/$name'
+    | '/app/runs_/$runId'
     | '/_site/commands/'
-    | '/_site/standards/'
-    | '/repo/plans/'
-    | '/_site/standards/$pack/$rule'
-    | '/_site/standards/$pack/'
+    | '/_site/standards-packs/'
+    | '/app/plans/'
+    | '/_site/standards-packs/$ruleSet/$rule'
+    | '/_site/standards-packs/$ruleSet/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
-  RepoRoute: typeof RepoRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/repo': {
-      id: '/repo'
-      path: '/repo'
-      fullPath: '/repo'
-      preLoaderRoute: typeof RepoRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_site': {
@@ -245,12 +247,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/repo/': {
-      id: '/repo/'
+    '/app/': {
+      id: '/app/'
       path: '/'
-      fullPath: '/repo/'
-      preLoaderRoute: typeof RepoIndexRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_site/': {
       id: '/_site/'
@@ -259,46 +261,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteIndexRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/repo/standards': {
-      id: '/repo/standards'
+    '/app/standards': {
+      id: '/app/standards'
       path: '/standards'
-      fullPath: '/repo/standards'
-      preLoaderRoute: typeof RepoStandardsRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/standards'
+      preLoaderRoute: typeof AppStandardsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/repo/runs': {
-      id: '/repo/runs'
+    '/app/runs': {
+      id: '/app/runs'
       path: '/runs'
-      fullPath: '/repo/runs'
-      preLoaderRoute: typeof RepoRunsRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/runs'
+      preLoaderRoute: typeof AppRunsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/repo/friction': {
-      id: '/repo/friction'
+    '/app/friction': {
+      id: '/app/friction'
       path: '/friction'
-      fullPath: '/repo/friction'
-      preLoaderRoute: typeof RepoFrictionRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/friction'
+      preLoaderRoute: typeof AppFrictionRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/repo/config': {
-      id: '/repo/config'
+    '/app/config': {
+      id: '/app/config'
       path: '/config'
-      fullPath: '/repo/config'
-      preLoaderRoute: typeof RepoConfigRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/config'
+      preLoaderRoute: typeof AppConfigRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/repo/plans/': {
-      id: '/repo/plans/'
+    '/app/plans/': {
+      id: '/app/plans/'
       path: '/plans'
-      fullPath: '/repo/plans/'
-      preLoaderRoute: typeof RepoPlansIndexRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/plans/'
+      preLoaderRoute: typeof AppPlansIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_site/standards/': {
-      id: '/_site/standards/'
-      path: '/standards'
-      fullPath: '/standards/'
-      preLoaderRoute: typeof SiteStandardsIndexRouteImport
+    '/_site/standards-packs/': {
+      id: '/_site/standards-packs/'
+      path: '/standards-packs'
+      fullPath: '/standards-packs/'
+      preLoaderRoute: typeof SiteStandardsPacksIndexRouteImport
       parentRoute: typeof SiteRoute
     }
     '/_site/commands/': {
@@ -308,19 +310,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteCommandsIndexRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/repo/runs_/$runId': {
-      id: '/repo/runs_/$runId'
+    '/app/runs_/$runId': {
+      id: '/app/runs_/$runId'
       path: '/runs/$runId'
-      fullPath: '/repo/runs/$runId'
-      preLoaderRoute: typeof RepoRunsRunIdRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/runs/$runId'
+      preLoaderRoute: typeof AppRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/repo/plans/$name': {
-      id: '/repo/plans/$name'
+    '/app/plans/$name': {
+      id: '/app/plans/$name'
       path: '/plans/$name'
-      fullPath: '/repo/plans/$name'
-      preLoaderRoute: typeof RepoPlansNameRouteImport
-      parentRoute: typeof RepoRoute
+      fullPath: '/app/plans/$name'
+      preLoaderRoute: typeof AppPlansNameRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_site/docs/$doc': {
       id: '/_site/docs/$doc'
@@ -336,18 +338,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteCommandsCommandRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/_site/standards/$pack/': {
-      id: '/_site/standards/$pack/'
-      path: '/standards/$pack'
-      fullPath: '/standards/$pack/'
-      preLoaderRoute: typeof SiteStandardsPackIndexRouteImport
+    '/_site/standards-packs/$ruleSet/': {
+      id: '/_site/standards-packs/$ruleSet/'
+      path: '/standards-packs/$ruleSet'
+      fullPath: '/standards-packs/$ruleSet/'
+      preLoaderRoute: typeof SiteStandardsPacksRuleSetIndexRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/_site/standards/$pack/$rule': {
-      id: '/_site/standards/$pack/$rule'
-      path: '/standards/$pack/$rule'
-      fullPath: '/standards/$pack/$rule'
-      preLoaderRoute: typeof SiteStandardsPackRuleRouteImport
+    '/_site/standards-packs/$ruleSet/$rule': {
+      id: '/_site/standards-packs/$ruleSet/$rule'
+      path: '/standards-packs/$ruleSet/$rule'
+      fullPath: '/standards-packs/$ruleSet/$rule'
+      preLoaderRoute: typeof SiteStandardsPacksRuleSetRuleRouteImport
       parentRoute: typeof SiteRoute
     }
   }
@@ -358,9 +360,9 @@ interface SiteRouteChildren {
   SiteCommandsCommandRoute: typeof SiteCommandsCommandRoute
   SiteDocsDocRoute: typeof SiteDocsDocRoute
   SiteCommandsIndexRoute: typeof SiteCommandsIndexRoute
-  SiteStandardsIndexRoute: typeof SiteStandardsIndexRoute
-  SiteStandardsPackRuleRoute: typeof SiteStandardsPackRuleRoute
-  SiteStandardsPackIndexRoute: typeof SiteStandardsPackIndexRoute
+  SiteStandardsPacksIndexRoute: typeof SiteStandardsPacksIndexRoute
+  SiteStandardsPacksRuleSetRuleRoute: typeof SiteStandardsPacksRuleSetRuleRoute
+  SiteStandardsPacksRuleSetIndexRoute: typeof SiteStandardsPacksRuleSetIndexRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
@@ -368,40 +370,40 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteCommandsCommandRoute: SiteCommandsCommandRoute,
   SiteDocsDocRoute: SiteDocsDocRoute,
   SiteCommandsIndexRoute: SiteCommandsIndexRoute,
-  SiteStandardsIndexRoute: SiteStandardsIndexRoute,
-  SiteStandardsPackRuleRoute: SiteStandardsPackRuleRoute,
-  SiteStandardsPackIndexRoute: SiteStandardsPackIndexRoute,
+  SiteStandardsPacksIndexRoute: SiteStandardsPacksIndexRoute,
+  SiteStandardsPacksRuleSetRuleRoute: SiteStandardsPacksRuleSetRuleRoute,
+  SiteStandardsPacksRuleSetIndexRoute: SiteStandardsPacksRuleSetIndexRoute,
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
-interface RepoRouteChildren {
-  RepoConfigRoute: typeof RepoConfigRoute
-  RepoFrictionRoute: typeof RepoFrictionRoute
-  RepoRunsRoute: typeof RepoRunsRoute
-  RepoStandardsRoute: typeof RepoStandardsRoute
-  RepoIndexRoute: typeof RepoIndexRoute
-  RepoPlansNameRoute: typeof RepoPlansNameRoute
-  RepoRunsRunIdRoute: typeof RepoRunsRunIdRoute
-  RepoPlansIndexRoute: typeof RepoPlansIndexRoute
+interface AppRouteChildren {
+  AppConfigRoute: typeof AppConfigRoute
+  AppFrictionRoute: typeof AppFrictionRoute
+  AppRunsRoute: typeof AppRunsRoute
+  AppStandardsRoute: typeof AppStandardsRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppPlansNameRoute: typeof AppPlansNameRoute
+  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
+  AppPlansIndexRoute: typeof AppPlansIndexRoute
 }
 
-const RepoRouteChildren: RepoRouteChildren = {
-  RepoConfigRoute: RepoConfigRoute,
-  RepoFrictionRoute: RepoFrictionRoute,
-  RepoRunsRoute: RepoRunsRoute,
-  RepoStandardsRoute: RepoStandardsRoute,
-  RepoIndexRoute: RepoIndexRoute,
-  RepoPlansNameRoute: RepoPlansNameRoute,
-  RepoRunsRunIdRoute: RepoRunsRunIdRoute,
-  RepoPlansIndexRoute: RepoPlansIndexRoute,
+const AppRouteChildren: AppRouteChildren = {
+  AppConfigRoute: AppConfigRoute,
+  AppFrictionRoute: AppFrictionRoute,
+  AppRunsRoute: AppRunsRoute,
+  AppStandardsRoute: AppStandardsRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppPlansNameRoute: AppPlansNameRoute,
+  AppRunsRunIdRoute: AppRunsRunIdRoute,
+  AppPlansIndexRoute: AppPlansIndexRoute,
 }
 
-const RepoRouteWithChildren = RepoRoute._addFileChildren(RepoRouteChildren)
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
-  RepoRoute: RepoRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

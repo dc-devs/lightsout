@@ -74,7 +74,7 @@ describe('PlansTable', () => {
 	test('sends each name to that plan’s own page', () => {
 		setupPlansTable();
 
-		expect(screen.getByRole('link', { name: 'alpha' })).toHaveAttribute('href', '/repo/plans/alpha');
+		expect(screen.getByRole('link', { name: 'alpha' })).toHaveAttribute('href', '/app/plans/alpha');
 	});
 
 	test('says how far each plan got, in the stage’s own word', () => {

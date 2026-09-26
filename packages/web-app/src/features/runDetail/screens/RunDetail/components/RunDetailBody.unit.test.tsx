@@ -31,7 +31,7 @@ const parent = { runId: 'ffff0000ffff0000', step: 'phase2-indexing.md', title: '
 
 /** One deterministic finding a cleanup record still carries — only the fields the overview counts. */
 const buildFinding = ({ siteKey }: { siteKey: string }) => ({
-	rule: 'size-file',
+	rule: 'file-size',
 	severity: StandardsSeverity.Blocking,
 	siteKey,
 	files: [{ path: siteKey }],
@@ -129,7 +129,7 @@ describe('RunDetailBody', () => {
 
 		const link = screen.getByRole('link', { name: 'add search' });
 
-		expect(link).toHaveAttribute('href', '/repo/runs/ffff0000ffff0000');
+		expect(link).toHaveAttribute('href', '/app/runs/ffff0000ffff0000');
 	});
 
 	test('renders that same parent as plain text when links are off, since the demo frame’s targets are not routable', () => {
@@ -144,7 +144,7 @@ describe('RunDetailBody', () => {
 
 		const link = screen.getByRole('link', { name: 'aaaa1111' });
 
-		expect(link).toHaveAttribute('href', '/repo/runs/aaaa1111bbbb2222');
+		expect(link).toHaveAttribute('href', '/app/runs/aaaa1111bbbb2222');
 	});
 
 	test('renders that child run as plain text when links are off', () => {
@@ -163,7 +163,7 @@ describe('RunDetailBody', () => {
 
 		const link = screen.getByRole('link', { name: 'cccc3333' });
 
-		expect(link).toHaveAttribute('href', '/repo/runs/cccc3333dddd4444');
+		expect(link).toHaveAttribute('href', '/app/runs/cccc3333dddd4444');
 	});
 
 	test('renders that report’s run as plain text when links are off', () => {

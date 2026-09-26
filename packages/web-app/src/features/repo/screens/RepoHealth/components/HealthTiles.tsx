@@ -69,7 +69,7 @@ export const HealthTiles = ({ runs, standards, friction }: Props) => {
 					openPlans === undefined ? (
 						'—'
 					) : (
-						<Link to="/repo/plans" className="hover:underline hover:underline-offset-4">
+						<Link to="/app/plans" className="hover:underline hover:underline-offset-4">
 							{openPlans}
 						</Link>
 					)

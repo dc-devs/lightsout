@@ -85,7 +85,7 @@ const setupRouteTree = ({ plans = [buildPlanWorkspaceListing({ name })], view = 
 /** The plans list, over a set of workspaces this file states. */
 const setupPlansPage = ({ plans = [buildPlanWorkspaceListing({ name })] }: { plans?: PlanWorkspaceListing[] } = {}) => {
 	const { pages } = setupRouteTree({ plans });
-	const Page = pages['/repo/plans/'].options.component;
+	const Page = pages['/app/plans/'].options.component;
 
 	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.PlanWorkspaces], data: plans }] });
 };
@@ -99,7 +99,7 @@ const setupPlansPage = ({ plans = [buildPlanWorkspaceListing({ name })] }: { pla
  */
 const setupPlanDetailPage = ({ view = buildPlanWorkspaceView() }: { view?: PlanWorkspaceView } = {}) => {
 	const { pages } = setupRouteTree({ view });
-	const route = pages['/repo/plans/$name'];
+	const route = pages['/app/plans/$name'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ name });
 	const Page = route.options.component;
 
@@ -109,7 +109,7 @@ const setupPlanDetailPage = ({ view = buildPlanWorkspaceView() }: { view?: PlanW
 /** The same route's answer for a name no workspace on disk carries. */
 const setupMissingPlanPage = () => {
 	const { pages } = setupRouteTree();
-	const route = pages['/repo/plans/$name'];
+	const route = pages['/app/plans/$name'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ name: 'never-planned' });
 	const Page = route.options.notFoundComponent;
 
@@ -120,13 +120,13 @@ describe('routeTree plans', () => {
 	test('the plans route names the tab before any query resolves', () => {
 		const { pages } = setupRouteTree();
 
-		expect(pages['/repo/plans/'].options.head({ params: { name } }).meta).toStrictEqual([{ title: 'Plans' }]);
+		expect(pages['/app/plans/'].options.head({ params: { name } }).meta).toStrictEqual([{ title: 'Plans' }]);
 	});
 
 	test('the plans route warms the list the page suspends on', async () => {
 		const { pages, plans, queryClient } = setupRouteTree();
 
-		await pages['/repo/plans/'].options.loader({ context: { queryClient }, params: { name } });
+		await pages['/app/plans/'].options.loader({ context: { queryClient }, params: { name } });
 
 		expect(queryClient.getQueryData([QueryKey.PlanWorkspaces])).toStrictEqual(plans);
 	});
@@ -134,32 +134,32 @@ describe('routeTree plans', () => {
 	test('the plans route keeps a stage the URL names, so a narrowed list is a link somebody can send', () => {
 		const { pages } = setupRouteTree();
 
-		expect(pages['/repo/plans/'].options.validateSearch({ stage: 'notes-only' })).toStrictEqual({ stage: 'notes-only' });
+		expect(pages['/app/plans/'].options.validateSearch({ stage: 'notes-only' })).toStrictEqual({ stage: 'notes-only' });
 	});
 
 	test('the plans route ignores a stage no plan can be at, rather than emptying the table', () => {
 		const { pages } = setupRouteTree();
 
-		expect(pages['/repo/plans/'].options.validateSearch({ stage: 'halfway' })).toStrictEqual({ stage: undefined });
+		expect(pages['/app/plans/'].options.validateSearch({ stage: 'halfway' })).toStrictEqual({ stage: undefined });
 	});
 
 	test('the plans route is the page that lists every workspace this repo has', () => {
 		setupPlansPage();
 
 		expect(screen.getByRole('heading', { level: 1, name: 'Plans' })).toBeInTheDocument();
-		expect(screen.getByRole('link', { name })).toHaveAttribute('href', `/repo/plans/${name}`);
+		expect(screen.getByRole('link', { name })).toHaveAttribute('href', `/app/plans/${name}`);
 	});
 
 	test('the plan detail route names the tab from the path alone', () => {
 		const { pages } = setupRouteTree();
 
-		expect(pages['/repo/plans/$name'].options.head({ params: { name } }).meta).toStrictEqual([{ title: 'add-search — plan' }]);
+		expect(pages['/app/plans/$name'].options.head({ params: { name } }).meta).toStrictEqual([{ title: 'add-search — plan' }]);
 	});
 
 	test('the plan detail route warms the workspace the page suspends on', async () => {
 		const { pages, queryClient, view } = setupRouteTree();
 
-		await pages['/repo/plans/$name'].options.loader({ context: { queryClient }, params: { name } });
+		await pages['/app/plans/$name'].options.loader({ context: { queryClient }, params: { name } });
 
 		expect(queryClient.getQueryData([QueryKey.PlanWorkspace, name])).toStrictEqual(view);
 	});

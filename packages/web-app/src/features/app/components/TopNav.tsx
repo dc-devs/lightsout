@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Dialog, ThemeToggle } from '#src/appUI/index.ts';
+import { Wordmark } from '#src/features/app/components/Wordmark.tsx';
 
 /**
  * The sell zone's pages, in the order the bar reads them.
@@ -15,7 +16,7 @@ import { Button, Dialog, ThemeToggle } from '#src/appUI/index.ts';
  */
 const SitePages = () => (
 	<>
-		<Link to="/standards" className="text-sm">
+		<Link to="/standards-packs" className="text-sm">
 			Standards packs
 		</Link>
 		<Link to="/commands" className="text-sm">
@@ -39,9 +40,7 @@ export const TopNav = () => {
 
 	return (
 		<header className="flex shrink-0 items-center gap-4 border-border border-b bg-background px-4 py-3">
-			<Link to="/" className="font-semibold text-base">
-				lightsout
-			</Link>
+			<Wordmark />
 			<nav aria-label="Site" className="hidden items-center gap-4 md:flex">
 				<SitePages />
 			</nav>

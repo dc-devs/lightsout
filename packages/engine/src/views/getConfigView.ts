@@ -36,11 +36,11 @@ const getPackChannels = ({ pack }: { pack: LoadedStandardsPack }) => [...new Set
  * packs load at once.
  */
 const mapRuleOwners = ({ packs }: { packs: LoadedStandardsPack[] }) => {
-	const owners = new Map<string, string>();
+	const owners = new Map<string, { pack: string; channel: string }>();
 
 	for (const pack of packs) {
 		for (const rule of pack.rules) {
-			owners.set(rule.id, pack.name);
+			owners.set(rule.id, { pack: pack.name, channel: rule.channel });
 		}
 	}
 
@@ -93,9 +93,20 @@ export const getConfigView = async ({ cwd }: Params): Promise<ConfigView> => {
 		})),
 		channels: config['standards-channels'] ?? [],
 		ruleStates: listings.flatMap((listing) => {
-			const pack = owners.get(listing.rule);
+			const owner = owners.get(listing.rule);
 
-			return pack === undefined ? [] : [{ rule: listing.rule, pack, severity: listing.severity, fromConfig: listing.fromConfig, settings: listing.settings }];
+			return owner === undefined
+				? []
+				: [
+						{
+							rule: listing.rule,
+							pack: owner.pack,
+							channel: owner.channel,
+							severity: listing.severity,
+							fromConfig: listing.fromConfig,
+							settings: listing.settings,
+						},
+					];
 		}),
 	};
 };

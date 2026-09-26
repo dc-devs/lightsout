@@ -8,9 +8,9 @@ import { describe, expect, test } from '@jest/globals';
 
 // The frame the README GIF is built from, checked as text.
 //
-// `scripts/renderSprawlSvg.mjs` and the `SprawlChart` component call one
-// geometry — `buildSprawlLayout`, in this package — so what the image draws is
-// a contract this package owns, even though the renderer sits at the repo root.
+// `scripts/renderSprawlSvg.mjs` draws from `buildSprawlLayout`, in this
+// package — so what the image draws is a contract this package owns, even
+// though the renderer sits at the repo root.
 // It lives in tests/ rather than beside a source file because the subject is
 // outside src/ and names nothing next to it.
 //
