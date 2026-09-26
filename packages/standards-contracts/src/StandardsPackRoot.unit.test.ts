@@ -84,11 +84,11 @@ describe('StandardsPackRoot', () => {
 	});
 
 	test("carries the pack's own page, so a reader can go from the listing to the source", () => {
-		const { root } = setupRoot({ extra: { homepage: 'https://github.com/dc-devs/lightsout' } });
+		const { root } = setupRoot({ extra: { homepage: 'https://github.com/lightsout-factory/lightsout' } });
 
 		const parsed = StandardsPackRoot.parse(root);
 
-		expect(parsed.homepage).toBe('https://github.com/dc-devs/lightsout');
+		expect(parsed.homepage).toBe('https://github.com/lightsout-factory/lightsout');
 	});
 
 	test('rejects a homepage that is not a URL — the page renders it as a link, never as text', () => {
@@ -111,7 +111,7 @@ describe('StandardsPackRoot', () => {
 		const { root } = setupRoot({
 			extra: {
 				description: 'The default TypeScript pack.',
-				homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+				homepage: 'https://github.com/lightsout-factory/lightsout/tree/main/packages/standards-typescript',
 				built: true,
 			},
 		});
@@ -124,7 +124,7 @@ describe('StandardsPackRoot', () => {
 			name: 'lightsout defaults',
 			formatVersion: 1,
 			description: 'The default TypeScript pack.',
-			homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+			homepage: 'https://github.com/lightsout-factory/lightsout/tree/main/packages/standards-typescript',
 			built: true,
 		});
 	});

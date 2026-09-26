@@ -41,21 +41,21 @@ Completing the task is not enough. Agents should leave the repository better tha
    In Claude Code:
 
    ```text
-   /plugin marketplace add dc-devs/lightsout
+   /plugin marketplace add lightsout-factory/lightsout
    /plugin install lightsout@lightsout
    ```
 
    In Codex:
 
    ```sh
-   codex plugin marketplace add dc-devs/lightsout
+   codex plugin marketplace add lightsout-factory/lightsout
    codex plugin add lightsout@lightsout
    ```
 
    In OMP (Oh My Pi):
 
    ```sh
-   omp plugin marketplace add dc-devs/lightsout
+   omp plugin marketplace add lightsout-factory/lightsout
    omp plugin install lightsout@lightsout
    ```
 

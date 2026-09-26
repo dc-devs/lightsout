@@ -2,5 +2,5 @@
 	"name": "lightsout-defaults",
 	"formatVersion": 1,
 	"description": "The default TypeScript pack: architecture, style, documentation and unit-testing rules, 51 of them enforced by code.",
-	"homepage": "https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript"
+	"homepage": "https://github.com/lightsout-factory/lightsout/tree/main/packages/standards-typescript"
 }

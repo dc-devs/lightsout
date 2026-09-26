@@ -49,7 +49,7 @@ export const TopNav = () => {
 			<div className="ml-auto flex items-center gap-1">
 				<ThemeToggle />
 				<Button asChild variant="ghost" size="sm">
-					<a href="https://github.com/dc-devs/lightsout" target="_blank" rel="noreferrer">
+					<a href="https://github.com/lightsout-factory/lightsout" target="_blank" rel="noreferrer">
 						GitHub
 					</a>
 				</Button>

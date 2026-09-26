@@ -39,7 +39,7 @@ describe('readStandardsPack', () => {
 		// than from any folder, so this is the only place they can come from
 		expect({ description: pack.description, homepage: pack.homepage }).toEqual({
 			description: expect.stringContaining('TypeScript pack'),
-			homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+			homepage: 'https://github.com/lightsout-factory/lightsout/tree/main/packages/standards-typescript',
 		});
 	});
 

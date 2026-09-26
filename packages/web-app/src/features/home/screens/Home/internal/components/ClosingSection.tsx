@@ -8,7 +8,7 @@ import { Wordmark } from '#src/features/app/components/Wordmark.tsx';
 import { InstallLine } from '#src/features/home/components/InstallLine.tsx';
 
 /** Where the project lives. */
-const githubUrl = 'https://github.com/dc-devs/lightsout';
+const githubUrl = 'https://github.com/lightsout-factory/lightsout';
 
 /**
  * The page's last word: the promise from How it works said once more, the same
@@ -70,7 +70,7 @@ export const ClosingSection = () => (
 					<span>MIT License</span>
 				</div>
 				<a href={githubUrl} target="_blank" rel="noreferrer" className="transition-colors hover:text-drop-navy">
-					github.com/dc-devs/lightsout
+					github.com/lightsout-factory/lightsout
 				</a>
 			</div>
 		</footer>

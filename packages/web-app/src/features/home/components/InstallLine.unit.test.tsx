@@ -12,7 +12,7 @@ describe('InstallLine', () => {
 	test('shows the one command the page asks a reader to run', () => {
 		const { command } = setupInstallLine();
 
-		expect(command).toHaveTextContent('/plugin marketplace add dc-devs/lightsout');
+		expect(command).toHaveTextContent('/plugin marketplace add lightsout-factory/lightsout');
 	});
 
 	test('offers that command to the clipboard as an icon', () => {

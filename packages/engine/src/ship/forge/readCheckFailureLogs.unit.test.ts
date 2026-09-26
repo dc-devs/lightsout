@@ -21,7 +21,7 @@ const candidateCommit = '7f3c1ab29d4e5061728394a5b6c7d8e9f0a1b2c3';
 const supersedingCommit = '0e1d2c3b4a5968778695a4b3c2d1e0f918273645';
 
 /** The Actions job the failing check links to on the attributable readings. */
-const jobUrl = 'https://github.com/dc-devs/lightsout/actions/runs/77/job/912';
+const jobUrl = 'https://github.com/lightsout-factory/lightsout/actions/runs/77/job/912';
 
 /** The failed job's own output — the only thing a repair attempt is allowed to read. */
 const failedJobLog = ['unit\tRun pnpm test:unit', 'unit\t  AssertionError: expected 3 to be 4', ''].join('\n');
@@ -41,7 +41,7 @@ const foreignCheck = () => ({
 	__typename: 'StatusContext',
 	context: 'unit',
 	state: 'FAILURE',
-	targetUrl: 'https://buildkite.example.com/dc-devs/lightsout/builds/77',
+	targetUrl: 'https://buildkite.example.com/lightsout-factory/lightsout/builds/77',
 });
 
 const pullRequestView = ({ head, checks }: { head: string; checks: unknown[] }): ForgeAnswer => ({
@@ -89,7 +89,7 @@ const setupForgeScenarios = async () => {
 		},
 		// Two runs of the same workflow sit on the commit and nothing says which one the check came from.
 		ambiguousRuns: {
-			'pr view': pullRequestView({ head: candidateCommit, checks: [actionsCheck({ detailsUrl: 'https://github.com/dc-devs/lightsout/actions' })] }),
+			'pr view': pullRequestView({ head: candidateCommit, checks: [actionsCheck({ detailsUrl: 'https://github.com/lightsout-factory/lightsout/actions' })] }),
 			'run list': runList({
 				rows: [
 					{ id: 77, head: candidateCommit },

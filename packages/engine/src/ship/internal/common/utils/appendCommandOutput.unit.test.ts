@@ -4,7 +4,7 @@ import { appendCommandOutput } from '#src/ship/internal/common/utils/appendComma
 const setupNoisyStderr = () => {
 	const token = `ghp_${'a'.repeat(24)}`;
 	const sentence = "git could not push 'lo-89-centralize-ship-integration' to origin";
-	const stderr = `remote: fatal: could not read from https://dc-devs:${token}@github.com/dc-devs/lightsout.git\n${'noise '.repeat(150)}`;
+	const stderr = `remote: fatal: could not read from https://dc-devs:${token}@github.com/lightsout-factory/lightsout.git\n${'noise '.repeat(150)}`;
 
 	return { sentence, stderr, token };
 };
@@ -18,7 +18,7 @@ describe('appendCommandOutput', () => {
 
 		expect(appended).not.toContain(token);
 		expect(appended).not.toContain('dc-devs:');
-		expect(appended).toContain('https://***@github.com/dc-devs/lightsout.git');
+		expect(appended).toContain('https://***@github.com/lightsout-factory/lightsout.git');
 		expect(appended.startsWith(`${sentence}: `)).toBe(true);
 		expect(appended.endsWith('…')).toBe(true);
 		expect(appended).toHaveLength(`${sentence}: `.length + 501);
